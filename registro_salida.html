@@ -8,320 +8,197 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --azul-principal: #004a99; 
-            --azul-cielo: #e3f2fd; 
-            --blanco: #ffffff; 
-            --gris-texto: #546e7a;
-            --verde-wa: #25D366;
+            --azul-principal: #004a99; --azul-cielo: #e3f2fd; 
+            --blanco: #ffffff; --gris-texto: #546e7a; --verde-wa: #25D366;
         }
-        
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body { 
-            background-color: var(--azul-cielo); 
-            font-family: 'DM Sans', sans-serif; 
-            color: var(--azul-principal);
-            padding: 15px;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: var(--blanco);
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,74,153,0.1);
-            overflow: hidden;
-        }
-
-        .header {
-            background: var(--azul-principal);
-            color: var(--blanco);
-            padding: 25px;
-            text-align: center;
-        }
-
-        .header h2 { font-weight: 700; letter-spacing: 1px; }
-
+        body { background-color: var(--azul-cielo); font-family: 'DM Sans', sans-serif; color: var(--azul-principal); padding: 15px; }
+        .container { max-width: 600px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
+        .header { background: var(--azul-principal); color: var(--blanco); padding: 25px; text-align: center; }
         .content { padding: 20px; }
-
-        .section-title {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: var(--gris-texto);
-            margin: 20px 0 10px;
-            border-bottom: 2px solid var(--azul-cielo);
-            padding-bottom: 5px;
-            font-weight: 700;
-        }
-
+        .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gris-texto); margin: 20px 0 10px; border-bottom: 2px solid var(--azul-cielo); padding-bottom: 5px; font-weight: 700; }
         label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: var(--azul-principal); }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 2px solid var(--azul-cielo);
-            border-radius: 10px;
-            font-family: inherit;
-            color: var(--azul-principal);
-            background: #f8fbff;
-        }
-
-        input:focus { border-color: var(--azul-principal); outline: none; }
-
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid var(--azul-cielo); border-radius: 10px; font-family: inherit; color: var(--azul-principal); background: #f8fbff; font-size: 15px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        /* DISEÑO DE CARGA DE FOTOS UNIFICADO */
+        .upload-container { border: 2px dashed var(--azul-principal); border-radius: 15px; padding: 20px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 15px; position: relative; }
+        .upload-container:hover { background: #e3f2fd; }
+        .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
+        .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
+        .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid var(--azul-cielo); }
+        .btn-del { position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; }
 
-        /* Estilo para las fotos */
-        .foto-box {
-            background: #f0f7ff;
-            border: 1px solid var(--azul-cielo);
-            padding: 10px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-        }
-
-        /* Firma */
-        canvas {
-            border: 2px dashed var(--azul-cielo);
-            border-radius: 12px;
-            width: 100%;
-            height: 150px;
-            background: #fff;
-            touch-action: none;
-        }
-
-        /* Botones */
-        .btn {
-            width: 100%;
-            padding: 15px;
-            border: none;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 15px;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
-
+        canvas { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 150px; background: #fff; touch-action: none; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; transition: all 0.3s; margin-top: 10px; }
         .btn-save { background: var(--azul-principal); color: white; }
-        .btn-save:disabled { background: #ccc; }
-
-        .btn-wa { 
-            background: var(--verde-wa); 
-            color: white; 
-            display: none; 
-            text-decoration: none; 
-            text-align: center;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #333;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 30px;
-            display: none;
-            z-index: 100;
-        }
+        .btn-wa { background: var(--verde-wa); color: white; display: none; text-decoration: none; text-align: center; line-height: 50px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h2>REGISTRO J.R.</h2>
-        <p style="font-size: 12px; opacity: 0.8;">Control de Salida de Carrozas</p>
+        <h2 id="saludo">CARGANDO...</h2>
+        <p style="font-size: 12px; opacity: 0.8;">Registro de Salida J.R.</p>
     </div>
 
     <div class="content">
-        <div class="section-title">Información General</div>
-        
-        <label>Regional</label>
-        <select id="regional">
-            <option value="Pereira">Pereira</option>
-            <option value="Armenia">Armenia</option>
-            <option value="Manizales">Manizales</option>
-            <option value="Cali">Cali</option>
-        </select>
-
-        <label>Conductor</label>
-        <input type="text" id="conductor" placeholder="Nombre del conductor">
-
-        <label>Placa del Vehículo</label>
-        <input type="text" id="placa" placeholder="Ej: ABC-123">
-
-        <div class="section-title">Detalles del Traslado</div>
-        
-        <label>Nombre del Fallecido</label>
-        <input type="text" id="fallecido" placeholder="Nombre completo">
-
-        <label>Lugar de Destino</label>
-        <input type="text" id="destino" placeholder="Ciudad o Funeraria">
+        <div class="section-title">Datos del Traslado</div>
+        <label>Conductor (Auto)</label>
+        <input type="text" id="conductor" readonly style="background: #eef5ff; font-weight: bold;">
 
         <div class="grid-2">
             <div>
-                <label>KM Salida</label>
-                <input type="number" id="km_s" oninput="calcularTotal()">
+                <label>Regional</label>
+                <select id="regional">
+                    <option value="Pereira">Pereira</option>
+                    <option value="Armenia">Armenia</option>
+                    <option value="Cali">Cali</option>
+                </select>
             </div>
             <div>
-                <label>KM Ingreso</label>
-                <input type="number" id="km_i" oninput="calcularTotal()">
+                <label>Placa</label>
+                <input type="text" id="placa" placeholder="ABC-123">
             </div>
         </div>
-        <label>Total Kilómetros</label>
-        <input type="number" id="total_km" readonly style="background: #eef5ff; font-weight: bold;">
 
-        <div class="section-title">Evidencias Fotográficas</div>
-        <div class="foto-box">
-            <label>1. Frontal / Inicio</label>
-            <input type="file" id="foto1" accept="image/*" capture="camera">
-        </div>
-        <div class="foto-box">
-            <label>2. Documentos</label>
-            <input type="file" id="foto2" accept="image/*" capture="camera">
-        </div>
-        <div class="foto-box">
-            <label>3. Destino / Llegada</label>
-            <input type="file" id="foto3" accept="image/*" capture="camera">
-        </div>
-        <div class="foto-box">
-            <label>4. Kilometraje / Otro</label>
-            <input type="file" id="foto4" accept="image/*" capture="camera">
-        </div>
+        <label>Nombre del Fallecido</label>
+        <input type="text" id="fallecido">
 
-        <div class="section-title">Confirmación</div>
-        <label>Firma del Responsable</label>
+        <label>Destino</label>
+        <input type="text" id="destino">
+
+        <div class="grid-2">
+            <div><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
+            <div><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
+        </div>
+        <label>Total KM</label>
+        <input type="number" id="total_km" readonly style="background: #eef5ff;">
+
+        <div class="section-title">Evidencias (Máximo 4)</div>
+        <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
+            <span id="upload-text">📸 Toca para subir fotos (Máx 4)</span>
+            <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
+        </div>
+        <div class="preview-gallery" id="galeria"></div>
+
+        <label>Observaciones Adicionales</label>
+        <textarea id="observaciones" rows="3" placeholder="Escribe aquí novedades o detalles del servicio..."></textarea>
+
+        <div class="section-title">Firma del Responsable</div>
         <canvas id="canvas"></canvas>
-        <p onclick="borrarFirma()" style="text-align: right; font-size: 12px; color: #d32f2f; cursor: pointer; margin-top: 5px;">✖ Borrar firma</p>
+        <p onclick="borrarFirma()" style="text-align: right; color: red; font-size: 12px; cursor: pointer;">✖ Borrar firma</p>
 
-        <label style="margin-top: 15px;">Enviar Reporte a:</label>
+        <label style="margin-top:15px">Notificar a:</label>
         <select id="select-coordinador" style="border: 2px solid var(--verde-wa);">
-            <option value="573001234567">Coordinador Principal</option>
+            <option value="573001234567">Coordinador Pereira</option>
             <option value="573110000000">Logística J.R.</option>
-            <option value="573220000000">Gerencia</option>
         </select>
 
-        <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR EN BASE DE DATOS</button>
-        <button class="btn btn-wa" id="btn-wa" onclick="enviarWA()">2. ENVIAR POR WHATSAPP</button>
+        <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR EN SISTEMA</button>
+        <a href="#" class="btn btn-wa" id="btn-wa" onclick="enviarWA()">2. ENVIAR POR WHATSAPP</a>
     </div>
 </div>
 
-<div id="toast" class="toast"></div>
-
 <script src="db.js"></script>
 <script>
-    // --- LÓGICA DE FIRMA ---
+    // 1. CARGAR CONDUCTOR DESDE LOGIN
+    window.onload = () => {
+        const usuarioLogeado = localStorage.getItem('usuarioNombre') || "Conductor J.R.";
+        document.getElementById('conductor').value = usuarioLogeado;
+        document.getElementById('saludo').innerText = "HOLA, " + usuarioLogeado.split(' ')[0].toUpperCase();
+    };
+
+    // 2. GESTIÓN DE FOTOS (VISTA UNIFICADA)
+    let fotosArray = [];
+    async function procesarFotos(input) {
+        const archivos = Array.from(input.files);
+        for (let f of archivos) {
+            if (fotosArray.length < 4) {
+                const base64 = await aBase64(f);
+                fotosArray.push(base64);
+            }
+        }
+        renderGaleria();
+    }
+
+    function renderGaleria() {
+        const g = document.getElementById('galeria');
+        g.innerHTML = "";
+        fotosArray.forEach((img, i) => {
+            g.innerHTML += `<div class="thumb-wrap">
+                <img src="${img}">
+                <button class="btn-del" onclick="eliminarFoto(${i})">x</button>
+            </div>`;
+        });
+        document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
+    }
+
+    function eliminarFoto(i) {
+        fotosArray.splice(i, 1);
+        renderGaleria();
+    }
+
+    // 3. FIRMA Y CÁLCULOS (MANTENIDOS)
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     let dibujando = false;
-
-    function obtenerPosicion(e) {
+    const obtenerPos = e => {
         const rect = canvas.getBoundingClientRect();
-        return {
-            x: (e.clientX || e.touches[0].clientX) - rect.left,
-            y: (e.clientY || e.touches[0].clientY) - rect.top
-        };
-    }
-
-    function iniciar(e) { dibujando = true; ctx.beginPath(); const p = obtenerPosicion(e); ctx.moveTo(p.x, p.y); }
-    function mover(e) {
-        if (!dibujando) return;
-        e.preventDefault();
-        const p = obtenerPosicion(e);
-        ctx.lineTo(p.x, p.y);
-        ctx.strokeStyle = "#004a99";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-    }
-    function detener() { dibujando = false; }
-
-    canvas.addEventListener('mousedown', iniciar);
-    canvas.addEventListener('mousemove', mover);
-    window.addEventListener('mouseup', detener);
-    canvas.addEventListener('touchstart', iniciar);
-    canvas.addEventListener('touchmove', mover);
-    canvas.addEventListener('touchend', detener);
-
+        return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
+    };
+    canvas.addEventListener('mousedown', e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); });
+    canvas.addEventListener('mousemove', e => { if(!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.stroke(); });
+    window.addEventListener('mouseup', () => dibujando = false);
+    canvas.addEventListener('touchstart', e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); });
+    canvas.addEventListener('touchmove', e => { if(!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.stroke(); });
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
-
-    // --- CÁLCULOS ---
     function calcularTotal() {
         const s = parseFloat(document.getElementById('km_s').value) || 0;
         const i = parseFloat(document.getElementById('km_i').value) || 0;
         document.getElementById('total_km').value = (i - s).toFixed(1);
     }
 
-    // --- PROCESAMIENTO ---
-    const aBase64 = archivo => new Promise((resolve) => {
-        if (!archivo) resolve("");
-        const reader = new FileReader();
-        reader.readAsDataURL(archivo);
-        reader.onload = () => resolve(reader.result);
-    });
+    const aBase64 = f => new Promise(r => { const reader = new FileReader(); reader.readAsDataURL(f); reader.onload = () => r(reader.result); });
 
+    // 4. GUARDAR Y WHATSAPP
     let datosFinales = {};
-
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
-        btn.disabled = true;
-        btn.innerText = "⏳ Guardando datos...";
+        btn.innerText = "⏳ Guardando..."; btn.disabled = true;
 
-        try {
-            datosFinales = {
-                regional: document.getElementById('regional').value,
-                conductor: document.getElementById('conductor').value,
-                placa: document.getElementById('placa').value,
-                fallecido: document.getElementById('fallecido').value,
-                destino: document.getElementById('destino').value,
-                km_salida: document.getElementById('km_s').value,
-                km_ingreso: document.getElementById('km_i').value,
-                total_km: document.getElementById('total_km').value,
-                imagen1: await aBase64(document.getElementById('foto1').files[0]),
-                imagen2: await aBase64(document.getElementById('foto2').files[0]),
-                imagen3: await aBase64(document.getElementById('foto3').files[0]),
-                imagen4: await aBase64(document.getElementById('foto4').files[0]),
-                firma: canvas.toDataURL()
-            };
+        datosFinales = {
+            conductor: document.getElementById('conductor').value,
+            regional: document.getElementById('regional').value,
+            placa: document.getElementById('placa').value,
+            fallecido: document.getElementById('fallecido').value,
+            destino: document.getElementById('destino').value,
+            km_salida: document.getElementById('km_s').value,
+            km_ingreso: document.getElementById('km_i').value,
+            total_km: document.getElementById('total_km').value,
+            observaciones: document.getElementById('observaciones').value,
+            imagen1: fotosArray[0] || "",
+            imagen2: fotosArray[1] || "",
+            imagen3: fotosArray[2] || "",
+            imagen4: fotosArray[3] || "",
+            firma: canvas.toDataURL()
+        };
 
-            const res = await DB.guardarTraslado(datosFinales);
-            
-            if(res.ok) {
-                showToast("✅ Guardado con éxito");
-                btn.innerText = "✓ DATOS GUARDADOS";
-                document.getElementById('btn-wa').style.display = "block";
-            } else { throw res.error; }
-
-        } catch (e) {
-            alert("Error: " + e.message);
-            btn.disabled = false;
-            btn.innerText = "REINTENTAR GUARDAR";
+        const res = await DB.guardarTraslado(datosFinales);
+        if(res.ok) {
+            btn.innerText = "✓ GUARDADO";
+            document.getElementById('btn-wa').style.display = "block";
+        } else {
+            alert("Error al guardar"); btn.disabled = false;
         }
     }
 
     function enviarWA() {
         const num = document.getElementById('select-coordinador').value;
-        const msg = `*REGISTRO TRASLADO J.R.*\n\n` +
-                    `*Conductor:* ${datosFinales.conductor}\n` +
-                    `*Placa:* ${datosFinales.placa}\n` +
-                    `*Fallecido:* ${datosFinales.fallecido}\n` +
-                    `*Destino:* ${datosFinales.destino}\n` +
-                    `*Ruta:* ${datosFinales.km_salida} km a ${datosFinales.km_ingreso} km\n` +
-                    `*Total:* ${datosFinales.total_km} km\n\n` +
-                    `_Soportes registrados en Supabase._`;
-        
-        window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(msg)}`, '_blank');
-    }
-
-    function showToast(m) {
-        const t = document.getElementById('toast');
-        t.innerText = m; t.style.display = "block";
-        setTimeout(() => t.style.display = "none", 3000);
+        const msg = `*REPORTE J.R.*\n*Conductor:* ${datosFinales.conductor}\n*Placa:* ${datosFinales.placa}\n*Fallecido:* ${datosFinales.fallecido}\n*Total KM:* ${datosFinales.total_km}\n*Obs:* ${datosFinales.observaciones}`;
+        window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(msg)}`);
     }
 </script>
-
 </body>
 </html>
