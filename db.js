@@ -5,7 +5,6 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
     async guardarTraslado(datos) {
-        // La tabla debe llamarse 'Traslados' en Supabase
         const { error } = await _supabase
             .from('Traslados') 
             .insert([{
@@ -23,8 +22,8 @@ const DB = {
                 destino: datos.destino,
                 hora_de_salida: datos.hora_salida,
                 hora_de_ingreso: datos.hora_ingreso,
-                km__salida: parseInt(datos.km_salida) || 0, // Doble guion bajo del CSV corregido
-                km__ingreso: parseInt(datos.km_ingreso) || 0, // Doble guion bajo del CSV corregido
+                km__salida: parseInt(datos.km_salida) || 0,
+                km__ingreso: parseInt(datos.km_ingreso) || 0,
                 total_km: parseInt(datos.total_km) || 0,
                 coordinador_en_turno: datos.coordinador,
                 observaciones: datos.observaciones,
