@@ -5,7 +5,7 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
     async guardarTraslado(datos) {
-        // La tabla debe llamarse 'traslados' en Supabase
+        // La tabla debe llamarse 'Traslados' en Supabase
         const { error } = await _supabase
             .from('Traslados') 
             .insert([{
