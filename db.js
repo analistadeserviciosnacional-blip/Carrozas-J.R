@@ -6,7 +6,7 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 const DB = {
     async guardarTraslado(datos) {
         const { error } = await _supabase
-            .from('Traslados Jr.') // Nombre con espacio y punto
+            .from('TrasladosJr.') // Nombre con espacio y punto
             .insert([{
                 "ID Salida": 'JR-' + Date.now(),
                 "Fecha": new Date().toLocaleDateString(),
