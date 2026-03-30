@@ -7,7 +7,7 @@ const DB = {
     async guardarTraslado(datos) {
         // Nombre exacto de la tabla en tu Supabase
         const { error } = await _supabase
-            .from('TrasladosJr') 
+            .from('TrasladosJr.') 
             .insert([{
                 "ID Salida": 'JR-' + Date.now(),
                 "Fecha": new Date().toLocaleDateString(),
