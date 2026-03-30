@@ -3,146 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. | Registro de Traslados</title>
+    <title>J.R. - Registro de Salida</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --azul: #3498DB; --celeste: #E3F2FD; --texto: #2C3E50; --gris: #F9FBFF; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--celeste); margin: 0; padding: 15px; }
-        .card { background: white; max-width: 550px; margin: 0 auto; padding: 25px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .btn-logout { background: #fee2e2; color: #ef4444; border: none; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: bold; }
-        .section { font-size: 11px; text-transform: uppercase; color: var(--azul); letter-spacing: 2px; margin: 25px 0 15px; border-left: 3px solid var(--azul); padding-left: 8px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        label { display: block; font-size: 11px; margin-bottom: 5px; font-weight: 600; color: #566573; }
-        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #DDE4EB; border-radius: 12px; box-sizing: border-box; background: var(--gris); outline: none; }
-        .total-km { background: #e8f4fd; border: 2px solid var(--azul); font-weight: bold; text-align: center; color: var(--azul); font-size: 18px; }
-        #canvas { border: 1px solid #DDE4EB; background: #fff; border-radius: 15px; touch-action: none; width: 100%; height: 150px; }
-        .photo-box { border: 2px dashed var(--azul); padding: 20px; text-align: center; border-radius: 15px; cursor: pointer; margin-bottom: 15px; color: var(--azul); }
-        #preview { width: 100%; max-height: 200px; object-fit: cover; border-radius: 12px; display: none; margin-top: 10px; }
-        .btn-save { width: 100%; padding: 20px; background: var(--azul); color: white; border: none; border-radius: 20px; font-weight: bold; font-size: 17px; cursor: pointer; }
+        :root { --azul: #003366; --verde: #25D366; --gris: #f4f4f4; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--gris); padding: 10px; margin: 0; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
+        .section { background: var(--azul); color: white; padding: 10px; margin: 20px 0 10px; border-radius: 8px; font-weight: bold; text-align: center; }
+        label { display: block; margin-top: 12px; font-weight: bold; font-size: 14px; color: #333; }
+        input, select, textarea { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .btn-save { width: 100%; padding: 15px; background: var(--azul); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.3s; }
+        .btn-whatsapp { width: 100%; padding: 15px; background: var(--verde); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; display: none; text-decoration: none; text-align: center; }
+        canvas { border: 2px dashed #ccc; width: 100%; height: 180px; border-radius: 10px; background: #fff; touch-action: none; margin-top: 5px; }
+        .foto-input { background: #fff; margin-bottom: 10px; border: 1px solid var(--azul); }
     </style>
 </head>
 <body>
+
 <div class="card">
-    <div class="header">
-        <h2 style="margin:0; color:var(--azul)">Servicio Diario J.R.</h2>
-        <button class="btn-logout" onclick="logout()">SALIR</button>
-    </div>
+    <h2 style="color:var(--azul); text-align:center; margin-top:0;">Registro de Traslado J.R.</h2>
+    
+    <label>Regional</label>
+    <select id="regional">
+        <option value="Pereira">Pereira</option>
+        <option value="Armenia">Armenia</option>
+        <option value="Manizales">Manizales</option>
+        <option value="Cali">Cali</option>
+    </select>
 
-    <div class="section">Logística</div>
-    <div class="grid">
-        <div><label>Regional</label><select id="regional"><option>Pereira</option><option>Armenia</option><option>Manizales</option></select></div>
-        <div><label>Coordinador</label><input type="text" id="coordinador"></div>
-    </div>
-    <div class="grid">
-        <div><label>Conductor</label><input type="text" id="conductor" readonly></div>
-        <div><label>Teléfono</label><input type="tel" id="telefono"></div>
-    </div>
+    <label>Conductor</label>
+    <input type="text" id="conductor" placeholder="Nombre completo">
 
-    <div class="section">Vehículo y Control</div>
-    <div class="grid">
-        <div><label>Placa</label><input type="text" id="placa" style="text-transform:uppercase"></div>
-        <div><label>Motivo</label><input type="text" id="motivo"></div>
-    </div>
-    <div class="grid">
-        <div><label>Km Salida</label><input type="number" id="km_s" oninput="calc()"></div>
-        <div><label>Km Ingreso</label><input type="number" id="km_i" oninput="calc()"></div>
-    </div>
-    <label>Total Km Recorridos</label>
-    <input type="number" id="total_km" class="total-km" readonly>
-    <div class="grid">
-        <div><label>Hora Salida</label><input type="time" id="h_s"></div>
-        <div><label>Hora Ingreso</label><input type="time" id="h_i"></div>
-    </div>
+    <label>Placa del Vehículo</label>
+    <input type="text" id="placa" placeholder="Ej: ABC-123">
 
-    <div class="section">Datos del Servicio</div>
-    <label>Nombre del Fallecido</label><input type="text" id="fallecido">
-    <label>Clínica / Hospital / Residencia</label><input type="text" id="clinica">
-    <div class="grid">
-        <div><label>Origen</label><input type="text" id="origen"></div>
-        <div><label>Destino</label><input type="text" id="destino"></div>
-    </div>
-    <label>Número de Prestación</label><input type="text" id="prestacion">
+    <div class="section">DATOS DEL SERVICIO</div>
+    
+    <label>Nombre del Fallecido</label>
+    <input type="text" id="fallecido">
+    
+    <label>Destino</label>
+    <input type="text" id="destino">
 
-    <div class="section">Evidencias</div>
-    <textarea id="obs" rows="2" placeholder="Observaciones"></textarea>
-    <div class="photo-box" onclick="document.getElementById('foto').click()">
-        <span>📷 Tocar para capturar foto de evidencia</span>
-        <input type="file" id="foto" accept="image/*" capture="camera" style="display:none" onchange="pre(event)">
-        <img id="preview" src="#">
+    <div class="section">KILOMETRAJE</div>
+    
+    <div style="display:flex; gap:10px">
+        <div style="flex:1"><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
+        <div style="flex:1"><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
     </div>
+    <label>Total Recorrido (KM)</label>
+    <input type="number" id="total_km" readonly style="background:#eee;">
 
-    <label>Firma del Responsable</label>
+    <div class="section">EVIDENCIAS (4 FOTOS)</div>
+    <label>1. Foto Salida/Inicio</label>
+    <input type="file" id="foto1" accept="image/*" capture="camera" class="foto-input">
+    <label>2. Foto Documento/Orden</label>
+    <input type="file" id="foto2" accept="image/*" capture="camera" class="foto-input">
+    <label>3. Foto Destino/Llegada</label>
+    <input type="file" id="foto3" accept="image/*" capture="camera" class="foto-input">
+    <label>4. Foto Adicional/Kilometraje</label>
+    <input type="file" id="foto4" accept="image/*" capture="camera" class="foto-input">
+
+    <div class="section">FIRMA DE RESPONSABLE</div>
     <canvas id="canvas"></canvas>
-    <button onclick="ctx.clearRect(0,0,canvas.width,canvas.height)" style="background:none;border:none;color:red;font-size:11px;cursor:pointer;padding:10px 0">Limpiar Firma</button>
+    <button onclick="clearCanvas()" style="background:none; border:none; color:red; font-size:13px; cursor:pointer; width:100%; text-align:right;">✖ Borrar Firma</button>
 
-    <button class="btn-save" id="btn-envio" onclick="enviar()">GUARDAR REPORTE COMPLETO</button>
+    <div class="section" style="background:#25D366">NOTIFICACIÓN</div>
+    <label>Enviar reporte a:</label>
+    <select id="select-coordinador" style="border: 2px solid var(--verde);">
+        <option value="573001234567">Coordinador Pereira (Ejemplo)</option>
+        <option value="573000000000">Coordinador Armenia (Ejemplo)</option>
+        <option value="573111111111">Central de Logística</option>
+    </select>
+
+    <button class="btn-save" id="btn-envio" onclick="enviarDatos()">1. GUARDAR EN SISTEMA</button>
+    <button class="btn-whatsapp" id="btn-whatsapp" onclick="enviarWhatsApp()">2. ENVIAR POR WHATSAPP</button>
 </div>
 
 <script src="db.js"></script>
 <script>
-    // Inicialización
-    window.onload = () => {
-        const n = localStorage.getItem('conductor_nombre');
-        if(!n) window.location.href="index.html";
-        document.getElementById('conductor').value = n;
-        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-    };
+    // --- LÓGICA DEL CANVAS (FIRMA) ---
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
 
-    function logout() { localStorage.clear(); window.location.href="index.html"; }
-    function calc() {
-        const s = parseFloat(document.getElementById('km_s').value)||0;
-        const i = parseFloat(document.getElementById('km_i').value)||0;
-        document.getElementById('total_km').value = (i - s > 0) ? i - s : 0;
-    }
-    function pre(e) {
-        const r = new FileReader();
-        r.onload = () => { const img = document.getElementById('preview'); img.src = r.result; img.style.display='block'; };
-        if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
-    }
-
-    // Firma
-    const canvas = document.getElementById('canvas'); const ctx = canvas.getContext('2d');
-    let ray = false;
-    const getP = (e) => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX || e.touches[0].clientX)-r.left, y: (e.clientY || e.touches[0].clientY)-r.top }; };
-    canvas.addEventListener('mousedown', (e) => { ray=true; ctx.beginPath(); const p=getP(e); ctx.moveTo(p.x, p.y); });
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); ray=true; ctx.beginPath(); const p=getP(e); ctx.moveTo(p.x, p.y); });
-    canvas.addEventListener('mousemove', (e) => { if(!ray)return; const p=getP(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
-    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if(!ray)return; const p=getP(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
-    window.addEventListener('mouseup', () => ray=false); window.addEventListener('touchend', () => ray=false);
-
-    // Guardar
-    async function enviar() {
-        const b = document.getElementById('btn-envio'); b.disabled=true; b.innerText="Subiendo reporte...";
-        const f = document.getElementById('foto').files[0];
-        let imgB64 = "";
-        if(f) imgB64 = await new Promise(r => { const rd=new FileReader(); rd.onloadend=()=>r(rd.result); rd.readAsDataURL(f); });
-
-        const d = {
-            regional: document.getElementById('regional').value,
-            coordinador: document.getElementById('coordinador').value,
-            conductor: document.getElementById('conductor').value,
-            telefono: document.getElementById('telefono').value,
-            placa: document.getElementById('placa').value.toUpperCase(),
-            motivo: document.getElementById('motivo').value,
-            km_salida: document.getElementById('km_s').value,
-            km_ingreso: document.getElementById('km_i').value,
-            total_km: document.getElementById('total_km').value,
-            hora_salida: document.getElementById('h_s').value,
-            hora_ingreso: document.getElementById('h_i').value,
-            fallecido: document.getElementById('fallecido').value,
-            clinica: document.getElementById('clinica').value,
-            origen: document.getElementById('origen').value,
-            destino: document.getElementById('destino').value,
-            prestacion: document.getElementById('prestacion').value,
-            observaciones: document.getElementById('obs').value,
-            imagen: imgB64,
-            firma: canvas.toDataURL()
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX || e.touches[0].clientX) - rect.left,
+            y: (e.clientY || e.touches[0].clientY) - rect.top
         };
+    }
 
-        const res = await DB.guardarTraslado(d);
-        if(res.ok) { alert("✅ ¡Guardado con éxito!"); location.reload(); } else { alert("Error: "+res.error.message); b.disabled=false; }
+    function start(e) { drawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); }
+    function stop() { drawing = false; }
+    function move(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        const p = getPos(e);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+    }
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', stop);
+    canvas.addEventListener('touchstart', start);
+    canvas.addEventListener('touchmove', move);
+    canvas.addEventListener('touchend', stop);
+
+    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+    // --- CÁLCULO DE KM ---
+    function calcularTotal() {
+        const s = parseFloat(document.getElementById('km_s').value) || 0;
+        const i = parseFloat(document.getElementById('km_i').value) || 0;
+        document.getElementById('total_km').value = (i - s).toFixed(1);
+    }
+
+    // --- CONVERSIÓN DE FOTOS ---
+    const toBase64 = file => new Promise((resolve) => {
+        if (!file) return resolve("");
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+    });
+
+    let reporteCache = {};
+
+    // --- FUNCIÓN PRINCIPAL GUARDAR ---
+    async function enviarDatos() {
+        const btn = document.getElementById('btn-envio');
+        btn.disabled = true;
+        btn.innerText = "⏳ Subiendo reporte...";
+
+        try {
+            reporteCache = {
+                regional: document.getElementById('regional').value,
+                conductor: document.getElementById('conductor').value,
+                placa: document.getElementById('placa').value,
+                fallecido: document.getElementById('fallecido').value,
+                destino: document.getElementById('destino').value,
+                km_salida: document.getElementById('km_s').value,
+                km_ingreso: document.getElementById('km_i').value,
+                total_km: document.getElementById('total_km').value,
+                imagen1: await toBase64(document.getElementById('foto1').files[0]),
+                imagen2: await toBase64(document.getElementById('foto2').files[0]),
+                imagen3: await toBase64(document.getElementById('foto3').files[0]),
+                imagen4: await toBase64(document.getElementById('foto4').files[0]),
+                firma: canvas.toDataURL()
+            };
+
+            const res = await DB.guardarTraslado(reporteCache);
+            
+            if (res.ok) {
+                alert("✅ Guardado exitosamente en la base de datos.");
+                btn.innerText = "✓ REGISTRADO";
+                document.getElementById('btn-whatsapp').style.display = "block";
+            } else {
+                throw res.error;
+            }
+        } catch (err) {
+            alert("❌ Error: " + err.message);
+            btn.disabled = false;
+            btn.innerText = "REINTENTAR GUARDAR";
+        }
+    }
+
+    // --- FUNCIÓN WHATSAPP ---
+    function enviarWhatsApp() {
+        const num = document.getElementById('select-coordinador').value;
+        const texto = `*REPORTE TRASLADO J.R.*\n\n` +
+                      `*Conductor:* ${reporteCache.conductor}\n` +
+                      `*Placa:* ${reporteCache.placa}\n` +
+                      `*Fallecido:* ${reporteCache.fallecido}\n` +
+                      `*Destino:* ${reporteCache.destino}\n` +
+                      `*Ruta:* ${reporteCache.km_salida} KM a ${reporteCache.km_ingreso} KM\n` +
+                      `*Total:* ${reporteCache.total_km} KM\n\n` +
+                      `_Soportes y firma registrados en Supabase._`;
+
+        const win = window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(texto)}`, '_blank');
+        if (win) win.focus();
     }
 </script>
+
 </body>
 </html>
