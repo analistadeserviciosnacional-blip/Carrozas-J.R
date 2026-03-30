@@ -1,4 +1,3 @@
-// CONFIGURACIÓN SUPABASE J.R.
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
