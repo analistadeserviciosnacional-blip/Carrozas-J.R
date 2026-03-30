@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.R. | Registro de Traslados</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --azul: #3498DB; --celeste: #E3F2FD; --texto: #2C3E50; --gris: #F9FBFF; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--celeste); margin: 0; padding: 15px; }
+        .card { background: white; max-width: 550px; margin: 0 auto; padding: 25px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-logout { background: #fee2e2; color: #ef4444; border: none; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .section { font-size: 11px; text-transform: uppercase; color: var(--azul); letter-spacing: 2px; margin: 25px 0 15px; border-left: 3px solid var(--azul); padding-left: 8px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        label { display: block; font-size: 11px; margin-bottom: 5px; font-weight: 600; color: #566573; }
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #DDE4EB; border-radius: 12px; box-sizing: border-box; background: var(--gris); outline: none; }
+        .total-km { background: #e8f4fd; border: 2px solid var(--azul); font-weight: bold; text-align: center; color: var(--azul); font-size: 18px; }
+        #canvas { border: 1px solid #DDE4EB; background: #fff; border-radius: 15px; touch-action: none; width: 100%; height: 150px; }
+        .photo-box { border: 2px dashed var(--azul); padding: 20px; text-align: center; border-radius: 15px; cursor: pointer; margin-bottom: 15px; color: var(--azul); }
+        #preview { width: 100%; max-height: 200px; object-fit: cover; border-radius: 12px; display: none; margin-top: 10px; }
+        .btn-save { width: 100%; padding: 20px; background: var(--azul); color: white; border: none; border-radius: 20px; font-weight: bold; font-size: 17px; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="header">
+        <h2 style="margin:0; color:var(--azul)">Servicio Diario J.R.</h2>
+        <button class="btn-logout" onclick="logout()">SALIR</button>
+    </div>
+
+    <div class="section">Logística</div>
+    <div class="grid">
+        <div><label>Regional</label><select id="regional"><option>Pereira</option><option>Armenia</option><option>Manizales</option></select></div>
+        <div><label>Coordinador</label><input type="text" id="coordinador"></div>
+    </div>
+    <div class="grid">
+        <div><label>Conductor</label><input type="text" id="conductor" readonly></div>
+        <div><label>Teléfono</label><input type="tel" id="telefono"></div>
+    </div>
+
+    <div class="section">Vehículo y Control</div>
+    <div class="grid">
+        <div><label>Placa</label><input type="text" id="placa" style="text-transform:uppercase"></div>
+        <div><label>Motivo</label><input type="text" id="motivo"></div>
+    </div>
+    <div class="grid">
+        <div><label>Km Salida</label><input type="number" id="km_s" oninput="calc()"></div>
+        <div><label>Km Ingreso</label><input type="number" id="km_i" oninput="calc()"></div>
+    </div>
+    <label>Total Km Recorridos</label>
+    <input type="number" id="total_km" class="total-km" readonly>
+    <div class="grid">
+        <div><label>Hora Salida</label><input type="time" id="h_s"></div>
+        <div><label>Hora Ingreso</label><input type="time" id="h_i"></div>
+    </div>
+
+    <div class="section">Datos del Servicio</div>
+    <label>Nombre del Fallecido</label><input type="text" id="fallecido">
+    <label>Clínica / Hospital / Residencia</label><input type="text" id="clinica">
+    <div class="grid">
+        <div><label>Origen</label><input type="text" id="origen"></div>
+        <div><label>Destino</label><input type="text" id="destino"></div>
+    </div>
+    <label>Número de Prestación</label><input type="text" id="prestacion">
+
+    <div class="section">Evidencias</div>
+    <textarea id="obs" rows="2" placeholder="Observaciones"></textarea>
+    <div class="photo-box" onclick="document.getElementById('foto').click()">
+        <span>📷 Tocar para capturar foto de evidencia</span>
+        <input type="file" id="foto" accept="image/*" capture="camera" style="display:none" onchange="pre(event)">
+        <img id="preview" src="#">
+    </div>
+
+    <label>Firma del Responsable</label>
+    <canvas id="canvas"></canvas>
+    <button onclick="ctx.clearRect(0,0,canvas.width,canvas.height)" style="background:none;border:none;color:red;font-size:11px;cursor:pointer;padding:10px 0">Limpiar Firma</button>
+
+    <button class="btn-save" id="btn-envio" onclick="enviar()">GUARDAR REPORTE COMPLETO</button>
+</div>
+
+<script src="db.js"></script>
+<script>
+    // Inicialización
+    window.onload = () => {
+        const n = localStorage.getItem('conductor_nombre');
+        if(!n) window.location.href="index.html";
+        document.getElementById('conductor').value = n;
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+    };
+
+    function logout() { localStorage.clear(); window.location.href="index.html"; }
+    function calc() {
+        const s = parseFloat(document.getElementById('km_s').value)||0;
+        const i = parseFloat(document.getElementById('km_i').value)||0;
+        document.getElementById('total_km').value = (i - s > 0) ? i - s : 0;
+    }
+    function pre(e) {
+        const r = new FileReader();
+        r.onload = () => { const img = document.getElementById('preview'); img.src = r.result; img.style.display='block'; };
+        if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
+    }
+
+    // Firma
+    const canvas = document.getElementById('canvas'); const ctx = canvas.getContext('2d');
+    let ray = false;
+    const getP = (e) => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX || e.touches[0].clientX)-r.left, y: (e.clientY || e.touches[0].clientY)-r.top }; };
+    canvas.addEventListener('mousedown', (e) => { ray=true; ctx.beginPath(); const p=getP(e); ctx.moveTo(p.x, p.y); });
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); ray=true; ctx.beginPath(); const p=getP(e); ctx.moveTo(p.x, p.y); });
+    canvas.addEventListener('mousemove', (e) => { if(!ray)return; const p=getP(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if(!ray)return; const p=getP(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+    window.addEventListener('mouseup', () => ray=false); window.addEventListener('touchend', () => ray=false);
+
+    // Guardar
+    async function enviar() {
+        const b = document.getElementById('btn-envio'); b.disabled=true; b.innerText="Subiendo reporte...";
+        const f = document.getElementById('foto').files[0];
+        let imgB64 = "";
+        if(f) imgB64 = await new Promise(r => { const rd=new FileReader(); rd.onloadend=()=>r(rd.result); rd.readAsDataURL(f); });
+
+        const d = {
+            regional: document.getElementById('regional').value,
+            coordinador: document.getElementById('coordinador').value,
+            conductor: document.getElementById('conductor').value,
+            telefono: document.getElementById('telefono').value,
+            placa: document.getElementById('placa').value.toUpperCase(),
+            motivo: document.getElementById('motivo').value,
+            km_salida: document.getElementById('km_s').value,
+            km_ingreso: document.getElementById('km_i').value,
+            total_km: document.getElementById('total_km').value,
+            hora_salida: document.getElementById('h_s').value,
+            hora_ingreso: document.getElementById('h_i').value,
+            fallecido: document.getElementById('fallecido').value,
+            clinica: document.getElementById('clinica').value,
+            origen: document.getElementById('origen').value,
+            destino: document.getElementById('destino').value,
+            prestacion: document.getElementById('prestacion').value,
+            observaciones: document.getElementById('obs').value,
+            imagen: imgB64,
+            firma: canvas.toDataURL()
+        };
+
+        const res = await DB.guardarTraslado(d);
+        if(res.ok) { alert("✅ ¡Guardado con éxito!"); location.reload(); } else { alert("Error: "+res.error.message); b.disabled=false; }
+    }
+</script>
+</body>
+</html>

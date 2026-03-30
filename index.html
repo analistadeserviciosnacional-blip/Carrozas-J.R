@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.R. | Acceso Corporativo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --azul: #3498DB; --celeste: #E3F2FD; --blanco: #FFFFFF; --texto: #2C3E50; }
+        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, var(--celeste) 0%, #bbdefb 100%); height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
+        .login-card { background: var(--blanco); width: 100%; max-width: 350px; padding: 40px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
+        .logo { width: 70px; height: 70px; background: var(--azul); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: bold; }
+        input { width: 100%; padding: 15px; margin-bottom: 20px; border: 1px solid #DDE4EB; border-radius: 12px; background: #F9FBFF; box-sizing: border-box; outline: none; }
+        .btn-login { width: 100%; padding: 18px; background: var(--azul); color: white; border: none; border-radius: 15px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        #error { color: #e74c3c; font-size: 13px; margin-top: 15px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">JR</div>
+        <h2 style="font-weight: 300;">Bienvenido</h2>
+        <input type="text" id="user" placeholder="Usuario">
+        <input type="password" id="pass" placeholder="Contraseña">
+        <button class="btn-login" onclick="login()">INGRESAR AL SISTEMA</button>
+        <div id="error">Usuario o clave incorrectos</div>
+    </div>
+    <script src="db.js"></script>
+    <script>
+        async function login() {
+            const u = document.getElementById('user').value;
+            const p = document.getElementById('pass').value;
+            const { data } = await _supabase.from('usuarios').select('*').eq('usuario', u).eq('password', p).single();
+            if (data) {
+                localStorage.setItem('conductor_nombre', data.nombre);
+                window.location.href = "registro_salida.html";
+            } else { document.getElementById('error').style.display = "block"; }
+        }
+    </script>
+</body>
+</html>
