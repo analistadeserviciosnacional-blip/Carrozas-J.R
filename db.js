@@ -5,7 +5,7 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
     async guardarTraslado(datos) {
-        // Usamos los nombres exactos de tu CSV en MAYÚSCULAS
+        // IMPORTANTE: Aquí usamos 'Traslados', no 'usuarios'
         const { error } = await _supabase
             .from('Traslados') 
             .insert([{
