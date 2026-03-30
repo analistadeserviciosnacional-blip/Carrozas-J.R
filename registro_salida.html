@@ -3,91 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. - Registro de Salida</title>
+    <title>J.R. — Registro de Salida</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --azul: #003366; --verde: #25D366; --gris: #f4f4f4; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--gris); padding: 10px; margin: 0; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        .section { background: var(--azul); color: white; padding: 10px; margin: 20px 0 10px; border-radius: 8px; font-weight: bold; text-align: center; }
-        label { display: block; margin-top: 12px; font-weight: bold; font-size: 14px; color: #333; }
-        input, select, textarea { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .btn-save { width: 100%; padding: 15px; background: var(--azul); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.3s; }
-        .btn-whatsapp { width: 100%; padding: 15px; background: var(--verde); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; display: none; text-decoration: none; text-align: center; }
-        canvas { border: 2px dashed #ccc; width: 100%; height: 180px; border-radius: 10px; background: #fff; touch-action: none; margin-top: 5px; }
-        .foto-input { background: #fff; margin-bottom: 10px; border: 1px solid var(--azul); }
+        :root { 
+            --azul-principal: #004a99; 
+            --azul-cielo: #e3f2fd; 
+            --blanco: #ffffff; 
+            --gris-texto: #546e7a;
+            --verde-wa: #25D366;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            background-color: var(--azul-cielo); 
+            font-family: 'DM Sans', sans-serif; 
+            color: var(--azul-principal);
+            padding: 15px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--blanco);
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,74,153,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--azul-principal);
+            color: var(--blanco);
+            padding: 25px;
+            text-align: center;
+        }
+
+        .header h2 { font-weight: 700; letter-spacing: 1px; }
+
+        .content { padding: 20px; }
+
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--gris-texto);
+            margin: 20px 0 10px;
+            border-bottom: 2px solid var(--azul-cielo);
+            padding-bottom: 5px;
+            font-weight: 700;
+        }
+
+        label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: var(--azul-principal); }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid var(--azul-cielo);
+            border-radius: 10px;
+            font-family: inherit;
+            color: var(--azul-principal);
+            background: #f8fbff;
+        }
+
+        input:focus { border-color: var(--azul-principal); outline: none; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        /* Estilo para las fotos */
+        .foto-box {
+            background: #f0f7ff;
+            border: 1px solid var(--azul-cielo);
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        /* Firma */
+        canvas {
+            border: 2px dashed var(--azul-cielo);
+            border-radius: 12px;
+            width: 100%;
+            height: 150px;
+            background: #fff;
+            touch-action: none;
+        }
+
+        /* Botones */
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn-save { background: var(--azul-principal); color: white; }
+        .btn-save:disabled { background: #ccc; }
+
+        .btn-wa { 
+            background: var(--verde-wa); 
+            color: white; 
+            display: none; 
+            text-decoration: none; 
+            text-align: center;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            display: none;
+            z-index: 100;
+        }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2 style="color:var(--azul); text-align:center; margin-top:0;">Registro de Traslado J.R.</h2>
-    
-    <label>Regional</label>
-    <select id="regional">
-        <option value="Pereira">Pereira</option>
-        <option value="Armenia">Armenia</option>
-        <option value="Manizales">Manizales</option>
-        <option value="Cali">Cali</option>
-    </select>
-
-    <label>Conductor</label>
-    <input type="text" id="conductor" placeholder="Nombre completo">
-
-    <label>Placa del Vehículo</label>
-    <input type="text" id="placa" placeholder="Ej: ABC-123">
-
-    <div class="section">DATOS DEL SERVICIO</div>
-    
-    <label>Nombre del Fallecido</label>
-    <input type="text" id="fallecido">
-    
-    <label>Destino</label>
-    <input type="text" id="destino">
-
-    <div class="section">KILOMETRAJE</div>
-    
-    <div style="display:flex; gap:10px">
-        <div style="flex:1"><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
-        <div style="flex:1"><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
+<div class="container">
+    <div class="header">
+        <h2>REGISTRO J.R.</h2>
+        <p style="font-size: 12px; opacity: 0.8;">Control de Salida de Carrozas</p>
     </div>
-    <label>Total Recorrido (KM)</label>
-    <input type="number" id="total_km" readonly style="background:#eee;">
 
-    <div class="section">EVIDENCIAS (4 FOTOS)</div>
-    <label>1. Foto Salida/Inicio</label>
-    <input type="file" id="foto1" accept="image/*" capture="camera" class="foto-input">
-    <label>2. Foto Documento/Orden</label>
-    <input type="file" id="foto2" accept="image/*" capture="camera" class="foto-input">
-    <label>3. Foto Destino/Llegada</label>
-    <input type="file" id="foto3" accept="image/*" capture="camera" class="foto-input">
-    <label>4. Foto Adicional/Kilometraje</label>
-    <input type="file" id="foto4" accept="image/*" capture="camera" class="foto-input">
+    <div class="content">
+        <div class="section-title">Información General</div>
+        
+        <label>Regional</label>
+        <select id="regional">
+            <option value="Pereira">Pereira</option>
+            <option value="Armenia">Armenia</option>
+            <option value="Manizales">Manizales</option>
+            <option value="Cali">Cali</option>
+        </select>
 
-    <div class="section">FIRMA DE RESPONSABLE</div>
-    <canvas id="canvas"></canvas>
-    <button onclick="clearCanvas()" style="background:none; border:none; color:red; font-size:13px; cursor:pointer; width:100%; text-align:right;">✖ Borrar Firma</button>
+        <label>Conductor</label>
+        <input type="text" id="conductor" placeholder="Nombre del conductor">
 
-    <div class="section" style="background:#25D366">NOTIFICACIÓN</div>
-    <label>Enviar reporte a:</label>
-    <select id="select-coordinador" style="border: 2px solid var(--verde);">
-        <option value="573001234567">Coordinador Pereira (Ejemplo)</option>
-        <option value="573000000000">Coordinador Armenia (Ejemplo)</option>
-        <option value="573111111111">Central de Logística</option>
-    </select>
+        <label>Placa del Vehículo</label>
+        <input type="text" id="placa" placeholder="Ej: ABC-123">
 
-    <button class="btn-save" id="btn-envio" onclick="enviarDatos()">1. GUARDAR EN SISTEMA</button>
-    <button class="btn-whatsapp" id="btn-whatsapp" onclick="enviarWhatsApp()">2. ENVIAR POR WHATSAPP</button>
+        <div class="section-title">Detalles del Traslado</div>
+        
+        <label>Nombre del Fallecido</label>
+        <input type="text" id="fallecido" placeholder="Nombre completo">
+
+        <label>Lugar de Destino</label>
+        <input type="text" id="destino" placeholder="Ciudad o Funeraria">
+
+        <div class="grid-2">
+            <div>
+                <label>KM Salida</label>
+                <input type="number" id="km_s" oninput="calcularTotal()">
+            </div>
+            <div>
+                <label>KM Ingreso</label>
+                <input type="number" id="km_i" oninput="calcularTotal()">
+            </div>
+        </div>
+        <label>Total Kilómetros</label>
+        <input type="number" id="total_km" readonly style="background: #eef5ff; font-weight: bold;">
+
+        <div class="section-title">Evidencias Fotográficas</div>
+        <div class="foto-box">
+            <label>1. Frontal / Inicio</label>
+            <input type="file" id="foto1" accept="image/*" capture="camera">
+        </div>
+        <div class="foto-box">
+            <label>2. Documentos</label>
+            <input type="file" id="foto2" accept="image/*" capture="camera">
+        </div>
+        <div class="foto-box">
+            <label>3. Destino / Llegada</label>
+            <input type="file" id="foto3" accept="image/*" capture="camera">
+        </div>
+        <div class="foto-box">
+            <label>4. Kilometraje / Otro</label>
+            <input type="file" id="foto4" accept="image/*" capture="camera">
+        </div>
+
+        <div class="section-title">Confirmación</div>
+        <label>Firma del Responsable</label>
+        <canvas id="canvas"></canvas>
+        <p onclick="borrarFirma()" style="text-align: right; font-size: 12px; color: #d32f2f; cursor: pointer; margin-top: 5px;">✖ Borrar firma</p>
+
+        <label style="margin-top: 15px;">Enviar Reporte a:</label>
+        <select id="select-coordinador" style="border: 2px solid var(--verde-wa);">
+            <option value="573001234567">Coordinador Principal</option>
+            <option value="573110000000">Logística J.R.</option>
+            <option value="573220000000">Gerencia</option>
+        </select>
+
+        <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR EN BASE DE DATOS</button>
+        <button class="btn btn-wa" id="btn-wa" onclick="enviarWA()">2. ENVIAR POR WHATSAPP</button>
+    </div>
 </div>
+
+<div id="toast" class="toast"></div>
 
 <script src="db.js"></script>
 <script>
-    // --- LÓGICA DEL CANVAS (FIRMA) ---
+    // --- LÓGICA DE FIRMA ---
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    let drawing = false;
+    let dibujando = false;
 
-    function getPos(e) {
+    function obtenerPosicion(e) {
         const rect = canvas.getBoundingClientRect();
         return {
             x: (e.clientX || e.touches[0].clientX) - rect.left,
@@ -95,50 +227,51 @@
         };
     }
 
-    function start(e) { drawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); }
-    function stop() { drawing = false; }
-    function move(e) {
-        if (!drawing) return;
+    function iniciar(e) { dibujando = true; ctx.beginPath(); const p = obtenerPosicion(e); ctx.moveTo(p.x, p.y); }
+    function mover(e) {
+        if (!dibujando) return;
         e.preventDefault();
-        const p = getPos(e);
+        const p = obtenerPosicion(e);
         ctx.lineTo(p.x, p.y);
+        ctx.strokeStyle = "#004a99";
+        ctx.lineWidth = 2;
         ctx.stroke();
     }
+    function detener() { dibujando = false; }
 
-    canvas.addEventListener('mousedown', start);
-    canvas.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', stop);
-    canvas.addEventListener('touchstart', start);
-    canvas.addEventListener('touchmove', move);
-    canvas.addEventListener('touchend', stop);
+    canvas.addEventListener('mousedown', iniciar);
+    canvas.addEventListener('mousemove', mover);
+    window.addEventListener('mouseup', detener);
+    canvas.addEventListener('touchstart', iniciar);
+    canvas.addEventListener('touchmove', mover);
+    canvas.addEventListener('touchend', detener);
 
-    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+    function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-    // --- CÁLCULO DE KM ---
+    // --- CÁLCULOS ---
     function calcularTotal() {
         const s = parseFloat(document.getElementById('km_s').value) || 0;
         const i = parseFloat(document.getElementById('km_i').value) || 0;
         document.getElementById('total_km').value = (i - s).toFixed(1);
     }
 
-    // --- CONVERSIÓN DE FOTOS ---
-    const toBase64 = file => new Promise((resolve) => {
-        if (!file) return resolve("");
+    // --- PROCESAMIENTO ---
+    const aBase64 = archivo => new Promise((resolve) => {
+        if (!archivo) resolve("");
         const reader = new FileReader();
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(archivo);
         reader.onload = () => resolve(reader.result);
     });
 
-    let reporteCache = {};
+    let datosFinales = {};
 
-    // --- FUNCIÓN PRINCIPAL GUARDAR ---
-    async function enviarDatos() {
+    async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
         btn.disabled = true;
-        btn.innerText = "⏳ Subiendo reporte...";
+        btn.innerText = "⏳ Guardando datos...";
 
         try {
-            reporteCache = {
+            datosFinales = {
                 regional: document.getElementById('regional').value,
                 conductor: document.getElementById('conductor').value,
                 placa: document.getElementById('placa').value,
@@ -147,43 +280,46 @@
                 km_salida: document.getElementById('km_s').value,
                 km_ingreso: document.getElementById('km_i').value,
                 total_km: document.getElementById('total_km').value,
-                imagen1: await toBase64(document.getElementById('foto1').files[0]),
-                imagen2: await toBase64(document.getElementById('foto2').files[0]),
-                imagen3: await toBase64(document.getElementById('foto3').files[0]),
-                imagen4: await toBase64(document.getElementById('foto4').files[0]),
+                imagen1: await aBase64(document.getElementById('foto1').files[0]),
+                imagen2: await aBase64(document.getElementById('foto2').files[0]),
+                imagen3: await aBase64(document.getElementById('foto3').files[0]),
+                imagen4: await aBase64(document.getElementById('foto4').files[0]),
                 firma: canvas.toDataURL()
             };
 
-            const res = await DB.guardarTraslado(reporteCache);
+            const res = await DB.guardarTraslado(datosFinales);
             
-            if (res.ok) {
-                alert("✅ Guardado exitosamente en la base de datos.");
-                btn.innerText = "✓ REGISTRADO";
-                document.getElementById('btn-whatsapp').style.display = "block";
-            } else {
-                throw res.error;
-            }
-        } catch (err) {
-            alert("❌ Error: " + err.message);
+            if(res.ok) {
+                showToast("✅ Guardado con éxito");
+                btn.innerText = "✓ DATOS GUARDADOS";
+                document.getElementById('btn-wa').style.display = "block";
+            } else { throw res.error; }
+
+        } catch (e) {
+            alert("Error: " + e.message);
             btn.disabled = false;
             btn.innerText = "REINTENTAR GUARDAR";
         }
     }
 
-    // --- FUNCIÓN WHATSAPP ---
-    function enviarWhatsApp() {
+    function enviarWA() {
         const num = document.getElementById('select-coordinador').value;
-        const texto = `*REPORTE TRASLADO J.R.*\n\n` +
-                      `*Conductor:* ${reporteCache.conductor}\n` +
-                      `*Placa:* ${reporteCache.placa}\n` +
-                      `*Fallecido:* ${reporteCache.fallecido}\n` +
-                      `*Destino:* ${reporteCache.destino}\n` +
-                      `*Ruta:* ${reporteCache.km_salida} KM a ${reporteCache.km_ingreso} KM\n` +
-                      `*Total:* ${reporteCache.total_km} KM\n\n` +
-                      `_Soportes y firma registrados en Supabase._`;
+        const msg = `*REGISTRO TRASLADO J.R.*\n\n` +
+                    `*Conductor:* ${datosFinales.conductor}\n` +
+                    `*Placa:* ${datosFinales.placa}\n` +
+                    `*Fallecido:* ${datosFinales.fallecido}\n` +
+                    `*Destino:* ${datosFinales.destino}\n` +
+                    `*Ruta:* ${datosFinales.km_salida} km a ${datosFinales.km_ingreso} km\n` +
+                    `*Total:* ${datosFinales.total_km} km\n\n` +
+                    `_Soportes registrados en Supabase._`;
+        
+        window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(msg)}`, '_blank');
+    }
 
-        const win = window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(texto)}`, '_blank');
-        if (win) win.focus();
+    function showToast(m) {
+        const t = document.getElementById('toast');
+        t.innerText = m; t.style.display = "block";
+        setTimeout(() => t.style.display = "none", 3000);
     }
 </script>
 
