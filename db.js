@@ -5,26 +5,25 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
     async guardarTraslado(datos) {
-        // Nombre exacto de la tabla en tu Supabase
         const { error } = await _supabase
-            .from('TrasladosJr.') 
+            .from('Traslados Jr.') // Nombre con espacio y punto
             .insert([{
                 "ID Salida": 'JR-' + Date.now(),
                 "Fecha": new Date().toLocaleDateString(),
                 "Regional": datos.regional,
-                "Conductor": datos.conductor,
-                "N° Telefono": datos.telefono,
-                "Placa": datos.placa,
-                "Motivo De Salida": datos.motivo,
-                "Nombre Del Fallecido": datos.fallecido,
+                "Conductor ": datos.conductor, // <-- TIENE ESPACIO AL FINAL EN TU CSV
+                "N° Telefono ": datos.telefono, // <-- TIENE ESPACIO AL FINAL EN TU CSV
+                "Placa ": datos.placa, // <-- TIENE ESPACIO AL FINAL EN TU CSV
+                "Motivo De Salida ": datos.motivo, // <-- TIENE ESPACIO AL FINAL EN TU CSV
+                "Nombre Del Fallecido ": datos.fallecido, // <-- TIENE ESPACIO AL FINAL EN TU CSV
                 "Clinica, Hospital o Rsd": datos.clinica,
                 "Numero Prestacion": datos.prestacion,
                 "Origen": datos.origen,
-                "Destino": datos.destino,
+                "Destino ": datos.destino, // <-- TIENE ESPACIO AL FINAL EN TU CSV
                 "Hora De Salida": datos.hora_salida,
                 "Hora De Ingreso": datos.hora_ingreso,
-                "Km Salida": parseInt(datos.km_salida) || 0,
-                "Km Ingreso": parseInt(datos.km_ingreso) || 0,
+                "Km  Salida": parseInt(datos.km_salida) || 0, // <-- TIENE DOBLE ESPACIO
+                "Km  Ingreso": parseInt(datos.km_ingreso) || 0, // <-- TIENE DOBLE ESPACIO
                 "Total Km": parseInt(datos.total_km) || 0,
                 "Coordinador En Turno": datos.coordinador,
                 "Observaciones": datos.observaciones,
