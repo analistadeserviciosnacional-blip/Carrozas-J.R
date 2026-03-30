@@ -1,3 +1,4 @@
+// CONFIGURACIÓN SUPABASE J.R.
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -26,7 +27,11 @@ const DB = {
                 total_km: parseInt(datos.total_km) || 0,
                 coordinador_en_turno: datos.coordinador,
                 observaciones: datos.observaciones,
-                imagen: datos.imagen,
+                // Ahora enviamos 4 imágenes por separado
+                imagen1: datos.imagen1,
+                imagen2: datos.imagen2,
+                imagen3: datos.imagen3,
+                imagen4: datos.imagen4,
                 firma: datos.firma
             }]);
         
