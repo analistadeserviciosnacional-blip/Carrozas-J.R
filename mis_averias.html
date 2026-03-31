@@ -7,18 +7,28 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --azul: #000080; --celeste: #eef5ff; --blanco: #ffffff; --rojo: #dc2626; --verde: #25d366; }
-        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 20px; color: var(--azul); }
-        .container { max-width: 600px; margin: 0 auto; }
-        .header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
-        .btn-volver { background: var(--blanco); border: none; padding: 10px; border-radius: 10px; cursor: pointer; font-weight: bold; color: var(--azul); }
-        .card-averia { background: var(--blanco); border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .placa { font-weight: 700; font-size: 16px; }
-        .fecha { color: #64748b; font-size: 12px; }
-        .falla { color: var(--rojo); font-weight: 500; font-size: 14px; }
-        .btn-wa { width: 100%; background: var(--verde); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .loader { text-align: center; padding: 40px; color: #64748b; }
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; --verde: #25d366; }
+        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; color: var(--azul); display: flex; flex-direction: column; align-items: center; }
+        
+        .container { width: 100%; max-width: 500px; }
+        
+        .header { width: 100%; display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
+        .btn-volver { background: var(--blanco); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; color: var(--azul); box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+        
+        .lista-container { width: 100%; }
+        .card-averia { background: var(--blanco); border-radius: 20px; padding: 20px; margin-bottom: 15px; box-shadow: 0 6px 15px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02); }
+        
+        .top-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .placa { font-weight: 700; font-size: 17px; color: var(--azul); }
+        .fecha { color: #94a3b8; font-size: 11px; }
+        
+        .falla-tag { background: #fef2f2; color: var(--rojo); font-weight: bold; font-size: 12px; padding: 5px 10px; border-radius: 8px; display: inline-block; margin-bottom: 10px; }
+        .descripcion { color: #475569; font-size: 14px; line-height: 1.5; margin-bottom: 15px; }
+        
+        .btn-wa { width: 100%; background: var(--verde); color: white; border: none; padding: 14px; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 13px; }
+        .btn-wa:active { transform: scale(0.98); }
+
+        .loader { text-align: center; padding: 50px; color: #64748b; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -26,54 +36,82 @@
 <div class="container">
     <div class="header">
         <button class="btn-volver" onclick="location.href='panel_conductor.html'">←</button>
-        <h2>Mis Reportes de Avería</h2>
+        <h2 style="margin:0; font-size: 20px;">Mis Reportes</h2>
     </div>
 
-    <div id="lista-averias">
-        <div class="loader">Cargando reportes...</div>
+    <div id="lista-averias" class="lista-container">
+        <div class="loader">🔍 Buscando tus reportes en el sistema...</div>
     </div>
 </div>
 
 <script src="db.js"></script>
+
 <script>
-    const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-
     async function cargarAverias() {
-        if (!sesion.nombre) { location.href = 'index.html'; return; }
+        const listaDiv = document.getElementById('lista-averias');
         
-        // Consultar averías del conductor actual
-        const { data, error } = await DB.supabase
-            .from('Averias')
-            .select('*')
-            .eq('reportado_por', sesion.nombre)
-            .order('created_at', { ascending: false });
+        // Obtener datos del conductor desde la sesión
+        const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
+        if (!sesionRaw) { window.location.href = "index.html"; return; }
+        
+        const user = JSON.parse(sesionRaw);
+        // Usamos una parte del nombre para asegurar que encuentre el registro (ej: "Hernan")
+        const nombreBusqueda = user.nombre || user.nombre_completo || "Conductor";
 
-        const lista = document.getElementById('lista-averias');
-        if (error) { lista.innerHTML = "Error al cargar datos."; return; }
-        if (data.length === 0) { lista.innerHTML = "No tienes reportes grabados."; return; }
+        try {
+            // Consulta a la tabla Averias
+            const { data, error } = await DB.supabase
+                .from('Averias')
+                .select('*')
+                // ilike permite encontrar coincidencias parciales como "Director de orquesta Hernan..."
+                .ilike('reportado_por', `%${nombreBusqueda}%`)
+                .order('created_at', { ascending: false });
 
-        lista.innerHTML = data.map(av => `
-            <div class="card-averia">
-                <div class="info-row">
-                    <span class="placa">🚗 ${av.placa}</span>
-                    <span class="fecha">${new Date(av.created_at).toLocaleDateString()}</span>
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                listaDiv.innerHTML = `
+                    <div style="text-align:center; background:white; padding:40px; border-radius:20px;">
+                        <p style="margin:0; color:#64748b;">No tienes reportes grabados todavía.</p>
+                    </div>`;
+                return;
+            }
+
+            // Generar las tarjetas con los nombres de columna reales de tu tabla
+            listaDiv.innerHTML = data.map(av => `
+                <div class="card-averia">
+                    <div class="top-row">
+                        <span class="placa">🚗 ${av.placa_vehiculo}</span>
+                        <span class="fecha">${new Date(av.created_at).toLocaleDateString()}</span>
+                    </div>
+                    
+                    <div class="falla-tag">${av.tipo_falla ? av.tipo_falla.toUpperCase() : 'FALLA'}</div>
+                    
+                    <div class="descripcion">
+                        ${av.descripcion_sintomas || 'Sin descripción detallada.'}
+                    </div>
+
+                    <button class="btn-wa" onclick="enviarWhatsApp('${av.placa_vehiculo}', '${av.tipo_falla}')">
+                        <span>📲 REENVIAR POR WHATSAPP</span>
+                    </button>
                 </div>
-                <div class="falla">⚠️ ${av.tipo_falla}</div>
-                <div style="font-size: 13px; margin-top: 5px; color: #475569;">${av.sintomas || 'Sin descripción'}</div>
-                
-                <button class="btn-wa" onclick="reviarWhatsApp('${av.placa}', '${av.tipo_falla}')">
-                    REENVIAR POR WHATSAPP
-                </button>
-            </div>
-        `).join('');
+            `).join('');
+
+        } catch (e) {
+            console.error("Error cargando averías:", e);
+            listaDiv.innerHTML = `<div style="color:red; text-align:center;">Error de conexión con la base de datos.</div>`;
+        }
     }
 
-    function reviarWhatsApp(placa, falla) {
-        const msj = `*🚨 REPORTE DE AVERÍA J.R.*%0A*Vehículo:* ${placa}%0A*Falla:* ${falla}%0A*Reporta:* ${sesion.nombre}`;
-        window.open(`https://wa.me/573100000000?text=${msj}`, '_blank');
+    function enviarWhatsApp(placa, falla) {
+        const mensaje = `*🚨 REPORTE DE AVERÍA J.R.*%0A*Vehículo:* ${placa}%0A*Falla:* ${falla}%0A*Estado:* Pendiente Revisión`;
+        // Reemplaza con el número del coordinador correspondiente
+        window.open(`https://wa.me/573100000000?text=${mensaje}`, '_blank');
     }
 
+    // Iniciar carga al abrir la página
     window.onload = cargarAverias;
 </script>
+
 </body>
 </html>
