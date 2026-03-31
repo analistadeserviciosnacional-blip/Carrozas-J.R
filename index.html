@@ -3,38 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. | Acceso Corporativo</title>
+    <title>J.R. — Control de Acceso</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --azul: #3498DB; --celeste: #E3F2FD; --blanco: #FFFFFF; --texto: #2C3E50; }
-        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, var(--celeste) 0%, #bbdefb 100%); height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
-        .login-card { background: var(--blanco); width: 100%; max-width: 350px; padding: 40px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
-        .logo { width: 70px; height: 70px; background: var(--azul); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: bold; }
-        input { width: 100%; padding: 15px; margin-bottom: 20px; border: 1px solid #DDE4EB; border-radius: 12px; background: #F9FBFF; box-sizing: border-box; outline: none; }
-        .btn-login { width: 100%; padding: 18px; background: var(--azul); color: white; border: none; border-radius: 15px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        #error { color: #e74c3c; font-size: 13px; margin-top: 15px; display: none; }
+        :root { 
+            --azul-principal: #004a99; --azul-cielo: #e3f2fd; 
+            --blanco: #ffffff; --gris-texto: #546e7a; 
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: linear-gradient(135deg, var(--azul-principal) 0%, #002d5f 100%); 
+            font-family: 'DM Sans', sans-serif; 
+            height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .login-card { 
+            background: var(--blanco); padding: 40px 30px; border-radius: 25px; 
+            width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); text-align: center;
+        }
+        .logo-placeholder { 
+            font-size: 32px; font-weight: 800; color: var(--azul-principal); margin-bottom: 10px; 
+        }
+        h2 { color: var(--gris-texto); font-size: 16px; margin-bottom: 30px; letter-spacing: 1px; }
+        
+        .input-group { text-align: left; margin-bottom: 20px; }
+        label { display: block; font-size: 12px; font-weight: 700; color: var(--azul-principal); margin-bottom: 8px; text-transform: uppercase; }
+        input { 
+            width: 100%; padding: 14px; border: 2px solid var(--azul-cielo); border-radius: 12px; 
+            font-size: 16px; outline: none; transition: 0.3s; background: #fbfdff;
+        }
+        input:focus { border-color: var(--azul-principal); }
+        
+        .btn-login { 
+            width: 100%; padding: 16px; background: var(--azul-principal); color: white; 
+            border: none; border-radius: 12px; font-weight: 700; font-size: 16px; 
+            cursor: pointer; transition: 0.3s; margin-top: 10px;
+        }
+        .btn-login:hover { background: #003366; transform: translateY(-2px); }
+        .btn-login:disabled { background: #ccc; cursor: not-allowed; }
+        
+        #mensaje { margin-top: 20px; font-size: 14px; font-weight: 500; min-height: 20px; }
+        .error { color: #e53935; }
+        .success { color: #43a047; }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="logo">JR</div>
-        <h2 style="font-weight: 300;">Bienvenido</h2>
-        <input type="text" id="user" placeholder="Usuario">
-        <input type="password" id="pass" placeholder="Contraseña">
-        <button class="btn-login" onclick="login()">INGRESAR AL SISTEMA</button>
-        <div id="error">Usuario o clave incorrectos</div>
+
+<div class="login-card">
+    <div class="logo-placeholder">J.R. TRASLADOS</div>
+    <h2>CONTROL DE PERSONAL</h2>
+
+    <div class="input-group">
+        <label>Usuario / Cédula</label>
+        <input type="text" id="user" placeholder="Ingrese su usuario">
     </div>
-    <script src="db.js"></script>
-    <script>
-        async function login() {
-            const u = document.getElementById('user').value;
-            const p = document.getElementById('pass').value;
-            const { data } = await _supabase.from('usuarios').select('*').eq('usuario', u).eq('password', p).single();
-            if (data) {
-                localStorage.setItem('conductor_nombre', data.nombre);
-                window.location.href = "registro_salida.html";
-            } else { document.getElementById('error').style.display = "block"; }
+
+    <div class="input-group">
+        <label>Contraseña</label>
+        <input type="password" id="pass" placeholder="••••••••">
+    </div>
+
+    <button class="btn-login" id="btnEntrar" onclick="iniciarSesion()">ENTRAR AL SISTEMA</button>
+    <p id="mensaje"></p>
+</div>
+
+<script src="db.js"></script>
+<script>
+    async function iniciarSesion() {
+        const user = document.getElementById('user').value.trim();
+        const pass = document.getElementById('pass').value.trim();
+        const btn = document.getElementById('btnEntrar');
+        const msg = document.getElementById('mensaje');
+
+        if(!user || !pass) {
+            msg.innerText = "Por favor, completa todos los campos";
+            msg.className = "error";
+            return;
         }
-    </script>
+
+        btn.disabled = true;
+        btn.innerText = "VERIFICANDO...";
+        msg.innerText = "";
+
+        try {
+            // 1. Intentamos buscar en la tabla 'usuarios' (Para Admins o Staff)
+            let { data: usuario, error } = await DB.client
+                .from('usuarios')
+                .select('*')
+                .eq('usuario', user) // Ajusta si tu columna se llama 'username' o 'email'
+                .eq('password', pass)
+                .single();
+
+            // 2. Si no lo encuentra en usuarios, buscamos en 'conductores'
+            if (!usuario) {
+                let { data: conductor, error: errC } = await DB.client
+                    .from('conductores')
+                    .select('*')
+                    .eq('cedula', user) // Los conductores suelen usar su cédula
+                    .eq('password', pass)
+                    .single();
+                usuario = conductor;
+            }
+
+            if (usuario) {
+                msg.innerText = "¡Acceso concedido!";
+                msg.className = "success";
+                
+                // GUARDAMOS LA SESIÓN COMPLETA PARA EL REGISTRO DE SALIDA
+                // Aquí guardamos el objeto tal cual viene de Supabase
+                localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
+                
+                setTimeout(() => {
+                    window.location.href = "registro_salida.html";
+                }, 1000);
+            } else {
+                msg.innerText = "Usuario o contraseña incorrectos";
+                msg.className = "error";
+                btn.disabled = false;
+                btn.innerText = "ENTRAR AL SISTEMA";
+            }
+
+        } catch (error) {
+            console.error(error);
+            msg.innerText = "Error de conexión con el servidor";
+            msg.className = "error";
+            btn.disabled = false;
+        }
+    }
+</script>
+
 </body>
 </html>
