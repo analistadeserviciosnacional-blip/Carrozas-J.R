@@ -3,110 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Control de Acceso</title>
+    <title>J.R. TRASLADOS — Login</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { 
-            --azul-principal: #1a3a6d; --blanco: #ffffff; --gris-fondo: #f4f7f6; 
-        }
+        :root { --azul-medio: #4a69bd; --azul-oscuro: #0a192f; --blanco: #ffffff; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
-            background: #001f3f; 
+            background: var(--azul-oscuro); 
             font-family: 'DM Sans', sans-serif; 
             height: 100vh; display: flex; align-items: center; justify-content: center; 
         }
         .login-card { 
-            background: var(--blanco); padding: 40px; border-radius: 20px; 
-            width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center;
+            background: var(--blanco); padding: 40px 30px; border-radius: 20px; 
+            width: 100%; max-width: 400px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }
-        .logo-box { margin-bottom: 20px; }
-        .logo-box img { width: 60px; }
-        h1 { font-size: 22px; color: #1a3a6d; margin-bottom: 5px; }
-        p { font-size: 12px; color: #666; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 1px; }
+        .logo { font-size: 40px; margin-bottom: 10px; }
+        h2 { color: #1a3a6d; font-size: 20px; margin-bottom: 5px; }
+        p { color: #666; font-size: 12px; margin-bottom: 30px; letter-spacing: 1px; }
         
-        .input-group { text-align: left; margin-bottom: 15px; }
-        label { display: block; font-size: 11px; font-weight: 700; color: #1a3a6d; margin-bottom: 5px; }
+        .input-group { text-align: left; margin-bottom: 20px; }
+        label { display: block; font-size: 11px; font-weight: 700; color: #1a3a6d; margin-bottom: 8px; }
         input { 
-            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; 
-            font-size: 15px; background: #f9f9f9;
+            width: 100%; padding: 14px; border: 1px solid #e0e0e0; border-radius: 10px; 
+            font-size: 16px; background: #f8f9fa; outline: none;
         }
+        input:focus { border-color: var(--azul-medio); background: #fff; }
+        
         .btn-login { 
-            width: 100%; padding: 15px; background: #3b71ca; color: white; 
-            border: none; border-radius: 8px; font-weight: 700; cursor: pointer; 
-            margin-top: 10px; transition: 0.3s;
+            width: 100%; padding: 16px; background: #3f51b5; color: white; 
+            border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 15px;
         }
-        .btn-login:hover { background: #2c5496; }
-        #mensaje { color: #d32f2f; font-size: 13px; margin-top: 15px; font-weight: 500; }
+        #error-msg { color: #ff5252; font-size: 13px; margin-top: 15px; font-weight: 500; display: none; }
     </style>
 </head>
 <body>
 
 <div class="login-card">
-    <div class="logo-box">
-        <div style="font-size: 40px;">🚗</div>
-    </div>
-    <h1>J.R. TRASLADOS</h1>
-    <p>Sistema de Gestión de Carrozas</p>
+    <div class="logo">🚗</div>
+    <h2>J.R. TRASLADOS</h2>
+    <p>SISTEMA DE GESTIÓN DE CARROZAS</p>
 
     <div class="input-group">
         <label>USUARIO</label>
-        <input type="text" id="user" placeholder="Ej: admin">
+        <input type="text" id="userInput" placeholder="Ej: Cesar Augusto">
     </div>
 
     <div class="input-group">
         <label>CONTRASEÑA</label>
-        <input type="password" id="pass" placeholder="••••••••">
+        <input type="password" id="passInput" placeholder="••••">
     </div>
 
-    <button class="btn-login" id="btnEntrar" onclick="iniciarSesion()">INGRESAR AL SISTEMA</button>
-    <div id="mensaje"></div>
+    <button class="btn-login" id="btnLogin" onclick="validarAcceso()">INGRESAR AL SISTEMA</button>
+    <div id="error-msg">Error de conexión con el servidor</div>
 </div>
 
 <script src="db.js"></script>
-<script>
-    async function iniciarSesion() {
-        const userVal = document.getElementById('user').value.trim();
-        const passVal = document.getElementById('pass').value.trim();
-        const btn = document.getElementById('btnEntrar');
-        const msg = document.getElementById('mensaje');
 
-        if(!userVal || !passVal) {
-            msg.innerText = "Complete todos los campos";
+<script>
+    async function validarAcceso() {
+        const user = document.getElementById('userInput').value.trim();
+        const pass = document.getElementById('passInput').value.trim();
+        const btn = document.getElementById('btnLogin');
+        const errorDiv = document.getElementById('error-msg');
+
+        if (!user || !pass) {
+            errorDiv.innerText = "Por favor completa todos los campos";
+            errorDiv.style.display = "block";
             return;
         }
 
         btn.innerText = "VERIFICANDO...";
         btn.disabled = true;
+        errorDiv.style.display = "none";
 
         try {
-            // Consulta exacta a tu tabla 'usuarios' según tu captura de pantalla
+            // Buscamos en la tabla 'usuarios' según tus capturas
             const { data, error } = await DB.client
                 .from('usuarios')
-                .select('id, usuario, password, nombre') // Traemos el campo 'nombre' para el saludo
-                .eq('usuario', userVal)
-                .eq('password', passVal)
+                .select('id, usuario, password, nombre')
+                .eq('usuario', user)
+                .eq('password', pass)
                 .single();
 
             if (error || !data) {
-                msg.innerText = "Error: Usuario o clave no coinciden";
+                errorDiv.innerText = "Usuario o contraseña incorrectos";
+                errorDiv.style.display = "block";
                 btn.innerText = "INGRESAR AL SISTEMA";
                 btn.disabled = false;
             } else {
-                // GUARDADO DE SESIÓN: Guardamos el objeto para que registro_salida.html lo use
+                // ÉXITO: Guardamos la sesión y el nombre para el saludo
                 localStorage.setItem('usuario_sesion', JSON.stringify(data));
-                
-                msg.style.color = "#2e7d32";
-                msg.innerText = "Acceso correcto. Redireccionando...";
-                
-                setTimeout(() => {
-                    window.location.href = "registro_salida.html";
-                }, 800);
+                window.location.href = "registro_salida.html";
             }
         } catch (err) {
-            msg.innerText = "Error de conexión con el servidor";
-            btn.disabled = false;
+            console.error(err);
+            errorDiv.innerText = "Error de conexión con el servidor";
+            errorDiv.style.display = "block";
             btn.innerText = "INGRESAR AL SISTEMA";
+            btn.disabled = false;
         }
     }
 </script>
