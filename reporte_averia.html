@@ -58,12 +58,10 @@
         <div class="grid-2">
             <div>
                 <label>Placa del Vehículo</label>
-                <!-- id="placa" → se enviará como datos.placa → guardado en placa_vehiculo ✅ -->
                 <input type="text" id="placa" placeholder="ABC-123">
             </div>
             <div>
                 <label>Vehículo / Carroza</label>
-                <!-- id="vehiculo" → se enviará como datos.vehiculo → guardado en tipo_vehiculo ✅ -->
                 <select id="vehiculo">
                     <option value="">Seleccionar...</option>
                     <option>Carroza GJX-497</option>
@@ -88,7 +86,6 @@
         </select>
 
         <label>Descripción de Síntomas</label>
-        <!-- id="sintomas" → se enviará como datos.sintomas → guardado en descripcion_sintomas ✅ -->
         <textarea id="sintomas" rows="3" placeholder="Describe detalladamente qué sucede, qué ruidos, qué falla..."></textarea>
 
         <label>Observaciones Adicionales</label>
@@ -107,7 +104,7 @@
 
 <script src="db.js"></script>
 <script>
-    let fotosArray = [];
+    let fotosArray = []; // ✅ CORREGIDO (antes: iamgenArray con typo)
 
     window.onload = () => {
         const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
@@ -157,20 +154,18 @@
 
         btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
 
-        // Los nombres aquí (placa, vehiculo, sintomas) son los que recibe
-        // guardarAveria() en db.js y los mapea a los nombres reales de Supabase
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional:      document.getElementById('regional').value,
-            placa:         placa.toUpperCase(),   // → placa_vehiculo en Supabase
-            vehiculo:      vehiculo,               // → tipo_vehiculo en Supabase
+            placa:         placa.toUpperCase(),
+            vehiculo:      vehiculo,
             tipo_falla:    document.getElementById('tipo_falla').value,
-            sintomas:      sintomas,               // → descripcion_sintomas en Supabase
+            sintomas:      sintomas,
             observaciones: document.getElementById('observaciones').value,
-            imagen1:       iamgenArray[0] || "",
-            imagen2:       imagenArray[1] || "",
-            imagen3:       imagenArray[2] || "",
-            imagen4:       imagenArray[3] || ""
+            imagen1:       fotosArray[0] || "",  // ✅ CORREGIDO
+            imagen2:       fotosArray[1] || "",  // ✅ CORREGIDO
+            imagen3:       fotosArray[2] || "",  // ✅ CORREGIDO
+            imagen4:       fotosArray[3] || ""   // ✅ CORREGIDO
         };
 
         try {
@@ -187,13 +182,14 @@
             btn.disabled = false; btn.innerText = "🚨 ENVIAR REPORTE DE AVERÍA";
         }
     }
+
     function enviarWhatsAppAveria() {
         const reportado = document.getElementById('reportado_por').value;
-        const placa = document.getElementById('placa').value.toUpperCase();
-        const falla = document.getElementById('tipo_falla').value;
-        const regional = document.getElementById('regional').value;
+        const placa     = document.getElementById('placa').value.toUpperCase();
+        const falla     = document.getElementById('tipo_falla').value;
+        const regional  = document.getElementById('regional').value;
 
-        if(!placa || !falla) { alert("Completa los datos primero"); return; }
+        if (!placa || !falla) { alert("Completa los datos primero"); return; }
 
         const msj = `*🚨 REPORTE DE AVERÍA - J.R.*%0A` +
                     `----------------------------%0A` +
@@ -204,7 +200,7 @@
                     `----------------------------%0A` +
                     `📝 _Fotos guardadas en el sistema._`;
 
-        const tel = "573000000000"; // CAMBIA ESTE NÚMERO
+        const tel = "573000000000"; // ← CAMBIA ESTE NÚMERO
         window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
     }
 </script>
