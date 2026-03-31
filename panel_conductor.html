@@ -17,8 +17,7 @@
         .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 20px; }
         .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
 
-        /* CONTADOR DE AVERÍAS */
-        .resumen-averias { width: 100%; max-width: 600px; background: var(--azul); color: white; border-radius: 20px; padding: 18px 22px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-sizing: border-box; text-decoration: none; }
+        .resumen-averias { width: 100%; max-width: 600px; background: var(--azul); color: white; border-radius: 20px; padding: 18px 22px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-sizing: border-box; text-decoration: none; transition: 0.2s; }
         .resumen-averias:active { transform: scale(0.98); }
         .resumen-averias .num { font-size: 36px; font-weight: 700; line-height: 1; }
         .resumen-averias .txt { font-size: 13px; opacity: 0.85; margin-top: 3px; }
@@ -49,10 +48,9 @@
         <p style="color: #64748b; font-size: 14px;">Panel de Servicios Activos</p>
     </div>
 
-    <!-- CONTADOR → lleva a mis_averias.html -->
     <a href="mis_averias.html" class="resumen-averias">
         <div>
-            <div class="num" id="contador-averias">–</div>
+            <div class="num" id="contador-averias">0</div>
             <div class="txt">Mis reportes de avería · Ver todos →</div>
         </div>
         <div class="ico">⚠️</div>
@@ -90,7 +88,9 @@
     <script>
         const SUPA_URL = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
         const SUPA_KEY = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
-        const _db = supabase.createClient(SUPA_URL, SUPA_KEY);
+        
+        // CORRECCIÓN: Usar window.supabase para evitar errores de carga
+        const _db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
         window.onload = async () => {
             const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
@@ -98,19 +98,25 @@
 
             try {
                 const user = JSON.parse(sesionRaw);
-                const nombre = user.nombre || user.nombre_completo || user.username || "Conductor";
-                document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
+                const nombreCompleto = user.nombre || user.nombre_completo || "Conductor";
+                // Usamos solo el primer nombre para la búsqueda flexible
+                const primerNombre = nombreCompleto.split(' ')[0];
+                
+                document.getElementById('txt-conductor').innerText = "Hola, " + nombreCompleto;
 
-                // Contar averías del conductor
-                const { data } = await _db
+                // Consulta de conteo con búsqueda flexible
+                const { data, error } = await _db
                     .from('Averias')
-                    .select('id')
-                    .ilike('reportado_por', `%${nombre}%`);
+                    .select('identificador') // Cambiado a 'identificador' que es tu columna ID
+                    .ilike('reportado_por', `%${primerNombre}%`);
 
+                if (error) throw error;
                 document.getElementById('contador-averias').innerText = data ? data.length : 0;
 
             } catch (e) {
-                window.location.href = "index.html";
+                console.error("Error en panel:", e);
+                // Si hay error de sesión, vuelve al login
+                if (!localStorage.getItem('usuario_sesion')) window.location.href = "index.html";
             }
         };
 
