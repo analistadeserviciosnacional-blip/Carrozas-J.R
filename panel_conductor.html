@@ -14,8 +14,15 @@
         .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
         .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
 
-        .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
+        .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 20px; }
         .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
+
+        /* CONTADOR DE AVERÍAS */
+        .resumen-averias { width: 100%; max-width: 600px; background: var(--azul); color: white; border-radius: 20px; padding: 18px 22px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-sizing: border-box; text-decoration: none; }
+        .resumen-averias:active { transform: scale(0.98); }
+        .resumen-averias .num { font-size: 36px; font-weight: 700; line-height: 1; }
+        .resumen-averias .txt { font-size: 13px; opacity: 0.85; margin-top: 3px; }
+        .resumen-averias .ico { font-size: 35px; }
 
         .menu-conductor { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 25px; }
         .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -23,15 +30,11 @@
         .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
         .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 12px; }
 
-        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
-        .monitor-mini h2 { font-size: 16px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
-        
-        .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
-
+        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; }
+        .monitor-mini h2 { font-size: 16px; color: var(--azul); margin-top: 0; margin-bottom: 15px; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
         .status-pill { color: #10b981; font-weight: bold; font-size: 10px; background: #ecfdf5; padding: 4px 8px; border-radius: 8px; }
-        .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -46,30 +49,24 @@
         <p style="color: #64748b; font-size: 14px;">Panel de Servicios Activos</p>
     </div>
 
+    <!-- CONTADOR → lleva a mis_averias.html -->
+    <a href="mis_averias.html" class="resumen-averias">
+        <div>
+            <div class="num" id="contador-averias">–</div>
+            <div class="txt">Mis reportes de avería · Ver todos →</div>
+        </div>
+        <div class="ico">⚠️</div>
+    </a>
+
     <div class="menu-conductor">
         <a href="registro_salida.html" class="card-condu">
             <i>🚚</i>
             <span>Nueva Salida</span>
         </a>
-
         <a href="reporte_averia.html" class="card-condu">
             <i>⚠️</i>
             <span>Reportar Avería</span>
         </a>
-    </div>
-
-    <div class="monitor-mini">
-        <h2>
-            Mis Reportes de Avería
-            <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a>
-        </h2>
-        <table>
-            <tbody id="tabla-averias">
-                <tr>
-                    <td colspan="3" style="text-align: center; color: #94a3b8;">Cargando tus reportes...</td>
-                </tr>
-            </tbody>
-        </table>
     </div>
 
     <div class="monitor-mini">
@@ -90,61 +87,32 @@
         </table>
     </div>
 
-    <script src="db.js"></script>
     <script>
+        const SUPA_URL = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
+        const SUPA_KEY = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
+        const _db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
         window.onload = async () => {
             const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
             if (!sesionRaw) { window.location.href = "index.html"; return; }
-            
+
             try {
                 const user = JSON.parse(sesionRaw);
-                // El nombre lo tomamos de la sesión
-                const nombreCompleto = user.nombre || user.nombre_completo || "Conductor";
-                document.getElementById('txt-conductor').innerText = "Hola, " + nombreCompleto;
+                const nombre = user.nombre || user.nombre_completo || user.username || "Conductor";
+                document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
 
-                // Cargar breve resumen de averías (usamos el nombre del usuario logueado)
-                cargarResumenAverias(nombreCompleto);
+                // Contar averías del conductor
+                const { data } = await _db
+                    .from('Averias')
+                    .select('id')
+                    .ilike('reportado_por', `%${nombre}%`);
+
+                document.getElementById('contador-averias').innerText = data ? data.length : 0;
+
             } catch (e) {
-                console.error("Error de sesión:", e);
                 window.location.href = "index.html";
             }
         };
-
-        async function cargarResumenAverias(nombre) {
-            const tabla = document.getElementById('tabla-averias');
-            
-            try {
-                // Buscamos solo el primer nombre para mayor flexibilidad
-                const primerNombre = nombre.split(' ')[0]; 
-
-                const { data, error } = await DB.supabase
-                    .from('Averias')
-                    .select('placa_vehiculo, tipo_falla, created_at') // ✅ 'placa_vehiculo' corregido
-                    .ilike('reportado_por', `%${primerNombre}%`) // ✅ Búsqueda flexible corregida
-                    .order('created_at', { ascending: false })
-                    .limit(3); 
-
-                if (error) throw error;
-
-                if (!data || data.length === 0) {
-                    tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No tienes reportes recientes.</td></tr>';
-                    return;
-                }
-
-                // Renderizar usando 'av.placa_vehiculo'
-                tabla.innerHTML = data.map(av => `
-                    <tr>
-                        <td><b>${av.placa_vehiculo}</b></td>
-                        <td style="font-size: 11px;">${new Date(av.created_at).toLocaleDateString()}</td>
-                        <td style="text-align: right;"><span class="falla-pill">${av.tipo_falla ? av.tipo_falla.toUpperCase() : 'FALLA'}</span></td>
-                    </tr>
-                `).join('');
-
-            } catch (e) {
-                console.error("Error cargando resumen:", e);
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red; font-size: 11px;">Error de conexión.</td></tr>';
-            }
-        }
 
         function cerrarSesion() {
             localStorage.clear();
