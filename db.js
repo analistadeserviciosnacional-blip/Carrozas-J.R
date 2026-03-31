@@ -1,4 +1,4 @@
-// CONFIGURACIÓN SUPABASE J.R.
+// ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -39,25 +39,26 @@ const DB = {
         return { ok: !error, error };
     },
 
-    // ── AVERÍAS ────────────────────────────────────────────
+    // ── AVERÍAS ─────────────────────────────────────────────
+    // Columnas reales en Supabase:
+    // id | reportado_por | regional | placa_vehiculo |
+    // tipo_vehiculo | tipo_falla | descripcion_sintomas | observaciones |
+    // imagen1 | imagen2 | imagen3 | imagen4
     async guardarAveria(datos) {
         const { error } = await _supabase
             .from('Averias')
             .insert([{
-                id_averia:      'AV-' + Date.now(),
-                fecha:          datos.fecha,
-                hora:           datos.hora,
-                reportado_por:  datos.reportado_por,
-                regional:       datos.regional,
-                placa:          datos.placa,
-                vehiculo:       datos.vehiculo,
-                tipo_falla:     datos.tipo_falla,
-                sintomas:       datos.sintomas,
-                observaciones:  datos.observaciones,
-                imagen1:        datos.imagen1,
-                imagen2:        datos.imagen2,
-                imagen3:        datos.imagen3,
-                imagen4:        datos.imagen4
+                reportado_por:        datos.reportado_por,
+                regional:             datos.regional,
+                placa_vehiculo:       datos.placa,        // ✅ nombre real en Supabase
+                tipo_vehiculo:        datos.vehiculo,     // ✅ nombre real en Supabase
+                tipo_falla:           datos.tipo_falla,
+                descripcion_sintomas: datos.sintomas,     // ✅ nombre real en Supabase
+                observaciones:        datos.observaciones,
+                imagen1:              datos.imagen1,
+                imagen2:              datos.imagen2,
+                imagen3:              datos.imagen3,
+                imagen4:              datos.imagen4
             }]);
 
         return { ok: !error, error };
