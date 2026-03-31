@@ -2,11 +2,11 @@
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 
-// Se crea la instancia una sola vez
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
-    // Exponemos la instancia para consultas directas desde los HTML
+
+    // ✅ Expuesto para consultas directas desde cualquier HTML
     supabase: _supabase,
 
     // ── TRASLADOS ──────────────────────────────────────────
@@ -39,7 +39,6 @@ const DB = {
                 imagen4:                datos.imagen4,
                 firma:                  datos.firma
             }]);
-
         return { ok: !error, error };
     },
 
@@ -50,18 +49,36 @@ const DB = {
             .insert([{
                 reportado_por:        datos.reportado_por,
                 regional:             datos.regional,
-                placa_vehiculo:       datos.placa,        // ✅ Columna real
-                tipo_vehiculo:        datos.vehiculo,     // ✅ Columna real
+                placa_vehiculo:       datos.placa,
+                tipo_vehiculo:        datos.vehiculo,
                 tipo_falla:           datos.tipo_falla,
-                descripcion_sintomas: datos.sintomas,     // ✅ Columna real
+                descripcion_sintomas: datos.sintomas,
                 observaciones:        datos.observaciones,
                 imagen1:              datos.imagen1,
                 imagen2:              datos.imagen2,
                 imagen3:              datos.imagen3,
                 imagen4:              datos.imagen4
             }]);
-
         return { ok: !error, error };
+    },
+
+    // ── OBTENER AVERÍAS POR CONDUCTOR ───────────────────────
+    async obtenerAveriasPorConductor(nombre) {
+        const { data, error } = await _supabase
+            .from('Averias')
+            .select('*')
+            .ilike('reportado_por', `%${nombre}%`)
+            .order('id', { ascending: false });
+        return { data, error };
+    },
+
+    // ── OBTENER TODAS LAS AVERÍAS (admin) ───────────────────
+    async obtenerTodasAverias() {
+        const { data, error } = await _supabase
+            .from('Averias')
+            .select('*')
+            .order('id', { ascending: false });
+        return { data, error };
     },
 
     // ── CARROZAS ───────────────────────────────────────────
@@ -80,10 +97,10 @@ const DB = {
                 observaciones:          datos.observaciones,
                 fecha_registro:         new Date().toLocaleDateString()
             }]);
-
         return { ok: !error, error };
     }
+
 };
 
-// CRÍTICO: Exportar el objeto para que sea accesible desde cualquier HTML
+// ✅ Disponible globalmente en todos los HTML
 window.DB = DB;
