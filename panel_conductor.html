@@ -17,6 +17,7 @@
         .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 20px; }
         .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
 
+        /* CONTADOR DE AVERÍAS */
         .resumen-averias { width: 100%; max-width: 600px; background: var(--azul); color: white; border-radius: 20px; padding: 18px 22px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-sizing: border-box; text-decoration: none; transition: 0.2s; }
         .resumen-averias:active { transform: scale(0.98); }
         .resumen-averias .num { font-size: 36px; font-weight: 700; line-height: 1; }
@@ -85,38 +86,38 @@
         </table>
     </div>
 
-    <script>
-        const SUPA_URL = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
-        const SUPA_KEY = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
-        
-        // CORRECCIÓN: Usar window.supabase para evitar errores de carga
-        const _db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    <script src="db.js"></script>
 
+    <script>
         window.onload = async () => {
+            // Cargar datos de sesión
             const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
             if (!sesionRaw) { window.location.href = "index.html"; return; }
 
             try {
                 const user = JSON.parse(sesionRaw);
-                const nombreCompleto = user.nombre || user.nombre_completo || "Conductor";
-                // Usamos solo el primer nombre para la búsqueda flexible
-                const primerNombre = nombreCompleto.split(' ')[0];
-                
+                const nombreCompleto = user.nombre || user.nombre_completo || "Hernan Torres";
                 document.getElementById('txt-conductor').innerText = "Hola, " + nombreCompleto;
 
-                // Consulta de conteo con búsqueda flexible
-                const { data, error } = await _db
+                // Extraemos el primer nombre para la búsqueda flexible
+                const primerNombre = nombreCompleto.split(' ')[0]; 
+
+                // Consulta para contar tus averías en Supabase
+                // Usamos 'identificador' porque es el nombre de tu columna ID
+                const { data, error } = await DB.supabase
                     .from('Averias')
-                    .select('identificador') // Cambiado a 'identificador' que es tu columna ID
+                    .select('identificador') 
                     .ilike('reportado_por', `%${primerNombre}%`);
 
                 if (error) throw error;
+
+                // Actualizar el número en el círculo azul
                 document.getElementById('contador-averias').innerText = data ? data.length : 0;
 
             } catch (e) {
-                console.error("Error en panel:", e);
-                // Si hay error de sesión, vuelve al login
-                if (!localStorage.getItem('usuario_sesion')) window.location.href = "index.html";
+                console.error("Error cargando panel:", e);
+                // Si falla la conexión, mostramos 0 por defecto
+                document.getElementById('contador-averias').innerText = "!";
             }
         };
 
