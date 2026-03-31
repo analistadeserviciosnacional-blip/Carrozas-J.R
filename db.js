@@ -55,10 +55,10 @@ const DB = {
                 tipo_falla:           datos.tipo_falla,
                 descripcion_sintomas: datos.sintomas,     // ✅ nombre real en Supabase
                 observaciones:        datos.observaciones,
-                imagen1:              datos.imagen1,
-                imagen2:              datos.imagen2,
-                imagen3:              datos.imagen3,
-                imagen4:              datos.imagen4
+                foto1:              datos.imagen1,
+                foto2:              datos.imagen2,
+                foto3:              datos.imagen3,
+                foto4:              datos.imagen4
             }]);
 
         return { ok: !error, error };
