@@ -22,11 +22,16 @@
         .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
         .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 12px; }
 
-        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; }
-        .monitor-mini h2 { font-size: 16px; color: var(--azul); margin-top: 0; margin-bottom: 15px; }
+        /* SECCIÓN DE REPORTES Y MONITOR */
+        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
+        .monitor-mini h2 { font-size: 16px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
+
         table { width: 100%; border-collapse: collapse; }
         td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
         .status-pill { color: #10b981; font-weight: bold; font-size: 10px; background: #ecfdf5; padding: 4px 8px; border-radius: 8px; }
+        .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -41,7 +46,6 @@
         <p style="color: #64748b; font-size: 14px;">Panel de Servicios Activos</p>
     </div>
 
-    <!-- ✅ AMBOS ENLACES ACTIVOS — sin alert bloqueante -->
     <div class="menu-conductor">
         <a href="registro_salida.html" class="card-condu">
             <i>🚚</i>
@@ -52,6 +56,20 @@
             <i>⚠️</i>
             <span>Reportar Avería</span>
         </a>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>
+            Mis Reportes de Avería
+            <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a>
+        </h2>
+        <table>
+            <tbody id="tabla-averias">
+                <tr>
+                    <td colspan="3" style="text-align: center; color: #94a3b8;">Cargando tus reportes...</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
     <div class="monitor-mini">
@@ -72,18 +90,46 @@
         </table>
     </div>
 
+    <script src="db.js"></script>
     <script>
-        window.onload = () => {
+        window.onload = async () => {
             const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
             if (!sesionRaw) { window.location.href = "index.html"; return; }
+            
             try {
                 const user = JSON.parse(sesionRaw);
                 const nombre = user.nombre || user.nombre_completo || user.username || "Conductor";
                 document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
+
+                // Cargar breve resumen de averías del conductor
+                cargarResumenAverias(nombre);
             } catch (e) {
                 window.location.href = "index.html";
             }
         };
+
+        async function cargarResumenAverias(nombre) {
+            const { data, error } = await DB.supabase
+                .from('Averias')
+                .select('placa, tipo_falla, created_at')
+                .eq('reportado_por', nombre)
+                .order('created_at', { ascending: false })
+                .limit(3); // Solo mostrar las últimas 3
+
+            const tabla = document.getElementById('tabla-averias');
+            if (error || !data || data.length === 0) {
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No tienes reportes recientes.</td></tr>';
+                return;
+            }
+
+            tabla.innerHTML = data.map(av => `
+                <tr>
+                    <td><b>${av.placa}</b></td>
+                    <td style="font-size: 11px;">${new Date(av.created_at).toLocaleDateString()}</td>
+                    <td style="text-align: right;"><span class="falla-pill">${av.tipo_falla.toUpperCase()}</span></td>
+                </tr>
+            `).join('');
+        }
 
         function cerrarSesion() {
             localStorage.clear();
