@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Panel Conductor</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; }
@@ -14,15 +13,8 @@
         .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
         .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
 
-        .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 20px; }
+        .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
         .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
-
-        /* CONTADOR DE AVERÍAS */
-        .resumen-averias { width: 100%; max-width: 600px; background: var(--azul); color: white; border-radius: 20px; padding: 18px 22px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-sizing: border-box; text-decoration: none; transition: 0.2s; }
-        .resumen-averias:active { transform: scale(0.98); }
-        .resumen-averias .num { font-size: 36px; font-weight: 700; line-height: 1; }
-        .resumen-averias .txt { font-size: 13px; opacity: 0.85; margin-top: 3px; }
-        .resumen-averias .ico { font-size: 35px; }
 
         .menu-conductor { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 25px; }
         .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -30,11 +22,16 @@
         .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
         .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 12px; }
 
-        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; }
-        .monitor-mini h2 { font-size: 16px; color: var(--azul); margin-top: 0; margin-bottom: 15px; }
+        /* SECCIÓN DE REPORTES Y MONITOR */
+        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
+        .monitor-mini h2 { font-size: 16px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
+
         table { width: 100%; border-collapse: collapse; }
         td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
         .status-pill { color: #10b981; font-weight: bold; font-size: 10px; background: #ecfdf5; padding: 4px 8px; border-radius: 8px; }
+        .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -49,23 +46,30 @@
         <p style="color: #64748b; font-size: 14px;">Panel de Servicios Activos</p>
     </div>
 
-    <a href="mis_averias.html" class="resumen-averias">
-        <div>
-            <div class="num" id="contador-averias">0</div>
-            <div class="txt">Mis reportes de avería · Ver todos →</div>
-        </div>
-        <div class="ico">⚠️</div>
-    </a>
-
     <div class="menu-conductor">
         <a href="registro_salida.html" class="card-condu">
             <i>🚚</i>
             <span>Nueva Salida</span>
         </a>
+
         <a href="reporte_averia.html" class="card-condu">
             <i>⚠️</i>
             <span>Reportar Avería</span>
         </a>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>
+            Mis Reportes de Avería
+            <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a>
+        </h2>
+        <table>
+            <tbody id="tabla-averias">
+                <tr>
+                    <td colspan="3" style="text-align: center; color: #94a3b8;">Cargando tus reportes...</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
     <div class="monitor-mini">
@@ -87,39 +91,45 @@
     </div>
 
     <script src="db.js"></script>
-
     <script>
         window.onload = async () => {
-            // Cargar datos de sesión
             const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
             if (!sesionRaw) { window.location.href = "index.html"; return; }
-
+            
             try {
                 const user = JSON.parse(sesionRaw);
-                const nombreCompleto = user.nombre || user.nombre_completo || "Hernan Torres";
-                document.getElementById('txt-conductor').innerText = "Hola, " + nombreCompleto;
+                const nombre = user.nombre || user.nombre_completo || user.username || "Conductor";
+                document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
 
-                // Extraemos el primer nombre para la búsqueda flexible
-                const primerNombre = nombreCompleto.split(' ')[0]; 
-
-                // Consulta para contar tus averías en Supabase
-                // Usamos 'identificador' porque es el nombre de tu columna ID
-                const { data, error } = await DB.supabase
-                    .from('Averias')
-                    .select('identificador') 
-                    .ilike('reportado_por', `%${primerNombre}%`);
-
-                if (error) throw error;
-
-                // Actualizar el número en el círculo azul
-                document.getElementById('contador-averias').innerText = data ? data.length : 0;
-
+                // Cargar breve resumen de averías del conductor
+                cargarResumenAverias(nombre);
             } catch (e) {
-                console.error("Error cargando panel:", e);
-                // Si falla la conexión, mostramos 0 por defecto
-                document.getElementById('contador-averias').innerText = "!";
+                window.location.href = "index.html";
             }
         };
+
+        async function cargarResumenAverias(nombre) {
+            const { data, error } = await DB.supabase
+                .from('Averias')
+                .select('placa, tipo_falla, created_at')
+                .eq('reportado_por', nombre)
+                .order('created_at', { ascending: false })
+                .limit(3); // Solo mostrar las últimas 3
+
+            const tabla = document.getElementById('tabla-averias');
+            if (error || !data || data.length === 0) {
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No tienes reportes recientes.</td></tr>';
+                return;
+            }
+
+            tabla.innerHTML = data.map(av => `
+                <tr>
+                    <td><b>${av.placa}</b></td>
+                    <td style="font-size: 11px;">${new Date(av.created_at).toLocaleDateString()}</td>
+                    <td style="text-align: right;"><span class="falla-pill">${av.tipo_falla.toUpperCase()}</span></td>
+                </tr>
+            `).join('');
+        }
 
         function cerrarSesion() {
             localStorage.clear();
