@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Reporte de Avería</title>
+    <title>Averías</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -16,26 +16,19 @@
         .content { padding: 20px; }
         .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #546e7a; margin: 20px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
         label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
-        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; outline: none; }
-        input:focus { border-color: var(--azul); }
+        input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .upload-container { border: 2px dashed var(--rojo); border-radius: 15px; padding: 15px; text-align: center; background: #fff5f5; cursor: pointer; margin-bottom: 12px; }
         .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid #fecaca; }
         .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; font-weight: bold; }
-        
-        /* Botones principales */
-        .btn-save { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
-        .btn-db { background: var(--rojo); color: white; }
-        .btn-db:disabled { background: #94a3b8; cursor: not-allowed; }
-        .btn-wa { background: #25d366; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
-        
+        .btn-save { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; background: var(--rojo); color: white; }
+        .btn-save:disabled { background: #94a3b8; cursor: not-allowed; }
         .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
     </style>
 </head>
 <body>
-
 <div class="container">
     <div class="header">
         <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
@@ -65,10 +58,12 @@
         <div class="grid-2">
             <div>
                 <label>Placa del Vehículo</label>
-                <input type="text" id="placa" placeholder="ABC-123" oninput="this.value = this.value.toUpperCase()">
+                <!-- id="placa" → se enviará como datos.placa → guardado en placa_vehiculo ✅ -->
+                <input type="text" id="placa" placeholder="ABC-123">
             </div>
             <div>
                 <label>Vehículo / Carroza</label>
+                <!-- id="vehiculo" → se enviará como datos.vehiculo → guardado en tipo_vehiculo ✅ -->
                 <select id="vehiculo">
                     <option value="">Seleccionar...</option>
                     <option>Carroza GJX-497</option>
@@ -93,10 +88,11 @@
         </select>
 
         <label>Descripción de Síntomas</label>
-        <textarea id="sintomas" rows="3" placeholder="Describe detalladamente qué sucede..."></textarea>
+        <!-- id="sintomas" → se enviará como datos.sintomas → guardado en descripcion_sintomas ✅ -->
+        <textarea id="sintomas" rows="3" placeholder="Describe detalladamente qué sucede, qué ruidos, qué falla..."></textarea>
 
         <label>Observaciones Adicionales</label>
-        <textarea id="observaciones" rows="2" placeholder="Notas adicionales..."></textarea>
+        <textarea id="observaciones" rows="2" placeholder="Información adicional relevante..."></textarea>
 
         <div class="section-title">Evidencias Fotográficas (Máximo 4)</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
@@ -105,8 +101,7 @@
         </div>
         <div class="preview-gallery" id="galeria"></div>
 
-        <button class="btn-save btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
-        <button class="btn-save btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. ENVIAR POR WHATSAPP</button>
+        <button class="btn-save" id="btn-envio" onclick="guardarAveria()">🚨 ENVIAR REPORTE DE AVERÍA</button>
     </div>
 </div>
 
@@ -117,11 +112,10 @@
     window.onload = () => {
         const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
         if (!sesionRaw) { window.location.href = "index.html"; return; }
-        
         const user = JSON.parse(sesionRaw);
         const nombre = user.nombre || user.nombre_completo || user.username || "Usuario";
         document.getElementById('reportado_por').value = nombre;
-        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (user.rol || "CONDUCTOR").toUpperCase();
+        document.getElementById('rol-info').innerText = "SESIÓN: " + (user.rol || "CONDUCTOR").toUpperCase();
     };
 
     function irAtras() {
@@ -135,10 +129,7 @@
             if (fotosArray.length < 4) {
                 const reader = new FileReader();
                 reader.readAsDataURL(f);
-                reader.onload = (e) => { 
-                    fotosArray.push(e.target.result); 
-                    renderGaleria(); 
-                };
+                reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
             }
         }
     }
@@ -156,44 +147,46 @@
 
     async function guardarAveria() {
         const btn = document.getElementById('btn-envio');
-        const placa = document.getElementById('placa').value.trim();
-        const falla = document.getElementById('tipo_falla').value;
+        const placa    = document.getElementById('placa').value.trim();
+        const vehiculo = document.getElementById('vehiculo').value;
+        const sintomas = document.getElementById('sintomas').value.trim();
 
-        if (!placa || !falla) {
-            alert("Por favor indica Placa y Tipo de Falla"); return;
+        if (!placa || !vehiculo || !sintomas) {
+            alert("Por favor completa: Placa, Vehículo y Síntomas"); return;
         }
 
-        btn.disabled = true; btn.innerText = "⏳ GUARDANDO...";
+        btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
 
+        // Los nombres aquí (placa, vehiculo, sintomas) son los que recibe
+        // guardarAveria() en db.js y los mapea a los nombres reales de Supabase
         const datos = {
-            fecha: new Date().toLocaleDateString(),
-            hora: new Date().toLocaleTimeString(),
             reportado_por: document.getElementById('reportado_por').value,
-            regional: document.getElementById('regional').value,
-            placa: placa.toUpperCase(),
-            vehiculo: document.getElementById('vehiculo').value,
-            tipo_falla: falla,
-            sintomas: document.getElementById('sintomas').value,
+            regional:      document.getElementById('regional').value,
+            placa:         placa.toUpperCase(),   // → placa_vehiculo en Supabase
+            vehiculo:      vehiculo,               // → tipo_vehiculo en Supabase
+            tipo_falla:    document.getElementById('tipo_falla').value,
+            sintomas:      sintomas,               // → descripcion_sintomas en Supabase
             observaciones: document.getElementById('observaciones').value,
-            imagen1: fotosArray[0] || "",
-            imagen2: fotosArray[1] || "",
-            imagen3: fotosArray[2] || "",
-            imagen4: fotosArray[3] || ""
+            imagen1:       fotosArray[0] || "",
+            imagen2:       fotosArray[1] || "",
+            imagen3:       fotosArray[2] || "",
+            imagen4:       fotosArray[3] || ""
         };
 
         try {
             const res = await DB.guardarAveria(datos);
             if (res.ok) {
-                btn.innerText = "✓ REPORTE GUARDADO";
+                btn.innerText = "✓ REPORTE ENVIADO";
                 btn.style.background = "#16a34a";
-                alert("Guardado correctamente en base de datos.");
-            } else { throw new Error(res.error.message); }
+                setTimeout(() => irAtras(), 1500);
+            } else {
+                throw new Error(res.error?.message || "Error desconocido");
+            }
         } catch(e) {
-            alert("Error: " + e.message);
-            btn.disabled = false; btn.innerText = "🚨 1. ENVIAR AL SISTEMA";
+            alert("Error al guardar: " + e.message);
+            btn.disabled = false; btn.innerText = "🚨 ENVIAR REPORTE DE AVERÍA";
         }
     }
-
     function enviarWhatsAppAveria() {
         const reportado = document.getElementById('reportado_por').value;
         const placa = document.getElementById('placa').value.toUpperCase();
