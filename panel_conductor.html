@@ -8,10 +8,10 @@
     <style>
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; }
         body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        
+
         header { width: 100%; max-width: 600px; background: var(--blanco); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); box-sizing: border-box; }
         .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
-        .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; text-decoration: none; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
+        .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
 
         .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
         .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
@@ -41,6 +41,7 @@
         <p style="color: #64748b; font-size: 14px;">Panel de Servicios Activos</p>
     </div>
 
+    <!-- ✅ AMBOS ENLACES ACTIVOS — sin alert bloqueante -->
     <div class="menu-conductor">
         <a href="registro_salida.html" class="card-condu">
             <i>🚚</i>
@@ -49,7 +50,7 @@
 
         <a href="reporte_averia.html" class="card-condu">
             <i>⚠️</i>
-            <span>Averías</span>
+            <span>Reportar Avería</span>
         </a>
     </div>
 
@@ -73,22 +74,13 @@
 
     <script>
         window.onload = () => {
-            // Buscamos la sesión guardada
             const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
-
-            if (!sesionRaw) {
-                window.location.href = "index.html";
-                return;
-            }
-
+            if (!sesionRaw) { window.location.href = "index.html"; return; }
             try {
                 const user = JSON.parse(sesionRaw);
-                // Buscamos el nombre en los posibles campos de tu BD
                 const nombre = user.nombre || user.nombre_completo || user.username || "Conductor";
-                
                 document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
             } catch (e) {
-                console.error("Error al cargar sesión", e);
                 window.location.href = "index.html";
             }
         };
