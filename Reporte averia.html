@@ -91,7 +91,7 @@
         <label>Observaciones Adicionales</label>
         <textarea id="observaciones" rows="2" placeholder="Información adicional relevante..."></textarea>
 
-        <div class="section-title">Evidencias Fotográficas (Mínimo 1, Máximo 4)</div>
+        <div class="section-title">Evidencias Fotográficas (Máximo 4)</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
             <span id="upload-text">📸 Toca para subir fotos del daño</span>
             <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
@@ -155,29 +155,29 @@
         btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
 
         const datos = {
-            fecha: new Date().toLocaleDateString(),
-            hora: new Date().toLocaleTimeString(),
-            reportado_por: document.getElementById('reportado_por').value,
-            regional: document.getElementById('regional').value,
-            placa: placa.toUpperCase(),
-            vehiculo: vehiculo,
-            tipo_falla: document.getElementById('tipo_falla').value,
-            sintomas: sintomas,
-            observaciones: document.getElementById('observaciones').value,
-            imagen1: fotosArray[0] || "",
-            imagen2: fotosArray[1] || "",
-            imagen3: fotosArray[2] || "",
-            imagen4: fotosArray[3] || "",
+            fecha:          new Date().toLocaleDateString(),
+            hora:           new Date().toLocaleTimeString(),
+            reportado_por:  document.getElementById('reportado_por').value,
+            regional:       document.getElementById('regional').value,
+            placa:          placa.toUpperCase(),
+            vehiculo:       vehiculo,
+            tipo_falla:     document.getElementById('tipo_falla').value,
+            sintomas:       sintomas,
+            observaciones:  document.getElementById('observaciones').value,
+            imagen1:        fotosArray[0] || "",
+            imagen2:        fotosArray[1] || "",
+            imagen3:        fotosArray[2] || "",
+            imagen4:        fotosArray[3] || ""
         };
 
         try {
-            const { error } = await _supabase.from('Averias').insert([datos]);
-            if (!error) {
+            const res = await DB.guardarAveria(datos);
+            if (res.ok) {
                 btn.innerText = "✓ REPORTE ENVIADO";
                 btn.style.background = "#16a34a";
                 setTimeout(() => irAtras(), 1500);
             } else {
-                throw new Error(error.message);
+                throw new Error(res.error.message);
             }
         } catch(e) {
             alert("Error al guardar: " + e.message);
