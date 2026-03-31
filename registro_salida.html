@@ -14,22 +14,19 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: var(--azul-cielo); font-family: 'DM Sans', sans-serif; color: var(--azul-principal); padding: 10px; }
         .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
-        .header { background: var(--azul-principal); color: var(--blanco); padding: 20px; text-align: center; }
+        .header { background: var(--azul-principal); color: var(--blanco); padding: 20px; text-align: center; position: relative; }
+        .btn-volver { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
         .content { padding: 20px; }
         .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gris-texto); margin: 20px 0 10px; border-bottom: 2px solid var(--azul-cielo); padding-bottom: 5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
         .section-title::after { content: ''; flex: 1; height: 1px; background: var(--azul-cielo); }
-        
         label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul-principal); text-transform: uppercase; }
         input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 2px solid var(--azul-cielo); border-radius: 10px; font-family: inherit; color: var(--azul-principal); background: #f8fbff; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        
-        /* GALERÍA UNIFICADA */
         .upload-container { border: 2px dashed var(--azul-principal); border-radius: 15px; padding: 15px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 12px; }
         .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid var(--azul-cielo); }
         .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-
         canvas { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 140px; background: #fff; touch-action: none; }
         .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; }
         .btn-save { background: var(--azul-principal); color: white; }
@@ -40,6 +37,7 @@
 
 <div class="container">
     <div class="header">
+        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
         <h2 id="saludo">CARGANDO PERFIL...</h2>
         <p id="rol-info" style="font-size: 11px; opacity: 0.8; font-weight: bold;"></p>
     </div>
@@ -132,34 +130,48 @@
 
 <script src="db.js"></script>
 <script>
-    // --- LÓGICA DE IDENTIFICACIÓN Y SALUDO ---
+    // ✅ CARGA DE SESIÓN: nombre del usuario logueado y rol
     window.onload = () => {
-        // Intentamos obtener el usuario desde las llaves que usa tu sistema
-        const sesionData = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario');
-        let nombreParaMostrar = "Usuario J.R.";
-        let rolParaMostrar = "";
+        const sesionData = localStorage.getItem('usuario_sesion');
 
-        if (sesionData) {
-            try {
-                const user = JSON.parse(sesionData);
-                // Busca 'nombre' o 'nombre_completo' según la tabla de la captura
-                nombreParaMostrar = user.nombre || user.nombre_completo || user.username || "Usuario J.R.";
-                rolParaMostrar = user.rol || "CONDUCTOR";
-            } catch(e) {
-                nombreParaMostrar = sesionData; // Si no es JSON, toma el string
-            }
+        if (!sesionData) {
+            window.location.href = "index.html";
+            return;
         }
 
-        document.getElementById('conductor').value = nombreParaMostrar;
-        document.getElementById('saludo').innerText = "¡HOLA, " + nombreParaMostrar.split(' ')[0].toUpperCase() + "!";
-        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (rolParaMostrar.toUpperCase());
-        
+        const user = JSON.parse(sesionData);
+
+        // ✅ Nombre tomado directo de la sesión guardada en el login
+        const nombre = user.nombre || user.nombre_completo || user.username || "Usuario J.R.";
+        const rol    = user.rol || "conductor";
+
+        // ✅ Rellenar campo conductor automáticamente
+        document.getElementById('conductor').value = nombre;
+
+        // ✅ Saludo con primer nombre
+        document.getElementById('saludo').innerText = "¡HOLA, " + nombre.split(' ')[0].toUpperCase() + "!";
+        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + rol.toUpperCase();
+
         // Hora actual por defecto
         const now = new Date();
-        document.getElementById('hora_salida').value = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+        document.getElementById('hora_salida').value =
+            now.getHours().toString().padStart(2, '0') + ":" +
+            now.getMinutes().toString().padStart(2, '0');
+
+        // Canvas
+        canvas.width  = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
     };
 
-    // --- GESTIÓN DE FOTOS (VISTA UNIFICADA) ---
+    // ✅ VOLVER al panel correcto según el rol
+    function irAtras() {
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
+        if (!sesion) { window.location.href = "index.html"; return; }
+        const rol = (sesion.rol || '').toLowerCase().trim();
+        window.location.href = rol === 'admin' ? "dashboard.html" : "panel_conductor.html";
+    }
+
+    // --- FOTOS ---
     let fotosArray = [];
     async function procesarFotos(input) {
         const archivos = Array.from(input.files);
@@ -167,14 +179,10 @@
             if (fotosArray.length < 4) {
                 const reader = new FileReader();
                 reader.readAsDataURL(f);
-                reader.onload = (e) => {
-                    fotosArray.push(e.target.result);
-                    renderGaleria();
-                };
+                reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
             }
         }
     }
-
     function renderGaleria() {
         const g = document.getElementById('galeria');
         g.innerHTML = fotosArray.map((img, i) => `
@@ -184,7 +192,6 @@
             </div>`).join('');
         document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
     }
-
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
     // --- FIRMA ---
@@ -196,7 +203,7 @@
         return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
     };
     const iniciar = e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); };
-    const mover = e => { if(!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth=2; ctx.stroke(); };
+    const mover   = e => { if(!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
     canvas.addEventListener('mousedown', iniciar); canvas.addEventListener('mousemove', mover);
     window.addEventListener('mouseup', () => dibujando = false);
     canvas.addEventListener('touchstart', iniciar); canvas.addEventListener('touchmove', mover);
@@ -217,22 +224,22 @@
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
 
         datosFinales = {
-            fecha: new Date().toLocaleDateString(),
-            regional: document.getElementById('regional').value,
-            conductor: document.getElementById('conductor').value,
-            placa: document.getElementById('placa').value,
-            motivo: document.getElementById('motivo').value,
-            fallecido: document.getElementById('fallecido').value,
-            clinica: document.getElementById('clinica').value,
-            prestacion: document.getElementById('prestacion').value,
-            origen: document.getElementById('origen').value,
-            destino: document.getElementById('destino').value,
-            hora_salida: document.getElementById('hora_salida').value,
+            fecha:        new Date().toLocaleDateString(),
+            regional:     document.getElementById('regional').value,
+            conductor:    document.getElementById('conductor').value,
+            placa:        document.getElementById('placa').value,
+            motivo:       document.getElementById('motivo').value,
+            fallecido:    document.getElementById('fallecido').value,
+            clinica:      document.getElementById('clinica').value,
+            prestacion:   document.getElementById('prestacion').value,
+            origen:       document.getElementById('origen').value,
+            destino:      document.getElementById('destino').value,
+            hora_salida:  document.getElementById('hora_salida').value,
             hora_ingreso: document.getElementById('hora_ingreso').value,
-            km_salida: document.getElementById('km_s').value,
-            km_ingreso: document.getElementById('km_i').value,
-            total_km: document.getElementById('total_km').value,
-            observaciones: document.getElementById('observaciones').value,
+            km_salida:    document.getElementById('km_s').value,
+            km_ingreso:   document.getElementById('km_i').value,
+            total_km:     document.getElementById('total_km').value,
+            observaciones:document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || "",
             imagen2: fotosArray[1] || "",
             imagen3: fotosArray[2] || "",
@@ -241,12 +248,14 @@
         };
 
         const res = await DB.guardarTraslado(datosFinales);
-        if(res.ok) {
+        if (res.ok) {
             btn.innerText = "✓ REGISTRO EXITOSO";
             btn.style.background = "#25D366";
             document.getElementById('btn-wa').style.display = "block";
         } else {
-            alert("Error al guardar en Supabase"); btn.disabled = false; btn.innerText = "REINTENTAR GUARDADO";
+            alert("Error al guardar en Supabase");
+            btn.disabled = false;
+            btn.innerText = "REINTENTAR GUARDADO";
         }
     }
 
