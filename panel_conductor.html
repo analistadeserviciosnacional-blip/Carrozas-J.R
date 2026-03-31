@@ -6,20 +6,20 @@
     <title>J.R. — Panel Conductor</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; }
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; }
         body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         
-        header { width: 100%; max-width: 600px; background: var(--blanco); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+        header { width: 100%; max-width: 600px; background: var(--blanco); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); box-sizing: border-box; }
         .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
-        .btn-salir { background: #fee2e2; color: #ef4444; padding: 8px 15px; border-radius: 10px; text-decoration: none; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
+        .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; text-decoration: none; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
 
         .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
         .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
 
         .menu-conductor { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 25px; }
-        .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; }
+        .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .card-condu:active { transform: scale(0.95); background: #f0f7ff; border-color: var(--azul); }
-        .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; }
+        .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
         .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 12px; }
 
         .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; }
@@ -37,13 +37,20 @@
     </header>
 
     <div class="welcome-box">
-        <h1 id="txt-conductor">Hola, Conductor</h1>
+        <h1 id="txt-conductor">Hola...</h1>
         <p style="color: #64748b; font-size: 14px;">Panel de Servicios Activos</p>
     </div>
 
     <div class="menu-conductor">
-        <a href="registro_salida.html" class="card-condu"><i>🚚</i><span>Nueva Salida</span></a>
-        <div class="card-condu" onclick="alert('Módulo de Averías: Próximamente')"><i>⚠️</i><span>Reportar Avería</span></div>
+        <a href="registro_salida.html" class="card-condu">
+            <i>🚚</i>
+            <span>Nueva Salida</span>
+        </a>
+
+        <a href="reporte_averia.html" class="card-condu">
+            <i>⚠️</i>
+            <span>Reportar Avería</span>
+        </a>
     </div>
 
     <div class="monitor-mini">
@@ -66,7 +73,7 @@
 
     <script>
         window.onload = () => {
-            // ✅ Lee de ambas llaves por compatibilidad
+            // Buscamos la sesión guardada
             const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
 
             if (!sesionRaw) {
@@ -74,11 +81,16 @@
                 return;
             }
 
-            const user = JSON.parse(sesionRaw);
-            // ✅ Busca el nombre en los campos posibles de la BD
-            const nombre = user.nombre || user.nombre_completo || user.username || "Conductor";
-
-            document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
+            try {
+                const user = JSON.parse(sesionRaw);
+                // Buscamos el nombre en los posibles campos de tu BD
+                const nombre = user.nombre || user.nombre_completo || user.username || "Conductor";
+                
+                document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
+            } catch (e) {
+                console.error("Error al cargar sesión", e);
+                window.location.href = "index.html";
+            }
         };
 
         function cerrarSesion() {
