@@ -54,7 +54,6 @@
         h2 { color: var(--texto-oscuro); font-size: 24px; margin-bottom: 8px; font-weight: 700; letter-spacing: -0.5px; }
         p { color: #64748b; font-size: 14px; margin-bottom: 30px; }
         
-        /* Selector de Roles Moderno */
         .role-selector { 
             display: flex; 
             gap: 6px; 
@@ -76,9 +75,6 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
 
-        /* Campos de Entrada */
-        .input-group { position: relative; width: 100%; }
-
         input { 
             width: 100%; padding: 16px 20px; margin-bottom: 16px; 
             border: 1.5px solid #e2e8f0; border-radius: 16px; 
@@ -93,7 +89,6 @@
             box-shadow: 0 0 0 4px rgba(0,74,153,0.08); 
         }
         
-        /* Botón de Ingreso */
         .btn-login { 
             width: 100%; padding: 18px; background: var(--azul-principal); 
             color: white; border: none; border-radius: 16px; 
@@ -106,7 +101,6 @@
         .btn-login:active { transform: translateY(0); }
         .btn-login:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
 
-        /* Mensaje de Error */
         #error { 
             color: #e11d48; font-size: 13px; margin-top: 18px; 
             display: none; background: #fff1f2; padding: 12px; 
@@ -158,13 +152,11 @@
                 return;
             }
 
-            // Estado de carga
             btn.disabled = true;
             btn.innerText = "VERIFICANDO...";
             errorDiv.style.display = "none";
 
             try {
-                // Tu lógica funcional (usando la variable _supabase de db.js)
                 const { data, error } = await _supabase
                     .from('usuarios')
                     .select('*')
@@ -173,12 +165,19 @@
                     .single();
 
                 if (data) {
-                    // Guardamos la sesión
+                    // ✅ Guardamos el rol del botón seleccionado en la sesión
+                    data.rol = currentRole;
+
+                    localStorage.setItem('usuario_sesion', JSON.stringify(data));
                     localStorage.setItem('conductor_nombre', data.nombre);
                     localStorage.setItem('usuario_data', JSON.stringify(data));
-                    
-                    // Redirección exitosa
-                    window.location.href = "registro_salida.html";
+
+                    // ✅ Redirige al panel correcto según el rol seleccionado
+                    if (currentRole === 'admin') {
+                        window.location.href = "dashboard.html";
+                    } else {
+                        window.location.href = "panel_conductor.html";
+                    }
                 } else {
                     mostrarError("Credenciales incorrectas");
                 }
@@ -197,7 +196,6 @@
             btn.innerText = "INGRESAR AL SISTEMA";
         }
 
-        // Acceso rápido con la tecla Enter
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') login();
         });
