@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Averías</title>
+    <title>J.R. — Reporte de Avería</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -16,19 +16,26 @@
         .content { padding: 20px; }
         .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #546e7a; margin: 20px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
         label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
-        input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; outline: none; }
+        input:focus { border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .upload-container { border: 2px dashed var(--rojo); border-radius: 15px; padding: 15px; text-align: center; background: #fff5f5; cursor: pointer; margin-bottom: 12px; }
         .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid #fecaca; }
         .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; font-weight: bold; }
-        .btn-save { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; background: var(--rojo); color: white; }
-        .btn-save:disabled { background: #94a3b8; cursor: not-allowed; }
+        
+        /* Botones principales */
+        .btn-save { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        .btn-db { background: var(--rojo); color: white; }
+        .btn-db:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-wa { background: #25d366; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+        
         .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
     </style>
 </head>
 <body>
+
 <div class="container">
     <div class="header">
         <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
@@ -58,7 +65,7 @@
         <div class="grid-2">
             <div>
                 <label>Placa del Vehículo</label>
-                <input type="text" id="placa" placeholder="ABC-123">
+                <input type="text" id="placa" placeholder="ABC-123" oninput="this.value = this.value.toUpperCase()">
             </div>
             <div>
                 <label>Vehículo / Carroza</label>
@@ -86,10 +93,10 @@
         </select>
 
         <label>Descripción de Síntomas</label>
-        <textarea id="sintomas" rows="3" placeholder="Describe detalladamente qué sucede, qué ruidos, qué falla..."></textarea>
+        <textarea id="sintomas" rows="3" placeholder="Describe detalladamente qué sucede..."></textarea>
 
         <label>Observaciones Adicionales</label>
-        <textarea id="observaciones" rows="2" placeholder="Información adicional relevante..."></textarea>
+        <textarea id="observaciones" rows="2" placeholder="Notas adicionales..."></textarea>
 
         <div class="section-title">Evidencias Fotográficas (Máximo 4)</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
@@ -98,7 +105,8 @@
         </div>
         <div class="preview-gallery" id="galeria"></div>
 
-        <button class="btn-save" id="btn-envio" onclick="guardarAveria()">🚨 ENVIAR REPORTE DE AVERÍA</button>
+        <button class="btn-save btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
+        <button class="btn-save btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. ENVIAR POR WHATSAPP</button>
     </div>
 </div>
 
@@ -109,10 +117,11 @@
     window.onload = () => {
         const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
         if (!sesionRaw) { window.location.href = "index.html"; return; }
+        
         const user = JSON.parse(sesionRaw);
         const nombre = user.nombre || user.nombre_completo || user.username || "Usuario";
         document.getElementById('reportado_por').value = nombre;
-        document.getElementById('rol-info').innerText = "SESIÓN: " + (user.rol || "CONDUCTOR").toUpperCase();
+        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (user.rol || "CONDUCTOR").toUpperCase();
     };
 
     function irAtras() {
@@ -126,7 +135,10 @@
             if (fotosArray.length < 4) {
                 const reader = new FileReader();
                 reader.readAsDataURL(f);
-                reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
+                reader.onload = (e) => { 
+                    fotosArray.push(e.target.result); 
+                    renderGaleria(); 
+                };
             }
         }
     }
@@ -145,44 +157,62 @@
     async function guardarAveria() {
         const btn = document.getElementById('btn-envio');
         const placa = document.getElementById('placa').value.trim();
-        const vehiculo = document.getElementById('vehiculo').value;
-        const sintomas = document.getElementById('sintomas').value.trim();
+        const falla = document.getElementById('tipo_falla').value;
 
-        if (!placa || !vehiculo || !sintomas) {
-            alert("Por favor completa: Placa, Vehículo y Síntomas"); return;
+        if (!placa || !falla) {
+            alert("Por favor indica Placa y Tipo de Falla"); return;
         }
 
-        btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
+        btn.disabled = true; btn.innerText = "⏳ GUARDANDO...";
 
         const datos = {
-            fecha:          new Date().toLocaleDateString(),
-            hora:           new Date().toLocaleTimeString(),
-            reportado_por:  document.getElementById('reportado_por').value,
-            regional:       document.getElementById('regional').value,
-            placa:          placa.toUpperCase(),
-            vehiculo:       vehiculo,
-            tipo_falla:     document.getElementById('tipo_falla').value,
-            sintomas:       sintomas,
-            observaciones:  document.getElementById('observaciones').value,
-            imagen1:        fotosArray[0] || "",
-            imagen2:        fotosArray[1] || "",
-            imagen3:        fotosArray[2] || "",
-            imagen4:        fotosArray[3] || ""
+            fecha: new Date().toLocaleDateString(),
+            hora: new Date().toLocaleTimeString(),
+            reportado_por: document.getElementById('reportado_por').value,
+            regional: document.getElementById('regional').value,
+            placa: placa.toUpperCase(),
+            vehiculo: document.getElementById('vehiculo').value,
+            tipo_falla: falla,
+            sintomas: document.getElementById('sintomas').value,
+            observaciones: document.getElementById('observaciones').value,
+            imagen1: fotosArray[0] || "",
+            imagen2: fotosArray[1] || "",
+            imagen3: fotosArray[2] || "",
+            imagen4: fotosArray[3] || ""
         };
 
         try {
             const res = await DB.guardarAveria(datos);
             if (res.ok) {
-                btn.innerText = "✓ REPORTE ENVIADO";
+                btn.innerText = "✓ REPORTE GUARDADO";
                 btn.style.background = "#16a34a";
-                setTimeout(() => irAtras(), 1500);
-            } else {
-                throw new Error(res.error.message);
-            }
+                alert("Guardado correctamente en base de datos.");
+            } else { throw new Error(res.error.message); }
         } catch(e) {
-            alert("Error al guardar: " + e.message);
-            btn.disabled = false; btn.innerText = "🚨 ENVIAR REPORTE DE AVERÍA";
+            alert("Error: " + e.message);
+            btn.disabled = false; btn.innerText = "🚨 1. ENVIAR AL SISTEMA";
         }
+    }
+
+    function enviarWhatsAppAveria() {
+        const reportado = document.getElementById('reportado_por').value;
+        const placa = document.getElementById('placa').value.toUpperCase();
+        const falla = document.getElementById('tipo_falla').value;
+        const regional = document.getElementById('regional').value;
+
+        if(!placa || !falla) { alert("Completa los datos primero"); return; }
+
+        const msj = `*🚨 REPORTE DE AVERÍA - J.R.*%0A` +
+                    `----------------------------%0A` +
+                    `👤 *Por:* ${reportado}%0A` +
+                    `📍 *Regional:* ${regional}%0A` +
+                    `🚗 *Placa:* ${placa}%0A` +
+                    `⚠️ *Falla:* ${falla}%0A` +
+                    `----------------------------%0A` +
+                    `📝 _Fotos guardadas en el sistema._`;
+
+        const tel = "573000000000"; // CAMBIA ESTE NÚMERO
+        window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
     }
 </script>
 </body>
