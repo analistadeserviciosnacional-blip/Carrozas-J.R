@@ -3,38 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. | Acceso Corporativo</title>
+    <title>J.R. — Control de Acceso Corporativo</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --azul: #3498DB; --celeste: #E3F2FD; --blanco: #FFFFFF; --texto: #2C3E50; }
-        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, var(--celeste) 0%, #bbdefb 100%); height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
-        .login-card { background: var(--blanco); width: 100%; max-width: 350px; padding: 40px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
-        .logo { width: 70px; height: 70px; background: var(--azul); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: bold; }
-        input { width: 100%; padding: 15px; margin-bottom: 20px; border: 1px solid #DDE4EB; border-radius: 12px; background: #F9FBFF; box-sizing: border-box; outline: none; }
-        .btn-login { width: 100%; padding: 18px; background: var(--azul); color: white; border: none; border-radius: 15px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        #error { color: #e74c3c; font-size: 13px; margin-top: 15px; display: none; }
+        :root { 
+            --azul-principal: #004a99; 
+            --azul-cielo: #e3f2fd; 
+            --blanco: #ffffff; 
+            --gris-suave: #f0f4f8;
+            --texto-oscuro: #1a3a6d;
+        }
+        
+        body { 
+            background: linear-gradient(135deg, var(--azul-cielo) 0%, #bbdefb 100%); 
+            font-family: 'DM Sans', sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+
+        .login-card { 
+            background: var(--blanco); 
+            padding: 45px 35px; 
+            border-radius: 32px; 
+            width: 100%; 
+            max-width: 380px; 
+            box-shadow: 0 25px 50px rgba(0,74,153,0.12); 
+            text-align: center; 
+            border: 1px solid rgba(255,255,255,0.7);
+        }
+
+        .logo-container { 
+            width: 75px; height: 75px; 
+            background: var(--azul-principal); 
+            border-radius: 22px; 
+            margin: 0 auto 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: white; 
+            font-size: 28px; 
+            font-weight: 800;
+            box-shadow: 0 10px 20px rgba(0,74,153,0.2);
+            transform: rotate(-5deg);
+        }
+
+        h2 { color: var(--texto-oscuro); font-size: 24px; margin-bottom: 8px; font-weight: 700; letter-spacing: -0.5px; }
+        p { color: #64748b; font-size: 14px; margin-bottom: 30px; }
+        
+        /* Selector de Roles Moderno */
+        .role-selector { 
+            display: flex; 
+            gap: 6px; 
+            margin-bottom: 25px; 
+            background: var(--gris-suave); 
+            padding: 6px; 
+            border-radius: 16px; 
+        }
+
+        .role-btn { 
+            flex: 1; padding: 12px; border-radius: 12px; border: none; 
+            background: transparent; color: #64748b; 
+            cursor: pointer; font-size: 13px; transition: 0.3s; font-weight: 600;
+        }
+
+        .role-btn.active { 
+            background: var(--blanco); 
+            color: var(--azul-principal); 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        /* Campos de Entrada */
+        .input-group { position: relative; width: 100%; }
+
+        input { 
+            width: 100%; padding: 16px 20px; margin-bottom: 16px; 
+            border: 1.5px solid #e2e8f0; border-radius: 16px; 
+            background: #f8fafc; box-sizing: border-box; 
+            outline: none; transition: 0.3s; font-size: 15px;
+            color: var(--texto-oscuro);
+        }
+
+        input:focus { 
+            border-color: var(--azul-principal); 
+            background: white; 
+            box-shadow: 0 0 0 4px rgba(0,74,153,0.08); 
+        }
+        
+        /* Botón de Ingreso */
+        .btn-login { 
+            width: 100%; padding: 18px; background: var(--azul-principal); 
+            color: white; border: none; border-radius: 16px; 
+            font-weight: 700; font-size: 16px; cursor: pointer; 
+            transition: 0.3s; margin-top: 10px;
+            box-shadow: 0 8px 20px rgba(0,74,153,0.25);
+        }
+
+        .btn-login:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(0,74,153,0.35); }
+        .btn-login:active { transform: translateY(0); }
+        .btn-login:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
+
+        /* Mensaje de Error */
+        #error { 
+            color: #e11d48; font-size: 13px; margin-top: 18px; 
+            display: none; background: #fff1f2; padding: 12px; 
+            border-radius: 12px; border: 1px solid #ffe4e6;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
+
     <div class="login-card">
-        <div class="logo">JR</div>
-        <h2 style="font-weight: 300;">Bienvenido</h2>
-        <input type="text" id="user" placeholder="Usuario">
+        <div class="logo-container">JR</div>
+        <h2>Bienvenido</h2>
+        <p>Inicia sesión para gestionar traslados</p>
+
+        <div class="role-selector">
+            <button type="button" class="role-btn active" id="btn-admin" onclick="setRole('admin', this)">Administrador</button>
+            <button type="button" class="role-btn" id="btn-conductor" onclick="setRole('conductor', this)">Conductor</button>
+        </div>
+
+        <input type="text" id="user" placeholder="Usuario o Cédula">
         <input type="password" id="pass" placeholder="Contraseña">
-        <button class="btn-login" onclick="login()">INGRESAR AL SISTEMA</button>
+        
+        <button class="btn-login" id="btn-action" onclick="login()">INGRESAR AL SISTEMA</button>
+        
         <div id="error">Usuario o clave incorrectos</div>
     </div>
+
     <script src="db.js"></script>
     <script>
-        async function login() {
-            const u = document.getElementById('user').value;
-            const p = document.getElementById('pass').value;
-            const { data } = await _supabase.from('usuarios').select('*').eq('usuario', u).eq('password', p).single();
-            if (data) {
-                localStorage.setItem('conductor_nombre', data.nombre);
-                window.location.href = "registro_salida.html";
-            } else { document.getElementById('error').style.display = "block"; }
+        let currentRole = 'admin';
+
+        function setRole(role, btn) {
+            currentRole = role;
+            document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('error').style.display = "none";
         }
+
+        async function login() {
+            const u = document.getElementById('user').value.trim();
+            const p = document.getElementById('pass').value.trim();
+            const btn = document.getElementById('btn-action');
+            const errorDiv = document.getElementById('error');
+
+            if (!u || !p) {
+                errorDiv.innerText = "Por favor, completa los campos";
+                errorDiv.style.display = "block";
+                return;
+            }
+
+            // Estado de carga
+            btn.disabled = true;
+            btn.innerText = "VERIFICANDO...";
+            errorDiv.style.display = "none";
+
+            try {
+                // Tu lógica funcional (usando la variable _supabase de db.js)
+                const { data, error } = await _supabase
+                    .from('usuarios')
+                    .select('*')
+                    .eq('usuario', u)
+                    .eq('password', p)
+                    .single();
+
+                if (data) {
+                    // Guardamos la sesión
+                    localStorage.setItem('conductor_nombre', data.nombre);
+                    localStorage.setItem('usuario_data', JSON.stringify(data));
+                    
+                    // Redirección exitosa
+                    window.location.href = "registro_salida.html";
+                } else {
+                    mostrarError("Credenciales incorrectas");
+                }
+            } catch (err) {
+                console.error("Error de login:", err);
+                mostrarError("Error de conexión con el servidor");
+            }
+        }
+
+        function mostrarError(msg) {
+            const btn = document.getElementById('btn-action');
+            const errorDiv = document.getElementById('error');
+            errorDiv.innerText = msg;
+            errorDiv.style.display = "block";
+            btn.disabled = false;
+            btn.innerText = "INGRESAR AL SISTEMA";
+        }
+
+        // Acceso rápido con la tecla Enter
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') login();
+        });
     </script>
 </body>
 </html>
