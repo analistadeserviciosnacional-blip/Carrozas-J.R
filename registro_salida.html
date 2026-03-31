@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Registro de Salida Completo</title>
+    <title>J.R. — Registro de Salida Oficial</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -40,16 +40,16 @@
 
 <div class="container">
     <div class="header">
-        <h2 id="saludo">Cargando perfil...</h2>
-        <p style="font-size: 12px; opacity: 0.8;">Sistema de Gestión J.R. — Registro de Salida</p>
+        <h2 id="saludo">CARGANDO PERFIL...</h2>
+        <p id="rol-info" style="font-size: 11px; opacity: 0.8; font-weight: bold;"></p>
     </div>
 
     <div class="content">
-        <div class="section-title">Personal y Ubicación</div>
+        <div class="section-title">Datos de Responsable</div>
         <div class="grid-2">
             <div>
-                <label>Usuario Activo</label>
-                <input type="text" id="conductor" readonly style="background: #eef5ff; color: #003366; font-weight: bold;">
+                <label>Usuario Logueado</label>
+                <input type="text" id="conductor" readonly style="background: #eef5ff; font-weight: bold; border: 2px solid var(--azul-principal);">
             </div>
             <div>
                 <label>Regional</label>
@@ -62,14 +62,14 @@
             </div>
         </div>
 
-        <div class="section-title">Datos del Vehículo</div>
+        <div class="section-title">Información del Vehículo</div>
         <div class="grid-2">
             <div>
-                <label>Placa</label>
-                <input type="text" id="placa" placeholder="Ej: ABC-123">
+                <label>Placa Vehículo</label>
+                <input type="text" id="placa" placeholder="ABC-123">
             </div>
             <div>
-                <label>Motivo</label>
+                <label>Motivo Salida</label>
                 <select id="motivo">
                     <option value="Servicio Funerario">Servicio Funerario</option>
                     <option value="Traslado Nacional">Traslado Nacional</option>
@@ -79,27 +79,21 @@
             </div>
         </div>
 
-        <div class="section-title">Información del Servicio</div>
+        <div class="section-title">Datos del Servicio</div>
         <label>Nombre del Fallecido</label>
         <input type="text" id="fallecido" placeholder="Nombre completo">
 
         <div class="grid-2">
-            <div>
-                <label>Clínica / Origen</label>
-                <input type="text" id="clinica" placeholder="Lugar de recogida">
-            </div>
-            <div>
-                <label>N° Prestación</label>
-                <input type="text" id="prestacion" placeholder="Código">
-            </div>
+            <div><label>Clínica / RSD / Origen</label><input type="text" id="clinica" placeholder="Lugar"></div>
+            <div><label>N° Prestación</label><input type="text" id="prestacion" placeholder="Código"></div>
         </div>
 
         <div class="grid-2">
-            <div><label>Origen (Ciudad)</label><input type="text" id="origen" placeholder="Ciudad"></div>
-            <div><label>Destino (Ciudad)</label><input type="text" id="destino" placeholder="Ciudad"></div>
+            <div><label>Origen (Ciudad)</label><input type="text" id="origen" placeholder="De:"></div>
+            <div><label>Destino (Ciudad)</label><input type="text" id="destino" placeholder="Para:"></div>
         </div>
 
-        <div class="section-title">Control de Kilometraje y Tiempos</div>
+        <div class="section-title">Control de Kilometraje y Hora</div>
         <div class="grid-2">
             <div><label>Hora Salida</label><input type="time" id="hora_salida"></div>
             <div><label>Hora Ingreso</label><input type="time" id="hora_ingreso"></div>
@@ -108,54 +102,64 @@
             <div><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
             <div><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
         </div>
-        <label>Total Recorrido (KM)</label>
+        <label>Total KM Recorridos</label>
         <input type="number" id="total_km" readonly style="background: #eef5ff; font-weight: bold; font-size: 16px;">
 
         <div class="section-title">Evidencias Fotográficas</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
-            <span id="upload-text">📸 Toque aquí para subir fotos (Máx 4)</span>
+            <span id="upload-text">📸 Toca para subir fotos (Máximo 4)</span>
             <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
         </div>
         <div class="preview-gallery" id="galeria"></div>
 
-        <label>Observaciones</label>
-        <textarea id="observaciones" rows="2" placeholder="Notas adicionales..."></textarea>
+        <label>Observaciones de Salida</label>
+        <textarea id="observaciones" rows="2" placeholder="Escribe aquí cualquier novedad o detalle adicional..."></textarea>
 
-        <div class="section-title">Firma Autorizada</div>
+        <div class="section-title">Firma de Responsable</div>
         <canvas id="canvas"></canvas>
         <p onclick="borrarFirma()" style="text-align: right; color: #ff4444; font-size: 11px; cursor: pointer; margin-top: 5px; font-weight: bold;">✖ BORRAR FIRMA</p>
 
-        <label style="margin-top:15px">Notificar WhatsApp a:</label>
+        <label style="margin-top:15px">Enviar Notificación a:</label>
         <select id="select-coordinador" style="border: 2px solid var(--verde-wa);">
             <option value="573001234567">Coordinador Pereira</option>
-            <option value="573110000000">Logística Central</option>
+            <option value="573110000000">Logística J.R.</option>
         </select>
 
-        <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR REGISTRO</button>
+        <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR EN SISTEMA</button>
         <button class="btn btn-wa" id="btn-wa" onclick="enviarWA()">2. ENVIAR POR WHATSAPP</button>
     </div>
 </div>
 
 <script src="db.js"></script>
 <script>
-    // --- LÓGICA DE IDENTIFICACIÓN CORREGIDA ---
+    // --- LÓGICA DE IDENTIFICACIÓN Y SALUDO ---
     window.onload = () => {
-        // Buscamos el nombre en las llaves que usa tu sistema
-        const nombreLocal = localStorage.getItem('nombre');
-        const usuarioObjeto = JSON.parse(localStorage.getItem('usuario') || "{}");
-        
-        // Prioridad: 1. Objeto usuario.nombre | 2. Llave 'nombre' | 3. 'Admin J.R.' por defecto
-        const nombreFinal = usuarioObjeto.nombre || nombreLocal || "Usuario J.R.";
-        
-        document.getElementById('conductor').value = nombreFinal;
-        document.getElementById('saludo').innerText = "HOLA, " + nombreFinal.split(' ')[0].toUpperCase();
+        // Intentamos obtener el usuario desde las llaves que usa tu sistema
+        const sesionData = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario');
+        let nombreParaMostrar = "Usuario J.R.";
+        let rolParaMostrar = "";
+
+        if (sesionData) {
+            try {
+                const user = JSON.parse(sesionData);
+                // Busca 'nombre' o 'nombre_completo' según la tabla de la captura
+                nombreParaMostrar = user.nombre || user.nombre_completo || user.username || "Usuario J.R.";
+                rolParaMostrar = user.rol || "CONDUCTOR";
+            } catch(e) {
+                nombreParaMostrar = sesionData; // Si no es JSON, toma el string
+            }
+        }
+
+        document.getElementById('conductor').value = nombreParaMostrar;
+        document.getElementById('saludo').innerText = "¡HOLA, " + nombreParaMostrar.split(' ')[0].toUpperCase() + "!";
+        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (rolParaMostrar.toUpperCase());
         
         // Hora actual por defecto
         const now = new Date();
         document.getElementById('hora_salida').value = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
     };
 
-    // --- RESTO DE LA LÓGICA ---
+    // --- GESTIÓN DE FOTOS (VISTA UNIFICADA) ---
     let fotosArray = [];
     async function procesarFotos(input) {
         const archivos = Array.from(input.files);
@@ -173,15 +177,17 @@
 
     function renderGaleria() {
         const g = document.getElementById('galeria');
-        g.innerHTML = "";
-        fotosArray.forEach((img, i) => {
-            g.innerHTML += `<div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`;
-        });
+        g.innerHTML = fotosArray.map((img, i) => `
+            <div class="thumb-wrap">
+                <img src="${img}">
+                <button class="btn-del" onclick="eliminarFoto(${i})">×</button>
+            </div>`).join('');
         document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
     }
 
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
+    // --- FIRMA ---
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     let dibujando = false;
@@ -197,16 +203,18 @@
     canvas.addEventListener('touchend', () => dibujando = false);
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
+    // --- CÁLCULOS ---
     function calcularTotal() {
         const s = parseFloat(document.getElementById('km_s').value) || 0;
         const i = parseFloat(document.getElementById('km_i').value) || 0;
         document.getElementById('total_km').value = (i - s).toFixed(1);
     }
 
+    // --- GUARDADO ---
     let datosFinales = {};
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
-        btn.innerText = "⏳ PROCESANDO..."; btn.disabled = true;
+        btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
 
         datosFinales = {
             fecha: new Date().toLocaleDateString(),
@@ -235,9 +243,10 @@
         const res = await DB.guardarTraslado(datosFinales);
         if(res.ok) {
             btn.innerText = "✓ REGISTRO EXITOSO";
+            btn.style.background = "#25D366";
             document.getElementById('btn-wa').style.display = "block";
         } else {
-            alert("Error: " + res.error.message); btn.disabled = false; btn.innerText = "REINTENTAR";
+            alert("Error al guardar en Supabase"); btn.disabled = false; btn.innerText = "REINTENTAR GUARDADO";
         }
     }
 
@@ -245,10 +254,11 @@
         const num = document.getElementById('select-coordinador').value;
         const msg = `*REPORTE J.R.*\n` +
                     `*Responsable:* ${datosFinales.conductor}\n` +
-                    `*Servicio:* ${datosFinales.fallecido}\n` +
+                    `*Fallecido:* ${datosFinales.fallecido}\n` +
                     `*Placa:* ${datosFinales.placa}\n` +
                     `*Ruta:* ${datosFinales.origen} -> ${datosFinales.destino}\n` +
-                    `*KM:* ${datosFinales.total_km} km recorridos.`;
+                    `*KM Recorridos:* ${datosFinales.total_km} km.\n` +
+                    `*Observaciones:* ${datosFinales.observaciones}`;
         window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(msg)}`);
     }
 </script>
