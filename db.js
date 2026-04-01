@@ -4,7 +4,7 @@ const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 // ⚠️ REEMPLAZA ESTA CLAVE con la "anon public" de:
 // supabase.com → Tu proyecto → Settings → API
 // Debe empezar con "eyJhbGci..."
-const supabaseKey = 'PEGA_AQUI_TU_CLAVE_ANON_PUBLIC';
+const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 
 // Inicialización del cliente
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
