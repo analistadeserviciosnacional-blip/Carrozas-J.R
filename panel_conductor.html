@@ -22,7 +22,6 @@
         .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
         .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 12px; }
 
-        /* SECCIÓN DE REPORTES Y MONITOR */
         .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
         .monitor-mini h2 { font-size: 16px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
         
@@ -109,12 +108,15 @@
         };
 
         async function cargarResumenAverias(nombre) {
+            // FIX: usar ilike con primer nombre para coincidir con "Director de orquesta Hernán Torres Ortiz"
+            const busqueda = nombre.trim().split(' ')[0];
+
             const { data, error } = await DB.supabase
                 .from('Averias')
-                .select('placa, tipo_falla, created_at')
-                .eq('reportado_por', nombre)
+                .select('placa_vehiculo, tipo_falla, created_at')  // FIX: columna correcta es placa_vehiculo
+                .ilike('reportado_por', `%${busqueda}%`)            // FIX: .eq → .ilike para búsqueda parcial
                 .order('created_at', { ascending: false })
-                .limit(3); // Solo mostrar las últimas 3
+                .limit(3);
 
             const tabla = document.getElementById('tabla-averias');
             if (error || !data || data.length === 0) {
@@ -124,7 +126,7 @@
 
             tabla.innerHTML = data.map(av => `
                 <tr>
-                    <td><b>${av.placa}</b></td>
+                    <td><b>${av.placa_vehiculo}</b></td>
                     <td style="font-size: 11px;">${new Date(av.created_at).toLocaleDateString()}</td>
                     <td style="text-align: right;"><span class="falla-pill">${av.tipo_falla.toUpperCase()}</span></td>
                 </tr>
