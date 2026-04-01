@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Mis Averías</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- FIX: SDK actualizado a versión 2.49.0 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.0/dist/umd/supabase.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 
     <style>
@@ -143,20 +144,17 @@
 <script src="db.js"></script>
 
 <script>
-// 1. Obtener la sesión actual de forma segura
 const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
 
 async function cargarAverias() {
     const lista = document.getElementById('lista-averias');
 
-    // Validar sesión activa
     if (!sesion || !sesion.nombre) {
         window.location.href = 'index.html';
         return;
     }
 
     try {
-        // Llamada a la función del archivo db.js
         const { data, error } = await DB.obtenerAveriasPorConductor(sesion.nombre);
 
         if (error) throw error;
@@ -170,10 +168,10 @@ async function cargarAverias() {
             return;
         }
 
-        // Renderizar las tarjetas
+        // FIX: se usan data-* para evitar XSS en onclick
         lista.innerHTML = data.map(av => {
-            const fechaRegistro = av.created_at 
-                ? new Date(av.created_at).toLocaleString() 
+            const fechaRegistro = av.created_at
+                ? new Date(av.created_at).toLocaleString()
                 : 'Fecha no disponible';
 
             return `
@@ -190,7 +188,10 @@ async function cargarAverias() {
                         ${av.descripcion_sintomas || 'Sin descripción detallada.'}
                     </div>
 
-                    <button class="btn-wa" onclick="reenviarWhatsApp('${av.placa_vehiculo}', '${av.tipo_falla}')">
+                    <button class="btn-wa"
+                        data-placa="${av.placa_vehiculo}"
+                        data-falla="${av.tipo_falla}"
+                        onclick="reenviarWhatsApp(this)">
                         📱 REENVIAR POR WHATSAPP
                     </button>
                 </div>
@@ -203,9 +204,12 @@ async function cargarAverias() {
     }
 }
 
-// Función unificada para reenvío
-function reenviarWhatsApp(placa, falla) {
-    const mensaje = 
+// FIX: recibe el botón y lee los data-* de forma segura
+function reenviarWhatsApp(btn) {
+    const placa = btn.dataset.placa;
+    const falla = btn.dataset.falla;
+
+    const mensaje =
         `*🚨 REPORTE DE AVERÍA J.R.*%0A` +
         `----------------------------%0A` +
         `🚗 *Vehículo:* ${placa}%0A` +
@@ -214,12 +218,10 @@ function reenviarWhatsApp(placa, falla) {
         `----------------------------%0A` +
         `_Reenviado desde el historial de la App._`;
 
-    // Número por defecto del coordinador
-    const numeroCoordinador = "573100000000"; 
+    const numeroCoordinador = "573100000000";
     window.open(`https://wa.me/${numeroCoordinador}?text=${mensaje}`, '_blank');
 }
 
-// Iniciar carga al abrir la página
 window.onload = cargarAverias;
 </script>
 
