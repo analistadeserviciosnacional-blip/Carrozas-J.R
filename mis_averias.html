@@ -48,6 +48,7 @@
             color: var(--azul);
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             text-decoration: none;
+            display: inline-block;
         }
 
         h2 { margin: 0; font-size: 20px; }
@@ -142,20 +143,20 @@
 <script src="db.js"></script>
 
 <script>
-// 1. Obtener la sesión actual
+// 1. Obtener la sesión actual de forma segura
 const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
 
 async function cargarAverias() {
     const lista = document.getElementById('lista-averias');
 
-    // Validar sesión
+    // Validar sesión activa
     if (!sesion || !sesion.nombre) {
         window.location.href = 'index.html';
         return;
     }
 
     try {
-        // 2. Usar la función corregida de db.js
+        // Llamada a la función del archivo db.js
         const { data, error } = await DB.obtenerAveriasPorConductor(sesion.nombre);
 
         if (error) throw error;
@@ -169,9 +170,8 @@ async function cargarAverias() {
             return;
         }
 
-        // 3. Renderizar las tarjetas con datos reales de la DB
+        // Renderizar las tarjetas
         lista.innerHTML = data.map(av => {
-            // Formatear la fecha real del registro
             const fechaRegistro = av.created_at 
                 ? new Date(av.created_at).toLocaleString() 
                 : 'Fecha no disponible';
@@ -190,9 +190,8 @@ async function cargarAverias() {
                         ${av.descripcion_sintomas || 'Sin descripción detallada.'}
                     </div>
 
-                    <button class="btn-wa" 
-                        onclick="reenviarWhatsApp('${av.placa_vehiculo}', '${av.tipo_falla}')">
-                        <span>Reenviar por WhatsApp</span>
+                    <button class="btn-wa" onclick="reenviarWhatsApp('${av.placa_vehiculo}', '${av.tipo_falla}')">
+                        📱 REENVIAR POR WHATSAPP
                     </button>
                 </div>
             `;
@@ -204,8 +203,9 @@ async function cargarAverias() {
     }
 }
 
+// Función unificada para reenvío
 function reenviarWhatsApp(placa, falla) {
-    const msj = 
+    const mensaje = 
         `*🚨 REPORTE DE AVERÍA J.R.*%0A` +
         `----------------------------%0A` +
         `🚗 *Vehículo:* ${placa}%0A` +
@@ -213,19 +213,14 @@ function reenviarWhatsApp(placa, falla) {
         `👤 *Reporta:* ${sesion.nombre}%0A` +
         `----------------------------%0A` +
         `_Reenviado desde el historial de la App._`;
- }
 
-  function enviarWhatsApp() {
-    if (numerosWA.length === 0) { mostrarToast('⚠️ Agrega al menos un número.',true); return; }
-    const msg = encodeURIComponent(generarMensaje());
-    window.open(`https://wa.me/57${numerosWA[0]}?text=${msg}`, '_blank');
-    if (numerosWA.length > 1) numerosWA.slice(1).forEach((n,i) => setTimeout(() => window.open(`https://wa.me/57${n}?text=${msg}`,'_blank'), (i+1)*800));
-    mostrarToast('📱 Enviando reporte por WhatsApp...');
-  }
+    // Número por defecto del coordinador
+    const numeroCoordinador = "573100000000"; 
+    window.open(`https://wa.me/${numeroCoordinador}?text=${mensaje}`, '_blank');
+}
 
 // Iniciar carga al abrir la página
 window.onload = cargarAverias;
-
 </script>
 
 </body>
