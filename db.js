@@ -2,6 +2,7 @@
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 
+// Inicialización del cliente
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
@@ -24,7 +25,7 @@ const DB = {
                 nombre_del_fallecido:   datos.fallecido,
                 clinica_hospital_o_rsd: datos.clinica,
                 numero_prestacion:      datos.prestacion,
-                origen:                 datos.origen,
+                origen:                  datos.origen,
                 destino:                datos.destino,
                 hora_de_salida:         datos.hora_salida,
                 hora_de_ingreso:        datos.hora_ingreso,
@@ -47,28 +48,33 @@ const DB = {
         const { error } = await _supabase
             .from('Averias')
             .insert([{
+                // Se genera identificador manual según el esquema de tu tabla
+                identificador:        Date.now(), 
                 reportado_por:        datos.reportado_por,
                 regional:             datos.regional,
-                placa_vehiculo:       datos.placa,
+                placa_vehiculo:       datos.placa,        // Columna real
                 tipo_vehiculo:        datos.vehiculo,
                 tipo_falla:           datos.tipo_falla,
-                descripcion_sintomas: datos.sintomas,
+                descripcion_sintomas: datos.sintomas,     // Columna real
                 observaciones:        datos.observaciones,
-                imagen1:              datos.imagen1,
-                imagen2:              datos.imagen2,
-                imagen3:              datos.imagen3,
-                imagen4:              datos.imagen4
+                imagen1:              datos.imagen1 || "",
+                imagen2:              datos.imagen2 || "",
+                imagen3:              datos.imagen3 || "",
+                imagen4:              datos.imagen4 || ""
             }]);
         return { ok: !error, error };
     },
 
     // ── OBTENER AVERÍAS POR CONDUCTOR ───────────────────────
     async obtenerAveriasPorConductor(nombre) {
+        // Extraemos el primer nombre para búsqueda flexible
+        const busqueda = nombre.split(' ')[0]; 
+
         const { data, error } = await _supabase
             .from('Averias')
             .select('*')
-            .ilike('reportado_por', `%${nombre}%`)
-            .order('id', { ascending: false });
+            .ilike('reportado_por', `%${busqueda}%`)
+            .order('created_at', { ascending: false }); // Usamos created_at
         return { data, error };
     },
 
@@ -77,7 +83,7 @@ const DB = {
         const { data, error } = await _supabase
             .from('Averias')
             .select('*')
-            .order('id', { ascending: false });
+            .order('created_at', { ascending: false });
         return { data, error };
     },
 
@@ -87,15 +93,15 @@ const DB = {
             .from('Carrozas')
             .insert([{
                 placa:                  datos.placa,
-                modelo:                 datos.modelo,
-                anio:                   parseInt(datos.anio) || 0,
-                estado:                 datos.estado,
-                conductor_asignado:     datos.conductor_asignado,
+                modelo:                  datos.modelo,
+                anio:                    parseInt(datos.anio) || 0,
+                estado:                  datos.estado,
+                conductor_asignado:      datos.conductor_asignado,
                 kilometraje:            parseInt(datos.kilometraje) || 0,
                 ultimo_mantenimiento:   datos.ultimo_mantenimiento,
                 proximo_mantenimiento:  datos.proximo_mantenimiento,
                 observaciones:          datos.observaciones,
-                fecha_registro:         new Date().toLocaleDateString()
+                fecha_registro:          new Date().toLocaleDateString()
             }]);
         return { ok: !error, error };
     }
