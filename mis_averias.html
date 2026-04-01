@@ -4,23 +4,98 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Mis Averías</title>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
     <style>
-        :root { --azul: #000080; --celeste: #eef5ff; --blanco: #ffffff; --rojo: #dc2626; --verde: #25d366; }
-        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 20px; color: var(--azul); }
-        .container { max-width: 600px; margin: 0 auto; }
-        .header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
-        .btn-volver { background: var(--blanco); border: none; padding: 10px; border-radius: 10px; cursor: pointer; font-weight: bold; color: var(--azul); }
-        .card-averia { background: var(--blanco); border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .placa { font-weight: 700; font-size: 16px; }
-        .fecha { color: #64748b; font-size: 12px; }
-        .falla { color: var(--rojo); font-weight: 500; font-size: 14px; }
-        .btn-wa { width: 100%; background: var(--verde); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .loader { text-align: center; padding: 40px; color: #64748b; }
+        :root {
+            --azul: #000080;
+            --celeste: #eef5ff;
+            --blanco: #ffffff;
+            --rojo: #dc2626;
+            --verde: #25d366;
+        }
+
+        body {
+            background: var(--celeste);
+            font-family: 'DM Sans', sans-serif;
+            padding: 20px;
+            color: var(--azul);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn-volver {
+            background: var(--blanco);
+            border: none;
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--azul);
+        }
+
+        .card-averia {
+            background: var(--blanco);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .placa {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .fecha {
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .falla {
+            color: var(--rojo);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .btn-wa {
+            width: 100%;
+            background: var(--verde);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .loader {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
     </style>
 </head>
+
 <body>
 
 <div class="container">
@@ -35,45 +110,70 @@
 </div>
 
 <script src="db.js"></script>
+
 <script>
-    const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
 
-    async function cargarAverias() {
-        if (!sesion.nombre) { location.href = 'index.html'; return; }
-        
-        // Consultar averías del conductor actual
-        const { data, error } = await DB.supabase
-            .from('Averias')
-            .select('*')
-            .eq('reportado_por', sesion.nombre)
-            .order('created_at', { ascending: false });
+const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
 
-        const lista = document.getElementById('lista-averias');
-        if (error) { lista.innerHTML = "Error al cargar datos."; return; }
-        if (data.length === 0) { lista.innerHTML = "No tienes reportes grabados."; return; }
+async function cargarAverias() {
 
-        lista.innerHTML = data.map(av => `
-            <div class="card-averia">
-                <div class="info-row">
-                    <span class="placa">🚗 ${av.placa}</span>
-                    <span class="fecha">${new Date(av.created_at).toLocaleDateString()}</span>
-                </div>
-                <div class="falla">⚠️ ${av.tipo_falla}</div>
-                <div style="font-size: 13px; margin-top: 5px; color: #475569;">${av.sintomas || 'Sin descripción'}</div>
-                
-                <button class="btn-wa" onclick="reviarWhatsApp('${av.placa}', '${av.tipo_falla}')">
-                    REENVIAR POR WHATSAPP
-                </button>
+    if (!sesion || !sesion.nombre) {
+        location.href = 'index.html';
+        return;
+    }
+
+    const lista = document.getElementById('lista-averias');
+
+    // ✅ USANDO TU FUNCIÓN CORRECTA
+    const { data, error } = await DB.obtenerAveriasPorConductor(sesion.nombre);
+
+    if (error) {
+        console.error("Error:", error);
+        lista.innerHTML = "❌ Error al cargar datos.";
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        lista.innerHTML = "📭 No tienes reportes grabados.";
+        return;
+    }
+
+    lista.innerHTML = data.map(av => `
+        <div class="card-averia">
+            <div class="info-row">
+                <span class="placa">🚗 ${av.placa_vehiculo}</span>
+                <span class="fecha">${new Date().toLocaleDateString()}</span>
             </div>
-        `).join('');
-    }
 
-    function reviarWhatsApp(placa, falla) {
-        const msj = `*🚨 REPORTE DE AVERÍA J.R.*%0A*Vehículo:* ${placa}%0A*Falla:* ${falla}%0A*Reporta:* ${sesion.nombre}`;
-        window.open(`https://wa.me/573100000000?text=${msj}`, '_blank');
-    }
+            <div class="falla">⚠️ ${av.tipo_falla}</div>
 
-    window.onload = cargarAverias;
+            <div style="font-size:13px; margin-top:5px; color:#475569;">
+                ${av.descripcion_sintomas || 'Sin descripción'}
+            </div>
+
+            <button class="btn-wa"
+                onclick="reenviarWhatsApp('${av.placa_vehiculo}', '${av.tipo_falla}')">
+                REENVIAR POR WHATSAPP
+            </button>
+        </div>
+    `).join('');
+}
+
+function reenviarWhatsApp(placa, falla) {
+
+    const msj =
+        `*🚨 REPORTE DE AVERÍA J.R.*%0A` +
+        `🚗 Vehículo: ${placa}%0A` +
+        `⚠️ Falla: ${falla}%0A` +
+        `👤 Reporta: ${sesion.nombre}`;
+
+    window.open(`https://wa.me/573100000000?text=${msj}`, '_blank');
+}
+
+window.onload = cargarAverias;
+
 </script>
+
 </body>
+</html>
 </html>
