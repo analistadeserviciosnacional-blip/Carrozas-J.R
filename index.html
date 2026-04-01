@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Control de Acceso Corporativo</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- FIX: SDK actualizado a versión 2.49.0 compatible con sb_publishable_ -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.0/dist/umd/supabase.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root { 
@@ -129,6 +130,7 @@
         <div id="error">Usuario o clave incorrectos</div>
     </div>
 
+    <!-- db.js debe cargarse ANTES del script de login -->
     <script src="db.js"></script>
     <script>
         let currentRole = 'admin';
@@ -157,7 +159,8 @@
             errorDiv.style.display = "none";
 
             try {
-                const { data, error } = await _supabase
+                // FIX: usa window._supabase expuesto desde db.js
+                const { data, error } = await window._supabase
                     .from('usuarios')
                     .select('*')
                     .eq('usuario', u)
@@ -165,14 +168,11 @@
                     .single();
 
                 if (data) {
-                    // ✅ Guardamos el rol del botón seleccionado en la sesión
                     data.rol = currentRole;
-
                     localStorage.setItem('usuario_sesion', JSON.stringify(data));
                     localStorage.setItem('conductor_nombre', data.nombre);
                     localStorage.setItem('usuario_data', JSON.stringify(data));
 
-                    // ✅ Redirige al panel correcto según el rol seleccionado
                     if (currentRole === 'admin') {
                         window.location.href = "dashboard.html";
                     } else {
