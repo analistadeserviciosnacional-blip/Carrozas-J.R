@@ -164,7 +164,7 @@
                     .from('usuarios')
                     .select('*')
                     .eq('usuario', u)
-                    .eq('password', p)
+                    .eq('contraseña', p)
                     .single();
 
                 if (data) {
