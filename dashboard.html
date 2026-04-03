@@ -35,7 +35,7 @@
 
         .logo-text { color: var(--azul-corporativo); font-size: 20px; font-weight: 700; }
         
-        .user-info { text-align: right; }
+        .user-info { text-align: right; display: flex; align-items: center; gap: 15px; }
         #user-name { color: var(--azul-corporativo); font-weight: 700; display: block; }
         .role-tag { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: bold; }
 
@@ -127,7 +127,7 @@
 
     <header>
         <div class="logo-text">J.R. CARROZAS</div>
-        <div class="user-info" style="display: flex; align-items: center; gap: 15px;">
+        <div class="user-info">
             <div style="text-align: right;">
                 <span id="user-name">Cargando...</span>
                 <span class="role-tag">Panel Administrativo</span>
@@ -183,6 +183,7 @@
     <script src="db.js"></script>
     <script>
         window.onload = () => {
+            // Verificar Sesión
             const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
             if (!sesion) {
                 window.location.href = "index.html";
@@ -190,25 +191,29 @@
             }
             document.getElementById('user-name').innerText = sesion.nombre || "Usuario";
             
-            // Cargar traslados desde Supabase
+            // Cargar datos de la base de datos
             cargarTraslados();
         };
 
         async function cargarTraslados() {
             const tabla = document.getElementById('lista-traslados');
+            
             try {
+                // Llamada a la función en db.js
                 const { data, error } = await DB.obtenerTrasladosRecientes();
 
                 if (error) {
-                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error al conectar: ${error.message}</td></tr>`;
+                    console.error(error);
+                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error al conectar con la base de datos</td></tr>`;
                     return;
                 }
 
                 if (!data || data.length === 0) {
-                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center;">No hay reportes registrados</td></tr>`;
+                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center;">No hay reportes de traslados registrados</td></tr>`;
                     return;
                 }
 
+                // Limpiar tabla y llenar con datos reales
                 tabla.innerHTML = "";
                 data.forEach(t => {
                     const tr = document.createElement('tr');
@@ -225,12 +230,14 @@
                     `;
                     tabla.appendChild(tr);
                 });
+
             } catch (err) {
-                tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error crítico de sistema</td></tr>`;
+                tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error crítico de carga</td></tr>`;
             }
         }
 
         function reenviarWhatsApp(datos) {
+            // Construcción del mensaje para WhatsApp
             const mensaje = `*REPORTE J.R. - TRASLADO*\n\n` +
                             `👤 *Responsable:* ${datos.conductor || '---'}\n` +
                             `🚗 *Placa:* ${datos.placa || '---'}\n` +
@@ -239,9 +246,8 @@
                             `📊 *KM Total:* ${datos.total_km || 0} km\n` +
                             `📝 *Obs:* ${datos.observaciones || 'Sin novedad'}`;
 
-            // Número por defecto (puedes ajustarlo)
-            const tel = datos.nnum_telefono || "3001234567";
-            window.open(`https://wa.me/57${tel}?text=${encodeURIComponent(mensaje)}`, '_blank');
+            // URL para envío LIBRE (sin número fijo para que tú elijas el contacto)
+            window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
         }
 
         function cerrarSesion() {
