@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Reporte de Avería</title>
+    <title>J.R. — Reporte Oficial de Avería</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -25,8 +25,8 @@
         .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-weight: bold; }
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
         .btn-db { background: var(--rojo); color: white; }
-        .btn-wa { background: var(--verde); color: white; }
-        .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
+        .btn-wa { background: var(--verde); color: white; opacity: 0.6; }
+        .btn-wa.active { opacity: 1; }
     </style>
 </head>
 <body>
@@ -34,136 +34,131 @@
 <div class="container">
     <div class="header">
         <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
-        <h2>⚠️ REPORTE DE AVERÍA</h2>
-        <p id="rol-info" style="font-size:10px; opacity:0.9; margin-top:5px; font-weight:bold;"></p>
+        <h2>🚨 REPORTE DE AVERÍA</h2>
     </div>
 
     <div class="content">
-        <div class="section-title">Datos del Responsable</div>
+        <div class="section-title">1. Identificación</div>
         <div class="grid-2">
             <div>
                 <label>Reportado por</label>
-                <input type="text" id="reportado_por" readonly class="badge-usuario">
+                <input type="text" id="reportado_por" readonly style="background:#f1f5f9;">
             </div>
             <div>
                 <label>Regional</label>
                 <select id="regional">
-                    <option>Pereira</option><option>Armenia</option>
-                    <option>Manizales</option><option>Cali</option>
+                    <option>Pereira</option><option>Armenia</option><option>Manizales</option><option>Cali</option>
                 </select>
             </div>
         </div>
 
-        <div class="section-title">Datos del Vehículo</div>
         <div class="grid-2">
             <div>
-                <label>Seleccionar Carroza</label>
-                <select id="select_vehiculo" onchange="sincronizarPlaca()">
+                <label>Placa Vehículo</label>
+                <select id="placa_vehiculo" onchange="autoCompletarVehiculo()">
                     <option value="">Cargando...</option>
                 </select>
             </div>
             <div>
-                <label>Confirmar Placa</label>
-                <input type="text" id="placa" placeholder="ABC-123" readonly>
+                <label>Tipo Vehículo</label>
+                <input type="text" id="tipo_vehiculo" readonly style="background:#f1f5f9;">
             </div>
         </div>
 
-        <div class="section-title">Síntomas y Descripción</div>
+        <div class="section-title">2. Detalles Técnicos</div>
         <label>Tipo de Falla</label>
         <select id="tipo_falla">
-            <option value="">Seleccionar tipo...</option>
-            <option>Falla mecánica</option><option>Falla eléctrica</option>
-            <option>Accidente / Golpe</option><option>Llantas</option><option>Otro</option>
+            <option value="">Seleccione falla...</option>
+            <option>Falla mecánica</option>
+            <option>Falla eléctrica</option>
+            <option>Accidente / Golpe</option>
+            <option>Llantas</option>
+            <option>Otro</option>
         </select>
 
-        <label>Descripción de Síntomas</label>
-        <textarea id="sintomas" rows="3" placeholder="Describe brevemente la falla..."></textarea>
+        <label>Descripción de Síntomas (Campo CSV)</label>
+        <textarea id="descripcion_sintomas" rows="3" placeholder="Ej: El carro tironea en subida..."></textarea>
 
         <label>Observaciones Adicionales</label>
-        <textarea id="observaciones" rows="2" placeholder="Notas extra para el taller..."></textarea>
+        <textarea id="observaciones" rows="2"></textarea>
 
-        <div class="section-title">Evidencias Fotográficas (Máx. 4)</div>
+        <div class="section-title">3. Evidencias</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
-            <span id="upload-text">📸 Toca para subir fotos del daño</span>
+            <span id="upload-text">📸 Toque para adjuntar (Máx 4)</span>
             <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
         </div>
-        <div class="preview-gallery" id="galeria"></div>
+        <div id="galeria" class="preview-gallery"></div>
 
-        <div class="section-title">Notificación y Destino</div>
-        <label>Enviar Notificación a:</label>
+        <div class="section-title">4. Notificación Final</div>
+        <label>Notificar a:</label>
         <select id="whatsapp_destino">
             <option value="573100000000">Coordinador Pereira</option>
-            <option value="573200000000">Jefe de Mantenimiento</option>
+            <option value="573200000000">Taller Central</option>
         </select>
 
-        <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
-        <button class="btn-action btn-wa" id="btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
+        <button class="btn-action btn-db" id="btn-envio" onclick="guardarTodo()">🚨 GUARDAR EN SISTEMA</button>
+        <button class="btn-action btn-wa" id="btn-wa" onclick="enviarWA()" disabled>✅ ENVIAR WHATSAPP</button>
     </div>
 </div>
 
 <script src="db.js"></script>
 <script>
     let fotosArray = [];
+    let listadoCarrozas = [];
 
     window.onload = async () => {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
-        document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
-        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
-        
+        const user = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        document.getElementById('reportado_por').value = user.nombre || "Sin Nombre";
         await cargarCarrozas();
     };
 
     async function cargarCarrozas() {
-        const { data, error } = await DB.supabase.from('carrozas').select('placa').order('placa');
-        const select = document.getElementById('select_vehiculo');
+        const { data } = await DB.supabase.from('carrozas').select('placa, modelo').order('placa');
         if (data) {
-            select.innerHTML = '<option value="">Seleccione vehículo...</option>' + 
+            listadoCarrozas = data;
+            const select = document.getElementById('placa_vehiculo');
+            select.innerHTML = '<option value="">Seleccione...</option>' + 
                 data.map(v => `<option value="${v.placa}">${v.placa}</option>`).join('');
         }
     }
 
-    function sincronizarPlaca() {
-        document.getElementById('placa').value = document.getElementById('select_vehiculo').value;
-    }
-
-    function irAtras() {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        window.location.href = (sesion.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
+    function autoCompletarVehiculo() {
+        const placa = document.getElementById('placa_vehiculo').value;
+        const v = listadoCarrozas.find(x => x.placa === placa);
+        document.getElementById('tipo_vehiculo').value = v ? `Carroza ${v.placa}` : "";
     }
 
     function procesarFotos(input) {
-        for (let f of Array.from(input.files)) {
+        Array.from(input.files).forEach(f => {
             if (fotosArray.length < 4) {
-                const reader = new FileReader();
-                reader.readAsDataURL(f);
-                reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
+                const r = new FileReader();
+                r.readAsDataURL(f);
+                r.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
             }
-        }
+        });
     }
 
     function renderGaleria() {
         document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
             <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
-        document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
     }
 
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
-    async function guardarAveria() {
+    async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
-        const placa = document.getElementById('placa').value;
-        const falla = document.getElementById('tipo_falla').value;
+        const placa = document.getElementById('placa_vehiculo').value;
+        if (!placa || !document.getElementById('tipo_falla').value) return alert("Faltan datos obligatorios.");
 
-        if (!placa || !falla) { alert("Seleccione un vehículo y el tipo de falla"); return; }
+        btn.disabled = true; btn.innerText = "⏳ REGISTRANDO...";
 
-        btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
-
-        const datos = {
+        const registro = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
             placa_vehiculo: placa,
-            tipo_falla: falla,
-            sintomas: document.getElementById('sintomas').value,
+            tipo_vehiculo: document.getElementById('tipo_vehiculo').value,
+            tipo_falla: document.getElementById('tipo_falla').value,
+            descripcion_sintomas: document.getElementById('descripcion_sintomas').value,
             observaciones: document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || null,
             imagen2: fotosArray[1] || null,
@@ -171,37 +166,31 @@
             imagen4: fotosArray[3] || null
         };
 
-        const { error } = await DB.supabase.from('averias').insert([datos]);
+        const { error } = await DB.supabase.from('averias').insert([registro]);
 
         if (!error) {
-            btn.innerText = "✓ GUARDADO EXITOSAMENTE";
-            btn.style.background = "#16a34a";
-            // Cambiar estado del vehículo a 'En Taller' automáticamente
+            btn.innerText = "✓ GUARDADO"; btn.style.background = "#16a34a";
+            // Activar botón WhatsApp
+            const btnWA = document.getElementById('btn-wa');
+            btnWA.disabled = false; btnWA.classList.add('active');
+            // Actualizar estado de carroza
             await DB.supabase.from('carrozas').update({ estado: 'En Taller' }).eq('placa', placa);
         } else {
             alert("Error: " + error.message);
-            btn.disabled = false; btn.innerText = "🚨 REINTENTAR ENVÍO";
+            btn.disabled = false; btn.innerText = "🚨 REINTENTAR";
         }
     }
 
-    function enviarWhatsAppAveria() {
-        const placa = document.getElementById('placa').value;
-        const falla = document.getElementById('tipo_falla').value;
-        const regional = document.getElementById('regional').value;
+    function enviarWA() {
+        const placa = document.getElementById('placa_vehiculo').value;
         const tel = document.getElementById('whatsapp_destino').value;
-
-        if (!placa || !falla) { alert("Primero completa el reporte."); return; }
-
-        const msj = `*🚨 REPORTE DE AVERÍA - J.R.*%0A` +
-                    `----------------------------%0A` +
-                    `👤 *Por:* ${document.getElementById('reportado_por').value}%0A` +
-                    `📍 *Regional:* ${regional}%0A` +
-                    `🚗 *Placa:* ${placa}%0A` +
-                    `⚠️ *Falla:* ${falla}%0A` +
-                    `----------------------------%0A` +
-                    `📝 _Registrado en el sistema J.R._`;
-
+        const msj = `*🚨 NUEVO REPORTE - J.R.*%0A*Vehículo:* ${placa}%0A*Falla:* ${document.getElementById('tipo_falla').value}%0A*Reporta:* ${document.getElementById('reportado_por').value}`;
         window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
+    }
+
+    function irAtras() {
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        window.location.href = (sesion.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
     }
 </script>
 </body>
