@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -14,10 +13,11 @@
         .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
         .header { background: var(--rojo); color: white; padding: 20px; text-align: center; }
         .content { padding: 20px; }
+        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #546e7a; margin: 15px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
         label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 15px; }
         input, select, textarea { width: 100%; padding: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; font-size: 14px; background: var(--gris); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; background: var(--rojo); color: white; margin-top: 20px; }
-        .btn-action:disabled { background: #ccc; }
         .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
         .preview-gallery img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
     </style>
@@ -25,61 +25,75 @@
 <body>
 
 <div class="container">
-    <div class="header"><h2>⚠️ REPORTE DE AVERÍA</h2></div>
+    <div class="header"><h2>⚠️ REPORTE DE AVERÍA J.R.</h2></div>
     
     <div class="content">
-        <label>Reportado por</label>
-        <input type="text" id="reportado_por" readonly style="background:#eef5ff; font-weight:bold;">
+        <div class="section-title">Datos del Reporte</div>
+        <div class="grid-2">
+            <div>
+                <label>Reportado por</label>
+                <input type="text" id="reportado_por" readonly style="background:#eef5ff;">
+            </div>
+            <div>
+                <label>Regional</label>
+                <select id="regional">
+                    <option>Pereira</option>
+                    <option>Armenia</option>
+                    <option>Manizales</option>
+                    <option>Cali</option>
+                </select>
+            </div>
+        </div>
 
-        <label>Regional</label>
-        <select id="regional">
-            <option>Pereira</option>
-            <option>Armenia</option>
-            <option>Manizales</option>
-            <option>Cali</option>
-        </select>
-
-        <label>Seleccionar Vehículo</label>
+        <div class="section-title">Vehículo</div>
+        <label>Seleccionar Carroza / Vehículo</label>
         <select id="selector_vehiculo">
-            <option value="">Seleccione el vehículo...</option>
+            <option value="">Seleccione...</option>
             <option value="GJX-497|Carroza GJX-497">Carroza GJX-497</option>
             <option value="ICQ-333|Carroza ICQ-333">Carroza ICQ-333</option>
-            <option value="APOYO|Furgón de Apoyo">Furgón de Apoyo</option>
+            <option value="FURGON|Furgón de Apoyo">Furgón de Apoyo</option>
         </select>
 
+        <div class="section-title">Detalles de la Falla</div>
         <label>Tipo de Falla</label>
         <select id="tipo_falla">
-            <option value="">Seleccionar falla...</option>
+            <option value="">Seleccionar tipo...</option>
             <option>Falla mecánica</option>
             <option>Falla eléctrica</option>
             <option>Llantas</option>
-            <option>Carrocería</option>
+            <option>Carrocería / Golpe</option>
+            <option>Otro</option>
         </select>
 
         <label>Descripción de Síntomas</label>
-        <textarea id="sintomas" rows="3" placeholder="Detalle la falla aquí..."></textarea>
+        <textarea id="descripcion_sintomas" rows="3" placeholder="¿Qué le sucede al vehículo?"></textarea>
 
-        <label>Fotos (Máx 2 para evitar errores de peso)</label>
+        <label>Observaciones Adicionales</label>
+        <textarea id="observaciones" rows="2" placeholder="Notas para el taller..."></textarea>
+
+        <div class="section-title">Evidencias Fotográficas</div>
         <input type="file" id="fotos-input" accept="image/*" multiple onchange="handleFotos(this)">
         <div id="galeria" class="preview-gallery"></div>
 
-        <button class="btn-action" id="btn-envio" onclick="enviarReporte()">🚨 REGISTRAR EN SISTEMA</button>
+        <button class="btn-action" id="btn-envio" onclick="enviarReporte()">🚨 REGISTRAR EN BASE DE DATOS</button>
     </div>
 </div>
 
 <script>
-    // IMPORTANTE: REEMPLAZA CON TUS DATOS
+    // Configuración de Supabase
     const URL_SUPA = "TU_URL_DE_SUPABASE";
     const KEY_SUPA = "TU_ANON_KEY";
     const _supabase = supabase.createClient(URL_SUPA, KEY_SUPA);
 
     let fotosArray = [];
 
+    // Cargar datos de sesión al iniciar
     window.onload = () => {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         document.getElementById('reportado_por').value = sesion.nombre || "Conductor J.R.";
     };
 
+    // Manejo de imágenes (Máximo 2 para asegurar que el peso no bloquee el envío)
     function handleFotos(el) {
         for (let file of el.files) {
             if (fotosArray.length < 2) {
@@ -97,33 +111,46 @@
 
     async function enviarReporte() {
         const btn = document.getElementById('btn-envio');
-        const vehiculoData = document.getElementById('selector_vehiculo').value.split('|');
+        const selector = document.getElementById('selector_vehiculo').value;
 
-        if(!vehiculoData[0]) return alert("Selecciona un vehículo");
+        if(!selector) return alert("Por favor, selecciona un vehículo.");
+        
+        // Separamos la placa del nombre del vehículo
+        const [placa, nombreVehiculo] = selector.split('|');
 
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
-            placa_vehiculo: vehiculoData[0], // Toma la placa (Ej: GJX-497)
-            tipo_vehiculo: vehiculoData[1],  // Toma el nombre (Ej: Carroza GJX-497)
+            placa_vehiculo: placa,
+            tipo_vehiculo: nombreVehiculo,
             tipo_falla: document.getElementById('tipo_falla').value,
-            descripcion_sintomas: document.getElementById('sintomas').value,
+            descripcion_sintomas: document.getElementById('descripcion_sintomas').value,
+            observaciones: document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || null,
-            imagen2: fotosArray[1] || null
+            imagen2: fotosArray[1] || null,
+            created_at: new Date()
         };
 
+        if(!datos.tipo_falla || !datos.descripcion_sintomas) {
+            return alert("Por favor completa el tipo de falla y la descripción.");
+        }
+
         btn.disabled = true;
-        btn.innerText = "⏳ GUARDANDO...";
+        btn.innerText = "⏳ GUARDANDO REGISTRO...";
 
-        const { error } = await _supabase.from('averias').insert([datos]);
+        try {
+            const { error } = await _supabase.from('averias').insert([datos]);
 
-        if (error) {
-            alert("Error: " + error.message);
+            if (error) throw error;
+
+            alert("✅ REPORTE GUARDADO CON ÉXITO");
+            location.reload(); 
+
+        } catch (err) {
+            console.error(err);
+            alert("🚨 ERROR DE SEGURIDAD (RLS): " + err.message + "\n\nVerifica que la tabla 'averias' tenga habilitada la política de INSERT para usuarios anónimos.");
             btn.disabled = false;
-            btn.innerText = "🚨 REINTENTAR";
-        } else {
-            alert("✅ REPORTE EXITOSO");
-            location.reload();
+            btn.innerText = "🚨 REINTENTAR ENVÍO";
         }
     }
 </script>
