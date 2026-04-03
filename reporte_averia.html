@@ -64,9 +64,9 @@
                 <label>Vehículo / Carroza</label>
                 <select id="vehiculo">
                     <option value="">Seleccionar...</option>
-                    <option>Carroza GJX-497</option>
-                    <option>Carroza ICQ-333</option>
-                    <option>Furgón de Apoyo</option>
+                    <option value="Carroza GJX-497">Carroza GJX-497</option>
+                    <option value="Carroza ICQ-333">Carroza ICQ-333</option>
+                    <option value="Furgón de Apoyo">Furgón de Apoyo</option>
                 </select>
             </div>
         </div>
@@ -87,17 +87,10 @@
 
         <div class="section-title">Evidencias Fotográficas (Máx. 4)</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
-            <span id="upload-text">📸 Toca para subir fotos del daño</span>
+            <span id="upload-text">📸 Toca para subir fotos</span>
             <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
         </div>
         <div class="preview-gallery" id="galeria"></div>
-
-        <div class="section-title">Notificación y Destino</div>
-        <label>Enviar Notificación a:</label>
-        <select id="whatsapp_destino">
-            <option value="573100000000">Coordinador Pereira</option>
-            <option value="573200000000">Jefe de Mantenimiento</option>
-        </select>
 
         <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
         <button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
@@ -109,16 +102,12 @@
     let fotosArray = [];
 
     window.onload = () => {
-        // Carga de sesión de usuario
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
         document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
         document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
     };
 
-    function irAtras() {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        window.location.href = (sesion.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
-    }
+    function irAtras() { window.history.back(); }
 
     function procesarFotos(input) {
         for (let f of Array.from(input.files)) {
@@ -133,7 +122,6 @@
     function renderGaleria() {
         document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
             <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
-        document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
     }
 
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
@@ -141,23 +129,22 @@
     async function guardarAveria() {
         const btn = document.getElementById('btn-envio');
         const placa = document.getElementById('placa').value.trim();
+        const v_tipo = document.getElementById('vehiculo').value;
         const falla = document.getElementById('tipo_falla').value;
-        const vehiculo = document.getElementById('vehiculo').value;
 
-        // Validación: Detiene si faltan campos que tu tabla 'averias' requiere
-        if (!placa || !falla || !vehiculo) { 
-            alert("⚠️ Debes completar: Placa, Vehículo y Tipo de Falla."); 
+        if (!placa || !v_tipo || !falla) { 
+            alert("Completa Placa, Vehículo y Falla"); 
             return; 
         }
 
-        btn.disabled = true; btn.innerText = "⏳ GUARDANDO...";
+        btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
 
-        // Objeto con los nombres de columna EXACTOS de tu base de datos
+        // MAPEO EXACTO SEGÚN TU TABLA 'averias'
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
             placa_vehiculo: placa,
-            tipo_vehiculo: vehiculo,
+            tipo_vehiculo: v_tipo,
             tipo_falla: falla,
             descripcion_sintomas: document.getElementById('sintomas').value || "Sin descripción",
             observaciones: document.getElementById('observaciones').value || "",
@@ -168,41 +155,24 @@
         };
 
         try {
-            // Guardar en la tabla 'averias' usando el objeto DB definido en db.js
-            const { data, error } = await DB.supabase.from('averias').insert([datos]);
+            // Conexión directa a Supabase usando la instancia global de db.js
+            const { error } = await DB.supabase.from('averias').insert([datos]);
 
             if (error) throw error;
 
-            btn.innerText = "✓ GUARDADO EXITOSAMENTE";
+            btn.innerText = "✓ GUARDADO CORRECTAMENTE";
             btn.style.background = "#16a34a";
-            
-            // Opcional: intentar actualizar el estado del vehículo si existe en la tabla carrozas
-            await DB.supabase.from('carrozas').update({ estado: 'En Taller' }).eq('placa', placa);
-
         } catch (err) {
-            alert("Error al guardar: " + err.message);
-            btn.disabled = false; 
-            btn.innerText = "🚨 REINTENTAR ENVÍO";
+            console.error(err);
+            alert("Error de conexión: " + err.message);
+            btn.disabled = false; btn.innerText = "🚨 REINTENTAR ENVÍO";
         }
     }
 
     function enviarWhatsAppAveria() {
         const placa = document.getElementById('placa').value.toUpperCase();
-        const falla = document.getElementById('tipo_falla').value;
-        const regional = document.getElementById('regional').value;
-        const tel = document.getElementById('whatsapp_destino').value;
-
-        if (!placa || !falla) { alert("Completa los datos para el mensaje."); return; }
-
-        const msj = `*🚨 REPORTE DE AVERÍA - J.R.*%0A` +
-                    `----------------------------%0A` +
-                    `👤 *Por:* ${document.getElementById('reportado_por').value}%0A` +
-                    `📍 *Regional:* ${regional}%0A` +
-                    `🚗 *Vehículo:* ${placa}%0A` +
-                    `⚠️ *Falla:* ${falla}%0A` +
-                    `----------------------------%0A` +
-                    `📝 _Registrado en el sistema._`;
-
+        const tel = "573100000000"; // Cambia al número real
+        const msj = `*🚨 REPORTE DE AVERÍA*%0APlaca: ${placa}%0AFalla: ${document.getElementById('tipo_falla').value}`;
         window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
     }
 </script>
