@@ -11,6 +11,7 @@
             --azul-corporativo: #001a70; 
             --celeste-fondo: #e3f2fd; 
             --blanco: #ffffff; 
+            --rojo: #ef4444;
         }
         
         body { 
@@ -39,14 +40,14 @@
 
         .grid-menu { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
-            gap: 20px; 
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+            gap: 15px; 
             margin-bottom: 30px; 
         }
 
         .card { 
             background: var(--blanco); 
-            padding: 25px 15px; 
+            padding: 20px 10px; 
             border-radius: 25px; 
             text-align: center; 
             text-decoration: none; 
@@ -61,9 +62,9 @@
             box-shadow: 0 10px 20px rgba(0,26,112,0.08);
         }
 
-        .card i { font-size: 32px; display: block; margin-bottom: 12px; }
+        .card i { font-size: 28px; display: block; margin-bottom: 10px; font-style: normal; }
         .card h3 { 
-            font-size: 14px; 
+            font-size: 13px; 
             margin: 0; 
             color: var(--azul-corporativo); 
             text-transform: uppercase; 
@@ -81,42 +82,56 @@
             font-size: 18px; 
             color: var(--azul-corporativo);
             margin-bottom: 20px; 
+            display: flex;
+            justify-content: space-between;
         }
 
         table { width: 100%; border-collapse: collapse; }
         th { 
             text-align: left; 
             color: #64748b; 
-            font-size: 12px; 
-            padding: 15px; 
+            font-size: 11px; 
+            padding: 12px; 
             border-bottom: 2px solid var(--celeste-fondo); 
+            text-transform: uppercase;
         }
         td { 
-            padding: 15px; 
+            padding: 12px; 
             font-size: 14px; 
             border-bottom: 1px solid #f1f5f9; 
             color: #334155;
         }
 
         .status-pill { 
-            color: #10b981; 
             font-weight: bold; 
-            font-size: 11px; 
-            background: #ecfdf5; 
-            padding: 5px 12px; 
-            border-radius: 10px; 
+            font-size: 10px; 
+            padding: 5px 10px; 
+            border-radius: 8px; 
+            text-transform: uppercase;
+        }
+        .disp { background: #ecfdf5; color: #10b981; }
+        .serv { background: #fff7ed; color: #f97316; }
+        .tall { background: #fef2f2; color: #ef4444; }
+
+        .averia-item {
+            border-left: 4px solid var(--rojo);
+            background: #fdfdfd;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #fee2e2;
         }
 
         .btn-wa {
-            background: #25D366;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 11px;
-            text-transform: uppercase;
+            background: #25D366; color: white; border: none;
+            padding: 8px 12px; border-radius: 10px; cursor: pointer;
+            font-weight: 700; font-size: 10px; text-transform: uppercase;
+        }
+
+        .btn-taller {
+            background: var(--azul-corporativo); color: white;
+            padding: 6px 12px; border-radius: 8px; text-decoration: none;
+            font-size: 11px; font-weight: bold;
         }
     </style>
 </head>
@@ -135,46 +150,60 @@
 
     <div class="grid-menu">
         <a href="registro_salida.html" class="card"><i>🚚</i><h3>Salidas</h3></a>
-        <div class="card"><i>🏁</i><h3>Llegadas</h3></div>
-        <div class="card"><i>🔧</i><h3>Taller</h3></div>
-        <div class="card"><i>🚗</i><h3>Flota</h3></div>
-        <div class="card"><i>⚙️</i><h3>Ajustes</h3></div>
+        <a href="registro_llegada.html" class="card"><i>🏁</i><h3>Llegadas</h3></a>
+        <a href="taller.html" class="card"><i>🔧</i><h3>Taller</h3></a>
+        <a href="flota.html" class="card"><i>🚗</i><h3>Flota</h3></a>
+        <a href="ajustes.html" class="card"><i>⚙️</i><h3>Ajustes</h3></a>
     </div>
 
-    <div class="monitor">
-        <h2>Monitor de Flota</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Vehículo</th>
-                    <th>Placa</th>
-                    <th>Kilometraje</th>
-                    <th>Estado Actual</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td>GJX</td><td>GJX-497</td><td>25.452 KM</td><td><span class="status-pill">● DISPONIBLE</span></td></tr>
-                <tr><td>ICQ</td><td>ICQ-333</td><td>54.585 KM</td><td><span class="status-pill">● DISPONIBLE</span></td></tr>
-            </tbody>
-        </table>
-    </div>
+    <div style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
+        
+        <div>
+            <div class="monitor">
+                <h2>Monitor de Flota (Estado Real)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Placa</th>
+                            <th>Modelo</th>
+                            <th>Kilometraje</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-flota">
+                        <tr><td colspan="4" style="text-align:center;">Cargando flota...</td></tr>
+                    </tbody>
+                </table>
+            </div>
 
-    <div class="monitor">
-        <h2>Últimas Salidas Reportadas</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Placa</th>
-                    <th>Fallecido</th>
-                    <th>Ruta</th>
-                    <th>Reporte</th>
-                </tr>
-            </thead>
-            <tbody id="lista-traslados">
-                <tr><td colspan="5" style="text-align: center; padding: 20px;">Cargando traslados...</td></tr>
-            </tbody>
-        </table>
+            <div class="monitor">
+                <h2>Últimas Salidas Reportadas</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Placa</th>
+                            <th>Fallecido</th>
+                            <th>Ruta</th>
+                            <th>Reporte</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-traslados">
+                        <tr><td colspan="5" style="text-align: center; padding: 20px;">Cargando traslados...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div>
+            <div class="monitor" style="border: 2px solid #fee2e2;">
+                <h2 style="color: var(--rojo);">⚠️ Averías Reportadas</h2>
+                <div id="lista-averias">
+                    <p style="font-size: 13px; color: #64748b; text-align: center;">Buscando reportes de conductores...</p>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script src="db.js"></script>
@@ -186,72 +215,83 @@
                 return;
             }
             document.getElementById('user-name').innerText = sesion.nombre || "Usuario";
+            
+            // Cargar toda la data al iniciar
+            cargarFlota();
             cargarTraslados();
+            consultarAverias();
         };
 
+        // 1. CARGAR ESTADO DE CARROZAS
+        async function cargarFlota() {
+            const tbody = document.getElementById('tabla-flota');
+            const { data, error } = await DB.supabase.from('Carrozas').select('*');
+            if (data) {
+                tbody.innerHTML = data.map(c => {
+                    let clase = c.estado === 'Disponible' ? 'disp' : (c.estado === 'En Taller' ? 'tall' : 'serv');
+                    return `
+                        <tr>
+                            <td><b>${c.placa}</b></td>
+                            <td>${c.modelo}</td>
+                            <td>${c.kilometraje_actual} KM</td>
+                            <td><span class="status-pill ${clase}">● ${c.estado}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // 2. CARGAR ÚLTIMOS TRASLADOS (REGISTROS DE SALIDA)
         async function cargarTraslados() {
             const tabla = document.getElementById('lista-traslados');
             try {
                 const { data, error } = await DB.obtenerTrasladosRecientes();
-                if (error) {
-                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error de conexión</td></tr>`;
-                    return;
+                if (data) {
+                    tabla.innerHTML = data.map(t => `
+                        <tr>
+                            <td>${t.fecha || '---'}</td>
+                            <td><b>${t.placa || '---'}</b></td>
+                            <td>${t.nombre_del_fallecido || 'N/A'}</td>
+                            <td style="font-size:11px;">${t.origen || '?'} ➔ ${t.destino || '?'}</td>
+                            <td>
+                                <button class="btn-wa" onclick='reenviarWhatsApp(${JSON.stringify(t)})'>Reporte WA</button>
+                            </td>
+                        </tr>
+                    `).join('');
                 }
-                if (!data || data.length === 0) {
-                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center;">No hay reportes registrados</td></tr>`;
-                    return;
-                }
+            } catch (e) { console.error(e); }
+        }
 
-                tabla.innerHTML = "";
-                data.forEach(t => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${t.fecha || '---'}</td>
-                        <td><b>${t.placa || '---'}</b></td>
-                        <td>${t.nombre_del_fallecido || 'N/A'}</td>
-                        <td style="font-size:11px;">${t.origen || '?'} ➔ ${t.destino || '?'}</td>
-                        <td>
-                            <button class="btn-wa" onclick='reenviarWhatsApp(${JSON.stringify(t)})'>
-                                Reporte WA
-                            </button>
-                        </td>
-                    `;
-                    tabla.appendChild(tr);
-                });
-            } catch (err) {
-                tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error de carga</td></tr>`;
+        // 3. CONSULTAR AVERÍAS (TABLA DEL CONDUCTOR)
+        async function consultarAverias() {
+            const { data, error } = await DB.supabase.from('Averias').select('*').order('id', { ascending: false }).limit(5);
+            const contenedor = document.getElementById('lista-averias');
+            if (data && data.length > 0) {
+                contenedor.innerHTML = data.map(av => `
+                    <div class="averia-item">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                            <b style="font-size:14px; color:var(--azul-corporativo);">${av.placa_vehiculo}</b>
+                            <span style="font-size:10px; color:#94a3b8;">${av.regional}</span>
+                        </div>
+                        <div style="font-size:12px; margin-bottom:8px;"><b>Falla:</b> ${av.tipo_falla}</div>
+                        <div style="text-align:right;">
+                            <a href="taller.html?placa=${av.placa_vehiculo}" class="btn-taller">REPARAR</a>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                contenedor.innerHTML = '<p style="text-align:center; font-size:12px;">Sin novedades hoy 👍</p>';
             }
         }
 
         function reenviarWhatsApp(datos) {
-            // Saludo según la hora
-            const ahora = new Date();
-            const hora = ahora.getHours();
-            let saludo = "";
-            if (hora >= 6 && hora < 12) saludo = "Buenos días ☀️";
-            else if (hora >= 12 && hora < 18) saludo = "Buenas tardes 🌤️";
-            else saludo = "Buenas noches 🌜";
-
-            // Formato exacto solicitado por J.R.
-            const mensaje = `${saludo}\n\n` +
-                            `Reporte de Salida De Carroza,🚘,\n\n` +
-                            `Regional ${datos.regional || 'Quindio'},\n` +
-                            `Fecha,${datos.fecha || ''},\n` +
-                            `Coordinador,${datos.coordinador_en_turno || '---'},\n` +
-                            `Hora De Salida,${datos.hora_de_salida || ''},\n` +
-                            `Placas Del Vehiculo,${datos.placa || ''},\n` +
-                            `Motivo De Salida,${datos.motivo_de_salida || ''},\n` +
-                            `Nombre Del Fallecido,${datos.nombre_del_fallecido || ''},\n` +
-                            `Lugar de Recogida,${datos.clinica_hospital_o_rsd || ''},\n` +
-                            `Origen,${datos.origen || ''},\n` +
-                            `Destino,${datos.destino || ''},\n` +
-                            `Km De Salida,${datos.km__salida || 0},\n` +
-                            `Nom: Conductor,${datos.conductor || ''},\n` +
-                            `N° Telefono,${datos.nnum_telefono || ''},\n` +
-                            `Observaciones,${datos.observaciones || ''},\n` +
-                            `La Carroza se Encuentra,Todo En Orden 👍🏻,`;
-
-            // Envío libre (Abre WhatsApp para elegir contacto)
+            const mensaje = `*Reporte de Salida J.R.*\n\n` +
+                            `Regional: ${datos.regional || ''}\n` +
+                            `Fecha: ${datos.fecha || ''}\n` +
+                            `Placa: ${datos.placa || ''}\n` +
+                            `Conductor: ${datos.conductor || ''}\n` +
+                            `Fallecido: ${datos.nombre_del_fallecido || ''}\n` +
+                            `Ruta: ${datos.origen} ➔ ${datos.destino}`;
             window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
         }
 
