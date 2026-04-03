@@ -8,11 +8,11 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 const DB = {
     supabase: _supabase,
 
-    // ── SECCIÓN: TRASLADOS (SALIDAS) ──────────────────────────
+    // ── SECCIÓN: TRASLADOS (SALIDAS Y LLEGADAS) ────────────────
     async guardarTraslado(datos) {
         try {
-            const { data, error } = await _supabase
-                .from('Traslado') // Verifica que en Supabase sea 'Traslado' con T mayúscula
+            const { error } = await _supabase
+                .from('Traslado') // TABLA CON T MAYÚSCULA
                 .insert([{
                     id_salida:              'JR-' + Date.now(),
                     fecha:                  new Date().toLocaleDateString('es-CO'),
@@ -32,7 +32,7 @@ const DB = {
                     km__salida:             parseInt(datos.km_salida)  || 0,
                     km__ingreso:            parseInt(datos.km_ingreso) || 0,
                     total_km:               parseInt(datos.total_km)   || 0,
-                    coordinador_en_turno:   datos.coordinador, // Ajustado según tu instrucción
+                    coordinador_en_turno:   datos.coordinador,
                     observaciones:          datos.observaciones,
                     imagen1:                datos.imagen1 || "",
                     imagen2:                datos.imagen2 || "",
@@ -40,12 +40,8 @@ const DB = {
                     imagen4:                datos.imagen4 || "",
                     firma:                  datos.firma || ""
                 }]);
-
-            if (error) throw error;
-            return { ok: true, data };
+            return { ok: !error, error };
         } catch (err) {
-            console.error("Error crítico en guardarTraslado:", err);
-            alert("Error al guardar: " + (err.message || "Revisa la conexión"));
             return { ok: false, error: err };
         }
     },
@@ -53,20 +49,17 @@ const DB = {
     async obtenerTrasladosRecientes() {
         try {
             const { data, error } = await _supabase
-                .from('Traslado')
+                .from('Traslado') // TABLA CON T MAYÚSCULA
                 .select('*')
                 .order('created_at', { ascending: false }) 
                 .limit(10);
-            
-            if (error) throw error;
-            return { data, error: null };
+            return { data: data || [], error };
         } catch (err) {
-            console.error("Error al obtener traslados:", err);
             return { data: [], error: err };
         }
     },
 
-    // ── SECCIÓN: AVERÍAS (REPORTES) ──────────────────────────
+    // ── SECCIÓN: AVERÍAS ──────────────────────────────────────
     async guardarAveria(datos) {
         try {
             const { error } = await _supabase
@@ -85,11 +78,8 @@ const DB = {
                     imagen3:              datos.imagen3 || "",
                     imagen4:              datos.imagen4 || ""
                 }]);
-
-            if (error) throw error;
-            return { ok: true };
+            return { ok: !error, error };
         } catch (err) {
-            console.error("Error en guardarAveria:", err);
             return { ok: false, error: err };
         }
     },
@@ -101,9 +91,7 @@ const DB = {
                 .select('*')
                 .order('id', { ascending: false })
                 .limit(10);
-            
-            if (error) throw error;
-            return { data, error: null };
+            return { data: data || [], error };
         } catch (err) {
             return { data: [], error: err };
         }
@@ -113,19 +101,15 @@ const DB = {
     async obtenerFlota() {
         try {
             const { data, error } = await _supabase
-                .from('carrozas') // Cambiado a minúscula según tu captura de Supabase
+                .from('carrozas') // TABLA EN MINÚSCULAS SEGÚN TU SUPABASE
                 .select('*')
                 .order('placa', { ascending: true });
-
-            if (error) throw error;
-            return { data, error: null };
+            return { data: data || [], error };
         } catch (err) {
-            console.error("Error al obtener flota:", err);
+            console.error("Error flota:", err);
             return { data: [], error: err };
         }
     }
 };
 
-// Exponer a nivel global
-window._supabase = _supabase;
 window.DB = DB;
