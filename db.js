@@ -9,7 +9,7 @@ const DB = {
     // ✅ Expuesto para consultas directas si es necesario
     supabase: _supabase,
 
-    // ── SECCIÓN: TRASLADOS ──────────────────────────────────
+    // ── SECCIÓN: TRASLADOS (SALIDAS) ──────────────────────────
 
     /**
      * Guarda un nuevo reporte de traslado en la tabla 'Traslado'
@@ -20,8 +20,9 @@ const DB = {
                 .from('Traslado')
                 .insert([{
                     id_salida:              'JR-' + Date.now(),
-                    fecha:                  new Date().toLocaleDateString('es-CO'),
-                    regional:               datos.regional,
+                    fecha:                  new Date().toLocaleDateString('es-CO'), // Formato legible para el mensaje
+                    created_at:             new Date().toISOString(), // Para ordenamiento técnico
+                    regional:               datos.regional || 'Pereira',
                     conductor:              datos.conductor,
                     nnum_telefono:          datos.telefono,
                     placa:                  datos.placa,
@@ -36,7 +37,7 @@ const DB = {
                     km__salida:             parseInt(datos.km_salida)  || 0,
                     km__ingreso:            parseInt(datos.km_ingreso) || 0,
                     total_km:               parseInt(datos.total_km)   || 0,
-                    coordinador_en_turno:   datos.coordinador,
+                    coordinador_en_turno:   datos.coordinador, // Aquí se guarda el "Coordinador"
                     observaciones:          datos.observaciones,
                     imagen1:                datos.imagen1 || "",
                     imagen2:                datos.imagen2 || "",
@@ -46,20 +47,20 @@ const DB = {
                 }]);
             return { ok: !error, error };
         } catch (err) {
+            console.error("Error en guardarTraslado:", err);
             return { ok: false, error: err };
         }
     },
 
     /**
-     * Obtiene los últimos 10 traslados para el Dashboard.
-     * Nota: Se usa 'fecha' para ordenar ya que 'created_at' puede fallar si no existe.
+     * Obtiene los últimos traslados para el Dashboard ordenados por creación
      */
     async obtenerTrasladosRecientes() {
         try {
             const { data, error } = await _supabase
                 .from('Traslado')
                 .select('*')
-                .order('fecha', { ascending: false }) 
+                .order('created_at', { ascending: false }) 
                 .limit(10);
             return { data, error };
         } catch (err) {
@@ -67,7 +68,7 @@ const DB = {
         }
     },
 
-    // ── SECCIÓN: AVERÍAS ────────────────────────────────────
+    // ── SECCIÓN: AVERÍAS (REPORTES DE CONDUCTOR) ──────────────
 
     /**
      * Guarda un reporte de falla mecánica en la tabla 'Averias'
@@ -97,7 +98,7 @@ const DB = {
     },
 
     /**
-     * Busca averías reportadas por un conductor específico
+     * Busca averías para un conductor específico
      */
     async obtenerAveriasPorConductor(nombre) {
         try {
@@ -106,7 +107,7 @@ const DB = {
                 .from('Averias')
                 .select('*')
                 .ilike('reportado_por', `%${busqueda}%`)
-                .order('identificador', { ascending: false })
+                .order('id', { ascending: false })
                 .limit(20);
             return { data, error };
         } catch (err) {
@@ -114,23 +115,7 @@ const DB = {
         }
     },
 
-    /**
-     * Obtiene todas las averías para el panel administrativo
-     */
-    async obtenerTodasAverias() {
-        try {
-            const { data, error } = await _supabase
-                .from('Averias')
-                .select('*')
-                .order('identificador', { ascending: false })
-                .limit(50);
-            return { data, error };
-        } catch (err) {
-            return { data: null, error: err };
-        }
-    },
-
-    // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
+    // ── SECCIÓN: CARROZAS (ESTADO DE LA FLOTA) ───────────────
 
     /**
      * Registra o actualiza un vehículo en la tabla 'Carrozas'
@@ -139,17 +124,17 @@ const DB = {
         try {
             const { error } = await _supabase
                 .from('Carrozas')
-                .insert([{
+                .upsert([{
                     placa:                  datos.placa,
                     modelo:                 datos.modelo,
                     anio:                   parseInt(datos.anio) || 0,
-                    estado:                 datos.estado,
+                    estado:                 datos.estado || 'Disponible',
                     conductor_asignado:     datos.conductor_asignado,
                     kilometraje:            parseInt(datos.kilometraje) || 0,
                     ultimo_mantenimiento:   datos.ultimo_mantenimiento,
                     proximo_mantenimiento:  datos.proximo_mantenimiento,
                     observaciones:          datos.observaciones,
-                    fecha_registro:         new Date().toLocaleDateString('es-CO')
+                    fecha_actualizacion:    new Date().toISOString()
                 }]);
             return { ok: !error, error };
         } catch (err) {
@@ -158,7 +143,7 @@ const DB = {
     },
 
     /**
-     * Obtiene la lista de vehículos y su estado actual
+     * Obtiene la lista completa de vehículos para el monitor
      */
     async obtenerFlota() {
         try {
@@ -173,6 +158,6 @@ const DB = {
     }
 };
 
-// Hacer disponibles las variables globalmente para los otros scripts
+// Exponer a nivel global
 window._supabase = _supabase;
 window.DB = DB;
