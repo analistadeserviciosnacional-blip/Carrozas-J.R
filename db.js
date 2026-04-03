@@ -51,37 +51,13 @@ const DB = {
                 .select('*')
                 .order('fecha', { ascending: false }) 
                 .limit(10);
-            return { data, error };
+            return { data: data || [], error };
         } catch (err) {
-            return { data: null, error: err };
+            return { data: [], error: err };
         }
     },
 
     // ── SECCIÓN: AVERÍAS ────────────────────────────────────
-    async guardarAveria(datos) {
-        try {
-            const { error } = await _supabase
-                .from('Averias')
-                .insert([{
-                    identificador:        Date.now(),
-                    reportado_por:        datos.reportado_por,
-                    regional:             datos.regional,
-                    placa_vehiculo:       datos.placa,
-                    tipo_vehiculo:        datos.vehiculo,
-                    tipo_falla:           datos.tipo_falla,
-                    descripcion_sintomas: datos.sintomas,
-                    observaciones:        datos.observaciones,
-                    imagen1:              datos.imagen1 || "",
-                    imagen2:              datos.imagen2 || "",
-                    imagen3:              datos.imagen3 || "",
-                    imagen4:              datos.imagen4 || ""
-                }]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
-        }
-    },
-
     async obtenerTodasAverias() {
         try {
             const { data, error } = await _supabase
@@ -89,18 +65,17 @@ const DB = {
                 .select('*')
                 .order('identificador', { ascending: false })
                 .limit(50);
-            return { data, error };
+            return { data: data || [], error };
         } catch (err) {
-            return { data: null, error: err };
+            return { data: [], error: err };
         }
     },
 
     // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
     async guardarCarroza(datos) {
         try {
-            // CORRECCIÓN: 'carrozas' en minúscula para evitar el error de esquema
             const { error } = await _supabase
-                .from('carrozas') 
+                .from('carrozas') // Tabla en minúscula
                 .insert([{
                     placa:                  datos.placa,
                     modelo:                 datos.modelo,
@@ -121,14 +96,17 @@ const DB = {
 
     async obtenerFlota() {
         try {
-            // CORRECCIÓN: 'carrozas' en minúscula para que el Monitor cargue
             const { data, error } = await _supabase
-                .from('carrozas')
+                .from('carrozas') // Nombre correcto de la tabla
                 .select('*')
                 .order('placa', { ascending: true });
-            return { data, error };
+            
+            // Si hay error o no hay datos, retornamos lista vacía para evitar el "Cargando..."
+            if (error) throw error;
+            return { data: data || [], error: null };
         } catch (err) {
-            return { data: null, error: err };
+            console.error("Error cargando flota:", err);
+            return { data: [], error: err };
         }
     }
 };
