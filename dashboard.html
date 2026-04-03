@@ -11,7 +11,6 @@
             --azul-corporativo: #001a70; 
             --celeste-fondo: #e3f2fd; 
             --blanco: #ffffff; 
-            --gris-suave: #f8faff;
         }
         
         body { 
@@ -34,7 +33,6 @@
         }
 
         .logo-text { color: var(--azul-corporativo); font-size: 20px; font-weight: 700; }
-        
         .user-info { text-align: right; display: flex; align-items: center; gap: 15px; }
         #user-name { color: var(--azul-corporativo); font-weight: 700; display: block; }
         .role-tag { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: bold; }
@@ -69,7 +67,6 @@
             margin: 0; 
             color: var(--azul-corporativo); 
             text-transform: uppercase; 
-            letter-spacing: 0.5px; 
         }
 
         .monitor { 
@@ -183,37 +180,28 @@
     <script src="db.js"></script>
     <script>
         window.onload = () => {
-            // Verificar Sesión
             const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
             if (!sesion) {
                 window.location.href = "index.html";
                 return;
             }
             document.getElementById('user-name').innerText = sesion.nombre || "Usuario";
-            
-            // Cargar datos de la base de datos
             cargarTraslados();
         };
 
         async function cargarTraslados() {
             const tabla = document.getElementById('lista-traslados');
-            
             try {
-                // Llamada a la función en db.js
                 const { data, error } = await DB.obtenerTrasladosRecientes();
-
                 if (error) {
-                    console.error(error);
-                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error al conectar con la base de datos</td></tr>`;
+                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error de conexión</td></tr>`;
                     return;
                 }
-
                 if (!data || data.length === 0) {
-                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center;">No hay reportes de traslados registrados</td></tr>`;
+                    tabla.innerHTML = `<tr><td colspan="5" style="text-align:center;">No hay reportes registrados</td></tr>`;
                     return;
                 }
 
-                // Limpiar tabla y llenar con datos reales
                 tabla.innerHTML = "";
                 data.forEach(t => {
                     const tr = document.createElement('tr');
@@ -224,29 +212,46 @@
                         <td style="font-size:11px;">${t.origen || '?'} ➔ ${t.destino || '?'}</td>
                         <td>
                             <button class="btn-wa" onclick='reenviarWhatsApp(${JSON.stringify(t)})'>
-                                Reenviar WA
+                                Reporte WA
                             </button>
                         </td>
                     `;
                     tabla.appendChild(tr);
                 });
-
             } catch (err) {
-                tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error crítico de carga</td></tr>`;
+                tabla.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error de carga</td></tr>`;
             }
         }
 
         function reenviarWhatsApp(datos) {
-            // Construcción del mensaje para WhatsApp
-            const mensaje = `*REPORTE J.R. - TRASLADO*\n\n` +
-                            `👤 *Responsable:* ${datos.conductor || '---'}\n` +
-                            `🚗 *Placa:* ${datos.placa || '---'}\n` +
-                            `⚱️ *Fallecido:* ${datos.nombre_del_fallecido || '---'}\n` +
-                            `🛣️ *Ruta:* ${datos.origen} ➔ ${datos.destino}\n` +
-                            `📊 *KM Total:* ${datos.total_km || 0} km\n` +
-                            `📝 *Obs:* ${datos.observaciones || 'Sin novedad'}`;
+            // Saludo según la hora
+            const ahora = new Date();
+            const hora = ahora.getHours();
+            let saludo = "";
+            if (hora >= 6 && hora < 12) saludo = "Buenos días ☀️";
+            else if (hora >= 12 && hora < 18) saludo = "Buenas tardes 🌤️";
+            else saludo = "Buenas noches 🌜";
 
-            // URL para envío LIBRE (sin número fijo para que tú elijas el contacto)
+            // Formato exacto solicitado por J.R.
+            const mensaje = `${saludo}\n\n` +
+                            `Reporte de Salida De Carroza,🚘,\n\n` +
+                            `Regional ${datos.regional || 'Quindio'},\n` +
+                            `Fecha,${datos.fecha || ''},\n` +
+                            `Coordinador,${datos.coordinador_en_turno || '---'},\n` +
+                            `Hora De Salida,${datos.hora_de_salida || ''},\n` +
+                            `Placas Del Vehiculo,${datos.placa || ''},\n` +
+                            `Motivo De Salida,${datos.motivo_de_salida || ''},\n` +
+                            `Nombre Del Fallecido,${datos.nombre_del_fallecido || ''},\n` +
+                            `Lugar de Recogida,${datos.clinica_hospital_o_rsd || ''},\n` +
+                            `Origen,${datos.origen || ''},\n` +
+                            `Destino,${datos.destino || ''},\n` +
+                            `Km De Salida,${datos.km__salida || 0},\n` +
+                            `Nom: Conductor,${datos.conductor || ''},\n` +
+                            `N° Telefono,${datos.nnum_telefono || ''},\n` +
+                            `Observaciones,${datos.observaciones || ''},\n` +
+                            `La Carroza se Encuentra,Todo En Orden 👍🏻,`;
+
+            // Envío libre (Abre WhatsApp para elegir contacto)
             window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
         }
 
