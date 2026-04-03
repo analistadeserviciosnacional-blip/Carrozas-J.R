@@ -149,7 +149,29 @@ const DB = {
             return { data: [], error: err };
         }
     }
-};
+},
+    // Dentro del objeto DB en db.js
+async registrarUsuario(datos) {
+    try {
+        const { data, error } = await _supabase
+            .from('usuarios')
+            .insert([{
+                usuario: datos.usuario,       // Cédula
+                password: datos.password,    // Contraseña
+                nombre: datos.nombre,        // Nombre Completo
+                telefono: datos.telefono     // Teléfono
+            }]);
+
+        if (error) {
+            console.error("Error detallado de Supabase:", error);
+            return { ok: false, error };
+        }
+        return { ok: true, data };
+    } catch (err) {
+        console.error("Error de excepción:", err);
+        return { ok: false, error: err };
+    }
+}
 
 // Exportación global para que todos los HTML lo vean
 window._supabase = _supabase;
