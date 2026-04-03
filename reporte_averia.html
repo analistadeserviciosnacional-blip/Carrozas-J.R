@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Reporte Completo</title>
+    <title>J.R. — Reporte de Avería</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -13,11 +14,9 @@
         .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
         .header { background: var(--rojo); color: white; padding: 20px; text-align: center; }
         .content { padding: 20px; }
-        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #546e7a; margin: 15px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
-        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
-        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; font-size: 14px; background: var(--gris); }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; background: var(--rojo); color: white; transition: 0.3s; }
+        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 15px; }
+        input, select, textarea { width: 100%; padding: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; font-size: 14px; background: var(--gris); }
+        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; background: var(--rojo); color: white; margin-top: 20px; }
         .btn-action:disabled { background: #ccc; }
         .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
         .preview-gallery img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
@@ -26,71 +25,51 @@
 <body>
 
 <div class="container">
-    <div class="header"><h2>⚠️ NUEVO REPORTE DE AVERÍA</h2></div>
+    <div class="header"><h2>⚠️ REPORTE DE AVERÍA</h2></div>
     
     <div class="content">
-        <div class="section-title">Información del Reporte</div>
-        <div class="grid-2">
-            <div>
-                <label>Reportado por</label>
-                <input type="text" id="reportado_por" placeholder="Nombre">
-            </div>
-            <div>
-                <label>Regional</label>
-                <select id="regional">
-                    <option>Pereira</option>
-                    <option>Armenia</option>
-                    <option>Manizales</option>
-                    <option>Cali</option>
-                </select>
-            </div>
-        </div>
+        <label>Reportado por</label>
+        <input type="text" id="reportado_por" readonly style="background:#eef5ff; font-weight:bold;">
 
-        <div class="section-title">Identificación del Vehículo</div>
-        <div class="grid-2">
-            <div>
-                <label>Placa</label>
-                <input type="text" id="placa_vehiculo" placeholder="ABC-123" oninput="this.value = this.value.toUpperCase()">
-            </div>
-            <div>
-                <label>Tipo de Vehículo</label>
-                <select id="tipo_vehiculo">
-                    <option value="">Seleccionar...</option>
-                    <option>Carroza GJX-497</option>
-                    <option>Carroza ICQ-333</option>
-                    <option>Furgón de Apoyo</option>
-                    <option>Particular</option>
-                </select>
-            </div>
-        </div>
+        <label>Regional</label>
+        <select id="regional">
+            <option>Pereira</option>
+            <option>Armenia</option>
+            <option>Manizales</option>
+            <option>Cali</option>
+        </select>
 
-        <div class="section-title">Detalles de la Falla</div>
+        <label>Seleccionar Vehículo</label>
+        <select id="selector_vehiculo">
+            <option value="">Seleccione el vehículo...</option>
+            <option value="GJX-497|Carroza GJX-497">Carroza GJX-497</option>
+            <option value="ICQ-333|Carroza ICQ-333">Carroza ICQ-333</option>
+            <option value="APOYO|Furgón de Apoyo">Furgón de Apoyo</option>
+        </select>
+
         <label>Tipo de Falla</label>
         <select id="tipo_falla">
-            <option value="">Seleccionar...</option>
+            <option value="">Seleccionar falla...</option>
             <option>Falla mecánica</option>
             <option>Falla eléctrica</option>
-            <option>Llantas / Neumáticos</option>
-            <option>Carrocería / Golpe</option>
+            <option>Llantas</option>
+            <option>Carrocería</option>
         </select>
 
         <label>Descripción de Síntomas</label>
-        <textarea id="descripcion_sintomas" rows="3" placeholder="Describe lo que notas en el vehículo..."></textarea>
+        <textarea id="sintomas" rows="3" placeholder="Detalle la falla aquí..."></textarea>
 
-        <label>Observaciones (Opcional)</label>
-        <textarea id="observaciones" rows="2" placeholder="Notas adicionales para el taller..."></textarea>
-
-        <div class="section-title">Evidencias (Máx 4)</div>
+        <label>Fotos (Máx 2 para evitar errores de peso)</label>
         <input type="file" id="fotos-input" accept="image/*" multiple onchange="handleFotos(this)">
         <div id="galeria" class="preview-gallery"></div>
 
-        <button class="btn-action" id="btn-envio" onclick="enviarReporte()">🚨 REGISTRAR AVERÍA</button>
+        <button class="btn-action" id="btn-envio" onclick="enviarReporte()">🚨 REGISTRAR EN SISTEMA</button>
     </div>
 </div>
 
 <script>
-    // --- CONEXIÓN DIRECTA ---
-    const URL_SUPA = "TU_URL_DE_SUPABASE"; 
+    // IMPORTANTE: REEMPLAZA CON TUS DATOS
+    const URL_SUPA = "TU_URL_DE_SUPABASE";
     const KEY_SUPA = "TU_ANON_KEY";
     const _supabase = supabase.createClient(URL_SUPA, KEY_SUPA);
 
@@ -98,12 +77,12 @@
 
     window.onload = () => {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        if(sesion.nombre) document.getElementById('reportado_por').value = sesion.nombre;
+        document.getElementById('reportado_por').value = sesion.nombre || "Conductor J.R.";
     };
 
     function handleFotos(el) {
         for (let file of el.files) {
-            if (fotosArray.length < 4) {
+            if (fotosArray.length < 2) {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = (e) => {
@@ -118,37 +97,33 @@
 
     async function enviarReporte() {
         const btn = document.getElementById('btn-envio');
-        
+        const vehiculoData = document.getElementById('selector_vehiculo').value.split('|');
+
+        if(!vehiculoData[0]) return alert("Selecciona un vehículo");
+
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
-            placa_vehiculo: document.getElementById('placa_vehiculo').value.trim(),
-            tipo_vehiculo: document.getElementById('tipo_vehiculo').value,
+            placa_vehiculo: vehiculoData[0], // Toma la placa (Ej: GJX-497)
+            tipo_vehiculo: vehiculoData[1],  // Toma el nombre (Ej: Carroza GJX-497)
             tipo_falla: document.getElementById('tipo_falla').value,
-            descripcion_sintomas: document.getElementById('descripcion_sintomas').value,
-            observaciones: document.getElementById('observaciones').value,
+            descripcion_sintomas: document.getElementById('sintomas').value,
             imagen1: fotosArray[0] || null,
-            imagen2: fotosArray[1] || null,
-            imagen3: fotosArray[2] || null,
-            imagen4: fotosArray[3] || null
+            imagen2: fotosArray[1] || null
         };
 
-        if(!datos.placa_vehiculo || !datos.tipo_vehiculo || !datos.tipo_falla) {
-            return alert("⚠️ Por favor completa los campos obligatorios (Placa, Vehículo y Falla)");
-        }
-
         btn.disabled = true;
-        btn.innerText = "⏳ GUARDANDO EN SISTEMA...";
+        btn.innerText = "⏳ GUARDANDO...";
 
         const { error } = await _supabase.from('averias').insert([datos]);
 
         if (error) {
             alert("Error: " + error.message);
             btn.disabled = false;
-            btn.innerText = "🚨 REINTENTAR ENVÍO";
+            btn.innerText = "🚨 REINTENTAR";
         } else {
-            alert("✅ REPORTE GUARDADO CON ÉXITO");
-            location.reload(); 
+            alert("✅ REPORTE EXITOSO");
+            location.reload();
         }
     }
 </script>
