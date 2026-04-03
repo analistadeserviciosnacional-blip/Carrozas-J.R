@@ -1,5 +1,6 @@
 // ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
+// IMPORTANTE: Asegúrate de usar la "anon public key" de tu panel de Supabase
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -8,6 +9,7 @@ const DB = {
     supabase: _supabase,
 
     // ── SECCIÓN: AVERÍAS ────────────────────────────────────
+    // SE AGREGA ESTA FUNCIÓN QUE FALTABA
     async guardarAveria(datos) {
         try {
             const { error } = await _supabase
@@ -16,15 +18,15 @@ const DB = {
                     reportado_por: datos.reportado_por,
                     regional: datos.regional,
                     placa_vehiculo: datos.placa_vehiculo,
+                    tipo_vehiculo: datos.tipo_vehiculo,
                     tipo_falla: datos.tipo_falla,
                     descripcion_sintomas: datos.descripcion_sintomas,
                     observaciones: datos.observaciones || "",
-                    tipo_vehiculo: datos.tipo_vehiculo, // Se guarda el modelo de la carroza
                     imagen1: datos.imagen1 || "",
                     imagen2: datos.imagen2 || "",
                     imagen3: datos.imagen3 || "",
                     imagen4: datos.imagen4 || "",
-                    created_at: new Date()
+                    created_at: new Date().toISOString()
                 }]);
             return { ok: !error, error };
         } catch (err) {
@@ -46,7 +48,7 @@ const DB = {
         }
     },
 
-    // ── SECCIÓN: TRASLADOS (SIN ALTERAR) ────────────────────
+    // ── SECCIÓN: TRASLADOS ──────────────────────────────────
     async guardarTraslado(datos) {
         try {
             const { error } = await _supabase
@@ -96,7 +98,7 @@ const DB = {
         }
     },
 
-    // ── SECCIÓN: CARROZAS (FLOTA - SIN ALTERAR) ─────────────
+    // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
     async guardarCarroza(datos) {
         try {
             const { error } = await _supabase
