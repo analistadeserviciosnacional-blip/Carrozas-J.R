@@ -8,7 +8,6 @@ const DB = {
     supabase: _supabase,
 
     // ── SECCIÓN: AVERÍAS ────────────────────────────────────
-    // Esta función es la que faltaba para que el formulario de averías guarde.
     async guardarAveria(datos) {
         try {
             const { error } = await _supabase
@@ -17,10 +16,10 @@ const DB = {
                     reportado_por: datos.reportado_por,
                     regional: datos.regional,
                     placa_vehiculo: datos.placa_vehiculo,
-                    tipo_vehiculo: datos.tipo_vehiculo,
                     tipo_falla: datos.tipo_falla,
                     descripcion_sintomas: datos.descripcion_sintomas,
                     observaciones: datos.observaciones || "",
+                    tipo_vehiculo: datos.tipo_vehiculo, // Se guarda el modelo de la carroza
                     imagen1: datos.imagen1 || "",
                     imagen2: datos.imagen2 || "",
                     imagen3: datos.imagen3 || "",
@@ -47,7 +46,7 @@ const DB = {
         }
     },
 
-    // ── SECCIÓN: TRASLADOS ──────────────────────────────────
+    // ── SECCIÓN: TRASLADOS (SIN ALTERAR) ────────────────────
     async guardarTraslado(datos) {
         try {
             const { error } = await _supabase
@@ -97,7 +96,7 @@ const DB = {
         }
     },
 
-    // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
+    // ── SECCIÓN: CARROZAS (FLOTA - SIN ALTERAR) ─────────────
     async guardarCarroza(datos) {
         try {
             const { error } = await _supabase
@@ -135,6 +134,6 @@ const DB = {
     }
 };
 
-// Exportación global para que todos tus archivos HTML puedan usarlo
+// Exportación global
 window._supabase = _supabase;
 window.DB = DB;
