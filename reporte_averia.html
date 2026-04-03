@@ -1,195 +1,171 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Reporte de Avería</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root { --azul: #004a99; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #dc2626; --gris: #f8fbff; --verde: #25d366; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 10px; }
-        .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
-        .header { background: var(--rojo); color: white; padding: 20px; text-align: center; position: relative; }
-        .btn-volver { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
-        .content { padding: 20px; }
-        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #546e7a; margin: 20px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
-        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
-        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .upload-container { border: 2px dashed var(--rojo); border-radius: 15px; padding: 15px; text-align: center; background: #fff5f5; cursor: pointer; margin-bottom: 12px; }
-        .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-        .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
-        .thumb-wrap img { width: 100%; height: 100%; border-radius: 8px; object-fit: cover; border: 1px solid #fecaca; }
-        .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-weight: bold; }
-        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
-        .btn-db { background: var(--rojo); color: white; }
-        .btn-wa { background: var(--verde); color: white; }
-        .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.R. — Reporte de Avería</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --azul: #004a99; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #dc2626; --gris: #f8fbff; --verde: #25d366; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 10px; }
+        .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
+        .header { background: var(--rojo); color: white; padding: 20px; text-align: center; position: relative; }
+        .btn-volver { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
+        .content { padding: 20px; }
+        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #546e7a; margin: 20px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
+        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .upload-container { border: 2px dashed var(--rojo); border-radius: 15px; padding: 15px; text-align: center; background: #fff5f5; cursor: pointer; margin-bottom: 12px; }
+        .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+        .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
+        .thumb-wrap img { width: 100%; height: 100%; border-radius: 8px; object-fit: cover; border: 1px solid #fecaca; }
+        .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-weight: bold; }
+        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        .btn-db { background: var(--rojo); color: white; }
+        .btn-wa { background: var(--verde); color: white; }
+        .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
+    </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">
-        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
-        <h2>⚠️ REPORTE DE AVERÍA</h2>
-        <p id="rol-info" style="font-size:10px; opacity:0.9; margin-top:5px; font-weight:bold;"></p>
-    </div>
+    <div class="header">
+        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
+        <h2>⚠️ REPORTE DE AVERÍA</h2>
+        <p id="rol-info" style="font-size:10px; opacity:0.9; margin-top:5px; font-weight:bold;"></p>
+    </div>
 
-    <div class="content">
-        <div class="section-title">Datos del Responsable</div>
-        <div class="grid-2">
-            <div>
-                <label>Reportado por</label>
-                <input type="text" id="reportado_por" readonly class="badge-usuario">
-            </div>
-            <div>
-                <label>Regional</label>
-                <select id="regional">
-                    <option>Pereira</option><option>Armenia</option>
-                    <option>Manizales</option><option>Cali</option>
-                </select>
-            </div>
-        </div>
+    <div class="content">
+        <div class="section-title">Datos del Responsable</div>
+        <div class="grid-2">
+            <div>
+                <label>Reportado por</label>
+                <input type="text" id="reportado_por" readonly class="badge-usuario">
+            </div>
+            <div>
+                <label>Regional</label>
+                <select id="regional">
+                    <option>Pereira</option><option>Armenia</option>
+                    <option>Manizales</option><option>Cali</option>
+                </select>
+            </div>
+        </div>
 
-        <div class="section-title">Datos del Vehículo</div>
-        <div class="grid-2">
-            <div>
-                <label>Placa del Vehículo</label>
-                <input type="text" id="placa" placeholder="ABC-123" oninput="this.value = this.value.toUpperCase()">
-            </div>
-            <div>
-                <label>Vehículo / Carroza</label>
-                <select id="vehiculo">
-                    <option value="">Seleccionar...</option>
-                    <option>Carroza GJX-497</option>
-                    <option>Carroza ICQ-333</option>
-                    <option>Furgón de Apoyo</option>
-                </select>
-            </div>
-        </div>
+        <div class="section-title">Datos del Vehículo</div>
+        <label>Seleccionar Vehículo</label>
+        <select id="vehiculo">
+            <option value="">Seleccionar...</option>
+            <option value="GJX-497|Carroza GJX-497">Carroza GJX-497</option>
+            <option value="ICQ-333|Carroza ICQ-333">Carroza ICQ-333</option>
+            <option value="APOYO|Furgón de Apoyo">Furgón de Apoyo</option>
+        </select>
 
-        <div class="section-title">Síntomas y Descripción</div>
-        <label>Tipo de Falla</label>
-        <select id="tipo_falla">
-            <option value="">Seleccionar tipo...</option>
-            <option>Falla mecánica</option><option>Falla eléctrica</option>
-            <option>Accidente / Golpe</option><option>Llantas</option><option>Otro</option>
-        </select>
+        <div class="section-title">Síntomas y Descripción</div>
+        <label>Tipo de Falla</label>
+        <select id="tipo_falla">
+            <option value="">Seleccionar tipo...</option>
+            <option>Falla mecánica</option><option>Falla eléctrica</option>
+            <option>Accidente / Golpe</option><option>Llantas</option><option>Otro</option>
+        </select>
 
-        <label>Descripción de Síntomas</label>
-        <textarea id="sintomas" rows="3" placeholder="Describe brevemente la falla..."></textarea>
+        <label>Descripción de Síntomas</label>
+        <textarea id="sintomas" rows="3" placeholder="Describe brevemente la falla..."></textarea>
 
-        <label>Observaciones Adicionales</label>
-        <textarea id="observaciones" rows="2" placeholder="Notas extra para el taller..."></textarea>
+        <label>Observaciones Adicionales</label>
+        <textarea id="observaciones" rows="2" placeholder="Notas extra para el taller..."></textarea>
 
-        <div class="section-title">Evidencias Fotográficas (Máx. 4)</div>
-        <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
-            <span id="upload-text">📸 Toca para subir fotos del daño</span>
-            <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
-        </div>
-        <div class="preview-gallery" id="galeria"></div>
+        <div class="section-title">Evidencias Fotográficas (Máx. 4)</div>
+        <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
+            <span id="upload-text">📸 Toca para subir fotos</span>
+            <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
+        </div>
+        <div class="preview-gallery" id="galeria"></div>
 
-        <div class="section-title">Notificación y Destino</div>
-        <label>Enviar Notificación a:</label>
-        <select id="whatsapp_destino">
-            <option value="573100000000">Coordinador Pereira</option>
-            <option value="573200000000">Jefe de Mantenimiento</option>
-            <option value="573000000000">Administrador Sistema</option>
-        </select>
-
-        <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
-        <button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
-    </div>
+        <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
+        <button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
+    </div>
 </div>
 
 <script src="db.js"></script>
 <script>
-    let fotosArray = [];
+    let fotosArray = [];
 
-    window.onload = () => {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
-        document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
-        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
-    };
+    window.onload = () => {
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
+        document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
+        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
+    };
 
-    function irAtras() {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        window.location.href = (sesion.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
-    }
+    function irAtras() {
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        window.location.href = (sesion.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
+    }
 
-    function procesarFotos(input) {
-        for (let f of Array.from(input.files)) {
-            if (fotosArray.length < 4) {
-                const reader = new FileReader();
-                reader.readAsDataURL(f);
-                reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
-            }
-        }
-    }
+    function procesarFotos(input) {
+        for (let f of Array.from(input.files)) {
+            if (fotosArray.length < 4) {
+                const reader = new FileReader();
+                reader.readAsDataURL(f);
+                reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
+            }
+        }
+    }
 
-    function renderGaleria() {
-        document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
-            <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
-        document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
-    }
+    function renderGaleria() {
+        document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
+            <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
+        document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
+    }
 
-    function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
+    function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
-    async function guardarAveria() {
-        const btn = document.getElementById('btn-envio');
-        const placa = document.getElementById('placa').value.trim();
-        const falla = document.getElementById('tipo_falla').value;
+    async function guardarAveria() {
+        const btn = document.getElementById('btn-envio');
+        const v_select = document.getElementById('vehiculo').value;
+        const falla = document.getElementById('tipo_falla').value;
 
-        if (!placa || !falla) { alert("Completa Placa y Tipo de Falla"); return; }
+        if (!v_select || !falla) { alert("Selecciona Vehículo y Tipo de Falla"); return; }
 
-        btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
+        const [placa, nombreV] = v_select.split('|');
+        btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
 
-        const datos = {
-            reportado_por: document.getElementById('reportado_por').value,
-            regional: document.getElementById('regional').value,
-            placa: placa,
-            vehiculo: document.getElementById('vehiculo').value,
-            tipo_falla: falla,
-            sintomas: document.getElementById('sintomas').value,
-            observaciones: document.getElementById('observaciones').value,
-            imagen1: fotosArray[0] || "",
-            imagen2: fotosArray[1] || "",
-            imagen3: fotosArray[2] || "",
-            imagen4: fotosArray[3] || ""
-        };
+        // MAPEO CORREGIDO PARA TU TABLA SUPABASE
+        const datos = {
+            reportado_por: document.getElementById('reportado_por').value,
+            regional: document.getElementById('regional').value,
+            placa_vehiculo: placa,
+            tipo_vehiculo: nombreV,
+            tipo_falla: falla,
+            descripcion_sintomas: document.getElementById('sintomas').value,
+            observaciones: document.getElementById('observaciones').value,
+            imagen1: fotosArray[0] || "",
+            imagen2: fotosArray[1] || "",
+            imagen3: fotosArray[2] || "",
+            imagen4: fotosArray[3] || ""
+        };
 
-        const res = await DB.guardarAveria(datos);
-        if (res.ok) {
-            btn.innerText = "✓ GUARDADO ÉXITOSAMENTE";
-            btn.style.background = "#16a34a";
-        } else {
-            alert("Error: " + res.error.message);
-            btn.disabled = false; btn.innerText = "🚨 REINTENTAR ENVÍO";
-        }
-    }
+        // LLAMADA A DB.JS (Asegúrate que db.js tenga la función guardarAveria)
+        const res = await DB.guardarAveria(datos);
+        if (res.ok) {
+            btn.innerText = "✓ GUARDADO CORRECTAMENTE";
+            btn.style.background = "#16a34a";
+            setTimeout(() => irAtras(), 1500);
+        } else {
+            alert("Error: " + res.error.message);
+            btn.disabled = false; btn.innerText = "🚨 REINTENTAR ENVÍO";
+        }
+    }
 
-    function enviarWhatsAppAveria() {
-        const placa = document.getElementById('placa').value.toUpperCase();
-        const falla = document.getElementById('tipo_falla').value;
-        const regional = document.getElementById('regional').value;
-        const tel = document.getElementById('whatsapp_destino').value;
-
-        if (!placa || !falla) { alert("Completa los datos para el mensaje."); return; }
-
-        const msj = `*🚨 REPORTE DE AVERÍA - J.R.*%0A` +
-                    `----------------------------%0A` +
-                    `👤 *Por:* ${document.getElementById('reportado_por').value}%0A` +
-                    `📍 *Regional:* ${regional}%0A` +
-                    `🚗 *Vehículo:* ${placa}%0A` +
-                    `⚠️ *Falla:* ${falla}%0A` +
-                    `----------------------------%0A` +
-                    `📝 _Fotos y detalles guardados en el sistema._`;
-
-        window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
-    }
+    function enviarWhatsAppAveria() {
+        const v_select = document.getElementById('vehiculo').value;
+        const [placa, nombreV] = v_select.split('|');
+        const tel = "573100000000"; // Cambia al número real
+        const msj = `*🚨 REPORTE DE AVERÍA*%0AVehículo: ${nombreV}%0APlaca: ${placa}%0AFalla: ${document.getElementById('tipo_falla').value}`;
+        window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
+    }
 </script>
 </body>
 </html>
