@@ -8,7 +8,7 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 const DB = {
     supabase: _supabase,
 
-    // ── SECCIÓN: TRASLADOS (SALIDAS Y LLEGADAS) ────────────────
+    // ── SECCIÓN: TRASLADOS (SALIDAS) ──────────────────────────
     async guardarTraslado(datos) {
         try {
             const { error } = await _supabase
@@ -42,6 +42,7 @@ const DB = {
                 }]);
             return { ok: !error, error };
         } catch (err) {
+            console.error("Error en guardarTraslado:", err);
             return { ok: false, error: err };
         }
     },
@@ -49,12 +50,13 @@ const DB = {
     async obtenerTrasladosRecientes() {
         try {
             const { data, error } = await _supabase
-                .from('Traslado') // TABLA CON T MAYÚSCULA
+                .from('Traslado')
                 .select('*')
                 .order('created_at', { ascending: false }) 
                 .limit(10);
             return { data: data || [], error };
         } catch (err) {
+            console.error("Error obtener traslados:", err);
             return { data: [], error: err };
         }
     },
@@ -101,7 +103,7 @@ const DB = {
     async obtenerFlota() {
         try {
             const { data, error } = await _supabase
-                .from('carrozas') // TABLA EN MINÚSCULAS SEGÚN TU SUPABASE
+                .from('carrozas') // SEGÚN TU SUPABASE EN MINÚSCULAS
                 .select('*')
                 .order('placa', { ascending: true });
             return { data: data || [], error };
@@ -112,4 +114,6 @@ const DB = {
     }
 };
 
+// Exponer a nivel global
+window._supabase = _supabase;
 window.DB = DB;
