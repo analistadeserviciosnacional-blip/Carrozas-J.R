@@ -3,42 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Gestión de Flota</title>
+    <title>J.R. — Gestión de Flota Completa</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --gris-texto: #64748b; }
         body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; color: #1e293b; }
-        .container { max-width: 800px; margin: auto; }
-        
-        /* Estilo para el botón de volver */
+        .container { max-width: 1100px; margin: auto; }
         .nav-header { display: flex; justify-content: flex-start; margin-bottom: 20px; }
-        .btn-volver { 
-            text-decoration: none; 
-            color: var(--azul); 
-            font-weight: 700; 
-            font-size: 14px; 
-            display: flex; 
-            align-items: center; 
-            gap: 5px;
-            transition: 0.3s;
-        }
-        .btn-volver:hover { opacity: 0.7; }
-
+        .btn-volver { text-decoration: none; color: var(--azul); font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 5px; }
+        
         .card-form { background: var(--blanco); padding: 25px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 30px; }
-        h2 { color: var(--azul); margin-top: 0; font-size: 20px; text-transform: uppercase; }
-        .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
-        label { font-size: 12px; font-weight: 700; color: var(--gris-texto); margin-bottom: 5px; }
-        input, select { padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-family: inherit; }
-        .btn-primario { background: var(--azul); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 10px; }
-        .btn-primario:disabled { background: #94a3b8; cursor: not-allowed; }
+        h2 { color: var(--azul); margin-top: 0; font-size: 18px; text-transform: uppercase; border-bottom: 2px solid var(--celeste); padding-bottom: 10px; margin-bottom: 20px; }
+        
+        .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 10px; }
+        .full-width { grid-column: 1 / -1; }
+        label { font-size: 11px; font-weight: 700; color: var(--gris-texto); margin-bottom: 5px; text-transform: uppercase; }
+        input, select, textarea { padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 14px; }
+        
+        .btn-primario { background: var(--azul); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.3s; }
+        .btn-primario:disabled { background: #94a3b8; }
 
-        .lista-carros { background: var(--blanco); border-radius: 20px; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { text-align: left; font-size: 12px; color: var(--gris-texto); padding: 10px; border-bottom: 2px solid var(--celeste); }
-        td { padding: 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; }
-        .tag { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        .lista-carros { background: var(--blanco); border-radius: 20px; padding: 20px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th { text-align: left; font-size: 10px; color: var(--gris-texto); padding: 12px; border-bottom: 2px solid var(--celeste); text-transform: uppercase; white-space: nowrap; }
+        td { padding: 12px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+        
+        .tag { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .tag-disponible { background: #ecfdf5; color: #10b981; }
         .tag-taller { background: #fef2f2; color: #ef4444; }
     </style>
@@ -51,108 +43,127 @@
     </div>
 
     <div class="card-form">
-        <h2>🚚 Registrar Nueva Carroza</h2>
+        <h2>🚚 Ficha Técnica de Carroza</h2>
         <form id="form-carroza">
             <div class="grid-form">
                 <div class="form-group">
                     <label>Placa (ID)</label>
-                    <input type="text" id="placa" placeholder="ABC-123" required>
+                    <input type="text" id="placa" placeholder="PFO-147" required>
                 </div>
                 <div class="form-group">
                     <label>Modelo / Marca</label>
-                    <input type="text" id="modelo" placeholder="Ej: Foton" required>
+                    <input type="text" id="modelo" placeholder="Ej: NKR" required>
                 </div>
                 <div class="form-group">
                     <label>Año</label>
-                    <input type="number" id="anio" placeholder="2024">
+                    <input type="number" id="anio" placeholder="2016">
                 </div>
                 <div class="form-group">
-                    <label>Fecha Ingreso a Empresa</label>
-                    <input type="date" id="fecha_ingreso" required>
+                    <label>Conductor Asignado</label>
+                    <input type="text" id="conductor_asignado" placeholder="Nombre completo">
                 </div>
                 <div class="form-group">
-                    <label>KM Inicial</label>
-                    <input type="number" id="km_inicial" value="0">
+                    <label>KM Actual</label>
+                    <input type="number" id="km_actual" value="0">
                 </div>
                 <div class="form-group">
-                    <label>Estado Inicial</label>
+                    <label>Estado</label>
                     <select id="estado">
                         <option value="Disponible">Disponible</option>
                         <option value="En Taller">En Taller</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>Último Mantenimiento</label>
+                    <input type="date" id="ultimo_mantenimiento">
+                </div>
+                <div class="form-group">
+                    <label>Próximo Mantenimiento</label>
+                    <input type="date" id="proximo_mantenimiento">
+                </div>
+                <div class="form-group full-width">
+                    <label>Observaciones Generales</label>
+                    <textarea id="observaciones" rows="2" placeholder="Detalles del estado del vehículo..."></textarea>
+                </div>
+                <input type="hidden" id="fecha_ingreso_empresa">
+                <input type="hidden" id="km_inicial">
             </div>
-            <button type="submit" id="btn-guardar" class="btn-primario">GUARDAR VEHÍCULO</button>
+            <button type="submit" id="btn-guardar" class="btn-primario">GUARDAR CARROZA EN SISTEMA</button>
         </form>
     </div>
 
     <div class="lista-carros">
-        <h2>Inventario de Flota</h2>
+        <h2>Inventario Detallado</h2>
         <table id="tabla-flota">
             <thead>
                 <tr>
                     <th>Placa</th>
-                    <th>Modelo</th>
-                    <th>Ingreso</th>
-                    <th>KM Actual</th>
+                    <th>Conductor</th>
                     <th>Estado</th>
+                    <th>KM Actual</th>
+                    <th>U. Manto</th>
+                    <th>P. Manto</th>
+                    <th>Observaciones</th>
                 </tr>
             </thead>
-            <tbody>
-                </tbody>
+            <tbody></tbody>
         </table>
     </div>
 </div>
 
 <script src="db.js"></script>
 <script>
-    document.getElementById('fecha_ingreso').valueAsDate = new Date();
+    // Inicializar campos ocultos y fechas
+    document.getElementById('fecha_ingreso_empresa').value = new Date().toISOString().split('T')[0];
 
     document.getElementById('form-carroza').onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btn-guardar');
-        btn.innerText = "Guardando...";
+        btn.innerText = "GUARDANDO...";
         btn.disabled = true;
         
+        const kmVal = parseInt(document.getElementById('km_actual').value) || 0;
+
         const nuevaCarroza = {
             placa: document.getElementById('placa').value.toUpperCase(),
             modelo: document.getElementById('modelo').value,
             anio: parseInt(document.getElementById('anio').value) || 0,
-            fecha_ingreso_empresa: document.getElementById('fecha_ingreso').value,
-            kilometraje_inicial: parseInt(document.getElementById('km_inicial').value) || 0,
-            kilometraje_actual: parseInt(document.getElementById('km_inicial').value) || 0,
-            estado: document.getElementById('estado').value
+            fecha_ingreso_empresa: document.getElementById('fecha_ingreso_empresa').value,
+            kilometraje_inicial: kmVal,
+            kilometraje_actual: kmVal,
+            estado: document.getElementById('estado').value,
+            conductor_asignado: document.getElementById('conductor_asignado').value,
+            ultimo_mantenimiento: document.getElementById('ultimo_mantenimiento').value || null,
+            proximo_mantenimiento: document.getElementById('proximo_mantenimiento').value || null,
+            observaciones: document.getElementById('observaciones').value
         };
 
-        // Corregido a 'carrozas' (minúsculas) según tu base de datos
         const { error } = await DB.supabase.from('carrozas').insert([nuevaCarroza]);
 
         if (error) {
-            alert("Error al guardar: " + error.message);
-            btn.innerText = "GUARDAR VEHÍCULO";
+            alert("Error: " + error.message);
             btn.disabled = false;
+            btn.innerText = "GUARDAR CARROZA EN SISTEMA";
         } else {
-            alert("Carroza registrada con éxito");
+            alert("¡Carroza guardada!");
             location.reload();
         }
     };
 
     async function cargarFlota() {
-        const { data, error } = await DB.supabase.from('carrozas').select('*').order('placa', { ascending: true });
+        const { data } = await DB.supabase.from('carrozas').select('*').order('placa', { ascending: true });
         
         if (data) {
             const tbody = document.querySelector('#tabla-flota tbody');
             tbody.innerHTML = data.map(c => `
                 <tr>
-                    <td><b>${c.placa}</b></td>
-                    <td>${c.modelo}</td>
-                    <td>${c.fecha_ingreso_empresa || 'N/A'}</td>
-                    <td>${c.kilometraje_actual || 0} KM</td>
-                    <td>
-                        <span class="tag ${c.estado === 'Disponible' ? 'tag-disponible' : 'tag-taller'}">
-                            ${c.estado}
-                        </span>
-                    </td>
+                    <td><b>${c.placa}</b><br><small style="color:gray">${c.modelo}</small></td>
+                    <td>${c.conductor_asignado || '<i>Sin asignar</i>'}</td>
+                    <td><span class="tag ${c.estado === 'Disponible' ? 'tag-disponible' : 'tag-taller'}">${c.estado}</span></td>
+                    <td>${Number(c.kilometraje_actual).toLocaleString()} KM</td>
+                    <td>${c.ultimo_mantenimiento || '---'}</td>
+                    <td>${c.proximo_mantenimiento || '---'}</td>
+                    <td><small>${c.observaciones || ''}</small></td>
                 </tr>
             `).join('');
         }
