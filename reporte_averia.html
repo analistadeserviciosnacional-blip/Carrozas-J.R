@@ -32,155 +32,177 @@
 <body>
 
 <div class="container">
-<div class="header">
-<button class="btn-volver" onclick="irAtras()">← VOLVER</button>
-<h2>⚠️ REPORTE DE AVERÍA</h2>
-<p id="rol-info" style="font-size:10px; opacity:0.9; margin-top:5px; font-weight:bold;"></p>
-</div>
+    <div class="header">
+        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
+        <h2>⚠️ REPORTE DE AVERÍA</h2>
+        <p id="rol-info" style="font-size:10px; opacity:0.9; margin-top:5px; font-weight:bold;"></p>
+    </div>
 
-<div class="content">
-<div class="section-title">Datos del Responsable</div>
-<div class="grid-2">
-<div>
-<label>Reportado por</label>
-<input type="text" id="reportado_por" readonly class="badge-usuario">
-</div>
-<div>
-<label>Regional</label>
-<select id="regional">
-<option>Pereira</option><option>Armenia</option>
-<option>Manizales</option><option>Cali</option>
-</select>
-</div>
-</div>
+    <div class="content">
+        <div class="section-title">Datos del Responsable</div>
+        <div class="grid-2">
+            <div>
+                <label>Reportado por</label>
+                <input type="text" id="reportado_por" readonly class="badge-usuario">
+            </div>
+            <div>
+                <label>Regional</label>
+                <select id="regional">
+                    <option>Pereira</option><option>Armenia</option>
+                    <option>Manizales</option><option>Cali</option>
+                </select>
+            </div>
+        </div>
 
-<div class="section-title">Datos del Vehículo</div>
-<label>Seleccionar Vehículo</label>
-<select id="vehiculo">
-<option value="">Cargando flota...</option>
-</select>
+        <div class="section-title">Datos del Vehículo</div>
+        <label>Seleccionar Vehículo</label>
+        <select id="vehiculo">
+            <option value="">Cargando flota...</option>
+        </select>
 
-<div class="section-title">Síntomas y Descripción</div>
-<label>Tipo de Falla</label>
-<select id="tipo_falla">
-<option value="">Seleccionar tipo...</option>
-<option>Falla mecánica</option><option>Falla eléctrica</option>
-<option>Accidente / Golpe</option><option>Llantas</option><option>Otro</option>
-</select>
+        <div class="section-title">Síntomas y Descripción</div>
+        <label>Tipo de Falla</label>
+        <select id="tipo_falla">
+            <option value="">Seleccionar tipo...</option>
+            <option>Falla mecánica</option><option>Falla eléctrica</option>
+            <option>Accidente / Golpe</option><option>Llantas</option><option>Otro</option>
+        </select>
 
-<label>Descripción de Síntomas</label>
-<textarea id="sintomas" rows="3" placeholder="Describe brevemente la falla..."></textarea>
+        <label>Descripción de Síntomas</label>
+        <textarea id="sintomas" rows="3" placeholder="Describe brevemente la falla..."></textarea>
 
-<label>Observaciones Adicionales</label>
-<textarea id="observaciones" rows="2" placeholder="Notas extra para el taller..."></textarea>
+        <label>Observaciones Adicionales</label>
+        <textarea id="observaciones" rows="2" placeholder="Notas extra para el taller..."></textarea>
 
-<div class="section-title">Evidencias Fotográficas (Máx. 4)</div>
-<div class="upload-container" onclick="document.getElementById('fotos-input').click()">
-<span id="upload-text">📸 Toca para subir fotos</span>
-<input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
-</div>
-<div class="preview-gallery" id="galeria"></div>
+        <div class="section-title">Evidencias Fotográficas (Máx. 4)</div>
+        <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
+            <span id="upload-text">📸 Toca para subir fotos</span>
+            <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
+        </div>
+        <div class="preview-gallery" id="galeria"></div>
 
-<button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
-<button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
-</div>
+        <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
+        <button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
+    </div>
 </div>
 
 <script src="db.js"></script>
 <script>
 let fotosArray = [];
 
-// --- ESTO ES LO QUE CAMBIÓ: CARGA LA FLOTA DE VERDAD ---
 window.onload = async () => {
+    // 1. Datos de sesión
     const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
     document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
     document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
 
+    // 2. Carga de Placas desde Supabase
     const select = document.getElementById('vehiculo');
+    
     try {
-        const res = await DB.obtenerFlota();
-        if (res.data && res.data.length > 0) {
-            select.innerHTML = '<option value="">Seleccionar...</option>';
-            res.data.forEach(v => {
-                let opt = document.createElement('option');
-                // IMPORTANTE: Mantenemos el formato Placa|Modelo para tu split('|')
-                opt.value = `${v.placa}|${v.modelo || 'Vehículo'}`;
-                opt.textContent = `${v.placa} - ${v.modelo || ''}`;
-                select.appendChild(opt);
-            });
+        // Aseguramos que DB esté cargado desde db.js
+        if (typeof DB !== 'undefined' && DB.obtenerFlota) {
+            const res = await DB.obtenerFlota();
+            if (res.data && res.data.length > 0) {
+                select.innerHTML = '<option value="">Seleccionar...</option>';
+                res.data.forEach(v => {
+                    let opt = document.createElement('option');
+                    // IMPORTANTE: Mantenemos placa|modelo para que funcione el split en guardarAveria()
+                    opt.value = `${v.placa}|${v.modelo || 'Vehículo'}`;
+                    opt.textContent = `${v.placa} - ${v.modelo || ''}`;
+                    select.appendChild(opt);
+                });
+            } else {
+                select.innerHTML = '<option value="">No hay flota registrada</option>';
+            }
         } else {
-            select.innerHTML = '<option value="">No hay flota registrada</option>';
+            select.innerHTML = '<option value="">Error: db.js no cargado</option>';
         }
     } catch (err) {
-        select.innerHTML = '<option value="">Error al cargar</option>';
+        console.error("Error al cargar:", err);
+        select.innerHTML = '<option value="">Error al conectar con la base de datos</option>';
     }
 };
 
 function irAtras() {
-const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-window.location.href = (sesion.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
+    const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+    window.location.href = (sesion.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
 }
 
 function procesarFotos(input) {
-for (let f of Array.from(input.files)) {
-if (fotosArray.length < 4) {
-const reader = new FileReader();
-reader.readAsDataURL(f);
-reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
-}
-}
+    for (let f of Array.from(input.files)) {
+        if (fotosArray.length < 4) {
+            const reader = new FileReader();
+            reader.readAsDataURL(f);
+            reader.onload = (e) => { 
+                fotosArray.push(e.target.result); 
+                renderGaleria(); 
+            };
+        }
+    }
 }
 
 function renderGaleria() {
-document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
-<div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
-document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
+    document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
+    <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
+    document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
 }
 
 function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
 async function guardarAveria() {
-const btn = document.getElementById('btn-envio');
-const v_select = document.getElementById('vehiculo').value;
-const falla = document.getElementById('tipo_falla').value;
+    const btn = document.getElementById('btn-envio');
+    const v_select = document.getElementById('vehiculo').value;
+    const falla = document.getElementById('tipo_falla').value;
 
-if (!v_select || !falla) { alert("Selecciona Vehículo y Tipo de Falla"); return; }
+    if (!v_select || !falla) { 
+        alert("Por favor selecciona el Vehículo y el Tipo de Falla"); 
+        return; 
+    }
 
-const [placa, nombreV] = v_select.split('|');
-btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
+    const [placa, nombreV] = v_select.split('|');
+    btn.disabled = true; 
+    btn.innerText = "⏳ ENVIANDO...";
 
-const datos = {
-reportado_por: document.getElementById('reportado_por').value,
-regional: document.getElementById('regional').value,
-placa_vehiculo: placa,
-tipo_vehiculo: nombreV,
-tipo_falla: falla,
-descripcion_sintomas: document.getElementById('sintomas').value,
-observaciones: document.getElementById('observaciones').value,
-imagen1: fotosArray[0] || "",
-imagen2: fotosArray[1] || "",
-imagen3: fotosArray[2] || "",
-imagen4: fotosArray[3] || ""
-};
+    const datos = {
+        reportado_por: document.getElementById('reportado_por').value,
+        regional: document.getElementById('regional').value,
+        placa_vehiculo: placa,
+        tipo_vehiculo: nombreV,
+        tipo_falla: falla,
+        descripcion_sintomas: document.getElementById('sintomas').value,
+        observaciones: document.getElementById('observaciones').value,
+        imagen1: fotosArray[0] || "",
+        imagen2: fotosArray[1] || "",
+        imagen3: fotosArray[2] || "",
+        imagen4: fotosArray[3] || ""
+    };
 
-const res = await DB.guardarAveria(datos);
-if (res.ok) {
-btn.innerText = "✓ GUARDADO CORRECTAMENTE";
-btn.style.background = "#16a34a";
-setTimeout(() => irAtras(), 1500);
-} else {
-alert("Error: " + res.error.message);
-btn.disabled = false; btn.innerText = "🚨 REINTENTAR ENVÍO";
-}
+    try {
+        const res = await DB.guardarAveria(datos);
+        if (res.ok) {
+            btn.innerText = "✓ GUARDADO CORRECTAMENTE";
+            btn.style.background = "#16a34a";
+            setTimeout(() => irAtras(), 1500);
+        } else {
+            alert("Error al guardar: " + (res.error?.message || "Desconocido"));
+            btn.disabled = false; 
+            btn.innerText = "🚨 REINTENTAR ENVÍO";
+        }
+    } catch (e) {
+        alert("Error de conexión");
+        btn.disabled = false;
+        btn.innerText = "🚨 REINTENTAR ENVÍO";
+    }
 }
 
 function enviarWhatsAppAveria() {
-const v_select = document.getElementById('vehiculo').value;
-if(!v_select) return alert("Selecciona vehículo");
-const [placa, nombreV] = v_select.split('|');
-const tel = "573100000000"; 
-const msj = `*🚨 REPORTE DE AVERÍA*%0AVehículo: ${nombreV}%0APlaca: ${placa}%0AFalla: ${document.getElementById('tipo_falla').value}`;
-window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
+    const v_select = document.getElementById('vehiculo').value;
+    if(!v_select) return alert("Seleccione vehículo antes de enviar WhatsApp");
+    const [placa, nombreV] = v_select.split('|');
+    const tel = "573100000000"; // Asegúrate de poner el número correcto aquí
+    const msj = `*🚨 REPORTE DE AVERÍA*%0AVehículo: ${nombreV}%0APlaca: ${placa}%0AFalla: ${document.getElementById('tipo_falla').value}%0ADescripción: ${document.getElementById('sintomas').value}`;
+    window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
 }
 </script>
 </body>
