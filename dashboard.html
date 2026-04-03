@@ -12,126 +12,64 @@
             --celeste-fondo: #e3f2fd; 
             --blanco: #ffffff; 
             --rojo: #ef4444;
+            --verde-wa: #25D366;
         }
         
         body { 
             background-color: var(--celeste-fondo); 
             font-family: 'DM Sans', sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            color: #1e293b;
+            margin: 0; padding: 20px; color: #1e293b;
         }
         
         header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 30px; 
-            background: var(--blanco);
-            padding: 15px 25px;
-            border-radius: 20px;
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 30px; background: var(--blanco);
+            padding: 15px 25px; border-radius: 20px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
 
         .logo-text { color: var(--azul-corporativo); font-size: 20px; font-weight: 700; }
-        .user-info { text-align: right; display: flex; align-items: center; gap: 15px; }
-        #user-name { color: var(--azul-corporativo); font-weight: 700; display: block; }
-        .role-tag { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: bold; }
-
+        
         .grid-menu { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
-            gap: 15px; 
-            margin-bottom: 30px; 
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+            gap: 15px; margin-bottom: 30px; 
         }
 
         .card { 
-            background: var(--blanco); 
-            padding: 20px 10px; 
-            border-radius: 25px; 
-            text-align: center; 
-            text-decoration: none; 
-            transition: 0.3s; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-            border: 1px solid transparent;
+            background: var(--blanco); padding: 20px 10px; border-radius: 25px; 
+            text-align: center; text-decoration: none; transition: 0.3s; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.02); border: 1px solid transparent;
         }
 
-        .card:hover { 
-            transform: translateY(-5px); 
-            border-color: var(--azul-corporativo);
-            box-shadow: 0 10px 20px rgba(0,26,112,0.08);
-        }
-
+        .card:hover { transform: translateY(-5px); border-color: var(--azul-corporativo); }
         .card i { font-size: 28px; display: block; margin-bottom: 10px; font-style: normal; }
-        .card h3 { 
-            font-size: 13px; 
-            margin: 0; 
-            color: var(--azul-corporativo); 
-            text-transform: uppercase; 
-        }
+        .card h3 { font-size: 13px; margin: 0; color: var(--azul-corporativo); text-transform: uppercase; }
 
         .monitor { 
-            background: var(--blanco); 
-            border-radius: 25px; 
-            padding: 25px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-            margin-bottom: 25px;
+            background: var(--blanco); border-radius: 25px; padding: 25px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px;
         }
 
-        .monitor h2 { 
-            font-size: 18px; 
-            color: var(--azul-corporativo);
-            margin-bottom: 20px; 
-            display: flex;
-            justify-content: space-between;
-        }
+        .monitor h2 { font-size: 18px; color: var(--azul-corporativo); margin-top: 0; }
 
         table { width: 100%; border-collapse: collapse; }
-        th { 
-            text-align: left; 
-            color: #64748b; 
-            font-size: 11px; 
-            padding: 12px; 
-            border-bottom: 2px solid var(--celeste-fondo); 
-            text-transform: uppercase;
-        }
-        td { 
-            padding: 12px; 
-            font-size: 14px; 
-            border-bottom: 1px solid #f1f5f9; 
-            color: #334155;
-        }
+        th { text-align: left; color: #64748b; font-size: 11px; padding: 12px; border-bottom: 2px solid var(--celeste-fondo); text-transform: uppercase; }
+        td { padding: 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; color: #334155; }
 
-        .status-pill { 
-            font-weight: bold; 
-            font-size: 10px; 
-            padding: 5px 10px; 
-            border-radius: 8px; 
-            text-transform: uppercase;
-        }
-        .disp { background: #ecfdf5; color: #10b981; }
-        .serv { background: #fff7ed; color: #f97316; }
-        .tall { background: #fef2f2; color: #ef4444; }
-
-        .averia-item {
-            border-left: 4px solid var(--rojo);
-            background: #fdfdfd;
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 10px;
-            border: 1px solid #fee2e2;
-        }
+        .status-pill { font-weight: bold; font-size: 10px; padding: 5px 10px; border-radius: 8px; text-transform: uppercase; }
+        .disp { background: #ecfdf5; color: #10b981; } /* Disponible - Verde */
+        .serv { background: #fff7ed; color: #f97316; } /* En Servicio - Naranja */
+        .tall { background: #fef2f2; color: #ef4444; } /* Taller - Rojo */
 
         .btn-wa {
-            background: #25D366; color: white; border: none;
+            background: var(--verde-wa); color: white; border: none;
             padding: 8px 12px; border-radius: 10px; cursor: pointer;
             font-weight: 700; font-size: 10px; text-transform: uppercase;
         }
 
-        .btn-taller {
-            background: var(--azul-corporativo); color: white;
-            padding: 6px 12px; border-radius: 8px; text-decoration: none;
-            font-size: 11px; font-weight: bold;
+        .averia-item {
+            border-left: 4px solid var(--rojo); background: #fdfdfd;
+            padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #fee2e2;
         }
     </style>
 </head>
@@ -139,12 +77,9 @@
 
     <header>
         <div class="logo-text">J.R. CARROZAS</div>
-        <div class="user-info">
-            <div style="text-align: right;">
-                <span id="user-name">Cargando...</span>
-                <span class="role-tag">Panel Administrativo</span>
-            </div>
-            <button type="button" onclick="cerrarSesion()" style="background:#fee2e2; color:#ef4444; border:none; padding:8px 15px; border-radius:10px; cursor:pointer; font-weight:bold; font-size:12px;">SALIR</button>
+        <div id="user-info" style="text-align: right;">
+            <span id="user-name" style="font-weight: 700; color: var(--azul-corporativo);">Cargando...</span><br>
+            <span style="font-size: 11px; color: #64748b;">PANEL ADMINISTRATIVO</span>
         </div>
     </header>
 
@@ -153,7 +88,6 @@
         <a href="registro_llegada.html" class="card"><i>🏁</i><h3>Llegadas</h3></a>
         <a href="taller.html" class="card"><i>🔧</i><h3>Taller</h3></a>
         <a href="flota.html" class="card"><i>🚗</i><h3>Flota</h3></a>
-        <a href="ajustes.html" class="card"><i>⚙️</i><h3>Ajustes</h3></a>
     </div>
 
     <div style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
@@ -189,7 +123,7 @@
                         </tr>
                     </thead>
                     <tbody id="lista-traslados">
-                        <tr><td colspan="5" style="text-align: center; padding: 20px;">Cargando traslados...</td></tr>
+                        <tr><td colspan="5" style="text-align:center;">Cargando traslados...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -197,9 +131,9 @@
 
         <div>
             <div class="monitor" style="border: 2px solid #fee2e2;">
-                <h2 style="color: var(--rojo);">⚠️ Averías Reportadas</h2>
+                <h2 style="color: var(--rojo);">⚠️ Averías Recientes</h2>
                 <div id="lista-averias">
-                    <p style="font-size: 13px; color: #64748b; text-align: center;">Buscando reportes de conductores...</p>
+                    <p style="text-align:center; font-size:12px;">Buscando novedades...</p>
                 </div>
             </div>
         </div>
@@ -208,90 +142,99 @@
 
     <script src="db.js"></script>
     <script>
-        window.onload = () => {
+        window.onload = async () => {
             const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
-            if (!sesion) {
-                window.location.href = "index.html";
-                return;
-            }
-            document.getElementById('user-name').innerText = sesion.nombre || "Usuario";
+            if (!sesion) { window.location.href = "index.html"; return; }
+            document.getElementById('user-name').innerText = sesion.nombre || "Admin J.R.";
             
-            // Cargar toda la data al iniciar
-            cargarFlota();
-            cargarTraslados();
-            consultarAverias();
+            // Carga inicial
+            await cargarFlota();
+            await cargarTraslados();
+            await cargarAverias();
         };
 
-        // 1. CARGAR ESTADO DE CARROZAS
+        // 1. CARGAR FLOTA (TABLA CARROZAS)
         async function cargarFlota() {
+            const { data, error } = await DB.obtenerFlota();
             const tbody = document.getElementById('tabla-flota');
-            const { data, error } = await DB.supabase.from('Carrozas').select('*');
             if (data) {
                 tbody.innerHTML = data.map(c => {
-                    let clase = c.estado === 'Disponible' ? 'disp' : (c.estado === 'En Taller' ? 'tall' : 'serv');
+                    const est = (c.estado || "").trim();
+                    let clase = 'serv';
+                    if (est === 'Disponible') clase = 'disp';
+                    if (est === 'En Taller' || est === 'Taller') clase = 'tall';
+                    
                     return `
                         <tr>
                             <td><b>${c.placa}</b></td>
-                            <td>${c.modelo}</td>
-                            <td>${c.kilometraje_actual} KM</td>
-                            <td><span class="status-pill ${clase}">● ${c.estado}</span></td>
+                            <td>${c.modelo || '---'}</td>
+                            <td>${c.kilometraje || 0} KM</td>
+                            <td><span class="status-pill ${clase}">● ${c.estado || 'S/E'}</span></td>
                         </tr>
                     `;
                 }).join('');
             }
         }
 
-        // 2. CARGAR ÚLTIMOS TRASLADOS (REGISTROS DE SALIDA)
+        // 2. CARGAR TRASLADOS (TABLA TRASLADO)
         async function cargarTraslados() {
-            const tabla = document.getElementById('lista-traslados');
-            try {
-                const { data, error } = await DB.obtenerTrasladosRecientes();
-                if (data) {
-                    tabla.innerHTML = data.map(t => `
-                        <tr>
-                            <td>${t.fecha || '---'}</td>
-                            <td><b>${t.placa || '---'}</b></td>
-                            <td>${t.nombre_del_fallecido || 'N/A'}</td>
-                            <td style="font-size:11px;">${t.origen || '?'} ➔ ${t.destino || '?'}</td>
-                            <td>
-                                <button class="btn-wa" onclick='reenviarWhatsApp(${JSON.stringify(t)})'>Reporte WA</button>
-                            </td>
-                        </tr>
-                    `).join('');
-                }
-            } catch (e) { console.error(e); }
-        }
-
-        // 3. CONSULTAR AVERÍAS (TABLA DEL CONDUCTOR)
-        async function consultarAverias() {
-            const { data, error } = await DB.supabase.from('Averias').select('*').order('id', { ascending: false }).limit(5);
-            const contenedor = document.getElementById('lista-averias');
-            if (data && data.length > 0) {
-                contenedor.innerHTML = data.map(av => `
-                    <div class="averia-item">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                            <b style="font-size:14px; color:var(--azul-corporativo);">${av.placa_vehiculo}</b>
-                            <span style="font-size:10px; color:#94a3b8;">${av.regional}</span>
-                        </div>
-                        <div style="font-size:12px; margin-bottom:8px;"><b>Falla:</b> ${av.tipo_falla}</div>
-                        <div style="text-align:right;">
-                            <a href="taller.html?placa=${av.placa_vehiculo}" class="btn-taller">REPARAR</a>
-                        </div>
-                    </div>
+            const { data, error } = await DB.obtenerTrasladosRecientes();
+            const tbody = document.getElementById('lista-traslados');
+            if (data) {
+                tbody.innerHTML = data.map(t => `
+                    <tr>
+                        <td>${t.fecha}</td>
+                        <td><b>${t.placa}</b></td>
+                        <td>${t.nombre_del_fallecido || '---'}</td>
+                        <td style="font-size:11px;">${t.origen} ➔ ${t.destino}</td>
+                        <td>
+                            <button class="btn-wa" onclick='reenviarWhatsApp(${JSON.stringify(t)})'>Reporte WA</button>
+                        </td>
+                    </tr>
                 `).join('');
-            } else {
-                contenedor.innerHTML = '<p style="text-align:center; font-size:12px;">Sin novedades hoy 👍</p>';
             }
         }
 
-        function reenviarWhatsApp(datos) {
-            const mensaje = `*Reporte de Salida J.R.*\n\n` +
-                            `Regional: ${datos.regional || ''}\n` +
-                            `Fecha: ${datos.fecha || ''}\n` +
-                            `Placa: ${datos.placa || ''}\n` +
-                            `Conductor: ${datos.conductor || ''}\n` +
-                            `Fallecido: ${datos.nombre_del_fallecido || ''}\n` +
-                            `Ruta: ${datos.origen} ➔ ${datos.destino}`;
+        // 3. CARGAR AVERÍAS (TABLA AVERIAS)
+        async function cargarAverias() {
+            const { data } = await DB.supabase.from('Averias').select('*').order('id', {ascending: false}).limit(5);
+            const div = document.getElementById('lista-averias');
+            if (data && data.length > 0) {
+                div.innerHTML = data.map(av => `
+                    <div class="averia-item">
+                        <b style="color:var(--azul-corporativo)">${av.placa_vehiculo}</b><br>
+                        <small>${av.tipo_falla}</small><br>
+                        <span style="font-size:10px; color:#64748b;">${av.regional}</span>
+                    </div>
+                `).join('');
+            } else {
+                div.innerHTML = "<p style='text-align:center; font-size:12px;'>Sin novedades 👍</p>";
+            }
+        }
+
+        // 4. FUNCIÓN DE MENSAJE WHATSAPP (FORMATO SOLICITADO)
+        function reenviarWhatsApp(d) {
+            const ahora = new Date();
+            const saludo = ahora.getHours() < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
+            
+            const mensaje = `${saludo}\n\n` +
+                `📢 *Reporte de Salida De Carroza*\n\n` +
+                `📍 *Regional:* ${d.regional || 'Pereira'}\n` +
+                `📅 *Fecha:* ${d.fecha}\n` +
+                `👤 *Coordinador:* ${d.coordinador_en_turno || '---'}\n` +
+                `🕒 *Hora De Salida:* ${d.hora_de_salida || '---'}\n` +
+                `🚗 *Placas Del Vehiculo:* ${d.placa}\n` +
+                `❓ *Motivo De Salida:* ${d.motivo_de_salida || '---'}\n` +
+                `⚱️ *Nombre Del Fallecido:* ${d.nombre_del_fallecido || '---'}\n` +
+                `🏥 *Lugar de Recogida:* ${d.clinica_hospital_o_rsd || '---'}\n` +
+                `🚩 *Origen:* ${d.origen}\n` +
+                `🏁 *Destino:* ${d.destino}\n` +
+                `📊 *Km De Salida:* ${d.km__salida || 0}\n` +
+                `👨🏻‍✈️ *Nom: Conductor:* ${d.conductor}\n` +
+                `📞 *N° Telefono:* ${d.nnum_telefono || '---'}\n` +
+                `📝 *Observaciones:* ${d.observaciones || '---'}\n\n` +
+                `✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻`;
+
             window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
         }
 
