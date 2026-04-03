@@ -143,7 +143,7 @@
         const falla = document.getElementById('tipo_falla').value;
         const vehiculoTexto = document.getElementById('vehiculo').value;
 
-        // Validación crítica para evitar el error de base de datos
+        // Validación: Detiene el envío si faltan campos que Supabase requiere
         if (!placa || !falla || !vehiculoTexto) { 
             alert("Error: Debes ingresar la Placa, seleccionar el Vehículo y el Tipo de Falla."); 
             return; 
@@ -151,7 +151,7 @@
 
         btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
 
-        // MAPEO CORREGIDO SEGÚN TU TABLA SUPABASE
+        // MAPEO DE DATOS SEGÚN TU TABLA 'averias'
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
@@ -166,13 +166,13 @@
             imagen4: fotosArray[3] || null
         };
 
-        // Uso directo de la conexión de Supabase para asegurar inserción
+        // Inserción directa en la tabla
         const { error } = await DB.supabase.from('averias').insert([datos]);
 
         if (!error) {
             btn.innerText = "✓ GUARDADO ÉXITOSAMENTE";
             btn.style.background = "#16a34a";
-            // Cambia el estado del vehículo a 'En Taller' automáticamente
+            // Actualización de estado en tabla carrozas
             await DB.supabase.from('carrozas').update({ estado: 'En Taller' }).eq('placa', placa);
         } else {
             alert("Error de Base de Datos: " + error.message);
@@ -195,7 +195,7 @@
                     `🚗 *Vehículo:* ${placa}%0A` +
                     `⚠️ *Falla:* ${falla}%0A` +
                     `----------------------------%0A` +
-                    `📝 _Detalles guardados en el sistema._`;
+                    `📝 _Detalles registrados en sistema._`;
 
         window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
     }
