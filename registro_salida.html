@@ -119,8 +119,8 @@
 
         <label style="margin-top:15px">Enviar Notificación a:</label>
         <select id="select-coordinador" style="border: 2px solid var(--verde-wa);">
-            <option value="573001234567">Coordinador Pereira</option>
-            <option value="573110000000">Logística J.R.</option>
+            <option value="3001234567">Coordinador Pereira</option>
+            <option value="3110000000">Logística J.R.</option>
         </select>
 
         <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR EN SISTEMA</button>
@@ -130,49 +130,36 @@
 
 <script src="db.js"></script>
 <script>
-    // ✅ CARGA DE SESIÓN: nombre del usuario logueado y rol
+    let fotosArray = [];
+    let datosFinales = {};
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let dibujando = false;
+
     window.onload = () => {
         const sesionData = localStorage.getItem('usuario_sesion');
-
-        if (!sesionData) {
-            window.location.href = "index.html";
-            return;
-        }
-
+        if (!sesionData) { window.location.href = "index.html"; return; }
         const user = JSON.parse(sesionData);
-
-        // ✅ Nombre tomado directo de la sesión guardada en el login
         const nombre = user.nombre || user.nombre_completo || user.username || "Usuario J.R.";
-        const rol    = user.rol || "conductor";
+        const rol = user.rol || "conductor";
 
-        // ✅ Rellenar campo conductor automáticamente
         document.getElementById('conductor').value = nombre;
-
-        // ✅ Saludo con primer nombre
         document.getElementById('saludo').innerText = "¡HOLA, " + nombre.split(' ')[0].toUpperCase() + "!";
         document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + rol.toUpperCase();
 
-        // Hora actual por defecto
         const now = new Date();
-        document.getElementById('hora_salida').value =
-            now.getHours().toString().padStart(2, '0') + ":" +
-            now.getMinutes().toString().padStart(2, '0');
+        document.getElementById('hora_salida').value = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
 
-        // Canvas
-        canvas.width  = canvas.offsetWidth;
+        canvas.width = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
     };
 
-    // ✅ VOLVER al panel correcto según el rol
     function irAtras() {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
-        if (!sesion) { window.location.href = "index.html"; return; }
         const rol = (sesion.rol || '').toLowerCase().trim();
         window.location.href = rol === 'admin' ? "dashboard.html" : "panel_conductor.html";
     }
 
-    // --- FOTOS ---
-    let fotosArray = [];
     async function procesarFotos(input) {
         const archivos = Array.from(input.files);
         for (let f of archivos) {
@@ -183,6 +170,7 @@
             }
         }
     }
+
     function renderGaleria() {
         const g = document.getElementById('galeria');
         g.innerHTML = fotosArray.map((img, i) => `
@@ -192,54 +180,49 @@
             </div>`).join('');
         document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
     }
+
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
-    // --- FIRMA ---
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    let dibujando = false;
     const obtenerPos = e => {
         const rect = canvas.getBoundingClientRect();
         return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
     };
     const iniciar = e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); };
-    const mover   = e => { if(!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
+    const mover = e => { if(!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
+    
     canvas.addEventListener('mousedown', iniciar); canvas.addEventListener('mousemove', mover);
     window.addEventListener('mouseup', () => dibujando = false);
     canvas.addEventListener('touchstart', iniciar); canvas.addEventListener('touchmove', mover);
     canvas.addEventListener('touchend', () => dibujando = false);
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-    // --- CÁLCULOS ---
     function calcularTotal() {
         const s = parseFloat(document.getElementById('km_s').value) || 0;
         const i = parseFloat(document.getElementById('km_i').value) || 0;
         document.getElementById('total_km').value = (i - s).toFixed(1);
     }
 
-    // --- GUARDADO ---
-    let datosFinales = {};
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
 
         datosFinales = {
-            fecha:        new Date().toLocaleDateString(),
-            regional:     document.getElementById('regional').value,
-            conductor:    document.getElementById('conductor').value,
-            placa:        document.getElementById('placa').value,
-            motivo:       document.getElementById('motivo').value,
-            fallecido:    document.getElementById('fallecido').value,
-            clinica:      document.getElementById('clinica').value,
-            prestacion:   document.getElementById('prestacion').value,
-            origen:       document.getElementById('origen').value,
-            destino:      document.getElementById('destino').value,
-            hora_salida:  document.getElementById('hora_salida').value,
+            fecha: new Date().toLocaleDateString(),
+            regional: document.getElementById('regional').value,
+            conductor: document.getElementById('conductor').value,
+            placa: document.getElementById('placa').value,
+            motivo: document.getElementById('motivo').value,
+            fallecido: document.getElementById('fallecido').value,
+            clinica: document.getElementById('clinica').value,
+            prestacion: document.getElementById('prestacion').value,
+            origen: document.getElementById('origen').value,
+            destino: document.getElementById('destino').value,
+            hora_salida: document.getElementById('hora_salida').value,
             hora_ingreso: document.getElementById('hora_ingreso').value,
-            km_salida:    document.getElementById('km_s').value,
-            km_ingreso:   document.getElementById('km_i').value,
-            total_km:     document.getElementById('total_km').value,
-            observaciones:document.getElementById('observaciones').value,
+            km_salida: document.getElementById('km_s').value,
+            km_ingreso: document.getElementById('km_i').value,
+            total_km: document.getElementById('total_km').value,
+            observaciones: document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || "",
             imagen2: fotosArray[1] || "",
             imagen3: fotosArray[2] || "",
@@ -259,16 +242,42 @@
         }
     }
 
+    // --- LÓGICA DE WHATSAPP ---
+    function generarCuerpoMensaje() {
+        return `*REPORTE J.R. - SALIDA OFICIAL*\n\n` +
+               `👤 *Responsable:* ${datosFinales.conductor}\n` +
+               `📍 *Regional:* ${datosFinales.regional}\n` +
+               `⚱️ *Fallecido:* ${datosFinales.fallecido}\n` +
+               `🚗 *Placa:* ${datosFinales.placa}\n` +
+               `🛣️ *Ruta:* ${datosFinales.origen} ➔ ${datosFinales.destino}\n` +
+               `🏥 *Origen:* ${datosFinales.clinica}\n` +
+               `🔢 *N° Prestación:* ${datosFinales.prestacion}\n` +
+               `⏱️ *Hora:* ${datosFinales.hora_salida} a ${datosFinales.hora_ingreso}\n` +
+               `📊 *KM Recorridos:* ${datosFinales.total_km} km\n` +
+               `📝 *Obs:* ${datosFinales.observaciones || 'Sin novedad'}`;
+    }
+
     function enviarWA() {
-        const num = document.getElementById('select-coordinador').value;
-        const msg = `*REPORTE J.R.*\n` +
-                    `*Responsable:* ${datosFinales.conductor}\n` +
-                    `*Fallecido:* ${datosFinales.fallecido}\n` +
-                    `*Placa:* ${datosFinales.placa}\n` +
-                    `*Ruta:* ${datosFinales.origen} -> ${datosFinales.destino}\n` +
-                    `*KM Recorridos:* ${datosFinales.total_km} km.\n` +
-                    `*Observaciones:* ${datosFinales.observaciones}`;
-        window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(msg)}`);
+        const numSeleccionado = document.getElementById('select-coordinador').value;
+        // Si necesitas que siempre se envíe a un segundo número fijo, agrégalo al array:
+        const listaNumeros = [numSeleccionado]; 
+
+        if (listaNumeros.length === 0) { alert('⚠️ Selecciona un número.'); return; }
+        
+        const msg = encodeURIComponent(generarCuerpoMensaje());
+        
+        // Abrir el primero inmediatamente
+        window.open(`https://wa.me/57${listaNumeros[0]}?text=${msg}`, '_blank');
+        
+        // Si hay más de un número, enviarlos con retraso
+        if (listaNumeros.length > 1) {
+            listaNumeros.slice(1).forEach((n, i) => {
+                setTimeout(() => {
+                    window.open(`https://wa.me/57${n}?text=${msg}`, '_blank');
+                }, (i + 1) * 800);
+            });
+        }
+        console.log('📱 Reporte enviado a WhatsApp');
     }
 </script>
 </body>
