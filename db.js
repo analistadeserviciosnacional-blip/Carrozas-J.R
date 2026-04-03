@@ -2,18 +2,12 @@
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 
-// Inicialización del cliente de Supabase
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
-    // ✅ Expuesto para consultas directas si es necesario
     supabase: _supabase,
 
     // ── SECCIÓN: TRASLADOS ──────────────────────────────────
-
-    /**
-     * Guarda un nuevo reporte de traslado en la tabla 'Traslado'
-     */
     async guardarTraslado(datos) {
         try {
             const { error } = await _supabase
@@ -50,10 +44,6 @@ const DB = {
         }
     },
 
-    /**
-     * Obtiene los últimos 10 traslados para el Dashboard.
-     * Se usa 'fecha' porque es el campo que existe en tu tabla.
-     */
     async obtenerTrasladosRecientes() {
         try {
             const { data, error } = await _supabase
@@ -68,7 +58,6 @@ const DB = {
     },
 
     // ── SECCIÓN: AVERÍAS ────────────────────────────────────
-
     async guardarAveria(datos) {
         try {
             const { error } = await _supabase
@@ -93,21 +82,6 @@ const DB = {
         }
     },
 
-    async obtenerAveriasPorConductor(nombre) {
-        try {
-            const busqueda = nombre.trim().split(' ')[0];
-            const { data, error } = await _supabase
-                .from('Averias')
-                .select('*')
-                .ilike('reportado_por', `%${busqueda}%`)
-                .order('identificador', { ascending: false })
-                .limit(20);
-            return { data, error };
-        } catch (err) {
-            return { data: null, error: err };
-        }
-    },
-
     async obtenerTodasAverias() {
         try {
             const { data, error } = await _supabase
@@ -122,10 +96,9 @@ const DB = {
     },
 
     // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
-
     async guardarCarroza(datos) {
         try {
-            // Nota: Se usa 'carrozas' en minúscula porque así aparece en tu Editor de Tablas
+            // CORRECCIÓN: 'carrozas' en minúscula para evitar el error de esquema
             const { error } = await _supabase
                 .from('carrozas') 
                 .insert([{
@@ -148,7 +121,7 @@ const DB = {
 
     async obtenerFlota() {
         try {
-            // AJUSTE CLAVE: Nombre de tabla 'carrozas' en minúscula para que cargue
+            // CORRECCIÓN: 'carrozas' en minúscula para que el Monitor cargue
             const { data, error } = await _supabase
                 .from('carrozas')
                 .select('*')
@@ -160,6 +133,5 @@ const DB = {
     }
 };
 
-// Hacer disponibles las variables globalmente
 window._supabase = _supabase;
 window.DB = DB;
