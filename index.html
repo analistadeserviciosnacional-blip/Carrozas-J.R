@@ -109,8 +109,8 @@
             <p style="margin-bottom: 20px;">Completa tus datos de conductor</p>
             
             <input type="text" id="reg_nombre" placeholder="Nombre Completo">
-            <input type="text" id="reg_usuario" placeholder="Cédula (será tu usuario)">
-            <input type="text" id="reg_telefono" placeholder="Teléfono (opcional)">
+            <input type="text" id="reg_usuario" placeholder="Cédula (Usuario)">
+            <input type="text" id="reg_telefono" placeholder="Teléfono">
             <input type="password" id="reg_password" placeholder="Contraseña">
             
             <button class="btn-login btn-reg-exec" id="btn-reg-exec" onclick="ejecutarRegistro()">REGISTRARME</button>
@@ -121,11 +121,14 @@
 
     <script src="db.js"></script>
     <script>
-        // Funciones del Modal
-        function abrirRegistro() { document.getElementById('modalRegistro').style.display = "block"; }
+        // Funciones para controlar el Modal
+        function abrirRegistro() { 
+            document.getElementById('modalRegistro').style.display = "block"; 
+            document.getElementById('error-msg').style.display = "none";
+        }
         function cerrarRegistro() { document.getElementById('modalRegistro').style.display = "none"; }
 
-        // Lógica de Login
+        // Lógica de Inicio de Sesión
         async function login() {
             const u = document.getElementById('user').value.trim();
             const p = document.getElementById('pass').value.trim();
@@ -142,17 +145,16 @@
             errorDiv.style.display = "none";
 
             try {
-                // Llamada a la función centralizada en db.js
                 const res = await DB.login(u, p);
 
                 if (res.ok && res.data) {
                     const usuario = res.data;
-                    // Persistencia de sesión
+                    // Almacenamiento de datos de sesión según tu estructura de apps anteriores
                     localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
                     localStorage.setItem('usuario_data', JSON.stringify(usuario));
                     localStorage.setItem('conductor_nombre', usuario.nombre);
 
-                    // Redirección: Si es admin va al Dashboard, si no al Panel Conductor
+                    // Redirección por Rol
                     if (u.toLowerCase() === 'admin') {
                         window.location.href = "dashboard.html";
                     } else {
@@ -162,15 +164,15 @@
                     mostrarError("Usuario o clave incorrectos");
                 }
             } catch (err) {
-                console.error("Error:", err);
-                mostrarError("Error de conexión");
+                console.error("Error en Login:", err);
+                mostrarError("Error técnico de conexión");
             } finally {
                 btn.disabled = false;
                 btn.innerText = "INGRESAR AL SISTEMA";
             }
         }
 
-        // Lógica de Registro
+        // Lógica de Registro de Usuario
         async function ejecutarRegistro() {
             const btn = document.getElementById('btn-reg-exec');
             const datos = {
@@ -180,8 +182,9 @@
                 password: document.getElementById('reg_password').value.trim()
             };
 
+            // Validación de campos obligatorios
             if(!datos.nombre || !datos.usuario || !datos.password) {
-                alert("Por favor, llena los campos obligatorios");
+                alert("Por favor, llena los campos obligatorios (Nombre, Usuario y Contraseña)");
                 return;
             }
 
@@ -189,15 +192,20 @@
             btn.innerText = "PROCESANDO...";
 
             try {
+                // Llamada a la función registrarUsuario en db.js
                 const res = await DB.registrarUsuario(datos);
+                
                 if(res.ok) {
-                    alert("¡Registro exitoso! Ya puedes iniciar sesión con tu cédula.");
+                    alert("¡Registro exitoso! Ya puedes iniciar sesión con tu número de cédula.");
                     cerrarRegistro();
                 } else {
-                    alert("Error al registrar: " + (res.error?.message || "Intenta de nuevo"));
+                    // Muestra el mensaje de error específico de Supabase si existe
+                    const msgError = res.error?.message || "Ocurrió un problema en el servidor";
+                    alert("No se pudo completar el registro: " + msgError);
                 }
             } catch (err) {
-                alert("Fallo en el registro");
+                console.error("Error en Registro:", err);
+                alert("Fallo crítico en el sistema de registro");
             } finally {
                 btn.disabled = false;
                 btn.innerText = "REGISTRARME";
@@ -210,8 +218,16 @@
             errorDiv.style.display = "block";
         }
 
-        // Soporte para tecla Enter
-        document.addEventListener('keypress', (e) => { if (e.key === 'Enter') login(); });
+        // Permitir ingreso con la tecla Enter
+        document.addEventListener('keypress', (e) => { 
+            if (e.key === 'Enter') {
+                if (document.getElementById('modalRegistro').style.display === "block") {
+                    ejecutarRegistro();
+                } else {
+                    login();
+                }
+            }
+        });
     </script>
 </body>
 </html>
