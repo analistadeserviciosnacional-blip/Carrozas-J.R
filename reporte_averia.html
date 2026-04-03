@@ -15,7 +15,7 @@
         .btn-volver { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
         .content { padding: 20px; }
         .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #546e7a; margin: 20px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
-        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
+        label { display: block; font-size: 11px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
         input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .upload-container { border: 2px dashed var(--rojo); border-radius: 15px; padding: 15px; text-align: center; background: #fff5f5; cursor: pointer; margin-bottom: 12px; }
@@ -57,17 +57,14 @@
         <div class="section-title">Datos del Vehículo</div>
         <div class="grid-2">
             <div>
-                <label>Placa del Vehículo</label>
-                <input type="text" id="placa" placeholder="ABC-123" oninput="this.value = this.value.toUpperCase()">
+                <label>Seleccionar Carroza</label>
+                <select id="select_vehiculo" onchange="sincronizarPlaca()">
+                    <option value="">Cargando...</option>
+                </select>
             </div>
             <div>
-                <label>Vehículo / Carroza</label>
-                <select id="vehiculo">
-                    <option value="">Seleccionar...</option>
-                    <option>Carroza GJX-497</option>
-                    <option>Carroza ICQ-333</option>
-                    <option>Furgón de Apoyo</option>
-                </select>
+                <label>Confirmar Placa</label>
+                <input type="text" id="placa" placeholder="ABC-123" readonly>
             </div>
         </div>
 
@@ -97,11 +94,10 @@
         <select id="whatsapp_destino">
             <option value="573100000000">Coordinador Pereira</option>
             <option value="573200000000">Jefe de Mantenimiento</option>
-            <option value="573000000000">Administrador Sistema</option>
         </select>
 
         <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
-        <button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
+        <button class="btn-action btn-wa" id="btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
     </div>
 </div>
 
@@ -109,11 +105,26 @@
 <script>
     let fotosArray = [];
 
-    window.onload = () => {
+    window.onload = async () => {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
         document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
         document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
+        
+        await cargarCarrozas();
     };
+
+    async function cargarCarrozas() {
+        const { data, error } = await DB.supabase.from('carrozas').select('placa').order('placa');
+        const select = document.getElementById('select_vehiculo');
+        if (data) {
+            select.innerHTML = '<option value="">Seleccione vehículo...</option>' + 
+                data.map(v => `<option value="${v.placa}">${v.placa}</option>`).join('');
+        }
+    }
+
+    function sincronizarPlaca() {
+        document.getElementById('placa').value = document.getElementById('select_vehiculo').value;
+    }
 
     function irAtras() {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
@@ -140,53 +151,55 @@
 
     async function guardarAveria() {
         const btn = document.getElementById('btn-envio');
-        const placa = document.getElementById('placa').value.trim();
+        const placa = document.getElementById('placa').value;
         const falla = document.getElementById('tipo_falla').value;
 
-        if (!placa || !falla) { alert("Completa Placa y Tipo de Falla"); return; }
+        if (!placa || !falla) { alert("Seleccione un vehículo y el tipo de falla"); return; }
 
         btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
 
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
-            placa: placa,
-            vehiculo: document.getElementById('vehiculo').value,
+            placa_vehiculo: placa,
             tipo_falla: falla,
             sintomas: document.getElementById('sintomas').value,
             observaciones: document.getElementById('observaciones').value,
-            imagen1: fotosArray[0] || "",
-            imagen2: fotosArray[1] || "",
-            imagen3: fotosArray[2] || "",
-            imagen4: fotosArray[3] || ""
+            imagen1: fotosArray[0] || null,
+            imagen2: fotosArray[1] || null,
+            imagen3: fotosArray[2] || null,
+            imagen4: fotosArray[3] || null
         };
 
-        const res = await DB.guardarAveria(datos);
-        if (res.ok) {
-            btn.innerText = "✓ GUARDADO ÉXITOSAMENTE";
+        const { error } = await DB.supabase.from('averias').insert([datos]);
+
+        if (!error) {
+            btn.innerText = "✓ GUARDADO EXITOSAMENTE";
             btn.style.background = "#16a34a";
+            // Cambiar estado del vehículo a 'En Taller' automáticamente
+            await DB.supabase.from('carrozas').update({ estado: 'En Taller' }).eq('placa', placa);
         } else {
-            alert("Error: " + res.error.message);
+            alert("Error: " + error.message);
             btn.disabled = false; btn.innerText = "🚨 REINTENTAR ENVÍO";
         }
     }
 
     function enviarWhatsAppAveria() {
-        const placa = document.getElementById('placa').value.toUpperCase();
+        const placa = document.getElementById('placa').value;
         const falla = document.getElementById('tipo_falla').value;
         const regional = document.getElementById('regional').value;
         const tel = document.getElementById('whatsapp_destino').value;
 
-        if (!placa || !falla) { alert("Completa los datos para el mensaje."); return; }
+        if (!placa || !falla) { alert("Primero completa el reporte."); return; }
 
         const msj = `*🚨 REPORTE DE AVERÍA - J.R.*%0A` +
                     `----------------------------%0A` +
                     `👤 *Por:* ${document.getElementById('reportado_por').value}%0A` +
                     `📍 *Regional:* ${regional}%0A` +
-                    `🚗 *Vehículo:* ${placa}%0A` +
+                    `🚗 *Placa:* ${placa}%0A` +
                     `⚠️ *Falla:* ${falla}%0A` +
                     `----------------------------%0A` +
-                    `📝 _Fotos y detalles guardados en el sistema._`;
+                    `📝 _Registrado en el sistema J.R._`;
 
         window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
     }
