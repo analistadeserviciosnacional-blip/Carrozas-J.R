@@ -43,6 +43,16 @@ const DB = {
         return { ok: !error, error };
     },
 
+    // ✅ NUEVO: OBTENER TRASLADOS RECIENTES PARA DASHBOARD
+    async obtenerTrasladosRecientes() {
+        const { data, error } = await _supabase
+            .from('Traslado')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(10);
+        return { data, error };
+    },
+
     // ── AVERÍAS ─────────────────────────────────────────────
     async guardarAveria(datos) {
         const { error } = await _supabase
@@ -64,52 +74,44 @@ const DB = {
         return { ok: !error, error };
     },
 
-    // ── OBTENER AVERÍAS POR CONDUCTOR ───────────────────────
     async obtenerAveriasPorConductor(nombre) {
         const busqueda = nombre.trim().split(' ')[0];
-
         const { data, error } = await _supabase
             .from('Averias')
             .select('*')
             .ilike('reportado_por', `%${busqueda}%`)
             .order('created_at', { ascending: false })
             .limit(20);
-
         return { data, error };
     },
 
-    // ── OBTENER TODAS LAS AVERÍAS (admin) ───────────────────
     async obtenerTodasAverias() {
         const { data, error } = await _supabase
             .from('Averias')
             .select('*')
             .order('created_at', { ascending: false })
             .limit(50);
-
         return { data, error };
     },
 
-    // ── CARROZAS ───────────────────────────────────────────
     async guardarCarroza(datos) {
         const { error } = await _supabase
             .from('Carrozas')
             .insert([{
                 placa:                  datos.placa,
-                modelo:                 datos.modelo,
-                anio:                   parseInt(datos.anio) || 0,
+                modelo:                  datos.modelo,
+                anio:                    parseInt(datos.anio) || 0,
                 estado:                 datos.estado,
-                conductor_asignado:     datos.conductor_asignado,
+                conductor_asignado:      datos.conductor_asignado,
                 kilometraje:            parseInt(datos.kilometraje) || 0,
                 ultimo_mantenimiento:   datos.ultimo_mantenimiento,
                 proximo_mantenimiento:  datos.proximo_mantenimiento,
                 observaciones:          datos.observaciones,
-                fecha_registro:         new Date().toLocaleDateString()
+                fecha_registro:          new Date().toLocaleDateString()
             }]);
         return { ok: !error, error };
     }
-
 };
 
-// ✅ Disponible globalmente en todos los HTML
-window._supabase = _supabase;  // ← FIX: expuesto para index.html y otros
+window._supabase = _supabase;
 window.DB = DB;
