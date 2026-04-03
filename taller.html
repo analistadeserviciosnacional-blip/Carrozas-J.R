@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.R. — Control de Taller</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; }
+        body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 15px; color: #1e293b; }
+        
+        .container { max-width: 600px; margin: auto; }
+        .card { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        
+        h2 { color: var(--azul); text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 5px; }
+        
+        input, select, textarea { 
+            width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; 
+            font-size: 14px; box-sizing: border-box; font-family: inherit;
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .btn-registrar { 
+            background: var(--azul); color: white; border: none; width: 100%; 
+            padding: 15px; border-radius: 12px; font-weight: 700; font-size: 15px; 
+            cursor: pointer; margin-top: 10px;
+        }
+
+        .btn-volver {
+            display: block; text-align: center; margin-top: 20px; color: #64748b;
+            text-decoration: none; font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h2>🛠️ Registro de Mantenimiento</h2>
+        
+        <form id="form-taller">
+            <div class="form-group">
+                <label>Seleccionar Carroza (Placa)</label>
+                <select id="placa" required>
+                    <option value="">Cargando placas...</option>
+                </select>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Fecha del Servicio</label>
+                    <input type="date" id="fecha" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Servicio</label>
+                    <select id="tipo_servicio" required>
+                        <option value="Cambio de Aceite">Cambio de Aceite</option>
+                        <option value="Frenos">Frenos</option>
+                        <option value="Llantas">Llantas</option>
+                        <option value="Sincronización">Sincronización</option>
+                        <option value="Suspensión">Suspensión</option>
+                        <option value="Otro">Otro (Ver Obs)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Kilometraje Actual</label>
+                    <input type="number" id="km_servicio" placeholder="Ej: 155200" required>
+                </div>
+                <div class="form-group">
+                    <label>Costo del Servicio ($)</label>
+                    <input type="number" id="costo" placeholder="0.00" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Nombre del Taller / Mecánico</label>
+                <input type="text" id="taller" placeholder="Ej: Taller Central" required>
+            </div>
+
+            <div class="form-group">
+                <label>Observaciones Detalladas</label>
+                <textarea id="observaciones" rows="3" placeholder="Describe qué se le hizo al carro..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-registrar" id="btn-submit">GUARDAR EN HISTORIAL</button>
+        </form>
+
+        <a href="dashboard.html" class="btn-volver">← Volver al Panel</a>
+    </div>
+</div>
+
+<script src="db.js"></script>
+<script>
+    // 1. Cargar las placas desde la tabla Carrozas al iniciar
+    window.onload = async () => {
+        document.getElementById('fecha').valueAsDate = new Date();
+        const { data, error } = await DB.supabase.from('Carrozas').select('placa');
+        const select = document.getElementById('placa');
+        
+        if (data) {
+            select.innerHTML = '<option value="">Elija una placa...</option>' + 
+                data.map(c => `<option value="${c.placa}">${c.placa}</option>`).join('');
+        }
+    };
+
+    // 2. Guardar el mantenimiento
+    document.getElementById('form-taller').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btn-submit');
+        btn.innerText = "Guardando...";
+        btn.disabled = true;
+
+        const registro = {
+            placa: document.getElementById('placa').value,
+            fecha: document.getElementById('fecha').value,
+            tipo_servicio: document.getElementById('tipo_servicio').value,
+            kilometraje_servicio: parseInt(document.getElementById('km_servicio').value),
+            costo: parseFloat(document.getElementById('costo').value),
+            taller: document.getElementById('taller').value,
+            observaciones: document.getElementById('observaciones').value,
+            responsable: JSON.parse(localStorage.getItem('usuario_sesion')).nombre || "Admin"
+        };
+
+        // Insertar en la tabla Mantenimientos
+        const { error: errorMant } = await DB.supabase.from('Mantenimientos').insert([registro]);
+
+        if (errorMant) {
+            alert("Error al guardar: " + errorMant.message);
+        } else {
+            // OPCIONAL: Actualizar el kilometraje y estado en la tabla Carrozas
+            await DB.supabase.from('Carrozas')
+                .update({ 
+                    kilometraje_actual: registro.kilometraje_servicio,
+                    ultimo_mantenimiento: registro.fecha,
+                    estado: 'Disponible' 
+                })
+                .eq('placa', registro.placa);
+
+            enviarNotificacionWA(registro);
+            alert("Mantenimiento registrado y carroza actualizada.");
+            window.location.href = "dashboard.html";
+        }
+        
+        btn.disabled = false;
+        btn.innerText = "GUARDAR EN HISTORIAL";
+    };
+
+    function enviarNotificacionWA(r) {
+        const mensaje = `🛠️ *REPORTE DE TALLER J.R.*\n\n` +
+                        `🚗 *Placa:* ${r.placa}\n` +
+                        `📅 *Fecha:* ${r.fecha}\n` +
+                        `🔧 *Servicio:* ${r.tipo_servicio}\n` +
+                        `📊 *KM:* ${r.kilometraje_servicio}\n` +
+                        `💰 *Costo:* $${r.costo.toLocaleString()}\n` +
+                        `📍 *Taller:* ${r.taller}\n` +
+                        `📝 *Obs:* ${r.observaciones || 'N/A'}`;
+        
+        window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
+    }
+</script>
+
+</body>
+</html>
