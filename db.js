@@ -63,7 +63,7 @@ const DB = {
             const { data, error } = await _supabase
                 .from('Averias')
                 .select('*')
-                .order('identificador', { ascending: false })
+                .order('id', { ascending: false }) // Cambiado de identificador a id si identificador falla
                 .limit(50);
             return { data: data || [], error };
         } catch (err) {
@@ -72,21 +72,19 @@ const DB = {
     },
 
     // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
+    // CORRECCIÓN CLAVE: Nombres de columna basados en tu imagen de Supabase
     async guardarCarroza(datos) {
         try {
             const { error } = await _supabase
-                .from('carrozas') // Tabla en minúscula
+                .from('carrozas') 
                 .insert([{
                     placa:                  datos.placa,
                     modelo:                 datos.modelo,
                     anio:                   parseInt(datos.anio) || 0,
-                    estado:                 datos.estado,
-                    conductor_asignado:     datos.conductor_asignado,
-                    kilometraje:            parseInt(datos.kilometraje) || 0,
-                    ultimo_mantenimiento:   datos.ultimo_mantenimiento,
-                    proximo_mantenimiento:  datos.proximo_mantenimiento,
-                    observaciones:          datos.observaciones,
-                    fecha_registro:         new Date().toLocaleDateString('es-CO')
+                    fecha_ingreso_empresa:  datos.fecha_ingreso_empresa, // Nombre real en tu DB
+                    kilometraje_inicial:    parseInt(datos.kilometraje_inicial) || 0, // Nombre real en tu DB
+                    kilometraje_actual:     parseInt(datos.kilometraje_actual) || 0, // Nombre real en tu DB
+                    estado:                 datos.estado || 'Disponible'
                 }]);
             return { ok: !error, error };
         } catch (err) {
@@ -97,11 +95,10 @@ const DB = {
     async obtenerFlota() {
         try {
             const { data, error } = await _supabase
-                .from('carrozas') // Nombre correcto de la tabla
+                .from('carrozas') 
                 .select('*')
                 .order('placa', { ascending: true });
             
-            // Si hay error o no hay datos, retornamos lista vacía para evitar el "Cargando..."
             if (error) throw error;
             return { data: data || [], error: null };
         } catch (err) {
