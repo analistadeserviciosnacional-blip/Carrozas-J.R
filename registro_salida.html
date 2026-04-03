@@ -46,7 +46,7 @@
         <div class="section-title">Datos de Responsable</div>
         <div class="grid-2">
             <div>
-                <label>Usuario Logueado</label>
+                <label>Conductor</label>
                 <input type="text" id="conductor" readonly style="background: #eef5ff; font-weight: bold; border: 2px solid var(--azul-principal);">
             </div>
             <div>
@@ -82,7 +82,7 @@
         <input type="text" id="fallecido" placeholder="Nombre completo">
 
         <div class="grid-2">
-            <div><label>Clínica / RSD / Origen</label><input type="text" id="clinica" placeholder="Lugar"></div>
+            <div><label>Lugar de Recogida</label><input type="text" id="clinica" placeholder="Clínica/Hosp/RSD"></div>
             <div><label>N° Prestación</label><input type="text" id="prestacion" placeholder="Código"></div>
         </div>
 
@@ -111,16 +111,17 @@
         <div class="preview-gallery" id="galeria"></div>
 
         <label>Observaciones de Salida</label>
-        <textarea id="observaciones" rows="2" placeholder="Escribe aquí cualquier novedad o detalle adicional..."></textarea>
+        <textarea id="observaciones" rows="2" placeholder="Novedades del vehículo o servicio..."></textarea>
 
         <div class="section-title">Firma de Responsable</div>
         <canvas id="canvas"></canvas>
         <p onclick="borrarFirma()" style="text-align: right; color: #ff4444; font-size: 11px; cursor: pointer; margin-top: 5px; font-weight: bold;">✖ BORRAR FIRMA</p>
 
-        <label style="margin-top:15px">Enviar Notificación a:</label>
+        <div class="section-title">Notificación</div>
+        <label>Seleccionar Coordinador</label>
         <select id="select-coordinador" style="border: 2px solid var(--verde-wa);">
-            <option value="3001234567">Coordinador Pereira</option>
-            <option value="3110000000">Logística J.R.</option>
+            <option value="3001234567" data-nombre="Coordinador Pereira">Coordinador Pereira</option>
+            <option value="3110000000" data-nombre="Logística J.R.">Logística J.R.</option>
         </select>
 
         <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR EN SISTEMA</button>
@@ -204,12 +205,15 @@
 
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
+        const selectCoord = document.getElementById('select-coordinador');
+        const nombreCoordinador = selectCoord.options[selectCoord.selectedIndex].getAttribute('data-nombre');
+
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
 
         datosFinales = {
-            fecha: new Date().toLocaleDateString(),
             regional: document.getElementById('regional').value,
             conductor: document.getElementById('conductor').value,
+            telefono: "S/N", // Se puede completar si el perfil lo tiene
             placa: document.getElementById('placa').value,
             motivo: document.getElementById('motivo').value,
             fallecido: document.getElementById('fallecido').value,
@@ -222,6 +226,7 @@
             km_salida: document.getElementById('km_s').value,
             km_ingreso: document.getElementById('km_i').value,
             total_km: document.getElementById('total_km').value,
+            coordinador: nombreCoordinador, // Cambio clave solicitado
             observaciones: document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || "",
             imagen2: fotosArray[1] || "",
@@ -236,48 +241,33 @@
             btn.style.background = "#25D366";
             document.getElementById('btn-wa').style.display = "block";
         } else {
-            alert("Error al guardar en Supabase");
+            alert("Error al guardar en Supabase: " + (res.error?.message || "Desconocido"));
             btn.disabled = false;
             btn.innerText = "REINTENTAR GUARDADO";
         }
     }
 
-    // --- LÓGICA DE WHATSAPP ---
-    function generarCuerpoMensaje() {
-        return `*REPORTE J.R. - SALIDA OFICIAL*\n\n` +
-               `👤 *Responsable:* ${datosFinales.conductor}\n` +
-               `📍 *Regional:* ${datosFinales.regional}\n` +
-               `⚱️ *Fallecido:* ${datosFinales.fallecido}\n` +
-               `🚗 *Placa:* ${datosFinales.placa}\n` +
-               `🛣️ *Ruta:* ${datosFinales.origen} ➔ ${datosFinales.destino}\n` +
-               `🏥 *Origen:* ${datosFinales.clinica}\n` +
-               `🔢 *N° Prestación:* ${datosFinales.prestacion}\n` +
-               `⏱️ *Hora:* ${datosFinales.hora_salida} a ${datosFinales.hora_ingreso}\n` +
-               `📊 *KM Recorridos:* ${datosFinales.total_km} km\n` +
-               `📝 *Obs:* ${datosFinales.observaciones || 'Sin novedad'}`;
-    }
-
     function enviarWA() {
-        const numSeleccionado = document.getElementById('select-coordinador').value;
-        // Si necesitas que siempre se envíe a un segundo número fijo, agrégalo al array:
-        const listaNumeros = [numSeleccionado]; 
+        const num = document.getElementById('select-coordinador').value;
+        const saludo = new Date().getHours() < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
+        
+        const msg = `${saludo}\n\n` +
+            `📢 *Reporte de Salida De Carroza*\n\n` +
+            `📍 *Regional:* ${datosFinales.regional}\n` +
+            `📅 *Fecha:* ${new Date().toLocaleDateString()}\n` +
+            `👤 *Coordinador:* ${datosFinales.coordinador}\n` +
+            `🕒 *Hora De Salida:* ${datosFinales.hora_salida}\n` +
+            `🚗 *Placas Del Vehiculo:* ${datosFinales.placa}\n` +
+            `❓ *Motivo De Salida:* ${datosFinales.motivo}\n` +
+            `⚱️ *Nombre Del Fallecido:* ${datosFinales.fallecido || '---'}\n` +
+            `🏥 *Lugar de Recogida:* ${datosFinales.clinica}\n` +
+            `🚩 *Origen:* ${datosFinales.origen}\n` +
+            `🏁 *Destino:* ${datosFinales.destino}\n` +
+            `📊 *Km De Salida:* ${datosFinales.km_salida}\n` +
+            `👨🏻‍✈️ *Nom: Conductor:* ${datosFinales.conductor}\n\n` +
+            `✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻`;
 
-        if (listaNumeros.length === 0) { alert('⚠️ Selecciona un número.'); return; }
-        
-        const msg = encodeURIComponent(generarCuerpoMensaje());
-        
-        // Abrir el primero inmediatamente
-        window.open(`https://wa.me/57${listaNumeros[0]}?text=${msg}`, '_blank');
-        
-        // Si hay más de un número, enviarlos con retraso
-        if (listaNumeros.length > 1) {
-            listaNumeros.slice(1).forEach((n, i) => {
-                setTimeout(() => {
-                    window.open(`https://wa.me/57${n}?text=${msg}`, '_blank');
-                }, (i + 1) * 800);
-            });
-        }
-        console.log('📱 Reporte enviado a WhatsApp');
+        window.open(`https://wa.me/57${num}?text=${encodeURIComponent(msg)}`, '_blank');
     }
 </script>
 </body>
