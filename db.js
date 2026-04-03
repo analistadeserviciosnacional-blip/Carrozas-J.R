@@ -2,26 +2,21 @@
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 
-// Inicialización del cliente de Supabase
+// Inicialización del cliente
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
-    // ✅ Expuesto para consultas directas si es necesario
     supabase: _supabase,
 
     // ── SECCIÓN: TRASLADOS (SALIDAS) ──────────────────────────
-
-    /**
-     * Guarda un nuevo reporte de traslado en la tabla 'Traslado'
-     */
     async guardarTraslado(datos) {
         try {
-            const { error } = await _supabase
-                .from('Traslado')
+            const { data, error } = await _supabase
+                .from('Traslado') // Verifica que en Supabase sea 'Traslado' con T mayúscula
                 .insert([{
                     id_salida:              'JR-' + Date.now(),
-                    fecha:                  new Date().toLocaleDateString('es-CO'), // Formato legible para el mensaje
-                    created_at:             new Date().toISOString(), // Para ordenamiento técnico
+                    fecha:                  new Date().toLocaleDateString('es-CO'),
+                    created_at:             new Date().toISOString(),
                     regional:               datos.regional || 'Pereira',
                     conductor:              datos.conductor,
                     nnum_telefono:          datos.telefono,
@@ -33,11 +28,11 @@ const DB = {
                     origen:                 datos.origen,
                     destino:                datos.destino,
                     hora_de_salida:         datos.hora_salida,
-                    hora_de_ingreso:        datos.hora_ingreso,
+                    hora_de_ingreso:        datos.hora_ingreso || null,
                     km__salida:             parseInt(datos.km_salida)  || 0,
                     km__ingreso:            parseInt(datos.km_ingreso) || 0,
                     total_km:               parseInt(datos.total_km)   || 0,
-                    coordinador_en_turno:   datos.coordinador, // Aquí se guarda el "Coordinador"
+                    coordinador_en_turno:   datos.coordinador, // Ajustado según tu instrucción
                     observaciones:          datos.observaciones,
                     imagen1:                datos.imagen1 || "",
                     imagen2:                datos.imagen2 || "",
@@ -45,16 +40,16 @@ const DB = {
                     imagen4:                datos.imagen4 || "",
                     firma:                  datos.firma || ""
                 }]);
-            return { ok: !error, error };
+
+            if (error) throw error;
+            return { ok: true, data };
         } catch (err) {
-            console.error("Error en guardarTraslado:", err);
+            console.error("Error crítico en guardarTraslado:", err);
+            alert("Error al guardar: " + (err.message || "Revisa la conexión"));
             return { ok: false, error: err };
         }
     },
 
-    /**
-     * Obtiene los últimos traslados para el Dashboard ordenados por creación
-     */
     async obtenerTrasladosRecientes() {
         try {
             const { data, error } = await _supabase
@@ -62,17 +57,16 @@ const DB = {
                 .select('*')
                 .order('created_at', { ascending: false }) 
                 .limit(10);
-            return { data, error };
+            
+            if (error) throw error;
+            return { data, error: null };
         } catch (err) {
-            return { data: null, error: err };
+            console.error("Error al obtener traslados:", err);
+            return { data: [], error: err };
         }
     },
 
-    // ── SECCIÓN: AVERÍAS (REPORTES DE CONDUCTOR) ──────────────
-
-    /**
-     * Guarda un reporte de falla mecánica en la tabla 'Averias'
-     */
+    // ── SECCIÓN: AVERÍAS (REPORTES) ──────────────────────────
     async guardarAveria(datos) {
         try {
             const { error } = await _supabase
@@ -91,69 +85,43 @@ const DB = {
                     imagen3:              datos.imagen3 || "",
                     imagen4:              datos.imagen4 || ""
                 }]);
-            return { ok: !error, error };
+
+            if (error) throw error;
+            return { ok: true };
         } catch (err) {
+            console.error("Error en guardarAveria:", err);
             return { ok: false, error: err };
         }
     },
 
-    /**
-     * Busca averías para un conductor específico
-     */
-    async obtenerAveriasPorConductor(nombre) {
+    async obtenerAveriasPendientes() {
         try {
-            const busqueda = nombre.trim().split(' ')[0];
             const { data, error } = await _supabase
                 .from('Averias')
                 .select('*')
-                .ilike('reportado_por', `%${busqueda}%`)
                 .order('id', { ascending: false })
-                .limit(20);
-            return { data, error };
+                .limit(10);
+            
+            if (error) throw error;
+            return { data, error: null };
         } catch (err) {
-            return { data: null, error: err };
+            return { data: [], error: err };
         }
     },
 
     // ── SECCIÓN: CARROZAS (ESTADO DE LA FLOTA) ───────────────
-
-    /**
-     * Registra o actualiza un vehículo en la tabla 'Carrozas'
-     */
-    async guardarCarroza(datos) {
-        try {
-            const { error } = await _supabase
-                .from('Carrozas')
-                .upsert([{
-                    placa:                  datos.placa,
-                    modelo:                 datos.modelo,
-                    anio:                   parseInt(datos.anio) || 0,
-                    estado:                 datos.estado || 'Disponible',
-                    conductor_asignado:     datos.conductor_asignado,
-                    kilometraje:            parseInt(datos.kilometraje) || 0,
-                    ultimo_mantenimiento:   datos.ultimo_mantenimiento,
-                    proximo_mantenimiento:  datos.proximo_mantenimiento,
-                    observaciones:          datos.observaciones,
-                    fecha_actualizacion:    new Date().toISOString()
-                }]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
-        }
-    },
-
-    /**
-     * Obtiene la lista completa de vehículos para el monitor
-     */
     async obtenerFlota() {
         try {
             const { data, error } = await _supabase
-                .from('Carrozas')
+                .from('carrozas') // Cambiado a minúscula según tu captura de Supabase
                 .select('*')
                 .order('placa', { ascending: true });
-            return { data, error };
+
+            if (error) throw error;
+            return { data, error: null };
         } catch (err) {
-            return { data: null, error: err };
+            console.error("Error al obtener flota:", err);
+            return { data: [], error: err };
         }
     }
 };
