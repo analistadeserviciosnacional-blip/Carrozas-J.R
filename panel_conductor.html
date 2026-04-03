@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Panel Conductor</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; }
         body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -20,16 +21,19 @@
         .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .card-condu:active { transform: scale(0.95); background: #f0f7ff; border-color: var(--azul); }
         .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
-        .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 12px; }
+        .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 11px; }
 
         .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
-        .monitor-mini h2 { font-size: 16px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .monitor-mini h2 { font-size: 15px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; }
         
         .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
 
         table { width: 100%; border-collapse: collapse; }
         td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
-        .status-pill { color: #10b981; font-weight: bold; font-size: 10px; background: #ecfdf5; padding: 4px 8px; border-radius: 8px; }
+        .status-pill { font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 8px; }
+        .pill-disponible { color: #10b981; background: #ecfdf5; }
+        .pill-taller { color: var(--rojo); background: #fef2f2; }
+        .pill-ruta { color: #3b82f6; background: #eff6ff; }
         .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
     </style>
 </head>
@@ -42,7 +46,7 @@
 
     <div class="welcome-box">
         <h1 id="txt-conductor">Hola...</h1>
-        <p style="color: #64748b; font-size: 14px;">Panel de Servicios Activos</p>
+        <p style="color: #64748b; font-size: 14px;">Panel de Servicios y Reportes</p>
     </div>
 
     <div class="menu-conductor">
@@ -59,32 +63,21 @@
 
     <div class="monitor-mini">
         <h2>
-            Mis Reportes de Avería
+            Mis Reportes Recientes
             <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a>
         </h2>
         <table>
             <tbody id="tabla-averias">
-                <tr>
-                    <td colspan="3" style="text-align: center; color: #94a3b8;">Cargando tus reportes...</td>
-                </tr>
+                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando reportes...</td></tr>
             </tbody>
         </table>
     </div>
 
     <div class="monitor-mini">
-        <h2>Monitor de Flota (En Vivo)</h2>
+        <h2>Estado de Flota (Real)</h2>
         <table>
             <tbody id="tabla-monitor">
-                <tr>
-                    <td><b>GJX-497</b></td>
-                    <td>25.452 KM</td>
-                    <td style="text-align: right;"><span class="status-pill">● DISPONIBLE</span></td>
-                </tr>
-                <tr>
-                    <td><b>ICQ-333</b></td>
-                    <td>54.585 KM</td>
-                    <td style="text-align: right;"><span class="status-pill">● DISPONIBLE</span></td>
-                </tr>
+                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando flota...</td></tr>
             </tbody>
         </table>
     </div>
@@ -97,30 +90,27 @@
             
             try {
                 const user = JSON.parse(sesionRaw);
-                const nombre = user.nombre || user.nombre_completo || user.username || "Conductor";
+                const nombre = user.nombre || "Conductor";
                 document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
 
-                // Cargar breve resumen de averías del conductor
                 cargarResumenAverias(nombre);
+                cargarMonitorFlota();
             } catch (e) {
                 window.location.href = "index.html";
             }
         };
 
         async function cargarResumenAverias(nombre) {
-            // FIX: usar ilike con primer nombre para coincidir con "Director de orquesta Hernán Torres Ortiz"
-            const busqueda = nombre.trim().split(' ')[0];
-
             const { data, error } = await DB.supabase
-                .from('Averias')
-                .select('placa_vehiculo, tipo_falla, created_at')  // FIX: columna correcta es placa_vehiculo
-                .ilike('reportado_por', `%${busqueda}%`)            // FIX: .eq → .ilike para búsqueda parcial
+                .from('averias') // Tabla en minúsculas
+                .select('placa_vehiculo, tipo_falla, created_at')
+                .ilike('reportado_por', `%${nombre.split(' ')[0]}%`)
                 .order('created_at', { ascending: false })
                 .limit(3);
 
             const tabla = document.getElementById('tabla-averias');
             if (error || !data || data.length === 0) {
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No tienes reportes recientes.</td></tr>';
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No tienes reportes este mes.</td></tr>';
                 return;
             }
 
@@ -131,6 +121,32 @@
                     <td style="text-align: right;"><span class="falla-pill">${av.tipo_falla.toUpperCase()}</span></td>
                 </tr>
             `).join('');
+        }
+
+        async function cargarMonitorFlota() {
+            const { data, error } = await DB.supabase
+                .from('carrozas') // Tabla en minúsculas
+                .select('placa, kilometraje_actual, estado')
+                .order('placa', { ascending: true });
+
+            const tabla = document.getElementById('tabla-monitor');
+            if (data) {
+                tabla.innerHTML = data.map(c => {
+                    let clasePill = 'pill-disponible';
+                    if (c.estado === 'En Taller') clasePill = 'pill-taller';
+                    if (c.estado === 'En Ruta') clasePill = 'pill-ruta';
+
+                    return `
+                        <tr>
+                            <td><b>${c.placa}</b></td>
+                            <td style="font-size: 11px; color: gray;">${Number(c.kilometraje_actual).toLocaleString()} KM</td>
+                            <td style="text-align: right;">
+                                <span class="status-pill ${clasePill}">● ${c.estado.toUpperCase()}</span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
         }
 
         function cerrarSesion() {
