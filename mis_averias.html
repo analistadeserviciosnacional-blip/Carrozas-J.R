@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Mis Averías</title>
 
-    <!-- FIX: SDK actualizado a versión 2.49.0 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.0/dist/umd/supabase.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 
@@ -27,10 +26,7 @@
             margin: 0;
         }
 
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
+        .container { max-width: 600px; margin: 0 auto; }
 
         .header {
             display: flex;
@@ -49,7 +45,6 @@
             color: var(--azul);
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             text-decoration: none;
-            display: inline-block;
         }
 
         h2 { margin: 0; font-size: 20px; }
@@ -70,17 +65,9 @@
             margin-bottom: 8px;
         }
 
-        .placa {
-            font-weight: 700;
-            font-size: 17px;
-            color: var(--azul);
-        }
+        .placa { font-weight: 700; font-size: 17px; color: var(--azul); }
 
-        .fecha {
-            color: var(--gris-texto);
-            font-size: 11px;
-            text-align: right;
-        }
+        .fecha { color: var(--gris-texto); font-size: 11px; text-align: right; }
 
         .falla {
             color: var(--rojo);
@@ -117,7 +104,7 @@
             gap: 8px;
         }
 
-        .btn-wa:active { transform: scale(0.98); opacity: 0.9; }
+        .btn-wa:active { transform: scale(0.98); }
 
         .loader {
             text-align: center;
@@ -144,6 +131,7 @@
 <script src="db.js"></script>
 
 <script>
+// Obtenemos la sesión asegurándonos de que el nombre sea el correcto
 const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
 
 async function cargarAverias() {
@@ -155,7 +143,13 @@ async function cargarAverias() {
     }
 
     try {
-        const { data, error } = await DB.obtenerAveriasPorConductor(sesion.nombre);
+        // CORRECCIÓN: Filtramos por 'reportado_por' que es la columna de tu CSV
+        // y ordenamos por 'created_at' para ver los más recientes primero
+        const { data, error } = await DB.supabase
+            .from('averias')
+            .select('*')
+            .eq('reportado_por', sesion.nombre)
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
 
@@ -168,17 +162,16 @@ async function cargarAverias() {
             return;
         }
 
-        // FIX: se usan data-* para evitar XSS en onclick
         lista.innerHTML = data.map(av => {
-            const fechaRegistro = av.created_at
-                ? new Date(av.created_at).toLocaleString()
-                : 'Fecha no disponible';
+            const fechaFormateada = av.created_at 
+                ? new Date(av.created_at).toLocaleDateString() + ' ' + new Date(av.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                : 'Fecha pendiente';
 
             return `
                 <div class="card-averia">
                     <div class="info-row">
                         <span class="placa">🚗 Placa: ${av.placa_vehiculo}</span>
-                        <span class="fecha">${fechaRegistro}</span>
+                        <span class="fecha">${fechaFormateada}</span>
                     </div>
 
                     <div class="falla">⚠️ ${av.tipo_falla}</div>
@@ -188,8 +181,8 @@ async function cargarAverias() {
                         ${av.descripcion_sintomas || 'Sin descripción detallada.'}
                     </div>
 
-                    <button class="btn-wa"
-                        data-placa="${av.placa_vehiculo}"
+                    <button class="btn-wa" 
+                        data-placa="${av.placa_vehiculo}" 
                         data-falla="${av.tipo_falla}"
                         onclick="reenviarWhatsApp(this)">
                         📱 REENVIAR POR WHATSAPP
@@ -199,26 +192,25 @@ async function cargarAverias() {
         }).join('');
 
     } catch (err) {
-        console.error("Error al cargar averías:", err);
-        lista.innerHTML = `<div class="loader" style="color:red;">❌ Error al conectar con la base de datos.</div>`;
+        console.error("Error al cargar:", err);
+        lista.innerHTML = `<div class="loader" style="color:red;">❌ No se pudieron cargar tus reportes.</div>`;
     }
 }
 
-// FIX: recibe el botón y lee los data-* de forma segura
 function reenviarWhatsApp(btn) {
     const placa = btn.dataset.placa;
     const falla = btn.dataset.falla;
+    const numeroCoordinador = "573100000000"; // Reemplaza por el real
 
-    const mensaje =
-        `*🚨 REPORTE DE AVERÍA J.R.*%0A` +
+    const mensaje = 
+        `*🚨 REENVIÓ REPORTE J.R.*%0A` +
         `----------------------------%0A` +
         `🚗 *Vehículo:* ${placa}%0A` +
         `⚠️ *Falla:* ${falla}%0A` +
-        `👤 *Reporta:* ${sesion.nombre}%0A` +
+        `👤 *Reportado por:* ${sesion.nombre}%0A` +
         `----------------------------%0A` +
-        `_Reenviado desde el historial de la App._`;
+        `_Historial de App_`;
 
-    const numeroCoordinador = "573100000000";
     window.open(`https://wa.me/${numeroCoordinador}?text=${mensaje}`, '_blank');
 }
 
