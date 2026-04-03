@@ -67,7 +67,6 @@
                     <option>Carroza GJX-497</option>
                     <option>Carroza ICQ-333</option>
                     <option>Furgón de Apoyo</option>
-                    <option>Otro Vehículo</option>
                 </select>
             </div>
         </div>
@@ -110,6 +109,7 @@
     let fotosArray = [];
 
     window.onload = () => {
+        // Carga de sesión de usuario
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
         document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
         document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
@@ -144,20 +144,20 @@
         const falla = document.getElementById('tipo_falla').value;
         const vehiculo = document.getElementById('vehiculo').value;
 
-        // CORRECCIÓN: Validar que el vehículo no sea nulo antes de enviar
+        // Validación: Detiene si faltan campos que tu tabla 'averias' requiere
         if (!placa || !falla || !vehiculo) { 
-            alert("⚠️ Por favor completa la Placa, el Tipo de Vehículo y la Falla."); 
+            alert("⚠️ Debes completar: Placa, Vehículo y Tipo de Falla."); 
             return; 
         }
 
-        btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
+        btn.disabled = true; btn.innerText = "⏳ GUARDANDO...";
 
-        // MAPEO DE DATOS CORREGIDO PARA TU BASE DE DATOS
+        // Objeto con los nombres de columna EXACTOS de tu base de datos
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
             placa_vehiculo: placa,
-            tipo_vehiculo: vehiculo, 
+            tipo_vehiculo: vehiculo,
             tipo_falla: falla,
             descripcion_sintomas: document.getElementById('sintomas').value || "Sin descripción",
             observaciones: document.getElementById('observaciones').value || "",
@@ -168,20 +168,19 @@
         };
 
         try {
-            // Inserción directa en la tabla 'averias'
-            const { error } = await DB.supabase.from('averias').insert([datos]);
+            // Guardar en la tabla 'averias' usando el objeto DB definido en db.js
+            const { data, error } = await DB.supabase.from('averias').insert([datos]);
 
             if (error) throw error;
 
             btn.innerText = "✓ GUARDADO EXITOSAMENTE";
             btn.style.background = "#16a34a";
             
-            // Actualizar estado del vehículo a 'En Taller'
+            // Opcional: intentar actualizar el estado del vehículo si existe en la tabla carrozas
             await DB.supabase.from('carrozas').update({ estado: 'En Taller' }).eq('placa', placa);
 
         } catch (err) {
-            console.error("Error completo:", err);
-            alert("🚨 Error: " + err.message);
+            alert("Error al guardar: " + err.message);
             btn.disabled = false; 
             btn.innerText = "🚨 REINTENTAR ENVÍO";
         }
@@ -202,7 +201,7 @@
                     `🚗 *Vehículo:* ${placa}%0A` +
                     `⚠️ *Falla:* ${falla}%0A` +
                     `----------------------------%0A` +
-                    `📝 _Registrado en el sistema central._`;
+                    `📝 _Registrado en el sistema._`;
 
         window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
     }
