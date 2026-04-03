@@ -63,7 +63,8 @@ const DB = {
             const { data, error } = await _supabase
                 .from('Averias')
                 .select('*')
-                .order('id', { ascending: false }) // Cambiado de identificador a id si identificador falla
+                // Cambiado 'identificador' por 'id' que es el estándar de Supabase
+                .order('id', { ascending: false })
                 .limit(50);
             return { data: data || [], error };
         } catch (err) {
@@ -72,7 +73,6 @@ const DB = {
     },
 
     // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
-    // CORRECCIÓN CLAVE: Nombres de columna basados en tu imagen de Supabase
     async guardarCarroza(datos) {
         try {
             const { error } = await _supabase
@@ -81,10 +81,14 @@ const DB = {
                     placa:                  datos.placa,
                     modelo:                 datos.modelo,
                     anio:                   parseInt(datos.anio) || 0,
-                    fecha_ingreso_empresa:  datos.fecha_ingreso_empresa, // Nombre real en tu DB
-                    kilometraje_inicial:    parseInt(datos.kilometraje_inicial) || 0, // Nombre real en tu DB
-                    kilometraje_actual:     parseInt(datos.kilometraje_actual) || 0, // Nombre real en tu DB
-                    estado:                 datos.estado || 'Disponible'
+                    estado:                 datos.estado,
+                    conductor_asignado:     datos.conductor_asignado,
+                    // Sincronizado con la columna real 'kilometraje_actual'
+                    kilometraje_actual:     parseInt(datos.kilometraje) || 0,
+                    ultimo_mantenimiento:   datos.ultimo_mantenimiento,
+                    proximo_mantenimiento:  datos.proximo_mantenimiento,
+                    observaciones:          datos.observaciones,
+                    fecha_registro:         new Date().toLocaleDateString('es-CO')
                 }]);
             return { ok: !error, error };
         } catch (err) {
@@ -108,5 +112,6 @@ const DB = {
     }
 };
 
+// Exportación global
 window._supabase = _supabase;
 window.DB = DB;
