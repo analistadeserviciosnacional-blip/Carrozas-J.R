@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.R. — Gestión de Flota</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; }
+        body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 800px; margin: auto; }
+        .card-form { background: var(--blanco); padding: 25px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        h2 { color: var(--azul); margin-top: 0; font-size: 20px; text-transform: uppercase; }
+        .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+        label { font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 5px; }
+        input, select { padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-family: inherit; }
+        .btn-primario { background: var(--azul); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 10px; }
+        .lista-carros { background: var(--blanco); border-radius: 20px; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { text-align: left; font-size: 12px; color: #64748b; padding: 10px; border-bottom: 2px solid var(--celeste); }
+        td { padding: 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; }
+        .tag { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        .tag-disponible { background: #ecfdf5; color: #10b981; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card-form">
+        <h2>🚚 Registrar Nueva Carroza</h2>
+        <form id="form-carroza">
+            <div class="grid-form">
+                <div class="form-group">
+                    <label>Placa (ID)</label>
+                    <input type="text" id="placa" placeholder="ABC-123" required>
+                </div>
+                <div class="form-group">
+                    <label>Modelo / Marca</label>
+                    <input type="text" id="modelo" placeholder="Ej: Foton" required>
+                </div>
+                <div class="form-group">
+                    <label>Año</label>
+                    <input type="number" id="anio" placeholder="2024">
+                </div>
+                <div class="form-group">
+                    <label>Fecha Ingreso a Empresa</label>
+                    <input type="date" id="fecha_ingreso" required>
+                </div>
+                <div class="form-group">
+                    <label>KM Inicial</label>
+                    <input type="number" id="km_inicial" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Estado Inicial</label>
+                    <select id="estado">
+                        <option value="Disponible">Disponible</option>
+                        <option value="En Taller">En Taller</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn-primario">GUARDAR VEHÍCULO</button>
+        </form>
+    </div>
+
+    <div class="lista-carros">
+        <h2>Inventario de Flota</h2>
+        <table id="tabla-flota">
+            <thead>
+                <tr>
+                    <th>Placa</th>
+                    <th>Modelo</th>
+                    <th>Ingreso</th>
+                    <th>KM Actual</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="db.js"></script>
+<script>
+    // Establecer fecha de hoy por defecto
+    document.getElementById('fecha_ingreso').valueAsDate = new Date();
+
+    document.getElementById('form-carroza').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        btn.innerText = "Guardando...";
+        
+        const nuevaCarroza = {
+            placa: document.getElementById('placa').value.toUpperCase(),
+            modelo: document.getElementById('modelo').value,
+            anio: document.getElementById('anio').value,
+            fecha_ingreso_empresa: document.getElementById('fecha_ingreso').value,
+            kilometraje_inicial: document.getElementById('km_inicial').value,
+            kilometraje_actual: document.getElementById('km_inicial').value,
+            estado: document.getElementById('estado').value
+        };
+
+        const { error } = await DB.supabase.from('Carrozas').insert([nuevaCarroza]);
+
+        if (error) {
+            alert("Error: " + error.message);
+        } else {
+            alert("Carroza registrada con éxito");
+            location.reload();
+        }
+    };
+
+    // Función para cargar la lista
+    async function cargarFlota() {
+        const { data, error } = await DB.supabase.from('Carrozas').select('*');
+        if (data) {
+            const tbody = document.querySelector('#tabla-flota tbody');
+            tbody.innerHTML = data.map(c => `
+                <tr>
+                    <td><b>${c.placa}</b></td>
+                    <td>${c.modelo}</td>
+                    <td>${c.fecha_ingreso_empresa}</td>
+                    <td>${c.kilometraje_actual} KM</td>
+                    <td><span class="tag tag-disponible">${c.estado}</span></td>
+                </tr>
+            `).join('');
+        }
+    }
+    cargarFlota();
+</script>
+</body>
+</html>
