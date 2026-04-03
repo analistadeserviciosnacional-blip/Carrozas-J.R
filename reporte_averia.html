@@ -3,177 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Reporte de Avería</title>
+    <title>J.R. — Reporte Completo</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --azul: #004a99; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #dc2626; --gris: #f8fbff; --verde: #25d366; }
+        :root { --azul: #004a99; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #dc2626; --gris: #f8fbff; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 10px; }
         .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
-        .header { background: var(--rojo); color: white; padding: 20px; text-align: center; position: relative; }
-        .btn-volver { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
+        .header { background: var(--rojo); color: white; padding: 20px; text-align: center; }
         .content { padding: 20px; }
-        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #546e7a; margin: 20px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
+        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #546e7a; margin: 15px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
         label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
-        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; font-size: 14px; background: var(--gris); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .upload-container { border: 2px dashed var(--rojo); border-radius: 15px; padding: 15px; text-align: center; background: #fff5f5; cursor: pointer; margin-bottom: 12px; }
-        .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-        .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
-        .thumb-wrap img { width: 100%; height: 100%; border-radius: 8px; object-fit: cover; border: 1px solid #fecaca; }
-        .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-weight: bold; }
-        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
-        .btn-db { background: var(--rojo); color: white; }
-        .btn-wa { background: var(--verde); color: white; }
-        .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
+        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; background: var(--rojo); color: white; transition: 0.3s; }
+        .btn-action:disabled { background: #ccc; }
+        .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+        .preview-gallery img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">
-        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
-        <h2>⚠️ REPORTE DE AVERÍA</h2>
-        <p id="rol-info" style="font-size:10px; opacity:0.9; margin-top:5px; font-weight:bold;"></p>
-    </div>
-
+    <div class="header"><h2>⚠️ NUEVO REPORTE DE AVERÍA</h2></div>
+    
     <div class="content">
-        <div class="section-title">Datos del Responsable</div>
+        <div class="section-title">Información del Reporte</div>
         <div class="grid-2">
             <div>
                 <label>Reportado por</label>
-                <input type="text" id="reportado_por" readonly class="badge-usuario">
+                <input type="text" id="reportado_por" placeholder="Nombre">
             </div>
             <div>
                 <label>Regional</label>
                 <select id="regional">
-                    <option>Pereira</option><option>Armenia</option>
-                    <option>Manizales</option><option>Cali</option>
+                    <option>Pereira</option>
+                    <option>Armenia</option>
+                    <option>Manizales</option>
+                    <option>Cali</option>
                 </select>
             </div>
         </div>
 
-        <div class="section-title">Datos del Vehículo</div>
+        <div class="section-title">Identificación del Vehículo</div>
         <div class="grid-2">
             <div>
-                <label>Placa del Vehículo</label>
-                <input type="text" id="placa" placeholder="ABC-123" oninput="this.value = this.value.toUpperCase()">
+                <label>Placa</label>
+                <input type="text" id="placa_vehiculo" placeholder="ABC-123" oninput="this.value = this.value.toUpperCase()">
             </div>
             <div>
-                <label>Vehículo / Carroza</label>
-                <select id="vehiculo">
+                <label>Tipo de Vehículo</label>
+                <select id="tipo_vehiculo">
                     <option value="">Seleccionar...</option>
-                    <option value="Carroza GJX-497">Carroza GJX-497</option>
-                    <option value="Carroza ICQ-333">Carroza ICQ-333</option>
-                    <option value="Furgón de Apoyo">Furgón de Apoyo</option>
+                    <option>Carroza GJX-497</option>
+                    <option>Carroza ICQ-333</option>
+                    <option>Furgón de Apoyo</option>
+                    <option>Particular</option>
                 </select>
             </div>
         </div>
 
-        <div class="section-title">Síntomas y Descripción</div>
+        <div class="section-title">Detalles de la Falla</div>
         <label>Tipo de Falla</label>
         <select id="tipo_falla">
-            <option value="">Seleccionar tipo...</option>
-            <option>Falla mecánica</option><option>Falla eléctrica</option>
-            <option>Accidente / Golpe</option><option>Llantas</option><option>Otro</option>
+            <option value="">Seleccionar...</option>
+            <option>Falla mecánica</option>
+            <option>Falla eléctrica</option>
+            <option>Llantas / Neumáticos</option>
+            <option>Carrocería / Golpe</option>
         </select>
 
         <label>Descripción de Síntomas</label>
-        <textarea id="sintomas" rows="3" placeholder="Describe brevemente la falla..."></textarea>
+        <textarea id="descripcion_sintomas" rows="3" placeholder="Describe lo que notas en el vehículo..."></textarea>
 
-        <label>Observaciones Adicionales</label>
-        <textarea id="observaciones" rows="2" placeholder="Notas extra para el taller..."></textarea>
+        <label>Observaciones (Opcional)</label>
+        <textarea id="observaciones" rows="2" placeholder="Notas adicionales para el taller..."></textarea>
 
-        <div class="section-title">Evidencias Fotográficas (Máx. 4)</div>
-        <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
-            <span id="upload-text">📸 Toca para subir fotos</span>
-            <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
-        </div>
-        <div class="preview-gallery" id="galeria"></div>
+        <div class="section-title">Evidencias (Máx 4)</div>
+        <input type="file" id="fotos-input" accept="image/*" multiple onchange="handleFotos(this)">
+        <div id="galeria" class="preview-gallery"></div>
 
-        <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
-        <button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
+        <button class="btn-action" id="btn-envio" onclick="enviarReporte()">🚨 REGISTRAR AVERÍA</button>
     </div>
 </div>
 
-<script src="db.js"></script>
 <script>
+    // --- CONEXIÓN DIRECTA ---
+    const URL_SUPA = "TU_URL_DE_SUPABASE"; 
+    const KEY_SUPA = "TU_ANON_KEY";
+    const _supabase = supabase.createClient(URL_SUPA, KEY_SUPA);
+
     let fotosArray = [];
 
     window.onload = () => {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
-        document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
-        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        if(sesion.nombre) document.getElementById('reportado_por').value = sesion.nombre;
     };
 
-    function irAtras() { window.history.back(); }
-
-    function procesarFotos(input) {
-        for (let f of Array.from(input.files)) {
+    function handleFotos(el) {
+        for (let file of el.files) {
             if (fotosArray.length < 4) {
                 const reader = new FileReader();
-                reader.readAsDataURL(f);
-                reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    fotosArray.push(e.target.result);
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    document.getElementById('galeria').appendChild(img);
+                };
             }
         }
     }
 
-    function renderGaleria() {
-        document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
-            <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
-    }
-
-    function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
-
-    async function guardarAveria() {
+    async function enviarReporte() {
         const btn = document.getElementById('btn-envio');
-        const placa = document.getElementById('placa').value.trim();
-        const v_tipo = document.getElementById('vehiculo').value;
-        const falla = document.getElementById('tipo_falla').value;
-
-        if (!placa || !v_tipo || !falla) { 
-            alert("Completa Placa, Vehículo y Falla"); 
-            return; 
-        }
-
-        btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
-
-        // MAPEO EXACTO SEGÚN TU TABLA 'averias'
+        
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
-            placa_vehiculo: placa,
-            tipo_vehiculo: v_tipo,
-            tipo_falla: falla,
-            descripcion_sintomas: document.getElementById('sintomas').value || "Sin descripción",
-            observaciones: document.getElementById('observaciones').value || "",
+            placa_vehiculo: document.getElementById('placa_vehiculo').value.trim(),
+            tipo_vehiculo: document.getElementById('tipo_vehiculo').value,
+            tipo_falla: document.getElementById('tipo_falla').value,
+            descripcion_sintomas: document.getElementById('descripcion_sintomas').value,
+            observaciones: document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || null,
             imagen2: fotosArray[1] || null,
             imagen3: fotosArray[2] || null,
             imagen4: fotosArray[3] || null
         };
 
-        try {
-            // Conexión directa a Supabase usando la instancia global de db.js
-            const { error } = await DB.supabase.from('averias').insert([datos]);
-
-            if (error) throw error;
-
-            btn.innerText = "✓ GUARDADO CORRECTAMENTE";
-            btn.style.background = "#16a34a";
-        } catch (err) {
-            console.error(err);
-            alert("Error de conexión: " + err.message);
-            btn.disabled = false; btn.innerText = "🚨 REINTENTAR ENVÍO";
+        if(!datos.placa_vehiculo || !datos.tipo_vehiculo || !datos.tipo_falla) {
+            return alert("⚠️ Por favor completa los campos obligatorios (Placa, Vehículo y Falla)");
         }
-    }
 
-    function enviarWhatsAppAveria() {
-        const placa = document.getElementById('placa').value.toUpperCase();
-        const tel = "573100000000"; // Cambia al número real
-        const msj = `*🚨 REPORTE DE AVERÍA*%0APlaca: ${placa}%0AFalla: ${document.getElementById('tipo_falla').value}`;
-        window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
+        btn.disabled = true;
+        btn.innerText = "⏳ GUARDANDO EN SISTEMA...";
+
+        const { error } = await _supabase.from('averias').insert([datos]);
+
+        if (error) {
+            alert("Error: " + error.message);
+            btn.disabled = false;
+            btn.innerText = "🚨 REINTENTAR ENVÍO";
+        } else {
+            alert("✅ REPORTE GUARDADO CON ÉXITO");
+            location.reload(); 
+        }
     }
 </script>
 </body>
