@@ -57,9 +57,9 @@
         td { padding: 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; color: #334155; }
 
         .status-pill { font-weight: bold; font-size: 10px; padding: 5px 10px; border-radius: 8px; text-transform: uppercase; }
-        .disp { background: #ecfdf5; color: #10b981; } /* Disponible - Verde */
-        .serv { background: #fff7ed; color: #f97316; } /* En Servicio - Naranja */
-        .tall { background: #fef2f2; color: #ef4444; } /* Taller - Rojo */
+        .disp { background: #ecfdf5; color: #10b981; }
+        .serv { background: #fff7ed; color: #f97316; }
+        .tall { background: #fef2f2; color: #ef4444; }
 
         .btn-wa {
             background: var(--verde-wa); color: white; border: none;
@@ -80,6 +80,7 @@
         <div id="user-info" style="text-align: right;">
             <span id="user-name" style="font-weight: 700; color: var(--azul-corporativo);">Cargando...</span><br>
             <span style="font-size: 11px; color: #64748b;">PANEL ADMINISTRATIVO</span>
+            <br><button onclick="cerrarSesion()" style="border:none; background:none; color:var(--rojo); cursor:pointer; font-size:10px;">Cerrar Sesión</button>
         </div>
     </header>
 
@@ -147,17 +148,19 @@
             if (!sesion) { window.location.href = "index.html"; return; }
             document.getElementById('user-name').innerText = sesion.nombre || "Admin J.R.";
             
-            // Carga inicial
-            await cargarFlota();
-            await cargarTraslados();
-            await cargarAverias();
+            // Carga de datos paralela
+            await Promise.all([
+                cargarFlota(),
+                cargarTraslados(),
+                cargarAverias()
+            ]);
         };
 
-        // 1. CARGAR FLOTA (TABLA CARROZAS)
+        // 1. CARGAR FLOTA (Usa kilometraje_actual de tu Supabase)
         async function cargarFlota() {
             const { data, error } = await DB.obtenerFlota();
             const tbody = document.getElementById('tabla-flota');
-            if (data) {
+            if (data && data.length > 0) {
                 tbody.innerHTML = data.map(c => {
                     const est = (c.estado || "").trim();
                     let clase = 'serv';
@@ -168,19 +171,21 @@
                         <tr>
                             <td><b>${c.placa}</b></td>
                             <td>${c.modelo || '---'}</td>
-                            <td>${c.kilometraje || 0} KM</td>
+                            <td>${c.kilometraje_actual || 0} KM</td>
                             <td><span class="status-pill ${clase}">● ${c.estado || 'S/E'}</span></td>
                         </tr>
                     `;
                 }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No hay vehículos en la flota</td></tr>';
             }
         }
 
-        // 2. CARGAR TRASLADOS (TABLA TRASLADO)
+        // 2. CARGAR TRASLADOS
         async function cargarTraslados() {
             const { data, error } = await DB.obtenerTrasladosRecientes();
             const tbody = document.getElementById('lista-traslados');
-            if (data) {
+            if (data && data.length > 0) {
                 tbody.innerHTML = data.map(t => `
                     <tr>
                         <td>${t.fecha}</td>
@@ -192,12 +197,14 @@
                         </td>
                     </tr>
                 `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Sin salidas recientes</td></tr>';
             }
         }
 
-        // 3. CARGAR AVERÍAS (TABLA AVERIAS)
+        // 3. CARGAR AVERÍAS
         async function cargarAverias() {
-            const { data } = await DB.supabase.from('Averias').select('*').order('id', {ascending: false}).limit(5);
+            const { data, error } = await DB.obtenerTodasAverias();
             const div = document.getElementById('lista-averias');
             if (data && data.length > 0) {
                 div.innerHTML = data.map(av => `
@@ -212,7 +219,7 @@
             }
         }
 
-        // 4. FUNCIÓN DE MENSAJE WHATSAPP (FORMATO SOLICITADO)
+        // 4. FUNCIÓN WHATSAPP
         function reenviarWhatsApp(d) {
             const ahora = new Date();
             const saludo = ahora.getHours() < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
