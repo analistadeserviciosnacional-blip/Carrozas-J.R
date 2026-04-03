@@ -67,6 +67,7 @@
                     <option>Carroza GJX-497</option>
                     <option>Carroza ICQ-333</option>
                     <option>Furgón de Apoyo</option>
+                    <option>Otro Vehículo</option>
                 </select>
             </div>
         </div>
@@ -141,22 +142,22 @@
         const btn = document.getElementById('btn-envio');
         const placa = document.getElementById('placa').value.trim();
         const falla = document.getElementById('tipo_falla').value;
-        const vehiculoTexto = document.getElementById('vehiculo').value;
+        const vehiculo = document.getElementById('vehiculo').value;
 
-        // Validación: Detiene el envío si faltan campos que Supabase requiere
-        if (!placa || !falla || !vehiculoTexto) { 
-            alert("Error: Debes ingresar la Placa, seleccionar el Vehículo y el Tipo de Falla."); 
+        // CORRECCIÓN: Validar que el vehículo no sea nulo antes de enviar
+        if (!placa || !falla || !vehiculo) { 
+            alert("⚠️ Por favor completa la Placa, el Tipo de Vehículo y la Falla."); 
             return; 
         }
 
         btn.disabled = true; btn.innerText = "⏳ ENVIANDO...";
 
-        // MAPEO DE DATOS SEGÚN TU TABLA 'averias'
+        // MAPEO DE DATOS CORREGIDO PARA TU BASE DE DATOS
         const datos = {
             reportado_por: document.getElementById('reportado_por').value,
             regional: document.getElementById('regional').value,
-            placa_vehiculo: placa, 
-            tipo_vehiculo: vehiculoTexto, 
+            placa_vehiculo: placa,
+            tipo_vehiculo: vehiculo, 
             tipo_falla: falla,
             descripcion_sintomas: document.getElementById('sintomas').value || "Sin descripción",
             observaciones: document.getElementById('observaciones').value || "",
@@ -166,17 +167,23 @@
             imagen4: fotosArray[3] || null
         };
 
-        // Inserción directa en la tabla
-        const { error } = await DB.supabase.from('averias').insert([datos]);
+        try {
+            // Inserción directa en la tabla 'averias'
+            const { error } = await DB.supabase.from('averias').insert([datos]);
 
-        if (!error) {
-            btn.innerText = "✓ GUARDADO ÉXITOSAMENTE";
+            if (error) throw error;
+
+            btn.innerText = "✓ GUARDADO EXITOSAMENTE";
             btn.style.background = "#16a34a";
-            // Actualización de estado en tabla carrozas
+            
+            // Actualizar estado del vehículo a 'En Taller'
             await DB.supabase.from('carrozas').update({ estado: 'En Taller' }).eq('placa', placa);
-        } else {
-            alert("Error de Base de Datos: " + error.message);
-            btn.disabled = false; btn.innerText = "🚨 REINTENTAR ENVÍO";
+
+        } catch (err) {
+            console.error("Error completo:", err);
+            alert("🚨 Error: " + err.message);
+            btn.disabled = false; 
+            btn.innerText = "🚨 REINTENTAR ENVÍO";
         }
     }
 
@@ -195,7 +202,7 @@
                     `🚗 *Vehículo:* ${placa}%0A` +
                     `⚠️ *Falla:* ${falla}%0A` +
                     `----------------------------%0A` +
-                    `📝 _Detalles registrados en sistema._`;
+                    `📝 _Registrado en el sistema central._`;
 
         window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
     }
