@@ -9,33 +9,24 @@
     <style>
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; }
         body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 15px; }
-        
         .container { background: var(--blanco); border-radius: 25px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 500px; margin: auto; }
-        
         h2 { color: var(--azul); text-align: center; font-size: 20px; margin-bottom: 25px; text-transform: uppercase; }
-        
         .form-group { margin-bottom: 18px; }
         label { display: block; font-size: 13px; font-weight: 700; color: #64748b; margin-bottom: 8px; margin-left: 5px; }
-        
         input, select, textarea { 
             width: 100%; padding: 14px; border: 1.5px solid #e2e8f0; border-radius: 15px; 
             font-size: 15px; box-sizing: border-box; font-family: inherit; transition: 0.3s;
         }
-        
-        input:focus { border-color: var(--azul); outline: none; background: #f8faff; }
-
+        input:focus, select:focus { border-color: var(--azul); outline: none; background: #f8faff; }
         .btn-finalizar { 
             background: #10b981; color: white; border: none; width: 100%; 
             padding: 16px; border-radius: 15px; font-weight: 700; font-size: 16px; 
             cursor: pointer; margin-top: 10px; transition: 0.3s;
         }
-        
-        .btn-finalizar:active { transform: scale(0.98); opacity: 0.9; }
-
-        .btn-regresar {
-            display: block; text-align: center; margin-top: 20px; color: #64748b;
-            text-decoration: none; font-size: 14px; font-weight: 500;
-        }
+        .btn-finalizar:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-finalizar:active { transform: scale(0.98); }
+        .btn-regresar { display: block; text-align: center; margin-top: 20px; color: #64748b; text-decoration: none; font-size: 14px; font-weight: 500; }
+        .info-km { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 12px; margin-bottom: 15px; font-size: 13px; color: #15803d; display: none; }
     </style>
 </head>
 <body>
@@ -46,13 +37,16 @@
     <form id="form-llegada">
         <div class="form-group">
             <label>Placa de la Carroza</label>
-            <select id="placa" required>
-                <option value="">Seleccione placa...</option>
+            <!-- CORRECCIÓN: se carga toda la flota, no solo "En Servicio" con tabla incorrecta -->
+            <select id="placa" required onchange="mostrarKmActual()">
+                <option value="">Cargando flota...</option>
             </select>
         </div>
 
+        <div class="info-km" id="info-km-actual"></div>
+
         <div class="form-group">
-            <label>Kilometraje al Ingresar</label>
+            <label>Kilometraje al Llegar</label>
             <input type="number" id="km_ingreso" placeholder="Ej: 155280" required>
         </div>
 
@@ -79,78 +73,102 @@
         <button type="submit" class="btn-finalizar" id="btn-submit">FINALIZAR SERVICIO</button>
     </form>
 
-    <a href="dashboard.html" class="btn-regresar">← Volver al Panel</a>
+    <!-- CORRECCIÓN: enlace al panel correcto según rol -->
+    <a href="#" onclick="irAtras()" class="btn-regresar">← Volver</a>
 </div>
 
 <script src="db.js"></script>
 <script>
-    // 1. Cargar placas disponibles (que estén "En Servicio")
+    let flotaData = [];
+
     window.onload = async () => {
         const ahora = new Date();
-        document.getElementById('hora_ingreso').value = ahora.getHours().toString().padStart(2, '0') + ":" + ahora.getMinutes().toString().padStart(2, '0');
+        document.getElementById('hora_ingreso').value = 
+            ahora.getHours().toString().padStart(2, '0') + ":" + 
+            ahora.getMinutes().toString().padStart(2, '0');
 
+        // CORRECCIÓN: tabla 'carrozas' (minúsculas), cargamos toda la flota
         const { data, error } = await DB.supabase
-            .from('Carrozas')
-            .select('placa')
-            .eq('estado', 'En Servicio'); // Solo las que están afuera
+            .from('carrozas')
+            .select('placa, kilometraje_actual, estado')
+            .order('placa', { ascending: true });
         
+        flotaData = data || [];
         const select = document.getElementById('placa');
         if (data && data.length > 0) {
             select.innerHTML = '<option value="">Elija placa...</option>' + 
-                data.map(c => `<option value="${c.placa}">${c.placa}</option>`).join('');
+                data.map(c => `<option value="${c.placa}">${c.placa} — ${c.estado || 'S/E'}</option>`).join('');
         } else {
-            select.innerHTML = '<option value="">No hay carros en servicio</option>';
+            select.innerHTML = '<option value="">No hay vehículos registrados</option>';
         }
     };
+
+    function mostrarKmActual() {
+        const placa = document.getElementById('placa').value;
+        const infoDiv = document.getElementById('info-km-actual');
+        const vehiculo = flotaData.find(c => c.placa === placa);
+        if (vehiculo && placa) {
+            infoDiv.style.display = 'block';
+            infoDiv.innerHTML = `📊 KM registrado al salir: <strong>${Number(vehiculo.kilometraje_actual || 0).toLocaleString()} KM</strong>`;
+        } else {
+            infoDiv.style.display = 'none';
+        }
+    }
+
+    function irAtras() {
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        const esAdmin = (sesion.usuario || '').toLowerCase() === 'admin' || (sesion.rol || '').toLowerCase() === 'admin';
+        window.location.href = esAdmin ? "dashboard.html" : "panel_conductor.html";
+    }
 
     document.getElementById('form-llegada').onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btn-submit');
+        const placa = document.getElementById('placa').value;
+        const kmIngreso = parseInt(document.getElementById('km_ingreso').value);
+
+        if (!placa) { alert("Selecciona una placa"); return; }
+
         btn.innerText = "Procesando...";
         btn.disabled = true;
 
-        const datos = {
-            placa: document.getElementById('placa').value,
-            km_ingreso: parseInt(document.getElementById('km_ingreso').value),
-            hora_ingreso: document.getElementById('hora_ingreso').value,
-            observaciones: document.getElementById('observaciones').value,
-            estado_entrega: document.getElementById('estado_entrega').value
-        };
-
-        // ACTUALIZAR TABLA CARROZAS (Km y Estado)
+        // CORRECCIÓN: tabla 'carrozas' (minúsculas), actualizar km y estado
         const { error: errorCarroza } = await DB.supabase
-            .from('Carrozas')
+            .from('carrozas')
             .update({ 
-                kilometraje_actual: datos.km_ingreso,
+                kilometraje_actual: kmIngreso,
                 estado: 'Disponible' 
             })
-            .eq('placa', datos.placa);
+            .eq('placa', placa);
 
         if (errorCarroza) {
-            alert("Error: " + errorCarroza.message);
+            alert("Error al actualizar: " + errorCarroza.message);
+            btn.disabled = false;
+            btn.innerText = "FINALIZAR SERVICIO";
         } else {
-            enviarConfirmacionWA(datos);
-            alert("Llegada registrada con éxito. Carroza " + datos.placa + " ahora está DISPONIBLE.");
-            window.location.href = "dashboard.html";
+            enviarConfirmacionWA({
+                placa,
+                km_ingreso: kmIngreso,
+                hora_ingreso: document.getElementById('hora_ingreso').value,
+                estado_entrega: document.getElementById('estado_entrega').value,
+                observaciones: document.getElementById('observaciones').value
+            });
+            alert("✅ Llegada registrada. Carroza " + placa + " ahora está DISPONIBLE.");
+            irAtras();
         }
-        
-        btn.disabled = false;
-        btn.innerText = "FINALIZAR SERVICIO";
     };
 
     function enviarConfirmacionWA(d) {
         const hora = new Date().getHours();
-        let saludo = (hora < 12) ? "Buenos días ☀️" : (hora < 18) ? "Buenas tardes 🌤️" : "Buenas noches 🌜";
-        
+        const saludo = hora < 12 ? "Buenos días ☀️" : (hora < 18 ? "Buenas tardes 🌤️" : "Buenas noches 🌜");
         const mensaje = `${saludo}\n\n` +
-                        `🏁 *REPORTE DE LLEGADA J.R.*\n\n` +
-                        `🚗 *Placa:* ${d.placa}\n` +
-                        `🕒 *Hora Ingreso:* ${d.hora_ingreso}\n` +
-                        `📊 *KM Final:* ${d.km_ingreso}\n` +
-                        `✨ *Estado:* ${d.estado_entrega}\n` +
-                        `📝 *Obs:* ${d.observaciones || 'Sin novedad'}\n\n` +
-                        `✅ _Vehículo listo para nuevo servicio._`;
-        
+            `🏁 *REPORTE DE LLEGADA J.R.*\n\n` +
+            `🚗 *Placa:* ${d.placa}\n` +
+            `🕒 *Hora Ingreso:* ${d.hora_ingreso}\n` +
+            `📊 *KM Final:* ${d.km_ingreso}\n` +
+            `✨ *Estado:* ${d.estado_entrega}\n` +
+            `📝 *Obs:* ${d.observaciones || 'Sin novedad'}\n\n` +
+            `✅ _Vehículo listo para nuevo servicio._`;
         window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
     }
 </script>
