@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; }
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; --verde: #10b981; }
         body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
 
         header { width: 100%; max-width: 600px; background: var(--blanco); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); box-sizing: border-box; }
@@ -35,6 +35,7 @@
         .pill-taller { color: var(--rojo); background: #fef2f2; }
         .pill-ruta { color: #3b82f6; background: #eff6ff; }
         .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
+        .servicio-pill { color: var(--azul); font-weight: bold; font-size: 10px; background: #e0e7ff; padding: 4px 8px; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -63,7 +64,19 @@
 
     <div class="monitor-mini">
         <h2>
-            Mis Reportes Recientes
+            Mis Salidas Recientes
+            <span style="font-size: 10px; color: gray;">Últimas 3</span>
+        </h2>
+        <table>
+            <tbody id="tabla-salidas">
+                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando salidas...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>
+            Mis Averías Reportadas
             <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a>
         </h2>
         <table>
@@ -85,7 +98,7 @@
     <script src="db.js"></script>
     <script>
         window.onload = async () => {
-            const sesionRaw = localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data');
+            const sesionRaw = localStorage.getItem('usuario_data') || localStorage.getItem('usuario_sesion');
             if (!sesionRaw) { window.location.href = "index.html"; return; }
             
             try {
@@ -93,6 +106,7 @@
                 const nombre = user.nombre || "Conductor";
                 document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
 
+                cargarSalidasRecientes(nombre);
                 cargarResumenAverias(nombre);
                 cargarMonitorFlota();
             } catch (e) {
@@ -100,9 +114,32 @@
             }
         };
 
+        async function cargarSalidasRecientes(nombre) {
+            const { data, error } = await DB.supabase
+                .from('traslados') // Asegúrate que el nombre sea 'traslados'
+                .select('placa, motivo, destino, created_at')
+                .ilike('conductor', `%${nombre}%`)
+                .order('created_at', { ascending: false })
+                .limit(3);
+
+            const tabla = document.getElementById('tabla-salidas');
+            if (error || !data || data.length === 0) {
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">Sin salidas registradas recientemente.</td></tr>';
+                return;
+            }
+
+            tabla.innerHTML = data.map(s => `
+                <tr>
+                    <td><b>${s.placa}</b><br><small>${s.destino || 'Local'}</small></td>
+                    <td style="font-size: 11px;">${new Date(s.created_at).toLocaleDateString()}</td>
+                    <td style="text-align: right;"><span class="servicio-pill">${s.motivo.toUpperCase()}</span></td>
+                </tr>
+            `).join('');
+        }
+
         async function cargarResumenAverias(nombre) {
             const { data, error } = await DB.supabase
-                .from('averias') // Tabla en minúsculas
+                .from('averias')
                 .select('placa_vehiculo, tipo_falla, created_at')
                 .ilike('reportado_por', `%${nombre.split(' ')[0]}%`)
                 .order('created_at', { ascending: false })
@@ -110,7 +147,7 @@
 
             const tabla = document.getElementById('tabla-averias');
             if (error || !data || data.length === 0) {
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No tienes reportes este mes.</td></tr>';
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No tienes reportes pendientes.</td></tr>';
                 return;
             }
 
@@ -125,7 +162,7 @@
 
         async function cargarMonitorFlota() {
             const { data, error } = await DB.supabase
-                .from('carrozas') // Tabla en minúsculas
+                .from('carrozas')
                 .select('placa, kilometraje_actual, estado')
                 .order('placa', { ascending: true });
 
