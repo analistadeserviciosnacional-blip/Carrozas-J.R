@@ -1,52 +1,45 @@
-// ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
-const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
-const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
-
-const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
+// db.js actualizado para manejar Administrador y Conductor
 const DB = {
-    supabase: _supabase,
+    // ... (supabaseUrl y Key se mantienen igual)
 
-    // ── LOGIN ─────────────────────
-    async login(usuario, clave) {
+    async login(usuario, clave, rolEsperado) { // Añadimos rolEsperado
         try {
             const { data, error } = await _supabase
                 .from('usuarios')
                 .select('*')
                 .eq('usuario', usuario)
-                .eq('password', clave) // Tu columna se llama password
+                .eq('password', clave)
+                .eq('rol', rolEsperado) // Validamos que el rol coincida con el botón seleccionado
                 .single();
             
             if (error) throw error;
             return { data, ok: true };
         } catch (err) {
             console.error("Error en login:", err.message);
-            return { data: null, ok: false, error: err };
+            return { data: null, ok: false, error: "Credenciales incorrectas para este perfil" };
         }
     },
 
-    // ── REGISTRO ─────────────────────
     async registrarUsuario(datos) {
         try {
-            // Verificamos que no falten datos esenciales
-            if(!datos.usuario || !datos.password) throw new Error("Faltan datos");
-
             const { data, error } = await _supabase
                 .from('usuarios')
                 .insert([{
-                    usuario: datos.usuario,       // Cédula/User
-                    password: datos.password,    // Clave
+                    usuario: datos.usuario,
+                    password: datos.password,
                     nombre: datos.nombre,
-                    telefono: datos.telefono
+                    telefono: datos.telefono,
+                    rol: 'conductor' // Por defecto se registran como conductores
                 }]);
 
             if (error) throw error;
             return { ok: true, data };
         } catch (err) {
-            console.error("Error en registro:", err.message);
-            return { ok: false, error: err };
+            // Manejo específico del error de duplicado que te salió
+            if (err.code === "23505") {
+                return { ok: false, error: "Esta cédula ya está registrada" };
+            }
+            return { ok: false, error: err.message };
         }
     }
 };
-
-window.DB = DB;
