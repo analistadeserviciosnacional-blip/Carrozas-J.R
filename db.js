@@ -9,10 +9,6 @@ const DB = {
 
     // ── SECCIÓN: USUARIOS (LOGIN Y REGISTRO) ───────────────
     
-    /**
-     * Login validando usuario, contraseña y rol (admin/conductor)
-     * Requiere que la columna 'rol' exista en la tabla 'usuarios'
-     */
     async login(usuario, clave, rolEsperado) {
         try {
             const { data, error } = await _supabase
@@ -20,7 +16,7 @@ const DB = {
                 .select('*')
                 .eq('usuario', usuario)
                 .eq('password', clave)
-                .eq('rol', rolEsperado) // Verifica el rol según el botón pulsado
+                .eq('rol', rolEsperado) // Valida el rol (admin/conductor)
                 .single();
             
             if (error) throw error;
@@ -40,7 +36,7 @@ const DB = {
                     password: datos.password,
                     nombre: datos.nombre,
                     telefono: datos.telefono,
-                    rol: 'conductor' // Registro por defecto como conductor
+                    rol: 'conductor' // Registro por defecto
                 }]);
 
             if (error) throw error;
@@ -53,8 +49,41 @@ const DB = {
         }
     },
 
+    // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
+
+    async obtenerFlota() {
+        try {
+            const { data, error } = await _supabase
+                .from('carrozas')
+                .select('*')
+                .order('placa', { ascending: true });
+            
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            console.error("Error cargando flota:", err);
+            return { data: [], ok: false };
+        }
+    },
+
     // ── SECCIÓN: TRASLADOS ──────────────────────────────────
-    
+
+    async obtenerTrasladosRecientes() {
+        try {
+            const { data, error } = await _supabase
+                .from('Traslado')
+                .select('*')
+                .order('id', { ascending: false })
+                .limit(10);
+            
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            console.error("Error traslados:", err);
+            return { data: [], ok: false };
+        }
+    },
+
     async guardarTraslado(datos) {
         try {
             const { error } = await _supabase
@@ -91,44 +120,7 @@ const DB = {
         }
     },
 
-    async obtenerTrasladosRecientes() {
-        try {
-            const { data, error } = await _supabase
-                .from('Traslado')
-                .select('*')
-                .order('id', { ascending: false })
-                .limit(10);
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
     // ── SECCIÓN: AVERÍAS ────────────────────────────────────
-    
-    async guardarAveria(datos) {
-        try {
-            const { error } = await _supabase
-                .from('Averias')
-                .insert([{
-                    reportado_por: datos.reportado_por,
-                    regional: datos.regional,
-                    placa_vehiculo: datos.placa_vehiculo,
-                    tipo_falla: datos.tipo_falla,
-                    descripcion_sintomas: datos.descripcion_sintomas,
-                    observaciones: datos.observaciones || "",
-                    tipo_vehiculo: datos.tipo_vehiculo,
-                    imagen1: datos.imagen1 || "",
-                    imagen2: datos.imagen2 || "",
-                    imagen3: datos.imagen3 || "",
-                    imagen4: datos.imagen4 || "",
-                    created_at: new Date().toISOString()
-                }]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
-        }
-    },
 
     async obtenerTodasAverias() {
         try {
@@ -137,50 +129,15 @@ const DB = {
                 .select('*')
                 .order('id', { ascending: false })
                 .limit(50);
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
-    // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
-    
-    async obtenerFlota() {
-        try {
-            const { data, error } = await _supabase
-                .from('carrozas')
-                .select('*')
-                .order('placa', { ascending: true });
+            
             if (error) throw error;
             return { data: data || [], ok: true };
         } catch (err) {
-            console.error("Error cargando flota:", err);
+            console.error("Error averías:", err);
             return { data: [], ok: false };
-        }
-    },
-
-    async guardarCarroza(datos) {
-        try {
-            const { error } = await _supabase
-                .from('carrozas')
-                .insert([{
-                    placa: datos.placa,
-                    modelo: datos.modelo,
-                    anio: parseInt(datos.anio) || 0,
-                    estado: datos.estado,
-                    conductor_asignado: datos.conductor_asignado,
-                    kilometraje_actual: parseInt(datos.kilometraje) || 0,
-                    ultimo_mantenimiento: datos.ultimo_mantenimiento,
-                    proximo_mantenimiento: datos.proximo_mantenimiento,
-                    observaciones: datos.observaciones,
-                    fecha_registro: new Date().toLocaleDateString('es-CO')
-                }]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
         }
     }
 };
 
-// Exponer el objeto DB globalmente
+// Exponer globalmente
 window.DB = DB;
