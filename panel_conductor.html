@@ -106,33 +106,41 @@
                 const nombre = user.nombre || "Conductor";
                 document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
 
+                // Llamadas a las funciones corregidas
                 cargarSalidasRecientes(nombre);
                 cargarResumenAverias(nombre);
                 cargarMonitorFlota();
             } catch (e) {
+                console.error("Error de sesión:", e);
                 window.location.href = "index.html";
             }
         };
 
         async function cargarSalidasRecientes(nombre) {
-            // CORRECCIÓN: Usamos 'Traslado' (con T) y ordenamos por 'fecha'
+            // CORRECCIÓN DEFINITIVA: Tabla 'Traslado' y columna 'fecha'
             const { data, error } = await DB.supabase
                 .from('Traslado') 
                 .select('placa, motivo, destino, fecha')
                 .ilike('conductor', `%${nombre}%`)
-                .order('fecha', { ascending: false })
+                .order('fecha', { ascending: false }) 
                 .limit(3);
 
             const tabla = document.getElementById('tabla-salidas');
-            if (error || !data || data.length === 0) {
+            if (error) {
+                console.error("Error Supabase Salidas:", error);
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red;">Error de carga</td></tr>';
+                return;
+            }
+
+            if (!data || data.length === 0) {
                 tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">Sin salidas registradas recientemente.</td></tr>';
                 return;
             }
 
             tabla.innerHTML = data.map(s => `
                 <tr>
-                    <td><b>${s.placa}</b><br><small>${s.destino || 'Local'}</small></td>
-                    <td style="font-size: 11px;">${s.fecha}</td>
+                    <td><b>${s.placa || 'S/P'}</b><br><small>${s.destino || 'Local'}</small></td>
+                    <td style="font-size: 11px;">${s.fecha || '---'}</td>
                     <td style="text-align: right;"><span class="servicio-pill">${(s.motivo || 'SERVICIO').toUpperCase()}</span></td>
                 </tr>
             `).join('');
@@ -168,23 +176,26 @@
                 .order('placa', { ascending: true });
 
             const tabla = document.getElementById('tabla-monitor');
-            if (data) {
-                tabla.innerHTML = data.map(c => {
-                    let clasePill = 'pill-disponible';
-                    if (c.estado === 'En Taller') clasePill = 'pill-taller';
-                    if (c.estado === 'En Ruta') clasePill = 'pill-ruta';
-
-                    return `
-                        <tr>
-                            <td><b>${c.placa}</b></td>
-                            <td style="font-size: 11px; color: gray;">${Number(c.kilometraje_actual).toLocaleString()} KM</td>
-                            <td style="text-align: right;">
-                                <span class="status-pill ${clasePill}">● ${c.estado.toUpperCase()}</span>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
+            if (error || !data) {
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center;">Error al cargar flota</td></tr>';
+                return;
             }
+
+            tabla.innerHTML = data.map(c => {
+                let clasePill = 'pill-disponible';
+                if (c.estado === 'En Taller') clasePill = 'pill-taller';
+                if (c.estado === 'En Ruta') clasePill = 'pill-ruta';
+
+                return `
+                    <tr>
+                        <td><b>${c.placa}</b></td>
+                        <td style="font-size: 11px; color: gray;">${Number(c.kilometraje_actual || 0).toLocaleString()} KM</td>
+                        <td style="text-align: right;">
+                            <span class="status-pill ${clasePill}">● ${c.estado.toUpperCase()}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function cerrarSesion() {
