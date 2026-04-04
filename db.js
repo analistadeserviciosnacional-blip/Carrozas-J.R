@@ -14,7 +14,7 @@ const DB = {
                 .from('usuarios')
                 .select('*')
                 .eq('usuario', usuario)
-                .eq('password', clave) // Corregido: Tu tabla usa 'password', no 'clave'
+                .eq('password', clave)
                 .single();
             
             if (error) throw error;
@@ -30,10 +30,10 @@ const DB = {
             const { data, error } = await _supabase
                 .from('usuarios')
                 .insert([{
-                    usuario: datos.usuario,       // Cédula
-                    password: datos.password,    // Contraseña
-                    nombre: datos.nombre,        // Nombre Completo
-                    telefono: datos.telefono     // Teléfono
+                    usuario: datos.usuario,
+                    password: datos.password,
+                    nombre: datos.nombre,
+                    telefono: datos.telefono
                 }]);
 
             if (error) throw error;
@@ -169,7 +169,7 @@ const DB = {
             return { data: [], error: err };
         }
     }
-};
+}; // <--- Esta llave debe cerrar todo el objeto DB
 
 // Exportación global
 window._supabase = _supabase;
