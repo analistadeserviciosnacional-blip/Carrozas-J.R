@@ -47,7 +47,7 @@
         <div class="grid-2">
             <div>
                 <label>Conductor</label>
-                <input type="text" id="conductor" readonly style="background: #eef5ff; font-weight: bold; border: 2px solid var(--azul-principal);">
+                <input type="text" id="conductor" readonly style="background: #eef5ff; font-weight: bold;">
             </div>
             <div>
                 <label>Regional</label>
@@ -64,7 +64,9 @@
         <div class="grid-2">
             <div>
                 <label>Placa Vehículo</label>
-                <input type="text" id="placa" placeholder="ABC-123">
+                <select id="placa">
+                    <option value="">Cargando flota...</option>
+                </select>
             </div>
             <div>
                 <label>Motivo Salida</label>
@@ -119,7 +121,7 @@
 
         <div class="section-title">Notificación</div>
         <label>Seleccionar Coordinador</label>
-        <select id="select-coordinador" style="border: 2px solid var(--verde-wa);">
+        <select id="select-coordinador">
             <option value="3001234567" data-nombre="Coordinador Pereira">Coordinador Pereira</option>
             <option value="3110000000" data-nombre="Logística J.R.">Logística J.R.</option>
         </select>
@@ -137,16 +139,18 @@
     const ctx = canvas.getContext('2d');
     let dibujando = false;
 
-    window.onload = () => {
-        const sesionData = localStorage.getItem('usuario_sesion');
+    window.onload = async () => {
+        const sesionData = localStorage.getItem('usuario_data');
         if (!sesionData) { window.location.href = "index.html"; return; }
+        
         const user = JSON.parse(sesionData);
-        const nombre = user.nombre || user.nombre_completo || user.username || "Usuario J.R.";
-        const rol = user.rol || "conductor";
+        document.getElementById('conductor').value = user.nombre;
+        document.getElementById('saludo').innerText = "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
+        
+        const esAdmin = user.usuario.toLowerCase() === 'admin';
+        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : "CONDUCTOR");
 
-        document.getElementById('conductor').value = nombre;
-        document.getElementById('saludo').innerText = "¡HOLA, " + nombre.split(' ')[0].toUpperCase() + "!";
-        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + rol.toUpperCase();
+        await cargarPlacas();
 
         const now = new Date();
         document.getElementById('hora_salida').value = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
@@ -155,21 +159,38 @@
         canvas.height = canvas.offsetHeight;
     };
 
-    function irAtras() {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
-        const rol = (sesion.rol || '').toLowerCase().trim();
-        window.location.href = rol === 'admin' ? "dashboard.html" : "panel_conductor.html";
+    async function cargarPlacas() {
+        const select = document.getElementById('placa');
+        try {
+            const res = await DB.obtenerFlota();
+            if (res.ok) {
+                select.innerHTML = '<option value="">Seleccione placa...</option>';
+                res.data.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.placa;
+                    opt.textContent = `${c.placa} (${c.tipo})`;
+                    select.appendChild(opt);
+                });
+            }
+        } catch (e) { select.innerHTML = '<option>Error al cargar placas</option>'; }
     }
 
-    async function procesarFotos(input) {
+    function irAtras() {
+        const sesionData = localStorage.getItem('usuario_data');
+        if (!sesionData) { window.location.href = "index.html"; return; }
+        const user = JSON.parse(sesionData);
+        window.location.href = (user.usuario.toLowerCase() === 'admin') ? "dashboard.html" : "panel_conductor.html";
+    }
+
+    function procesarFotos(input) {
         const archivos = Array.from(input.files);
-        for (let f of archivos) {
+        archivos.forEach(f => {
             if (fotosArray.length < 4) {
                 const reader = new FileReader();
-                reader.readAsDataURL(f);
                 reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
+                reader.readAsDataURL(f);
             }
-        }
+        });
     }
 
     function renderGaleria() {
@@ -179,7 +200,7 @@
                 <img src="${img}">
                 <button class="btn-del" onclick="eliminarFoto(${i})">×</button>
             </div>`).join('');
-        document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
+        document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos`;
     }
 
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
@@ -190,11 +211,9 @@
     };
     const iniciar = e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); };
     const mover = e => { if(!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
-    
     canvas.addEventListener('mousedown', iniciar); canvas.addEventListener('mousemove', mover);
     window.addEventListener('mouseup', () => dibujando = false);
     canvas.addEventListener('touchstart', iniciar); canvas.addEventListener('touchmove', mover);
-    canvas.addEventListener('touchend', () => dibujando = false);
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
     function calcularTotal() {
@@ -205,15 +224,15 @@
 
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
-        const selectCoord = document.getElementById('select-coordinador');
-        const nombreCoordinador = selectCoord.options[selectCoord.selectedIndex].getAttribute('data-nombre');
+        const selCoord = document.getElementById('select-coordinador');
+        
+        if(!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
 
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
 
         datosFinales = {
             regional: document.getElementById('regional').value,
             conductor: document.getElementById('conductor').value,
-            telefono: "S/N", // Se puede completar si el perfil lo tiene
             placa: document.getElementById('placa').value,
             motivo: document.getElementById('motivo').value,
             fallecido: document.getElementById('fallecido').value,
@@ -226,7 +245,7 @@
             km_salida: document.getElementById('km_s').value,
             km_ingreso: document.getElementById('km_i').value,
             total_km: document.getElementById('total_km').value,
-            coordinador: nombreCoordinador, // Cambio clave solicitado
+            coordinador: selCoord.options[selCoord.selectedIndex].getAttribute('data-nombre'),
             observaciones: document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || "",
             imagen2: fotosArray[1] || "",
@@ -237,13 +256,13 @@
 
         const res = await DB.guardarTraslado(datosFinales);
         if (res.ok) {
-            btn.innerText = "✓ REGISTRO EXITOSO";
+            btn.innerText = "✓ GUARDADO EXITOSO";
             btn.style.background = "#25D366";
             document.getElementById('btn-wa').style.display = "block";
         } else {
-            alert("Error al guardar en Supabase: " + (res.error?.message || "Desconocido"));
+            alert("Error: " + res.error);
             btn.disabled = false;
-            btn.innerText = "REINTENTAR GUARDADO";
+            btn.innerText = "REINTENTAR";
         }
     }
 
@@ -260,11 +279,14 @@
             `🚗 *Placas Del Vehiculo:* ${datosFinales.placa}\n` +
             `❓ *Motivo De Salida:* ${datosFinales.motivo}\n` +
             `⚱️ *Nombre Del Fallecido:* ${datosFinales.fallecido || '---'}\n` +
-            `🏥 *Lugar de Recogida:* ${datosFinales.clinica}\n` +
-            `🚩 *Origen:* ${datosFinales.origen}\n` +
-            `🏁 *Destino:* ${datosFinales.destino}\n` +
+            `🏥 *Lugar de Recogida:* ${datosFinales.clinica || '---'}\n` +
+            `🚩 *Origen:* ${datosFinales.origen || '---'}\n` +
+            `🏁 *Destino:* ${datosFinales.destino || '---'}\n` +
             `📊 *Km De Salida:* ${datosFinales.km_salida}\n` +
-            `👨🏻‍✈️ *Nom: Conductor:* ${datosFinales.conductor}\n\n` +
+            `📊 *Km De Ingreso:* ${datosFinales.km_ingreso}\n` +
+            `🛣️ *Total Recorrido:* ${datosFinales.total_km} KM\n` +
+            `👨🏻‍✈️ *Nom. Conductor:* ${datosFinales.conductor}\n\n` +
+            `📝 *Observaciones:* ${datosFinales.observaciones || 'Sin novedades'}\n\n` +
             `✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻`;
 
         window.open(`https://wa.me/57${num}?text=${encodeURIComponent(msg)}`, '_blank');
