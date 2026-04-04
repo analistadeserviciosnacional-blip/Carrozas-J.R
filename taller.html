@@ -10,30 +10,33 @@
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --amarillo: #f59e0b; }
         body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 15px; color: #1e293b; }
         .container { max-width: 900px; margin: auto; }
-        
+        .nav-header { margin-bottom: 20px; }
+        .btn-volver { text-decoration: none; color: var(--azul); font-weight: 700; font-size: 14px; }
         .card { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 5px solid var(--azul); }
         .card.edit-mode { border-top-color: var(--amarillo); background: #fffcf5; }
-        
-        h2 { color: var(--azul); text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; }
+        h2 { color: var(--azul); text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; margin-top: 0; }
         label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; text-transform: uppercase; }
         input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 14px; box-sizing: border-box; font-family: inherit; margin-bottom: 15px; }
-        
+        input:focus, select:focus { outline: none; border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn-registrar { background: var(--azul); color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+        .btn-registrar { background: var(--azul); color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+        .btn-registrar:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-cancelar { background: #fee2e2; color: #991b1b; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; margin-top: 10px; width: 100%; display: none; }
-
         .historial { background: var(--blanco); padding: 20px; border-radius: 25px; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 700px; }
-        th { text-align: left; font-size: 10px; color: #64748b; padding: 10px; border-bottom: 2px solid var(--celeste); }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { text-align: left; font-size: 10px; color: #64748b; padding: 10px; border-bottom: 2px solid var(--celeste); text-transform: uppercase; }
         td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
-        
         .btn-edit { background: var(--celeste); color: var(--azul); border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 11px; }
-        .btn-volver { display: block; text-align: center; margin-top: 20px; color: #64748b; text-decoration: none; font-size: 13px; }
+        .btn-edit:hover { background: var(--azul); color: white; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <div class="nav-header">
+        <a href="dashboard.html" class="btn-volver">← VOLVER AL PANEL</a>
+    </div>
+
     <div class="card" id="contenedor-form">
         <h2 id="titulo-form">🛠️ Registro de Mantenimiento</h2>
         <form id="form-taller">
@@ -43,11 +46,11 @@
             </div>
 
             <div class="grid-2">
-                <div class="form-group">
+                <div>
                     <label>Fecha</label>
                     <input type="date" id="fecha" required>
                 </div>
-                <div class="form-group">
+                <div>
                     <label>Tipo de Servicio</label>
                     <select id="tipo_servicio" required>
                         <option value="Cambio de Aceite">Cambio de Aceite</option>
@@ -61,21 +64,21 @@
             </div>
 
             <div class="grid-2">
-                <div class="form-group">
-                    <label>Kilometraje</label>
-                    <input type="number" id="km_servicio" required>
+                <div>
+                    <label>Kilometraje al Servicio</label>
+                    <input type="number" id="km_servicio" required placeholder="Ej: 155000">
                 </div>
-                <div class="form-group">
+                <div>
                     <label>Costo ($)</label>
-                    <input type="number" id="costo" required>
+                    <input type="number" id="costo" required placeholder="Ej: 350000">
                 </div>
             </div>
 
             <label>Taller / Mecánico</label>
-            <input type="text" id="taller" required>
+            <input type="text" id="taller" required placeholder="Nombre del taller o mecánico">
 
             <label>Observaciones</label>
-            <textarea id="observaciones" rows="2"></textarea>
+            <textarea id="observaciones" rows="2" placeholder="Detalles del servicio..."></textarea>
 
             <button type="submit" class="btn-registrar" id="btn-submit">GUARDAR MANTENIMIENTO</button>
             <button type="button" id="btn-cancelar" class="btn-cancelar" onclick="cancelarEdicion()">CANCELAR EDICIÓN</button>
@@ -83,22 +86,24 @@
     </div>
 
     <div class="historial">
-        <h2 style="font-size: 14px;">📋 Últimos Registros</h2>
+        <h2 style="font-size: 14px; text-align: left;">📋 Últimos Registros de Mantenimiento</h2>
         <table id="tabla-mantenimientos">
             <thead>
                 <tr>
                     <th>Fecha</th>
                     <th>Placa</th>
                     <th>Servicio</th>
+                    <th>KM</th>
                     <th>Costo</th>
+                    <th>Taller</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+                <tr><td colspan="7" style="text-align:center; color:#94a3b8;">Cargando registros...</td></tr>
+            </tbody>
         </table>
     </div>
-
-    <a href="dashboard.html" class="btn-volver">← Volver al Panel</a>
 </div>
 
 <script src="db.js"></script>
@@ -112,27 +117,39 @@
     };
 
     async function cargarPlacas() {
-        const { data } = await DB.supabase.from('carrozas').select('placa').order('placa');
+        // CORRECCIÓN: tabla 'carrozas' (minúsculas)
+        const { data, error } = await DB.supabase.from('carrozas').select('placa').order('placa');
         const select = document.getElementById('placa');
-        if (data) {
+        if (data && data.length > 0) {
             select.innerHTML = '<option value="">Seleccione placa...</option>' + 
                 data.map(c => `<option value="${c.placa}">${c.placa}</option>`).join('');
+        } else {
+            select.innerHTML = '<option value="">Sin vehículos registrados</option>';
+            if (error) console.error("Error cargando placas:", error);
         }
     }
 
     async function cargarHistorial() {
-        const { data } = await DB.supabase.from('mantenimientos').select('*').order('created_at', { ascending: false }).limit(10);
-        if (data) {
-            const tbody = document.querySelector('#tabla-mantenimientos tbody');
+        const { data, error } = await DB.supabase
+            .from('mantenimientos')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        const tbody = document.querySelector('#tabla-mantenimientos tbody');
+        if (data && data.length > 0) {
             tbody.innerHTML = data.map(m => `
                 <tr>
-                    <td>${m.fecha}</td>
+                    <td>${m.fecha || '---'}</td>
                     <td><b>${m.placa}</b></td>
                     <td>${m.tipo_servicio}</td>
-                    <td>$${Number(m.costo).toLocaleString()}</td>
-                    <td><button class="btn-edit" onclick='prepararEdicion(${JSON.stringify(m)})'>EDITAR</button></td>
-                </tr>
-            `).join('');
+                    <td>${Number(m.kilometraje_servicio || 0).toLocaleString()}</td>
+                    <td>$${Number(m.costo || 0).toLocaleString()}</td>
+                    <td style="font-size:11px;">${m.taller || '---'}</td>
+                    <td><button class="btn-edit" onclick='prepararEdicion(${JSON.stringify(m).replace(/'/g,"&#39;")})'>EDITAR</button></td>
+                </tr>`).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8;">Sin registros de mantenimiento.</td></tr>';
         }
     }
 
@@ -140,16 +157,19 @@
         e.preventDefault();
         const btn = document.getElementById('btn-submit');
         btn.disabled = true;
+        btn.innerText = "GUARDANDO...";
 
         const registro = {
-            placa: document.getElementById('placa').value,
-            fecha: document.getElementById('fecha').value,
-            tipo_servicio: document.getElementById('tipo_servicio').value,
-            kilometraje_servicio: parseInt(document.getElementById('km_servicio').value),
-            costo: parseFloat(document.getElementById('costo').value),
-            taller: document.getElementById('taller').value,
-            observaciones: document.getElementById('observaciones').value
+            placa:                  document.getElementById('placa').value,
+            fecha:                  document.getElementById('fecha').value,
+            tipo_servicio:          document.getElementById('tipo_servicio').value,
+            kilometraje_servicio:   parseInt(document.getElementById('km_servicio').value) || 0,
+            costo:                  parseFloat(document.getElementById('costo').value) || 0,
+            taller:                 document.getElementById('taller').value,
+            observaciones:          document.getElementById('observaciones').value
         };
+
+        if (!registro.placa) { alert("Selecciona una placa"); btn.disabled = false; btn.innerText = editandoID ? "ACTUALIZAR CAMBIOS" : "GUARDAR MANTENIMIENTO"; return; }
 
         let res;
         if (editandoID) {
@@ -160,18 +180,20 @@
 
         if (res.error) {
             alert("Error: " + res.error.message);
+            btn.disabled = false;
+            btn.innerText = editandoID ? "ACTUALIZAR CAMBIOS" : "GUARDAR MANTENIMIENTO";
         } else {
-            // Actualizar la carroza siempre con el último dato
+            // Actualizar km y último mantenimiento en carrozas
             await DB.supabase.from('carrozas').update({ 
                 kilometraje_actual: registro.kilometraje_servicio,
-                ultimo_mantenimiento: registro.fecha
+                ultimo_mantenimiento: registro.fecha,
+                estado: 'Disponible'
             }).eq('placa', registro.placa);
 
-            alert(editandoID ? "Registro actualizado" : "Mantenimiento guardado");
+            alert(editandoID ? "✅ Registro actualizado" : "✅ Mantenimiento guardado");
             cancelarEdicion();
             cargarHistorial();
         }
-        btn.disabled = false;
     };
 
     function prepararEdicion(m) {
@@ -186,7 +208,7 @@
         document.getElementById('tipo_servicio').value = m.tipo_servicio;
         document.getElementById('km_servicio').value = m.kilometraje_servicio;
         document.getElementById('costo').value = m.costo;
-        document.getElementById('taller').value = m.taller;
+        document.getElementById('taller').value = m.taller || '';
         document.getElementById('observaciones').value = m.observaciones || '';
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -200,6 +222,7 @@
         document.getElementById('titulo-form').innerText = "🛠️ Registro de Mantenimiento";
         document.getElementById('btn-submit').innerText = "GUARDAR MANTENIMIENTO";
         document.getElementById('btn-cancelar').style.display = "none";
+        document.getElementById('btn-submit').disabled = false;
     }
 </script>
 </body>
