@@ -1,225 +1,144 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Panel Conductor</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; --verde: #10b981; }
-        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+// ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
+const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
+const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 
-        header { width: 100%; max-width: 600px; background: var(--blanco); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); box-sizing: border-box; }
-        .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
-        .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
+// Inicialización del cliente
+const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-        .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
-        .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
+const DB = {
+    supabase: _supabase,
 
-        .menu-conductor { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 25px; }
-        .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .card-condu:active { transform: scale(0.95); background: #f0f7ff; border-color: var(--azul); }
-        .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
-        .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 11px; }
-
-        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
-        .monitor-mini h2 { font-size: 15px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; }
-        
-        .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
-
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
-        .status-pill { font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 8px; }
-        .pill-disponible { color: #10b981; background: #ecfdf5; }
-        .pill-taller { color: var(--rojo); background: #fef2f2; }
-        .pill-ruta { color: #3b82f6; background: #eff6ff; }
-        .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
-        .servicio-pill { color: var(--azul); font-weight: bold; font-size: 10px; background: #e0e7ff; padding: 4px 8px; border-radius: 8px; }
-    </style>
-</head>
-<body>
-
-    <header>
-        <div class="logo-small">J.R. MOVILIDAD</div>
-        <button onclick="cerrarSesion()" class="btn-salir">SALIR</button>
-    </header>
-
-    <div class="welcome-box">
-        <h1 id="txt-conductor">Hola...</h1>
-        <p style="color: #64748b; font-size: 14px;">Panel de Servicios y Reportes</p>
-    </div>
-
-    <div class="menu-conductor">
-        <a href="registro_salida.html" class="card-condu">
-            <i>🚚</i>
-            <span>Nueva Salida</span>
-        </a>
-
-        <a href="reporte_averia.html" class="card-condu">
-            <i>⚠️</i>
-            <span>Reportar Avería</span>
-        </a>
-    </div>
-
-    <div class="monitor-mini">
-        <h2>
-            Mis Salidas Recientes
-            <span style="font-size: 10px; color: gray;">Últimas 3</span>
-        </h2>
-        <table>
-            <tbody id="tabla-salidas">
-                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando salidas...</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="monitor-mini">
-        <h2>
-            Mis Averías Reportadas
-            <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a>
-        </h2>
-        <table>
-            <tbody id="tabla-averias">
-                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando reportes...</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="monitor-mini">
-        <h2>Estado de Flota (Real)</h2>
-        <table>
-            <tbody id="tabla-monitor">
-                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando flota...</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <script src="db.js"></script>
-    <script>
-        // 1. Verificación de Seguridad y Sesión
-        window.onload = async () => {
-            // Buscamos en ambos almacenamientos por si acaso
-            const sesionRaw = sessionStorage.getItem('user_jr') || localStorage.getItem('usuario_data');
+    // ── 1. SISTEMA DE SESIÓN ────────────────────────────
+    async login(usuario, clave) {
+        try {
+            this.logout(); // Limpia rastros anteriores
+            const { data, error } = await _supabase
+                .from('usuarios')
+                .select('*')
+                .eq('usuario', usuario)
+                .eq('password', clave)
+                .single();
             
-            if (!sesionRaw) {
-                console.warn("Sesión no encontrada, redirigiendo...");
-                window.location.href = "index.html";
-                return;
-            }
+            if (error) throw error;
 
-            try {
-                const user = JSON.parse(sesionRaw);
-                const nombreCompleto = user.nombre || "Conductor";
-                
-                // Actualizar UI
-                document.getElementById('txt-conductor').innerText = "Hola, " + nombreCompleto;
+            // Guardamos en ambos para que todos tus .html lo encuentren
+            const sessionData = JSON.stringify(data);
+            sessionStorage.setItem('user_jr', sessionData);
+            localStorage.setItem('usuario_data', sessionData);
+            
+            return { data, ok: true };
+        } catch (err) {
+            console.error("Error login:", err.message);
+            return { data: null, ok: false, error: "Usuario o clave incorrectos" };
+        }
+    },
 
-                // Cargar Datos
-                await Promise.all([
-                    cargarSalidasRecientes(nombreCompleto),
-                    cargarResumenAverias(nombreCompleto),
-                    cargarMonitorFlota()
-                ]);
-            } catch (e) {
-                console.error("Error al procesar sesión:", e);
-                window.location.href = "index.html";
-            }
-        };
+    logout() {
+        sessionStorage.clear();
+        localStorage.clear();
+    },
 
-        // 2. Cargar Salidas desde la tabla 'Traslado'
-        async function cargarSalidasRecientes(nombre) {
-            const { data, error } = await DB.supabase
-                .from('Traslado') // Nombre exacto con T mayúscula
+    // ── 2. CONSULTAS PARA EL CONDUCTOR ──────────────────
+    async obtenerMisSalidas(nombreConductor) {
+        try {
+            const { data, error } = await _supabase
+                .from('Traslado') // Nombre exacto en tu DB
                 .select('placa, motivo_de_salida, destino, fecha')
-                .ilike('conductor', `%${nombre}%`)
-                .order('fecha', { ascending: false }) // Columna fecha
-                .limit(3);
-
-            const tabla = document.getElementById('tabla-salidas');
-            
-            if (error) {
-                console.error("Error en Salidas:", error.message);
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red;">Error de conexión</td></tr>';
-                return;
-            }
-
-            if (!data || data.length === 0) {
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">Sin salidas registradas.</td></tr>';
-                return;
-            }
-
-            tabla.innerHTML = data.map(s => `
-                <tr>
-                    <td><b>${s.placa || 'S/P'}</b><br><small>${s.destino || 'Local'}</small></td>
-                    <td style="font-size: 11px;">${s.fecha || '---'}</td>
-                    <td style="text-align: right;"><span class="servicio-pill">${(s.motivo_de_salida || 'SERVICIO').toUpperCase()}</span></td>
-                </tr>
-            `).join('');
+                .ilike('conductor', `%${nombreConductor}%`)
+                .order('fecha', { ascending: false })
+                .limit(5);
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
         }
+    },
 
-        // 3. Cargar Averías desde la tabla 'averias'
-        async function cargarResumenAverias(nombre) {
-            const primerNombre = nombre.split(' ')[0]; // Búsqueda más flexible
-            const { data, error } = await DB.supabase
-                .from('averias')
-                .select('placa_vehiculo, tipo_falla, created_at')
-                .ilike('reportado_por', `%${primerNombre}%`)
-                .order('created_at', { ascending: false })
-                .limit(3);
-
-            const tabla = document.getElementById('tabla-averias');
-            
-            if (error || !data || data.length === 0) {
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No hay reportes recientes.</td></tr>';
-                return;
-            }
-
-            tabla.innerHTML = data.map(av => `
-                <tr>
-                    <td><b>${av.placa_vehiculo}</b></td>
-                    <td style="font-size: 11px;">${new Date(av.created_at).toLocaleDateString()}</td>
-                    <td style="text-align: right;"><span class="falla-pill">${av.tipo_falla.toUpperCase()}</span></td>
-                </tr>
-            `).join('');
+    async obtenerMisAverias(nombreConductor) {
+        try {
+            const { data, error } = await _supabase
+                .from('averias') // Minúscula según capturas
+                .select('*')
+                .ilike('reportado_por', `%${nombreConductor}%`)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
         }
+    },
 
-        // 4. Monitor de Flota (Carrozas)
-        async function cargarMonitorFlota() {
-            const { data, error } = await DB.supabase
+    // ── 3. CONSULTAS PARA EL ADMIN / MONITOR ────────────
+    async obtenerFlota() {
+        try {
+            const { data, error } = await _supabase
                 .from('carrozas')
-                .select('placa, kilometraje_actual, estado')
+                .select('*')
                 .order('placa', { ascending: true });
-
-            const tabla = document.getElementById('tabla-monitor');
-            
-            if (error || !data) {
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center;">Error de flota</td></tr>';
-                return;
-            }
-
-            tabla.innerHTML = data.map(c => {
-                let clasePill = 'pill-disponible';
-                if (c.estado === 'En Taller') clasePill = 'pill-taller';
-                if (c.estado === 'En Ruta') clasePill = 'pill-ruta';
-
-                return `
-                    <tr>
-                        <td><b>${c.placa}</b></td>
-                        <td style="font-size: 11px; color: gray;">${Number(c.kilometraje_actual || 0).toLocaleString()} KM</td>
-                        <td style="text-align: right;">
-                            <span class="status-pill ${clasePill}">● ${c.estado.toUpperCase()}</span>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
         }
+    },
 
-        // 5. Cerrar Sesión
-        function cerrarSesion() {
-            DB.logout();
-            window.location.href = "index.html";
+    async obtenerTrasladosRecientes() {
+        try {
+            const { data, error } = await _supabase
+                .from('Traslado')
+                .select('*')
+                .order('fecha', { ascending: false }) 
+                .limit(20);
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
         }
-    </script>
-</body>
-</html>
+    },
+
+    // ── 4. REGISTRO DE DATOS ────────────────────────────
+    async guardarTraslado(datos) {
+        try {
+            const { error } = await _supabase
+                .from('Traslado')
+                .insert([{
+                    id_salida: 'JR-' + Date.now(),
+                    fecha: new Date().toLocaleDateString('es-CO'),
+                    regional: datos.regional,
+                    conductor: datos.conductor,
+                    nnum_telefono: datos.telefono,
+                    placa: datos.placa,
+                    motivo_de_salida: datos.motivo,
+                    nombre_del_fallecido: datos.fallecido,
+                    clinica_hospital_o_rsd: datos.clinica,
+                    numero_prestacion: datos.prestacion,
+                    origen: datos.origen,
+                    destino: datos.destino,
+                    hora_de_salida: datos.hora_salida,
+                    hora_de_ingreso: datos.hora_ingreso,
+                    km__salida: parseInt(datos.km_salida) || 0,
+                    km__ingreso: parseInt(datos.km_ingreso) || 0,
+                    total_km: parseInt(datos.total_km) || 0,
+                    coordinador_en_turno: datos.coordinador,
+                    observaciones: datos.observaciones,
+                    firma: datos.firma || ""
+                }]);
+            return { ok: !error, error };
+        } catch (err) {
+            return { ok: false, error: err };
+        }
+    },
+
+    async guardarAveria(datos) {
+        try {
+            const { error } = await _supabase
+                .from('averias')
+                .insert([datos]);
+            return { ok: !error, error };
+        } catch (err) {
+            return { ok: false, error: err };
+        }
+    }
+};
+
+window.DB = DB;
