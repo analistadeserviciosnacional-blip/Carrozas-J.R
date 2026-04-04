@@ -7,21 +7,22 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 const DB = {
     supabase: _supabase,
 
-    // ── SECCIÓN: USUARIOS (LOGIN Y REGISTRO) ───────────────
-    async login(usuario, clave) {
+    // ── SECCIÓN: USUARIOS (LOGIN Y REGISTRO CON ROLES) ─────
+    async login(usuario, clave, rolEsperado) {
         try {
             const { data, error } = await _supabase
                 .from('usuarios')
                 .select('*')
                 .eq('usuario', usuario)
                 .eq('password', clave)
+                .eq('rol', rolEsperado) // Valida contra el botón seleccionado
                 .single();
             
             if (error) throw error;
             return { data, ok: true };
         } catch (err) {
             console.error("Error en login:", err.message);
-            return { data: null, ok: false, error: err };
+            return { data: null, ok: false, error: "Credenciales incorrectas para este perfil" };
         }
     },
 
@@ -34,18 +35,20 @@ const DB = {
                     password: datos.password,
                     nombre: datos.nombre,
                     telefono: datos.telefono,
-                    rol: datos.rol || 'conductor'
+                    rol: 'conductor' // Registro por defecto
                 }]);
 
             if (error) throw error;
             return { ok: true, data };
         } catch (err) {
-            console.error("Error en registro:", err.message);
-            return { ok: false, error: err };
+            if (err.code === "23505") {
+                return { ok: false, error: "Esta cédula ya está registrada" };
+            }
+            return { ok: false, error: err.message };
         }
     },
 
-    // ── SECCIÓN: TRASLADOS ──────────────────────────────────
+    // ── SECCIÓN: TRASLADOS (CARGA Y GUARDADO) ──────────────
     async guardarTraslado(datos) {
         try {
             const { error } = await _supabase
@@ -87,7 +90,7 @@ const DB = {
             const { data, error } = await _supabase
                 .from('Traslado')
                 .select('*')
-                .order('id', { ascending: false }) // Cambiado a id para mayor estabilidad
+                .order('id', { ascending: false })
                 .limit(10);
             return { data: data || [], error };
         } catch (err) {
@@ -110,6 +113,20 @@ const DB = {
     },
 
     // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
+    async obtenerFlota() {
+        try {
+            const { data, error } = await _supabase
+                .from('carrozas')
+                .select('*')
+                .order('placa', { ascending: true });
+            if (error) throw error;
+            return { data: data || [], error: null };
+        } catch (err) {
+            console.error("Error cargando flota:", err);
+            return { data: [], error: err };
+        }
+    },
+
     async guardarCarroza(datos) {
         try {
             const { error } = await _supabase
@@ -130,23 +147,9 @@ const DB = {
         } catch (err) {
             return { ok: false, error: err };
         }
-    },
-
-    async obtenerFlota() {
-        try {
-            const { data, error } = await _supabase
-                .from('carrozas')
-                .select('*')
-                .order('placa', { ascending: true });
-            if (error) throw error;
-            return { data: data || [], error: null };
-        } catch (err) {
-            console.error("Error cargando flota:", err);
-            return { data: [], error: err };
-        }
     }
 };
 
-// Exportación global para que el Dashboard lo encuentre
+// Exportación global para acceso desde Dashboard e Index
 window._supabase = _supabase;
 window.DB = DB;
