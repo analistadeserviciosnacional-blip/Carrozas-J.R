@@ -1,125 +1,49 @@
-// ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
+// CONFIGURACIÓN SUPABASE
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
-
-// Inicialización global
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
     supabase: _supabase,
 
-    // ── 1. SESIÓN Y REGISTRO ────────────────────────────
-    async login(usuario, clave) {
-        try {
-            const { data, error } = await _supabase
-                .from('usuarios')
-                .select('*')
-                .eq('usuario', usuario)
-                .eq('password', clave)
-                .single();
-            if (error) throw error;
-            return { data, ok: true };
-        } catch (err) {
-            return { data: null, ok: false, error: err.message };
-        }
+    // --- AUTENTICACIÓN ---
+    async login(u, p) {
+        const { data, error } = await _supabase.from('usuarios').select('*').eq('usuario', u).eq('password', p).single();
+        return { data, ok: !error, error };
+    },
+    async registrarUsuario(d) {
+        const { error } = await _supabase.from('usuarios').insert([d]);
+        return { ok: !error, error };
     },
 
-    async registrarUsuario(datos) {
-        try {
-            const { error } = await _supabase
-                .from('usuarios')
-                .insert([datos]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
-        }
+    // --- TRASLADOS (SALIDAS Y LLEGADAS) ---
+    async obtenerMisSalidas(nombre) {
+        const { data, error } = await _supabase.from('Traslado').select('*').ilike('conductor', `%${nombre}%`).order('created_at', { ascending: false });
+        return { data: data || [], ok: !error };
+    },
+    async guardarTraslado(d) {
+        const { error } = await _supabase.from('Traslado').insert([{ ...d, id_salida: 'JR-'+Date.now() }]);
+        return { ok: !error, error };
     },
 
-    // ── 2. PANEL CONDUCTOR (Mis Salidas y Averías) ──────
-    async obtenerMisSalidas(nombreConductor) {
-        try {
-            const { data, error } = await _supabase
-                .from('Traslado') // Importante: 'T' mayúscula
-                .select('*')
-                .ilike('conductor', `%${nombreConductor}%`)
-                .order('fecha', { ascending: false })
-                .limit(10);
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
+    // --- AVERÍAS ---
+    async obtenerMisAverias(nombre) {
+        const { data, error } = await _supabase.from('averias').select('*').ilike('reportado_por', `%${nombre}%`).order('created_at', { ascending: false });
+        return { data: data || [], ok: !error };
+    },
+    async guardarAveria(d) {
+        const { error } = await _supabase.from('averias').insert([d]);
+        return { ok: !error, error };
     },
 
-    async obtenerMisAverias(nombreConductor) {
-        try {
-            const { data, error } = await _supabase
-                .from('averias')
-                .select('*')
-                .ilike('reportado_por', `%${nombreConductor}%`)
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
-    // ── 3. GUARDAR REPORTES (Formularios) ───────────────
-    async guardarTraslado(datos) {
-        try {
-            const { error } = await _supabase
-                .from('Traslado')
-                .insert([{
-                    ...datos,
-                    id_salida: 'JR-' + Date.now(),
-                    fecha: new Date().toLocaleDateString('es-CO')
-                }]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
-        }
-    },
-
-    async guardarAveria(datos) {
-        try {
-            const { error } = await _supabase
-                .from('averias')
-                .insert([datos]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
-        }
-    },
-
-    // ── 4. ADMIN / DASHBOARD (Flota y Global) ───────────
+    // --- FLOTA Y TALLER ---
     async obtenerFlota() {
-        try {
-            const { data, error } = await _supabase
-                .from('carrozas')
-                .select('*')
-                .order('placa', { ascending: true });
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
+        const { data, error } = await _supabase.from('carrozas').select('*').order('placa', { ascending: true });
+        return { data: data || [], ok: !error };
     },
-
-    async obtenerTrasladosRecientes() {
-        try {
-            const { data, error } = await _supabase
-                .from('Traslado')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(50);
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
+    async actualizarEstadoVehiculo(placa, nuevoEstado, nuevoKm) {
+        const { error } = await _supabase.from('carrozas').update({ estado: nuevoEstado, kilometraje_actual: nuevoKm }).eq('placa', placa);
+        return { ok: !error, error };
     }
 };
-
-// Exportación para que el index.html lo vea
-window.DB = DB;
+window.DB = DB; // Hace que DB sea accesible desde cualquier HTML
