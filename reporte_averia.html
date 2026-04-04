@@ -17,6 +17,7 @@
         .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #546e7a; margin: 20px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
         label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
         input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--celeste); border-radius: 10px; font-family: inherit; color: var(--azul); background: var(--gris); font-size: 14px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .upload-container { border: 2px dashed var(--rojo); border-radius: 15px; padding: 15px; text-align: center; background: #fff5f5; cursor: pointer; margin-bottom: 12px; }
         .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
@@ -26,6 +27,7 @@
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
         .btn-db { background: var(--rojo); color: white; }
         .btn-wa { background: var(--verde); color: white; }
+        .btn-action:disabled { opacity: 0.6; cursor: not-allowed; }
         .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
     </style>
 </head>
@@ -91,42 +93,37 @@
 let fotosArray = [];
 
 window.onload = async () => {
-    // 1. Datos de sesión
-    const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || localStorage.getItem('usuario_data') || '{}');
-    document.getElementById('reportado_por').value = sesion.nombre || "Usuario";
-    document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (sesion.rol || "CONDUCTOR").toUpperCase();
+    // CORRECCIÓN: clave unificada 'usuario_sesion'
+    const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+    if (!sesion.nombre) { window.location.href = 'index.html'; return; }
 
-    // 2. Carga de Placas desde Supabase
+    document.getElementById('reportado_por').value = sesion.nombre;
+    const esAdmin = (sesion.usuario || '').toLowerCase() === 'admin' || (sesion.rol || '').toLowerCase() === 'admin';
+    document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : "CONDUCTOR").toUpperCase();
+
     const select = document.getElementById('vehiculo');
-    
     try {
-        // Aseguramos que DB esté cargado desde db.js
-        if (typeof DB !== 'undefined' && DB.obtenerFlota) {
-            const res = await DB.obtenerFlota();
-            if (res.data && res.data.length > 0) {
-                select.innerHTML = '<option value="">Seleccionar...</option>';
-                res.data.forEach(v => {
-                    let opt = document.createElement('option');
-                    // IMPORTANTE: Mantenemos placa|modelo para que funcione el split en guardarAveria()
-                    opt.value = `${v.placa}|${v.modelo || 'Vehículo'}`;
-                    opt.textContent = `${v.placa} - ${v.modelo || ''}`;
-                    select.appendChild(opt);
-                });
-            } else {
-                select.innerHTML = '<option value="">No hay flota registrada</option>';
-            }
+        const res = await DB.obtenerFlota();
+        if (res.data && res.data.length > 0) {
+            select.innerHTML = '<option value="">Seleccionar...</option>';
+            res.data.forEach(v => {
+                let opt = document.createElement('option');
+                opt.value = `${v.placa}|${v.modelo || 'Vehículo'}`;
+                opt.textContent = `${v.placa} — ${v.modelo || ''}`;
+                select.appendChild(opt);
+            });
         } else {
-            select.innerHTML = '<option value="">Error: db.js no cargado</option>';
+            select.innerHTML = '<option value="">No hay flota registrada</option>';
         }
     } catch (err) {
-        console.error("Error al cargar:", err);
         select.innerHTML = '<option value="">Error al conectar con la base de datos</option>';
     }
 };
 
 function irAtras() {
     const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-    window.location.href = (sesion.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
+    const esAdmin = (sesion.usuario || '').toLowerCase() === 'admin' || (sesion.rol || '').toLowerCase() === 'admin';
+    window.location.href = esAdmin ? "dashboard.html" : "panel_conductor.html";
 }
 
 function procesarFotos(input) {
@@ -134,17 +131,14 @@ function procesarFotos(input) {
         if (fotosArray.length < 4) {
             const reader = new FileReader();
             reader.readAsDataURL(f);
-            reader.onload = (e) => { 
-                fotosArray.push(e.target.result); 
-                renderGaleria(); 
-            };
+            reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
         }
     }
 }
 
 function renderGaleria() {
     document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
-    <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
+        <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
     document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
 }
 
@@ -165,22 +159,27 @@ async function guardarAveria() {
     btn.innerText = "⏳ ENVIANDO...";
 
     const datos = {
-        reportado_por: document.getElementById('reportado_por').value,
-        regional: document.getElementById('regional').value,
-        placa_vehiculo: placa,
-        tipo_vehiculo: nombreV,
-        tipo_falla: falla,
+        reportado_por:       document.getElementById('reportado_por').value,
+        regional:            document.getElementById('regional').value,
+        placa_vehiculo:      placa,
+        tipo_vehiculo:       nombreV,
+        tipo_falla:          falla,
         descripcion_sintomas: document.getElementById('sintomas').value,
-        observaciones: document.getElementById('observaciones').value,
-        imagen1: fotosArray[0] || "",
-        imagen2: fotosArray[1] || "",
-        imagen3: fotosArray[2] || "",
-        imagen4: fotosArray[3] || ""
+        observaciones:       document.getElementById('observaciones').value,
+        imagen1:             fotosArray[0] || "",
+        imagen2:             fotosArray[1] || "",
+        imagen3:             fotosArray[2] || "",
+        imagen4:             fotosArray[3] || ""
     };
 
     try {
         const res = await DB.guardarAveria(datos);
         if (res.ok) {
+            // Marcar vehículo En Taller
+            await DB.supabase.from('carrozas')
+                .update({ estado: 'En Taller' })
+                .eq('placa', placa);
+
             btn.innerText = "✓ GUARDADO CORRECTAMENTE";
             btn.style.background = "#16a34a";
             setTimeout(() => irAtras(), 1500);
@@ -198,11 +197,18 @@ async function guardarAveria() {
 
 function enviarWhatsAppAveria() {
     const v_select = document.getElementById('vehiculo').value;
-    if(!v_select) return alert("Seleccione vehículo antes de enviar WhatsApp");
+    if (!v_select) return alert("Seleccione vehículo antes de enviar WhatsApp");
     const [placa, nombreV] = v_select.split('|');
-    const tel = "573100000000"; // Asegúrate de poner el número correcto aquí
-    const msj = `*🚨 REPORTE DE AVERÍA*%0AVehículo: ${nombreV}%0APlaca: ${placa}%0AFalla: ${document.getElementById('tipo_falla').value}%0ADescripción: ${document.getElementById('sintomas').value}`;
-    window.open(`https://wa.me/${tel}?text=${msj}`, '_blank');
+    const reportado = document.getElementById('reportado_por').value;
+    const regional = document.getElementById('regional').value;
+    const msj = `*🚨 REPORTE DE AVERÍA J.R.*\n\n` +
+        `🚗 *Vehículo:* ${placa} — ${nombreV}\n` +
+        `⚠️ *Falla:* ${document.getElementById('tipo_falla').value}\n` +
+        `📍 *Regional:* ${regional}\n` +
+        `👤 *Reportado por:* ${reportado}\n` +
+        `📝 *Síntomas:* ${document.getElementById('sintomas').value || '---'}\n\n` +
+        `_Reporte generado desde App J.R._`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msj)}`, '_blank');
 }
 </script>
 </body>
