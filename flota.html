@@ -10,33 +10,29 @@
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --gris-texto: #64748b; --amarillo: #f59e0b; }
         body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; color: #1e293b; }
         .container { max-width: 1200px; margin: auto; }
-        
         .nav-header { display: flex; justify-content: flex-start; margin-bottom: 20px; }
         .btn-volver { text-decoration: none; color: var(--azul); font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 5px; transition: 0.3s; }
         .btn-volver:hover { opacity: 0.7; }
-
         .card-form { background: var(--blanco); padding: 25px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 30px; border-top: 5px solid var(--azul); }
         .card-form.edit-mode { border-top-color: var(--amarillo); background: #fffcf5; }
         h2 { color: var(--azul); margin-top: 0; font-size: 18px; text-transform: uppercase; margin-bottom: 20px; border-bottom: 2px solid var(--celeste); padding-bottom: 10px; }
-        
         .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
         .form-group { display: flex; flex-direction: column; }
         .full-width { grid-column: 1 / -1; }
         label { font-size: 11px; font-weight: 700; color: var(--gris-texto); margin-bottom: 5px; text-transform: uppercase; }
         input, select, textarea { padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 14px; }
-        
+        input:focus, select:focus { outline: none; border-color: var(--azul); }
         .btn-primario { background: var(--azul); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.3s; }
+        .btn-primario:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-cancelar { background: #fee2e2; color: #991b1b; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; margin-top: 10px; width: 100%; display: none; }
-
         .lista-carros { background: var(--blanco); border-radius: 20px; padding: 20px; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
         th { text-align: left; font-size: 10px; color: var(--gris-texto); padding: 12px; border-bottom: 2px solid var(--celeste); text-transform: uppercase; }
         td { padding: 12px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
-        
         .tag { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .tag-disponible { background: #ecfdf5; color: #10b981; }
         .tag-taller { background: #fef2f2; color: #ef4444; }
-        
+        .tag-servicio { background: #eff6ff; color: #3b82f6; }
         .btn-edit { background: var(--celeste); color: var(--azul); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 11px; transition: 0.2s; }
         .btn-edit:hover { background: var(--azul); color: white; }
     </style>
@@ -53,16 +49,16 @@
         <form id="form-carroza">
             <div class="grid-form">
                 <div class="form-group">
-                    <label>Placa (ID)</label>
+                    <label>Placa (ID Único)</label>
                     <input type="text" id="placa" placeholder="PFO-147" required>
                 </div>
                 <div class="form-group">
                     <label>Modelo / Marca</label>
-                    <input type="text" id="modelo" required>
+                    <input type="text" id="modelo" required placeholder="Ej: Mercedes Sprinter">
                 </div>
                 <div class="form-group">
                     <label>Año</label>
-                    <input type="number" id="anio">
+                    <input type="number" id="anio" placeholder="2020">
                 </div>
                 <div class="form-group">
                     <label>Fecha Ingreso Empresa</label>
@@ -70,7 +66,7 @@
                 </div>
                 <div class="form-group">
                     <label>Conductor Asignado</label>
-                    <input type="text" id="conductor_asignado">
+                    <input type="text" id="conductor_asignado" placeholder="Nombre conductor">
                 </div>
                 <div class="form-group">
                     <label>Kilometraje Inicial</label>
@@ -84,6 +80,7 @@
                     <label>Estado</label>
                     <select id="estado">
                         <option value="Disponible">Disponible</option>
+                        <option value="En Servicio">En Servicio</option>
                         <option value="En Taller">En Taller</option>
                     </select>
                 </div>
@@ -106,7 +103,7 @@
     </div>
 
     <div class="lista-carros">
-        <h2>Inventario Completo</h2>
+        <h2>Inventario Completo de Flota</h2>
         <table id="tabla-flota">
             <thead>
                 <tr>
@@ -114,7 +111,7 @@
                     <th>Conductor</th>
                     <th>KM Actual</th>
                     <th>Ingreso</th>
-                    <th>Mantenimientos (U/P)</th>
+                    <th>Mantenimientos</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
@@ -128,31 +125,33 @@
 <script>
     let editandoPlaca = null;
 
-    // Fecha de hoy por defecto para registros nuevos
     document.getElementById('fecha_ingreso_empresa').valueAsDate = new Date();
 
     document.getElementById('form-carroza').onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btn-guardar');
         btn.disabled = true;
+        btn.innerText = "GUARDANDO...";
         
         const datos = {
-            placa: document.getElementById('placa').value.toUpperCase(),
-            modelo: document.getElementById('modelo').value,
-            anio: parseInt(document.getElementById('anio').value) || 0,
-            fecha_ingreso_empresa: document.getElementById('fecha_ingreso_empresa').value,
-            conductor_asignado: document.getElementById('conductor_asignado').value,
-            kilometraje_inicial: parseInt(document.getElementById('kilometraje_inicial').value) || 0,
-            kilometraje_actual: parseInt(document.getElementById('kilometraje_actual').value) || 0,
-            estado: document.getElementById('estado').value,
-            ultimo_mantenimiento: document.getElementById('ultimo_mantenimiento').value || null,
-            proximo_mantenimiento: document.getElementById('proximo_mantenimiento').value || null,
-            observaciones: document.getElementById('observaciones').value
+            placa:                   document.getElementById('placa').value.toUpperCase().trim(),
+            modelo:                  document.getElementById('modelo').value,
+            anio:                    parseInt(document.getElementById('anio').value) || null,
+            fecha_ingreso_empresa:   document.getElementById('fecha_ingreso_empresa').value || null,
+            conductor_asignado:      document.getElementById('conductor_asignado').value,
+            kilometraje_inicial:     parseInt(document.getElementById('kilometraje_inicial').value) || 0,
+            kilometraje_actual:      parseInt(document.getElementById('kilometraje_actual').value) || 0,
+            estado:                  document.getElementById('estado').value,
+            ultimo_mantenimiento:    document.getElementById('ultimo_mantenimiento').value || null,
+            proximo_mantenimiento:   document.getElementById('proximo_mantenimiento').value || null,
+            observaciones:           document.getElementById('observaciones').value
         };
 
         let res;
         if (editandoPlaca) {
-            res = await DB.supabase.from('carrozas').update(datos).eq('placa', editandoPlaca);
+            // Al editar, no actualizamos la placa (es el ID)
+            const { placa: _, ...datosActualizar } = datos;
+            res = await DB.supabase.from('carrozas').update(datosActualizar).eq('placa', editandoPlaca);
         } else {
             res = await DB.supabase.from('carrozas').insert([datos]);
         }
@@ -160,30 +159,38 @@
         if (res.error) {
             alert("Error: " + res.error.message);
             btn.disabled = false;
+            btn.innerText = editandoPlaca ? "ACTUALIZAR REGISTRO" : "GUARDAR EN SISTEMA";
         } else {
-            alert(editandoPlaca ? "¡Actualizado con éxito!" : "¡Registrado con éxito!");
+            alert(editandoPlaca ? "✅ Actualizado con éxito!" : "✅ Registrado con éxito!");
             cancelarEdicion();
             cargarFlota();
         }
     };
 
     async function cargarFlota() {
-        const { data } = await DB.supabase.from('carrozas').select('*').order('placa', { ascending: true });
+        // CORRECCIÓN: tabla 'carrozas' (minúsculas)
+        const { data, error } = await DB.supabase.from('carrozas').select('*').order('placa', { ascending: true });
         if (data) {
             const tbody = document.querySelector('#tabla-flota tbody');
-            tbody.innerHTML = data.map(c => `
-                <tr>
-                    <td><b>${c.placa}</b><br><small>${c.modelo} (${c.anio || '---'})</small></td>
-                    <td>${c.conductor_asignado || '---'}</td>
-                    <td>${Number(c.kilometraje_actual).toLocaleString()} KM</td>
-                    <td>${c.fecha_ingreso_empresa || '---'}</td>
-                    <td><small>U: ${c.ultimo_mantenimiento || '---'}<br>P: ${c.proximo_mantenimiento || '---'}</small></td>
-                    <td><span class="tag ${c.estado === 'Disponible' ? 'tag-disponible' : 'tag-taller'}">${c.estado}</span></td>
-                    <td>
-                        <button class="btn-edit" onclick='prepararEdicion(${JSON.stringify(c)})'>EDITAR</button>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = data.map(c => {
+                let tagClass = 'tag-servicio';
+                if (c.estado === 'Disponible') tagClass = 'tag-disponible';
+                if (c.estado === 'En Taller') tagClass = 'tag-taller';
+                return `
+                    <tr>
+                        <td><b>${c.placa}</b><br><small>${c.modelo || '---'} (${c.anio || '---'})</small></td>
+                        <td>${c.conductor_asignado || '---'}</td>
+                        <td>${Number(c.kilometraje_actual || 0).toLocaleString()} KM</td>
+                        <td>${c.fecha_ingreso_empresa || '---'}</td>
+                        <td><small>Ú: ${c.ultimo_mantenimiento || '---'}<br>P: ${c.proximo_mantenimiento || '---'}</small></td>
+                        <td><span class="tag ${tagClass}">${c.estado || 'S/E'}</span></td>
+                        <td>
+                            <button class="btn-edit" onclick='prepararEdicion(${JSON.stringify(c).replace(/'/g,"&#39;")})'>EDITAR</button>
+                        </td>
+                    </tr>`;
+            }).join('');
+        } else if (error) {
+            console.error("Error cargando flota:", error);
         }
     }
 
@@ -195,15 +202,14 @@
         document.getElementById('btn-cancelar').style.display = "block";
         document.getElementById('placa').disabled = true;
 
-        // Llenar todos los campos
         document.getElementById('placa').value = v.placa;
-        document.getElementById('modelo').value = v.modelo;
-        document.getElementById('anio').value = v.anio;
-        document.getElementById('fecha_ingreso_empresa').value = v.fecha_ingreso_empresa;
+        document.getElementById('modelo').value = v.modelo || '';
+        document.getElementById('anio').value = v.anio || '';
+        document.getElementById('fecha_ingreso_empresa').value = v.fecha_ingreso_empresa || '';
         document.getElementById('conductor_asignado').value = v.conductor_asignado || '';
         document.getElementById('kilometraje_inicial').value = v.kilometraje_inicial || 0;
         document.getElementById('kilometraje_actual').value = v.kilometraje_actual || 0;
-        document.getElementById('estado').value = v.estado;
+        document.getElementById('estado').value = v.estado || 'Disponible';
         document.getElementById('ultimo_mantenimiento').value = v.ultimo_mantenimiento || '';
         document.getElementById('proximo_mantenimiento').value = v.proximo_mantenimiento || '';
         document.getElementById('observaciones').value = v.observaciones || '';
