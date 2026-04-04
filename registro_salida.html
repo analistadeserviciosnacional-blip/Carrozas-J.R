@@ -17,10 +17,10 @@
         .header { background: var(--azul-principal); color: var(--blanco); padding: 20px; text-align: center; position: relative; }
         .btn-volver { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
         .content { padding: 20px; }
-        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gris-texto); margin: 20px 0 10px; border-bottom: 2px solid var(--azul-cielo); padding-bottom: 5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--azul-cielo); }
-        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul-principal); text-transform: uppercase; }
+        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gris-texto); margin: 20px 0 10px; border-bottom: 2px solid var(--azul-cielo); padding-bottom: 5px; font-weight: 700; }
+        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul-principal); text-transform: uppercase; margin-top: 8px; }
         input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 2px solid var(--azul-cielo); border-radius: 10px; font-family: inherit; color: var(--azul-principal); background: #f8fbff; font-size: 14px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul-principal); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .upload-container { border: 2px dashed var(--azul-principal); border-radius: 15px; padding: 15px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 12px; }
         .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
@@ -30,7 +30,8 @@
         canvas { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 140px; background: #fff; touch-action: none; }
         .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; }
         .btn-save { background: var(--azul-principal); color: white; }
-        .btn-wa { background: var(--verde-wa); color: white; display: none; text-decoration: none; text-align: center; line-height: 20px; }
+        .btn-wa { background: var(--verde-wa); color: white; display: none; text-align: center; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -96,14 +97,12 @@
         <div class="section-title">Control de Kilometraje y Hora</div>
         <div class="grid-2">
             <div><label>Hora Salida</label><input type="time" id="hora_salida"></div>
-            <div><label>Hora Ingreso</label><input type="time" id="hora_ingreso"></div>
+            <div><label>Coordinador en Turno</label><input type="text" id="coordinador_turno" placeholder="Nombre coordinador"></div>
         </div>
         <div class="grid-2">
-            <div><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
-            <div><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
+            <div><label>KM Salida</label><input type="number" id="km_s" placeholder="Ej: 154000"></div>
+            <div><label>Teléfono Conductor</label><input type="text" id="telefono" placeholder="3XXXXXXXXX"></div>
         </div>
-        <label>Total KM Recorridos</label>
-        <input type="number" id="total_km" readonly style="background: #eef5ff; font-weight: bold; font-size: 16px;">
 
         <div class="section-title">Evidencias Fotográficas</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
@@ -119,15 +118,8 @@
         <canvas id="canvas"></canvas>
         <p onclick="borrarFirma()" style="text-align: right; color: #ff4444; font-size: 11px; cursor: pointer; margin-top: 5px; font-weight: bold;">✖ BORRAR FIRMA</p>
 
-        <div class="section-title">Notificación</div>
-        <label>Seleccionar Coordinador</label>
-        <select id="select-coordinador">
-            <option value="3001234567" data-nombre="Coordinador Pereira">Coordinador Pereira</option>
-            <option value="3110000000" data-nombre="Logística J.R.">Logística J.R.</option>
-        </select>
-
         <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR EN SISTEMA</button>
-        <button class="btn btn-wa" id="btn-wa" onclick="enviarWA()">2. ENVIAR POR WHATSAPP</button>
+        <button class="btn btn-wa" id="btn-wa" onclick="enviarWA()">2. ENVIAR POR WHATSAPP ✅</button>
     </div>
 </div>
 
@@ -140,15 +132,19 @@
     let dibujando = false;
 
     window.onload = async () => {
-        const sesionData = localStorage.getItem('usuario_data');
+        // CORRECCIÓN: clave unificada 'usuario_sesion'
+        const sesionData = localStorage.getItem('usuario_sesion');
         if (!sesionData) { window.location.href = "index.html"; return; }
         
         const user = JSON.parse(sesionData);
-        document.getElementById('conductor').value = user.nombre;
-        document.getElementById('saludo').innerText = "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
+        document.getElementById('conductor').value = user.nombre || '';
+        document.getElementById('saludo').innerText = "¡HOLA, " + (user.nombre || '').split(' ')[0].toUpperCase() + "!";
         
-        const esAdmin = user.usuario.toLowerCase() === 'admin';
+        const esAdmin = (user.usuario || '').toLowerCase() === 'admin' || (user.rol || '').toLowerCase() === 'admin';
         document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : "CONDUCTOR");
+        
+        // Prellenar teléfono si existe en sesión
+        if (user.telefono) document.getElementById('telefono').value = user.telefono;
 
         await cargarPlacas();
 
@@ -163,28 +159,33 @@
         const select = document.getElementById('placa');
         try {
             const res = await DB.obtenerFlota();
-            if (res.ok) {
+            if (res.ok && res.data.length > 0) {
                 select.innerHTML = '<option value="">Seleccione placa...</option>';
                 res.data.forEach(c => {
                     const opt = document.createElement('option');
                     opt.value = c.placa;
-                    opt.textContent = `${c.placa} (${c.tipo})`;
+                    // CORRECCIÓN: campo es 'modelo', no 'tipo'
+                    opt.textContent = `${c.placa} — ${c.modelo || 'S/M'}`;
                     select.appendChild(opt);
                 });
+            } else {
+                select.innerHTML = '<option value="">Sin flota registrada</option>';
             }
-        } catch (e) { select.innerHTML = '<option>Error al cargar placas</option>'; }
+        } catch (e) { 
+            select.innerHTML = '<option>Error al cargar placas</option>'; 
+        }
     }
 
     function irAtras() {
-        const sesionData = localStorage.getItem('usuario_data');
+        const sesionData = localStorage.getItem('usuario_sesion');
         if (!sesionData) { window.location.href = "index.html"; return; }
         const user = JSON.parse(sesionData);
-        window.location.href = (user.usuario.toLowerCase() === 'admin') ? "dashboard.html" : "panel_conductor.html";
+        const esAdmin = (user.usuario || '').toLowerCase() === 'admin' || (user.rol || '').toLowerCase() === 'admin';
+        window.location.href = esAdmin ? "dashboard.html" : "panel_conductor.html";
     }
 
     function procesarFotos(input) {
-        const archivos = Array.from(input.files);
-        archivos.forEach(f => {
+        Array.from(input.files).forEach(f => {
             if (fotosArray.length < 4) {
                 const reader = new FileReader();
                 reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
@@ -194,8 +195,7 @@
     }
 
     function renderGaleria() {
-        const g = document.getElementById('galeria');
-        g.innerHTML = fotosArray.map((img, i) => `
+        document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
             <div class="thumb-wrap">
                 <img src="${img}">
                 <button class="btn-del" onclick="eliminarFoto(${i})">×</button>
@@ -205,54 +205,52 @@
 
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
+    // Firma
     const obtenerPos = e => {
         const rect = canvas.getBoundingClientRect();
-        return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
+        const src = e.touches ? e.touches[0] : e;
+        return { x: src.clientX - rect.left, y: src.clientY - rect.top };
     };
-    const iniciar = e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); };
-    const mover = e => { if(!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
-    canvas.addEventListener('mousedown', iniciar); canvas.addEventListener('mousemove', mover);
-    window.addEventListener('mouseup', () => dibujando = false);
-    canvas.addEventListener('touchstart', iniciar); canvas.addEventListener('touchmove', mover);
+    canvas.addEventListener('mousedown',  e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); });
+    canvas.addEventListener('mousemove',  e => { if(!dibujando) return; const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); });
+    window.addEventListener('mouseup',    () => dibujando = false);
+    canvas.addEventListener('touchstart', e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); }, { passive: true });
+    canvas.addEventListener('touchmove',  e => { e.preventDefault(); if(!dibujando) return; const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); }, { passive: false });
+    window.addEventListener('touchend',   () => dibujando = false);
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
-
-    function calcularTotal() {
-        const s = parseFloat(document.getElementById('km_s').value) || 0;
-        const i = parseFloat(document.getElementById('km_i').value) || 0;
-        document.getElementById('total_km').value = (i - s).toFixed(1);
-    }
 
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
-        const selCoord = document.getElementById('select-coordinador');
-        
-        if(!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
+        if (!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
 
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
 
         datosFinales = {
-            regional: document.getElementById('regional').value,
-            conductor: document.getElementById('conductor').value,
-            placa: document.getElementById('placa').value,
-            motivo: document.getElementById('motivo').value,
-            fallecido: document.getElementById('fallecido').value,
-            clinica: document.getElementById('clinica').value,
-            prestacion: document.getElementById('prestacion').value,
-            origen: document.getElementById('origen').value,
-            destino: document.getElementById('destino').value,
-            hora_salida: document.getElementById('hora_salida').value,
-            hora_ingreso: document.getElementById('hora_ingreso').value,
-            km_salida: document.getElementById('km_s').value,
-            km_ingreso: document.getElementById('km_i').value,
-            total_km: document.getElementById('total_km').value,
-            coordinador: selCoord.options[selCoord.selectedIndex].getAttribute('data-nombre'),
-            observaciones: document.getElementById('observaciones').value,
-            imagen1: fotosArray[0] || "",
-            imagen2: fotosArray[1] || "",
-            imagen3: fotosArray[2] || "",
-            imagen4: fotosArray[3] || "",
-            firma: canvas.toDataURL()
+            regional:       document.getElementById('regional').value,
+            conductor:      document.getElementById('conductor').value,
+            placa:          document.getElementById('placa').value,
+            motivo:         document.getElementById('motivo').value,
+            fallecido:      document.getElementById('fallecido').value,
+            clinica:        document.getElementById('clinica').value,
+            prestacion:     document.getElementById('prestacion').value,
+            origen:         document.getElementById('origen').value,
+            destino:        document.getElementById('destino').value,
+            hora_salida:    document.getElementById('hora_salida').value,
+            coordinador:    document.getElementById('coordinador_turno').value,
+            km_salida:      document.getElementById('km_s').value,
+            telefono:       document.getElementById('telefono').value,
+            observaciones:  document.getElementById('observaciones').value,
+            imagen1:        fotosArray[0] || "",
+            imagen2:        fotosArray[1] || "",
+            imagen3:        fotosArray[2] || "",
+            imagen4:        fotosArray[3] || "",
+            firma:          canvas.toDataURL()
         };
+
+        // Actualizar estado carroza a "En Servicio"
+        await DB.supabase.from('carrozas')
+            .update({ estado: 'En Servicio', kilometraje_actual: parseInt(datosFinales.km_salida) || 0 })
+            .eq('placa', datosFinales.placa);
 
         const res = await DB.guardarTraslado(datosFinales);
         if (res.ok) {
@@ -260,36 +258,33 @@
             btn.style.background = "#25D366";
             document.getElementById('btn-wa').style.display = "block";
         } else {
-            alert("Error: " + res.error);
+            alert("Error: " + (res.error?.message || res.error));
             btn.disabled = false;
-            btn.innerText = "REINTENTAR";
+            btn.innerText = "1. GUARDAR EN SISTEMA";
         }
     }
 
     function enviarWA() {
-        const num = document.getElementById('select-coordinador').value;
         const saludo = new Date().getHours() < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
-        
         const msg = `${saludo}\n\n` +
             `📢 *Reporte de Salida De Carroza*\n\n` +
             `📍 *Regional:* ${datosFinales.regional}\n` +
-            `📅 *Fecha:* ${new Date().toLocaleDateString()}\n` +
-            `👤 *Coordinador:* ${datosFinales.coordinador}\n` +
+            `📅 *Fecha:* ${new Date().toLocaleDateString('es-CO')}\n` +
+            `👤 *Coordinador:* ${datosFinales.coordinador || '---'}\n` +
             `🕒 *Hora De Salida:* ${datosFinales.hora_salida}\n` +
-            `🚗 *Placas Del Vehiculo:* ${datosFinales.placa}\n` +
+            `🚗 *Placa Vehículo:* ${datosFinales.placa}\n` +
             `❓ *Motivo De Salida:* ${datosFinales.motivo}\n` +
             `⚱️ *Nombre Del Fallecido:* ${datosFinales.fallecido || '---'}\n` +
             `🏥 *Lugar de Recogida:* ${datosFinales.clinica || '---'}\n` +
             `🚩 *Origen:* ${datosFinales.origen || '---'}\n` +
             `🏁 *Destino:* ${datosFinales.destino || '---'}\n` +
-            `📊 *Km De Salida:* ${datosFinales.km_salida}\n` +
-            `📊 *Km De Ingreso:* ${datosFinales.km_ingreso}\n` +
-            `🛣️ *Total Recorrido:* ${datosFinales.total_km} KM\n` +
-            `👨🏻‍✈️ *Nom. Conductor:* ${datosFinales.conductor}\n\n` +
+            `📊 *Km De Salida:* ${datosFinales.km_salida || 0}\n` +
+            `👨🏻‍✈️ *Conductor:* ${datosFinales.conductor}\n` +
+            `📞 *Teléfono:* ${datosFinales.telefono || '---'}\n` +
             `📝 *Observaciones:* ${datosFinales.observaciones || 'Sin novedades'}\n\n` +
             `✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻`;
 
-        window.open(`https://wa.me/57${num}?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
     }
 </script>
 </body>
