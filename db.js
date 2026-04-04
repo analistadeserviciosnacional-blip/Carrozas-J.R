@@ -1,136 +1,225 @@
-// ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
-const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
-const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.R. — Panel Conductor</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; --verde: #10b981; }
+        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
 
-const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        header { width: 100%; max-width: 600px; background: var(--blanco); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); box-sizing: border-box; }
+        .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
+        .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
 
-const DB = {
-    supabase: _supabase,
+        .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
+        .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
 
-    // ── 1. LOGIN (SIN COLUMNA ROL) ────────────────────────
-    async login(usuario, clave) {
-        try {
-            // Limpiamos cualquier rastro de sesión anterior antes de iniciar
-            this.logout();
+        .menu-conductor { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 25px; }
+        .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .card-condu:active { transform: scale(0.95); background: #f0f7ff; border-color: var(--azul); }
+        .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
+        .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 11px; }
 
-            const { data, error } = await _supabase
-                .from('usuarios')
-                .select('*')
-                .eq('usuario', usuario)
-                .eq('password', clave)
-                .single();
+        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
+        .monitor-mini h2 { font-size: 15px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; }
+        
+        .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
+
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .status-pill { font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 8px; }
+        .pill-disponible { color: #10b981; background: #ecfdf5; }
+        .pill-taller { color: var(--rojo); background: #fef2f2; }
+        .pill-ruta { color: #3b82f6; background: #eff6ff; }
+        .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
+        .servicio-pill { color: var(--azul); font-weight: bold; font-size: 10px; background: #e0e7ff; padding: 4px 8px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-small">J.R. MOVILIDAD</div>
+        <button onclick="cerrarSesion()" class="btn-salir">SALIR</button>
+    </header>
+
+    <div class="welcome-box">
+        <h1 id="txt-conductor">Hola...</h1>
+        <p style="color: #64748b; font-size: 14px;">Panel de Servicios y Reportes</p>
+    </div>
+
+    <div class="menu-conductor">
+        <a href="registro_salida.html" class="card-condu">
+            <i>🚚</i>
+            <span>Nueva Salida</span>
+        </a>
+
+        <a href="reporte_averia.html" class="card-condu">
+            <i>⚠️</i>
+            <span>Reportar Avería</span>
+        </a>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>
+            Mis Salidas Recientes
+            <span style="font-size: 10px; color: gray;">Últimas 3</span>
+        </h2>
+        <table>
+            <tbody id="tabla-salidas">
+                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando salidas...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>
+            Mis Averías Reportadas
+            <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a>
+        </h2>
+        <table>
+            <tbody id="tabla-averias">
+                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando reportes...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>Estado de Flota (Real)</h2>
+        <table>
+            <tbody id="tabla-monitor">
+                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando flota...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="db.js"></script>
+    <script>
+        // 1. Verificación de Seguridad y Sesión
+        window.onload = async () => {
+            // Buscamos en ambos almacenamientos por si acaso
+            const sesionRaw = sessionStorage.getItem('user_jr') || localStorage.getItem('usuario_data');
             
-            if (error) throw error;
+            if (!sesionRaw) {
+                console.warn("Sesión no encontrada, redirigiendo...");
+                window.location.href = "index.html";
+                return;
+            }
 
-            // Guardamos el usuario en SessionStorage para que no se pierda al navegar
-            sessionStorage.setItem('user_jr', JSON.stringify(data));
-            return { data, ok: true };
-        } catch (err) {
-            console.error("Error en login:", err.message);
-            return { data: null, ok: false, error: "Usuario o clave incorrectos" };
+            try {
+                const user = JSON.parse(sesionRaw);
+                const nombreCompleto = user.nombre || "Conductor";
+                
+                // Actualizar UI
+                document.getElementById('txt-conductor').innerText = "Hola, " + nombreCompleto;
+
+                // Cargar Datos
+                await Promise.all([
+                    cargarSalidasRecientes(nombreCompleto),
+                    cargarResumenAverias(nombreCompleto),
+                    cargarMonitorFlota()
+                ]);
+            } catch (e) {
+                console.error("Error al procesar sesión:", e);
+                window.location.href = "index.html";
+            }
+        };
+
+        // 2. Cargar Salidas desde la tabla 'Traslado'
+        async function cargarSalidasRecientes(nombre) {
+            const { data, error } = await DB.supabase
+                .from('Traslado') // Nombre exacto con T mayúscula
+                .select('placa, motivo_de_salida, destino, fecha')
+                .ilike('conductor', `%${nombre}%`)
+                .order('fecha', { ascending: false }) // Columna fecha
+                .limit(3);
+
+            const tabla = document.getElementById('tabla-salidas');
+            
+            if (error) {
+                console.error("Error en Salidas:", error.message);
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red;">Error de conexión</td></tr>';
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">Sin salidas registradas.</td></tr>';
+                return;
+            }
+
+            tabla.innerHTML = data.map(s => `
+                <tr>
+                    <td><b>${s.placa || 'S/P'}</b><br><small>${s.destino || 'Local'}</small></td>
+                    <td style="font-size: 11px;">${s.fecha || '---'}</td>
+                    <td style="text-align: right;"><span class="servicio-pill">${(s.motivo_de_salida || 'SERVICIO').toUpperCase()}</span></td>
+                </tr>
+            `).join('');
         }
-    },
 
-    // ── 2. LOGOUT (LIMPIEZA TOTAL) ───────────────────────
-    logout() {
-        sessionStorage.clear();
-        localStorage.removeItem('user_jr');
-    },
+        // 3. Cargar Averías desde la tabla 'averias'
+        async function cargarResumenAverias(nombre) {
+            const primerNombre = nombre.split(' ')[0]; // Búsqueda más flexible
+            const { data, error } = await DB.supabase
+                .from('averias')
+                .select('placa_vehiculo, tipo_falla, created_at')
+                .ilike('reportado_por', `%${primerNombre}%`)
+                .order('created_at', { ascending: false })
+                .limit(3);
 
-    // ── 3. FUNCIONES DEL DASHBOARD (ADMIN) ────────────────
-    async obtenerFlota() {
-        try {
-            const { data, error } = await _supabase
+            const tabla = document.getElementById('tabla-averias');
+            
+            if (error || !data || data.length === 0) {
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No hay reportes recientes.</td></tr>';
+                return;
+            }
+
+            tabla.innerHTML = data.map(av => `
+                <tr>
+                    <td><b>${av.placa_vehiculo}</b></td>
+                    <td style="font-size: 11px;">${new Date(av.created_at).toLocaleDateString()}</td>
+                    <td style="text-align: right;"><span class="falla-pill">${av.tipo_falla.toUpperCase()}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // 4. Monitor de Flota (Carrozas)
+        async function cargarMonitorFlota() {
+            const { data, error } = await DB.supabase
                 .from('carrozas')
-                .select('*')
+                .select('placa, kilometraje_actual, estado')
                 .order('placa', { ascending: true });
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            console.error("Error flota:", err.message);
-            return { data: [], ok: false };
-        }
-    },
 
-    async obtenerTrasladosRecientes() {
-        try {
-            // Eliminado el .order('id') que causaba el error 400
-            const { data, error } = await _supabase
-                .from('Traslado')
-                .select('*')
-                .limit(20);
+            const tabla = document.getElementById('tabla-monitor');
             
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            console.error("Error traslados:", err.message);
-            return { data: [], ok: false };
-        }
-    },
+            if (error || !data) {
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center;">Error de flota</td></tr>';
+                return;
+            }
 
-    async obtenerTodasAverias() {
-        try {
-            const { data, error } = await _supabase
-                .from('Averias')
-                .select('*');
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            console.error("Error averías:", err.message);
-            return { data: [], ok: false };
-        }
-    },
+            tabla.innerHTML = data.map(c => {
+                let clasePill = 'pill-disponible';
+                if (c.estado === 'En Taller') clasePill = 'pill-taller';
+                if (c.estado === 'En Ruta') clasePill = 'pill-ruta';
 
-    // ── 4. GUARDADO DE DATOS (CONDUCTOR) ──────────────────
-    async registrarUsuario(datos) {
-        try {
-            const { data, error } = await _supabase
-                .from('usuarios')
-                .insert([{
-                    usuario: datos.usuario,
-                    password: datos.password,
-                    nombre: datos.nombre,
-                    telefono: datos.telefono
-                }]);
-            if (error) throw error;
-            return { ok: true, data };
-        } catch (err) {
-            if (err.code === "23505") return { ok: false, error: "Cédula ya registrada" };
-            return { ok: false, error: err.message };
+                return `
+                    <tr>
+                        <td><b>${c.placa}</b></td>
+                        <td style="font-size: 11px; color: gray;">${Number(c.kilometraje_actual || 0).toLocaleString()} KM</td>
+                        <td style="text-align: right;">
+                            <span class="status-pill ${clasePill}">● ${c.estado.toUpperCase()}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
-    },
 
-    async guardarTraslado(datos) {
-        try {
-            const { error } = await _supabase
-                .from('Traslado')
-                .insert([{
-                    id_salida: 'JR-' + Date.now(),
-                    fecha: new Date().toLocaleDateString('es-CO'),
-                    regional: datos.regional,
-                    conductor: datos.conductor,
-                    nnum_telefono: datos.telefono,
-                    placa: datos.placa,
-                    motivo_de_salida: datos.motivo,
-                    nombre_del_fallecido: datos.fallecido,
-                    clinica_hospital_o_rsd: datos.clinica,
-                    numero_prestacion: datos.prestacion,
-                    origen: datos.origen,
-                    destino: datos.destino,
-                    hora_de_salida: datos.hora_salida,
-                    hora_de_ingreso: datos.hora_ingreso,
-                    km__salida: parseInt(datos.km_salida) || 0,
-                    km__ingreso: parseInt(datos.km_ingreso) || 0,
-                    total_km: parseInt(datos.total_km) || 0,
-                    coordinador_en_turno: datos.coordinador,
-                    observaciones: datos.observaciones,
-                    firma: datos.firma || ""
-                }]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
+        // 5. Cerrar Sesión
+        function cerrarSesion() {
+            DB.logout();
+            window.location.href = "index.html";
         }
-    }
-};
-
-window.DB = DB;
+    </script>
+</body>
+</html>
