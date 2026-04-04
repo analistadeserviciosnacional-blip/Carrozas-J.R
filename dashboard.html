@@ -14,62 +14,53 @@
             --rojo: #ef4444;
             --verde-wa: #25D366;
         }
-        
         body { 
             background-color: var(--celeste-fondo); 
             font-family: 'DM Sans', sans-serif; 
             margin: 0; padding: 20px; color: #1e293b;
         }
-        
         header { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 30px; background: var(--blanco);
             padding: 15px 25px; border-radius: 20px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
-
         .logo-text { color: var(--azul-corporativo); font-size: 20px; font-weight: 700; }
-        
         .grid-menu { 
             display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
             gap: 15px; margin-bottom: 30px; 
         }
-
         .card { 
             background: var(--blanco); padding: 20px 10px; border-radius: 25px; 
             text-align: center; text-decoration: none; transition: 0.3s; 
             box-shadow: 0 4px 10px rgba(0,0,0,0.02); border: 1px solid transparent;
         }
-
         .card:hover { transform: translateY(-5px); border-color: var(--azul-corporativo); }
         .card i { font-size: 28px; display: block; margin-bottom: 10px; font-style: normal; }
         .card h3 { font-size: 13px; margin: 0; color: var(--azul-corporativo); text-transform: uppercase; }
-
         .monitor { 
             background: var(--blanco); border-radius: 25px; padding: 25px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px;
         }
-
         .monitor h2 { font-size: 18px; color: var(--azul-corporativo); margin-top: 0; }
-
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; color: #64748b; font-size: 11px; padding: 12px; border-bottom: 2px solid var(--celeste-fondo); text-transform: uppercase; }
         td { padding: 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; color: #334155; }
-
         .status-pill { font-weight: bold; font-size: 10px; padding: 5px 10px; border-radius: 8px; text-transform: uppercase; }
         .disp { background: #ecfdf5; color: #10b981; }
         .serv { background: #fff7ed; color: #f97316; }
         .tall { background: #fef2f2; color: #ef4444; }
-
         .btn-wa {
             background: var(--verde-wa); color: white; border: none;
             padding: 8px 12px; border-radius: 10px; cursor: pointer;
             font-weight: 700; font-size: 10px; text-transform: uppercase;
         }
-
         .averia-item {
             border-left: 4px solid var(--rojo); background: #fdfdfd;
             padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #fee2e2;
+        }
+        @media (max-width: 768px) {
+            .dashboard-grid { grid-template-columns: 1fr !important; }
         }
     </style>
 </head>
@@ -80,7 +71,7 @@
         <div id="user-info" style="text-align: right;">
             <span id="user-name" style="font-weight: 700; color: var(--azul-corporativo);">Cargando...</span><br>
             <span style="font-size: 11px; color: #64748b;">PANEL ADMINISTRATIVO</span>
-            <br><button onclick="cerrarSesion()" style="border:none; background:none; color:var(--rojo); cursor:pointer; font-size:10px;">Cerrar Sesión</button>
+            <br><button onclick="cerrarSesion()" style="border:none; background:none; color:var(--rojo); cursor:pointer; font-size:10px; font-weight:bold;">Cerrar Sesión</button>
         </div>
     </header>
 
@@ -91,11 +82,11 @@
         <a href="flota.html" class="card"><i>🚗</i><h3>Flota</h3></a>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
+    <div class="dashboard-grid" style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
         
         <div>
             <div class="monitor">
-                <h2>Monitor de Flota (Estado Real)</h2>
+                <h2>Monitor de Flota</h2>
                 <table>
                     <thead>
                         <tr>
@@ -144,11 +135,11 @@
     <script src="db.js"></script>
     <script>
         window.onload = async () => {
+            // CORRECCIÓN: clave unificada 'usuario_sesion'
             const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
             if (!sesion) { window.location.href = "index.html"; return; }
             document.getElementById('user-name').innerText = sesion.nombre || "Admin J.R.";
             
-            // Carga de datos paralela
             await Promise.all([
                 cargarFlota(),
                 cargarTraslados(),
@@ -156,9 +147,8 @@
             ]);
         };
 
-        // 1. CARGAR FLOTA (Usa kilometraje_actual de tu Supabase)
         async function cargarFlota() {
-            const { data, error } = await DB.obtenerFlota();
+            const { data } = await DB.obtenerFlota();
             const tbody = document.getElementById('tabla-flota');
             if (data && data.length > 0) {
                 tbody.innerHTML = data.map(c => {
@@ -166,87 +156,77 @@
                     let clase = 'serv';
                     if (est === 'Disponible') clase = 'disp';
                     if (est === 'En Taller' || est === 'Taller') clase = 'tall';
-                    
                     return `
                         <tr>
                             <td><b>${c.placa}</b></td>
                             <td>${c.modelo || '---'}</td>
-                            <td>${c.kilometraje_actual || 0} KM</td>
+                            <td>${Number(c.kilometraje_actual || 0).toLocaleString()} KM</td>
                             <td><span class="status-pill ${clase}">● ${c.estado || 'S/E'}</span></td>
-                        </tr>
-                    `;
+                        </tr>`;
                 }).join('');
             } else {
                 tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No hay vehículos en la flota</td></tr>';
             }
         }
 
-        // 2. CARGAR TRASLADOS
         async function cargarTraslados() {
-            const { data, error } = await DB.obtenerTrasladosRecientes();
+            const { data } = await DB.obtenerTrasladosRecientes();
             const tbody = document.getElementById('lista-traslados');
             if (data && data.length > 0) {
                 tbody.innerHTML = data.map(t => `
                     <tr>
-                        <td>${t.fecha}</td>
-                        <td><b>${t.placa}</b></td>
+                        <td>${t.fecha || '---'}</td>
+                        <td><b>${t.placa || '---'}</b></td>
                         <td>${t.nombre_del_fallecido || '---'}</td>
-                        <td style="font-size:11px;">${t.origen} ➔ ${t.destino}</td>
+                        <td style="font-size:11px;">${t.origen || '---'} ➔ ${t.destino || '---'}</td>
                         <td>
-                            <button class="btn-wa" onclick='reenviarWhatsApp(${JSON.stringify(t)})'>Reporte WA</button>
+                            <button class="btn-wa" onclick='reenviarWhatsApp(${JSON.stringify(t).replace(/'/g,"&#39;")})'>WA</button>
                         </td>
-                    </tr>
-                `).join('');
+                    </tr>`).join('');
             } else {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Sin salidas recientes</td></tr>';
             }
         }
 
-        // 3. CARGAR AVERÍAS
         async function cargarAverias() {
-            const { data, error } = await DB.obtenerTodasAverias();
+            const { data } = await DB.obtenerTodasAverias();
             const div = document.getElementById('lista-averias');
             if (data && data.length > 0) {
                 div.innerHTML = data.map(av => `
                     <div class="averia-item">
-                        <b style="color:var(--azul-corporativo)">${av.placa_vehiculo}</b><br>
-                        <small>${av.tipo_falla}</small><br>
-                        <span style="font-size:10px; color:#64748b;">${av.regional}</span>
-                    </div>
-                `).join('');
+                        <b style="color:var(--azul-corporativo)">${av.placa_vehiculo || '---'}</b><br>
+                        <small>${av.tipo_falla || '---'}</small><br>
+                        <span style="font-size:10px; color:#64748b;">${av.regional || ''} · ${av.reportado_por || ''}</span>
+                    </div>`).join('');
             } else {
                 div.innerHTML = "<p style='text-align:center; font-size:12px;'>Sin novedades 👍</p>";
             }
         }
 
-        // 4. FUNCIÓN WHATSAPP
         function reenviarWhatsApp(d) {
             const ahora = new Date();
             const saludo = ahora.getHours() < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
-            
             const mensaje = `${saludo}\n\n` +
                 `📢 *Reporte de Salida De Carroza*\n\n` +
                 `📍 *Regional:* ${d.regional || 'Pereira'}\n` +
-                `📅 *Fecha:* ${d.fecha}\n` +
+                `📅 *Fecha:* ${d.fecha || '---'}\n` +
                 `👤 *Coordinador:* ${d.coordinador_en_turno || '---'}\n` +
                 `🕒 *Hora De Salida:* ${d.hora_de_salida || '---'}\n` +
-                `🚗 *Placas Del Vehiculo:* ${d.placa}\n` +
+                `🚗 *Placas Del Vehiculo:* ${d.placa || '---'}\n` +
                 `❓ *Motivo De Salida:* ${d.motivo_de_salida || '---'}\n` +
                 `⚱️ *Nombre Del Fallecido:* ${d.nombre_del_fallecido || '---'}\n` +
                 `🏥 *Lugar de Recogida:* ${d.clinica_hospital_o_rsd || '---'}\n` +
-                `🚩 *Origen:* ${d.origen}\n` +
-                `🏁 *Destino:* ${d.destino}\n` +
+                `🚩 *Origen:* ${d.origen || '---'}\n` +
+                `🏁 *Destino:* ${d.destino || '---'}\n` +
                 `📊 *Km De Salida:* ${d.km__salida || 0}\n` +
-                `👨🏻‍✈️ *Nom: Conductor:* ${d.conductor}\n` +
-                `📞 *N° Telefono:* ${d.nnum_telefono || '---'}\n` +
+                `👨🏻‍✈️ *Conductor:* ${d.conductor || '---'}\n` +
                 `📝 *Observaciones:* ${d.observaciones || '---'}\n\n` +
                 `✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻`;
-
             window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
         }
 
         function cerrarSesion() {
-            localStorage.removeItem('usuario_sesion');
+            localStorage.clear();
             window.location.href = "index.html";
         }
     </script>
