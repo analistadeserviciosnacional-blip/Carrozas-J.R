@@ -2,77 +2,157 @@
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
 const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
 
-// Inicialización
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 const DB = {
     supabase: _supabase,
 
-    // ── 1. SESIÓN ──
+    // ── 1. SESIÓN Y REGISTRO ────────────────────────────
     async login(usuario, clave) {
-        const { data, error } = await _supabase
-            .from('usuarios')
-            .select('*')
-            .eq('usuario', usuario)
-            .eq('password', clave)
-            .single();
-        return { data, ok: !error, error };
+        try {
+            const { data, error } = await _supabase
+                .from('usuarios')
+                .select('*')
+                .eq('usuario', usuario)
+                .eq('password', clave)
+                .single();
+            if (error) throw error;
+            return { data, ok: true };
+        } catch (err) {
+            return { data: null, ok: false, error: err.message };
+        }
     },
 
     async registrarUsuario(datos) {
-        const { error } = await _supabase.from('usuarios').insert([datos]);
-        return { ok: !error, error };
+        try {
+            const { error } = await _supabase
+                .from('usuarios')
+                .insert([datos]);
+            return { ok: !error, error };
+        } catch (err) {
+            return { ok: false, error: err };
+        }
     },
 
-    // ── 2. TRASLADOS (Módulo Salidas/Llegadas) ──
-    async obtenerMisSalidas(nombreConductor) {
-        const { data, error } = await _supabase
-            .from('Traslado') // Verifica que en Supabase sea con 'T' mayúscula
-            .select('*')
-            .ilike('conductor', `%${nombreConductor}%`)
-            .order('created_at', { ascending: false });
-        return { data: data || [], ok: !error };
-    },
-
-    async guardarTraslado(datos) {
-        const { error } = await _supabase.from('Traslado').insert([{
-            ...datos,
-            id_salida: 'JR-' + Date.now(),
-            created_at: new Date().toISOString()
-        }]);
-        return { ok: !error, error };
-    },
-
-    // ── 3. AVERÍAS ──
-    async obtenerMisAverias(nombreConductor) {
-        const { data, error } = await _supabase
-            .from('averias')
-            .select('*')
-            .ilike('reportado_por', `%${nombreConductor}%`)
-            .order('created_at', { ascending: false });
-        return { data: data || [], ok: !error };
-    },
-
-    async guardarAveria(datos) {
-        const { error } = await _supabase.from('averias').insert([datos]);
-        return { ok: !error, error };
-    },
-
-    // ── 4. FLOTA (Gestión de Carrozas) ──
+    // ── 2. FLOTA ────────────────────────────────────────
+    // CORRECCIÓN: nombre de tabla 'carrozas' (minúsculas), consistente en todas las funciones
     async obtenerFlota() {
-        const { data, error } = await _supabase
-            .from('carrozas')
-            .select('*')
-            .order('placa', { ascending: true });
-        return { data: data || [], ok: !error };
+        try {
+            const { data, error } = await _supabase
+                .from('carrozas')
+                .select('*')
+                .order('placa', { ascending: true });
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
+        }
     },
 
-    async actualizarEstadoVehiculo(placa, nuevoEstado, nuevoKm) {
-        const { error } = await _supabase
-            .from('carrozas')
-            .update({ estado: nuevoEstado, kilometraje_actual: nuevoKm })
-            .eq('placa', placa);
-        return { ok: !error, error };
+    // ── 3. TRASLADOS ─────────────────────────────────────
+    // CORRECCIÓN: tabla 'Traslado' (T mayúscula, sin 's'), columna correcta 'nombre_del_fallecido'
+    async guardarTraslado(datos) {
+        try {
+            const payload = {
+                id_salida:                'JR-' + Date.now(),
+                fecha:                    new Date().toLocaleDateString('es-CO'),
+                regional:                 datos.regional || '',
+                conductor:                datos.conductor || '',
+                placa:                    datos.placa || '',
+                motivo_de_salida:         datos.motivo || '',
+                nombre_del_fallecido:     datos.fallecido || '',
+                clinica_hospital_o_rsd:   datos.clinica || '',
+                num_prestacion:           datos.prestacion || '',
+                origen:                   datos.origen || '',
+                destino:                  datos.destino || '',
+                hora_de_salida:           datos.hora_salida || '',
+                hora_ingreso:             datos.hora_ingreso || '',
+                km__salida:               parseInt(datos.km_salida) || 0,
+                km_ingreso:               parseInt(datos.km_ingreso) || 0,
+                total_km:                 parseFloat(datos.total_km) || 0,
+                coordinador_en_turno:     datos.coordinador || '',
+                observaciones:            datos.observaciones || '',
+                imagen1:                  datos.imagen1 || '',
+                imagen2:                  datos.imagen2 || '',
+                imagen3:                  datos.imagen3 || '',
+                imagen4:                  datos.imagen4 || '',
+                firma:                    datos.firma || ''
+            };
+            const { error } = await _supabase.from('Traslado').insert([payload]);
+            return { ok: !error, error };
+        } catch (err) {
+            return { ok: false, error: err };
+        }
+    },
+
+    async obtenerTrasladosRecientes() {
+        try {
+            const { data, error } = await _supabase
+                .from('Traslado')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
+        }
+    },
+
+    async obtenerMisSalidas(nombreConductor) {
+        try {
+            const { data, error } = await _supabase
+                .from('Traslado')
+                .select('*')
+                .ilike('conductor', `%${nombreConductor}%`)
+                .order('created_at', { ascending: false })
+                .limit(10);
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
+        }
+    },
+
+    // ── 4. AVERÍAS ───────────────────────────────────────
+    async guardarAveria(datos) {
+        try {
+            const { error } = await _supabase
+                .from('averias')
+                .insert([datos]);
+            return { ok: !error, error };
+        } catch (err) {
+            return { ok: false, error: err };
+        }
+    },
+
+    // CORRECCIÓN: función faltante que usaba dashboard.html
+    async obtenerTodasAverias() {
+        try {
+            const { data, error } = await _supabase
+                .from('averias')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(20);
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
+        }
+    },
+
+    async obtenerMisAverias(nombreConductor) {
+        try {
+            const { data, error } = await _supabase
+                .from('averias')
+                .select('*')
+                .ilike('reportado_por', `%${nombreConductor}%`)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
+        }
     }
 };
 
