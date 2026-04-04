@@ -115,11 +115,12 @@
         };
 
         async function cargarSalidasRecientes(nombre) {
+            // CORRECCIÓN: Usamos 'Traslado' (con T) y ordenamos por 'fecha'
             const { data, error } = await DB.supabase
-                .from('traslados') // Asegúrate que el nombre sea 'traslados'
-                .select('placa, motivo, destino, created_at')
+                .from('Traslado') 
+                .select('placa, motivo, destino, fecha')
                 .ilike('conductor', `%${nombre}%`)
-                .order('created_at', { ascending: false })
+                .order('fecha', { ascending: false })
                 .limit(3);
 
             const tabla = document.getElementById('tabla-salidas');
@@ -131,8 +132,8 @@
             tabla.innerHTML = data.map(s => `
                 <tr>
                     <td><b>${s.placa}</b><br><small>${s.destino || 'Local'}</small></td>
-                    <td style="font-size: 11px;">${new Date(s.created_at).toLocaleDateString()}</td>
-                    <td style="text-align: right;"><span class="servicio-pill">${s.motivo.toUpperCase()}</span></td>
+                    <td style="font-size: 11px;">${s.fecha}</td>
+                    <td style="text-align: right;"><span class="servicio-pill">${(s.motivo || 'SERVICIO').toUpperCase()}</span></td>
                 </tr>
             `).join('');
         }
