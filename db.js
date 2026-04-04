@@ -7,7 +7,12 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 const DB = {
     supabase: _supabase,
 
-    // ── SECCIÓN: USUARIOS (LOGIN Y REGISTRO CON ROLES) ─────
+    // ── SECCIÓN: USUARIOS (LOGIN Y REGISTRO) ───────────────
+    
+    /**
+     * Login validando usuario, contraseña y rol (admin/conductor)
+     * Requiere que la columna 'rol' exista en la tabla 'usuarios'
+     */
     async login(usuario, clave, rolEsperado) {
         try {
             const { data, error } = await _supabase
@@ -15,7 +20,7 @@ const DB = {
                 .select('*')
                 .eq('usuario', usuario)
                 .eq('password', clave)
-                .eq('rol', rolEsperado) // Valida contra el botón seleccionado
+                .eq('rol', rolEsperado) // Verifica el rol según el botón pulsado
                 .single();
             
             if (error) throw error;
@@ -35,7 +40,7 @@ const DB = {
                     password: datos.password,
                     nombre: datos.nombre,
                     telefono: datos.telefono,
-                    rol: 'conductor' // Registro por defecto
+                    rol: 'conductor' // Registro por defecto como conductor
                 }]);
 
             if (error) throw error;
@@ -48,7 +53,8 @@ const DB = {
         }
     },
 
-    // ── SECCIÓN: TRASLADOS (CARGA Y GUARDADO) ──────────────
+    // ── SECCIÓN: TRASLADOS ──────────────────────────────────
+    
     async guardarTraslado(datos) {
         try {
             const { error } = await _supabase
@@ -92,13 +98,38 @@ const DB = {
                 .select('*')
                 .order('id', { ascending: false })
                 .limit(10);
-            return { data: data || [], error };
+            return { data: data || [], ok: true };
         } catch (err) {
-            return { data: [], error: err };
+            return { data: [], ok: false };
         }
     },
 
     // ── SECCIÓN: AVERÍAS ────────────────────────────────────
+    
+    async guardarAveria(datos) {
+        try {
+            const { error } = await _supabase
+                .from('Averias')
+                .insert([{
+                    reportado_por: datos.reportado_por,
+                    regional: datos.regional,
+                    placa_vehiculo: datos.placa_vehiculo,
+                    tipo_falla: datos.tipo_falla,
+                    descripcion_sintomas: datos.descripcion_sintomas,
+                    observaciones: datos.observaciones || "",
+                    tipo_vehiculo: datos.tipo_vehiculo,
+                    imagen1: datos.imagen1 || "",
+                    imagen2: datos.imagen2 || "",
+                    imagen3: datos.imagen3 || "",
+                    imagen4: datos.imagen4 || "",
+                    created_at: new Date().toISOString()
+                }]);
+            return { ok: !error, error };
+        } catch (err) {
+            return { ok: false, error: err };
+        }
+    },
+
     async obtenerTodasAverias() {
         try {
             const { data, error } = await _supabase
@@ -106,13 +137,14 @@ const DB = {
                 .select('*')
                 .order('id', { ascending: false })
                 .limit(50);
-            return { data: data || [], error };
+            return { data: data || [], ok: true };
         } catch (err) {
-            return { data: [], error: err };
+            return { data: [], ok: false };
         }
     },
 
     // ── SECCIÓN: CARROZAS (FLOTA) ───────────────────────────
+    
     async obtenerFlota() {
         try {
             const { data, error } = await _supabase
@@ -120,10 +152,10 @@ const DB = {
                 .select('*')
                 .order('placa', { ascending: true });
             if (error) throw error;
-            return { data: data || [], error: null };
+            return { data: data || [], ok: true };
         } catch (err) {
             console.error("Error cargando flota:", err);
-            return { data: [], error: err };
+            return { data: [], ok: false };
         }
     },
 
@@ -150,6 +182,5 @@ const DB = {
     }
 };
 
-// Exportación global para acceso desde Dashboard e Index
-window._supabase = _supabase;
+// Exponer el objeto DB globalmente
 window.DB = DB;
