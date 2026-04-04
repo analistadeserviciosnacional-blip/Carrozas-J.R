@@ -4,86 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Control de Acceso Corporativo</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.0/dist/umd/supabase.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --azul-principal: #004a99; 
-            --azul-cielo: #e3f2fd; 
-            --blanco: #ffffff; 
-            --gris-suave: #f0f4f8;
-            --texto-oscuro: #1a3a6d;
-            --exito: #10b981;
+            --azul-principal: #004a99; --azul-cielo: #e3f2fd; --blanco: #ffffff; 
+            --gris-suave: #f0f4f8; --texto-oscuro: #1a3a6d; --exito: #10b981;
         }
-        
         body { 
             background: linear-gradient(135deg, var(--azul-cielo) 0%, #bbdefb 100%); 
-            font-family: 'DM Sans', sans-serif; 
-            display: flex; align-items: center; justify-content: center; 
-            height: 100vh; margin: 0; overflow: hidden;
+            font-family: 'DM Sans', sans-serif; display: flex; align-items: center; 
+            justify-content: center; min-height: 100vh; margin: 0;
         }
-
         .login-card { 
             background: var(--blanco); padding: 40px 30px; border-radius: 32px; 
             width: 100%; max-width: 360px; box-shadow: 0 25px 50px rgba(0,74,153,0.15); 
             text-align: center; border: 1px solid rgba(255,255,255,0.7);
         }
-
         .logo-container { 
             width: 70px; height: 70px; background: var(--azul-principal); border-radius: 20px; 
             margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; 
             color: white; font-size: 26px; font-weight: 800; transform: rotate(-5deg);
             box-shadow: 0 10px 20px rgba(0,74,153,0.2);
         }
-
         h2 { color: var(--texto-oscuro); font-size: 24px; margin-bottom: 5px; font-weight: 700; }
         p { color: #64748b; font-size: 14px; margin-bottom: 25px; }
-
         input { 
-            width: 100%; padding: 15px; margin-bottom: 12px; 
-            border: 1.5px solid #e2e8f0; border-radius: 14px; 
-            background: #f8fafc; box-sizing: border-box; outline: none;
-            font-size: 15px; transition: 0.3s;
+            width: 100%; padding: 15px; margin-bottom: 12px; border: 1.5px solid #e2e8f0; 
+            border-radius: 14px; background: #f8fafc; box-sizing: border-box; 
+            outline: none; font-size: 15px; transition: 0.3s;
         }
-
         input:focus { border-color: var(--azul-principal); background: white; }
-
         .btn-login { 
             width: 100%; padding: 16px; background: var(--azul-principal); 
-            color: white; border: none; border-radius: 14px; 
-            font-weight: 700; font-size: 16px; cursor: pointer; 
-            transition: 0.3s; margin-top: 5px;
+            color: white; border: none; border-radius: 14px; font-weight: 700; 
+            font-size: 16px; cursor: pointer; transition: 0.3s; margin-top: 5px;
             box-shadow: 0 8px 15px rgba(0,74,153,0.2);
         }
-
-        .btn-login:hover { transform: translateY(-2px); box-shadow: 0 12px 20px rgba(0,74,153,0.3); }
-        .btn-login:disabled { background: #94a3b8; cursor: not-allowed; transform: none; }
-
-        .link-reg { 
-            color: var(--azul-principal); font-weight: 700; cursor: pointer; 
-            display: block; margin-top: 20px; font-size: 14px; text-decoration: none;
-        }
-
-        /* Estilos del Modal de Registro */
-        .modal {
-            display: none; position: fixed; z-index: 1000;
-            left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,74,153,0.3); backdrop-filter: blur(4px);
-        }
-
-        .modal-content {
-            background-color: white; margin: 8% auto; padding: 30px;
-            border-radius: 28px; width: 90%; max-width: 350px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
-            text-align: center;
-        }
-
-        .btn-reg-exec { background: var(--exito); box-shadow: 0 8px 15px rgba(16,185,129,0.2); }
-        
-        #error-msg { 
-            color: #e11d48; font-size: 13px; margin-top: 15px; 
-            display: none; background: #fff1f2; padding: 10px; border-radius: 10px; 
-        }
+        .btn-login:disabled { background: #94a3b8; cursor: not-allowed; }
+        .link-reg { color: var(--azul-principal); font-weight: 700; cursor: pointer; display: block; margin-top: 20px; font-size: 14px; text-decoration: none; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,74,153,0.3); backdrop-filter: blur(4px); }
+        .modal-content { background-color: white; margin: 8% auto; padding: 30px; border-radius: 28px; width: 90%; max-width: 350px; text-align: center; }
+        .modal-content input { text-align: left; }
+        #error-msg { color: #e11d48; font-size: 13px; margin-top: 15px; display: none; background: #fff1f2; padding: 10px; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -92,14 +55,10 @@
         <div class="logo-container">JR</div>
         <h2>Bienvenido</h2>
         <p>Inicia sesión para continuar</p>
-
         <input type="text" id="user" placeholder="Usuario o Cédula">
         <input type="password" id="pass" placeholder="Contraseña">
-        
         <button class="btn-login" id="btn-action" onclick="login()">INGRESAR AL SISTEMA</button>
-        
         <span class="link-reg" onclick="abrirRegistro()">¿No tienes cuenta? Regístrate aquí</span>
-        
         <div id="error-msg"></div>
     </div>
 
@@ -107,55 +66,46 @@
         <div class="modal-content">
             <h2 style="font-size: 20px;">Crear Cuenta Nueva</h2>
             <p style="margin-bottom: 20px;">Completa tus datos de conductor</p>
-            
             <input type="text" id="reg_nombre" placeholder="Nombre Completo">
             <input type="text" id="reg_usuario" placeholder="Cédula (Usuario)">
             <input type="text" id="reg_telefono" placeholder="Teléfono">
             <input type="password" id="reg_password" placeholder="Contraseña">
-            
-            <button class="btn-login btn-reg-exec" id="btn-reg-exec" onclick="ejecutarRegistro()">REGISTRARME</button>
-            
+            <button class="btn-login" style="background: var(--exito);" id="btn-reg-exec" onclick="ejecutarRegistro()">REGISTRARME</button>
             <button onclick="cerrarRegistro()" style="background:none; border:none; color:#64748b; margin-top:15px; cursor:pointer; font-weight:600;">Volver al inicio</button>
         </div>
     </div>
 
     <script src="db.js"></script>
     <script>
-        // Funciones para controlar el Modal
-        function abrirRegistro() { 
-            document.getElementById('modalRegistro').style.display = "block"; 
+        function abrirRegistro() {
+            document.getElementById('modalRegistro').style.display = "block";
             document.getElementById('error-msg').style.display = "none";
         }
         function cerrarRegistro() { document.getElementById('modalRegistro').style.display = "none"; }
 
-        // Lógica de Inicio de Sesión
         async function login() {
             const u = document.getElementById('user').value.trim();
             const p = document.getElementById('pass').value.trim();
             const btn = document.getElementById('btn-action');
             const errorDiv = document.getElementById('error-msg');
 
-            if (!u || !p) {
-                mostrarError("Ingresa usuario y contraseña");
-                return;
-            }
+            if (!u || !p) { mostrarError("Ingresa usuario y contraseña"); return; }
 
             btn.disabled = true;
             btn.innerText = "VERIFICANDO...";
             errorDiv.style.display = "none";
 
             try {
+                if (typeof DB === 'undefined') throw new Error("El sistema de conexión (db.js) no se ha cargado.");
+
                 const res = await DB.login(u, p);
 
                 if (res.ok && res.data) {
                     const usuario = res.data;
-                    // Almacenamiento de datos de sesión según tu estructura de apps anteriores
+                    // CORRECCIÓN: se usa UNA sola clave consistente en todos los archivos
                     localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
-                    localStorage.setItem('usuario_data', JSON.stringify(usuario));
-                    localStorage.setItem('conductor_nombre', usuario.nombre);
 
-                    // Redirección por Rol
-                    if (u.toLowerCase() === 'admin') {
+                    if (u.toLowerCase() === 'admin' || (usuario.rol && usuario.rol.toLowerCase() === 'admin')) {
                         window.location.href = "dashboard.html";
                     } else {
                         window.location.href = "panel_conductor.html";
@@ -165,47 +115,40 @@
                 }
             } catch (err) {
                 console.error("Error en Login:", err);
-                mostrarError("Error técnico de conexión");
+                mostrarError("Error: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerText = "INGRESAR AL SISTEMA";
             }
         }
 
-        // Lógica de Registro de Usuario
         async function ejecutarRegistro() {
             const btn = document.getElementById('btn-reg-exec');
             const datos = {
-                nombre: document.getElementById('reg_nombre').value.trim(),
-                usuario: document.getElementById('reg_usuario').value.trim(),
+                nombre:   document.getElementById('reg_nombre').value.trim(),
+                usuario:  document.getElementById('reg_usuario').value.trim(),
                 telefono: document.getElementById('reg_telefono').value.trim(),
-                password: document.getElementById('reg_password').value.trim()
+                password: document.getElementById('reg_password').value.trim(),
+                rol:      'conductor'
             };
 
-            // Validación de campos obligatorios
-            if(!datos.nombre || !datos.usuario || !datos.password) {
-                alert("Por favor, llena los campos obligatorios (Nombre, Usuario y Contraseña)");
-                return;
+            if (!datos.nombre || !datos.usuario || !datos.password) {
+                alert("Por favor, llena los campos obligatorios"); return;
             }
 
             btn.disabled = true;
             btn.innerText = "PROCESANDO...";
 
             try {
-                // Llamada a la función registrarUsuario en db.js
                 const res = await DB.registrarUsuario(datos);
-                
-                if(res.ok) {
-                    alert("¡Registro exitoso! Ya puedes iniciar sesión con tu número de cédula.");
+                if (res.ok) {
+                    alert("¡Registro exitoso! Ya puedes iniciar sesión.");
                     cerrarRegistro();
                 } else {
-                    // Muestra el mensaje de error específico de Supabase si existe
-                    const msgError = res.error?.message || "Ocurrió un problema en el servidor";
-                    alert("No se pudo completar el registro: " + msgError);
+                    alert("Error: " + (res.error?.message || "Problema en el servidor"));
                 }
             } catch (err) {
-                console.error("Error en Registro:", err);
-                alert("Fallo crítico en el sistema de registro");
+                alert("Fallo crítico en el registro");
             } finally {
                 btn.disabled = false;
                 btn.innerText = "REGISTRARME";
@@ -218,8 +161,7 @@
             errorDiv.style.display = "block";
         }
 
-        // Permitir ingreso con la tecla Enter
-        document.addEventListener('keypress', (e) => { 
+        document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 if (document.getElementById('modalRegistro').style.display === "block") {
                     ejecutarRegistro();
