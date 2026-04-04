@@ -7,20 +7,40 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 const DB = {
     supabase: _supabase,
 
-    // ── SECCIÓN: AUTENTICACIÓN (Login) ─────────────────────
+    // ── SECCIÓN: AUTENTICACIÓN ─────────────────────
     async login(usuario, clave) {
         try {
             const { data, error } = await _supabase
                 .from('usuarios')
                 .select('*')
                 .eq('usuario', usuario)
-                .eq('clave', clave)
+                .eq('password', clave) // Corregido: Tu tabla usa 'password', no 'clave'
                 .single();
+            
             if (error) throw error;
             return { data, ok: true };
         } catch (err) {
             console.error("Error en login:", err.message);
             return { data: null, ok: false, error: err };
+        }
+    },
+
+    async registrarUsuario(datos) {
+        try {
+            const { data, error } = await _supabase
+                .from('usuarios')
+                .insert([{
+                    usuario: datos.usuario,       // Cédula
+                    password: datos.password,    // Contraseña
+                    nombre: datos.nombre,        // Nombre Completo
+                    telefono: datos.telefono     // Teléfono
+                }]);
+
+            if (error) throw error;
+            return { ok: true, data };
+        } catch (err) {
+            console.error("Error en registro:", err.message);
+            return { ok: false, error: err };
         }
     },
 
@@ -149,30 +169,8 @@ const DB = {
             return { data: [], error: err };
         }
     }
-},
-    // Dentro del objeto DB en db.js
-async registrarUsuario(datos) {
-    try {
-        const { data, error } = await _supabase
-            .from('usuarios')
-            .insert([{
-                usuario: datos.usuario,       // Cédula
-                password: datos.password,    // Contraseña
-                nombre: datos.nombre,        // Nombre Completo
-                telefono: datos.telefono     // Teléfono
-            }]);
+};
 
-        if (error) {
-            console.error("Error detallado de Supabase:", error);
-            return { ok: false, error };
-        }
-        return { ok: true, data };
-    } catch (err) {
-        console.error("Error de excepción:", err);
-        return { ok: false, error: err };
-    }
-}
-
-// Exportación global para que todos los HTML lo vean
+// Exportación global
 window._supabase = _supabase;
 window.DB = DB;
