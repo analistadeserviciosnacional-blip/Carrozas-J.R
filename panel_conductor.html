@@ -53,6 +53,11 @@
             <i>⚠️</i>
             <span>Reportar Avería</span>
         </a>
+        <a href="solicitud_apoyo.html" class="card-condu" style="grid-column: 1 / -1; border: 2px solid #10b981; position:relative;">
+            <div id="badge-apoyo" style="display:none; position:absolute; top:-6px; right:-6px; background:#ef4444; color:white; font-size:10px; font-weight:800; padding:3px 7px; border-radius:8px;">NUEVO</div>
+            <i>🤝</i>
+            <span>Solicitudes de Apoyo</span>
+        </a>
     </div>
 
     <div class="monitor-mini">
@@ -103,6 +108,7 @@
                 cargarSalidasRecientes(nombre);
                 cargarResumenAverias(nombre);
                 cargarMonitorFlota();
+                verificarApoyosPendientes();
             } catch (e) {
                 console.error("Error de sesión:", e);
                 window.location.href = "index.html";
@@ -175,6 +181,24 @@
                         </td>
                     </tr>`;
             }).join('');
+        }
+
+        async function verificarApoyosPendientes() {
+            try {
+                const regional = localStorage.getItem('jr_regional_usuario') || 'Pereira';
+                const { data } = await DB.supabase
+                    .from('solicitudes_apoyo')
+                    .select('id')
+                    .eq('estado', 'pendiente')
+                    .or('alcance.eq.nacional,regional_solicitante.eq.' + regional);
+                if (data && data.length > 0) {
+                    const badge = document.getElementById('badge-apoyo');
+                    if (badge) {
+                        badge.style.display = 'block';
+                        badge.textContent = data.length;
+                    }
+                }
+            } catch(e) {}
         }
 
         function cerrarSesion() {
