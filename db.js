@@ -56,32 +56,35 @@ const DB = {
     // total_km, coordinador_en_turno, observaciones, firma, imagen1...
     async guardarTraslado(datos) {
         try {
+            // Construimos el payload solo con columnas ASCII seguras.
+            // Las columnas con tildes (clínica_hospital_o_rsd, numero_prestación)
+            // se añaden dinámicamente para evitar error de schema cache.
             const payload = {
-                id_salida:              'JR-' + Date.now(),
-                fecha:                  new Date().toLocaleDateString('es-CO'),
-                regional:               datos.regional       || '',
-                conductor:              datos.conductor      || '',
-                nnum_telefono:          datos.telefono       || '',
-                placa:                  datos.placa          || '',
-                motivo_de_salida:       datos.motivo         || '',
-                nombre_del_fallecido:   datos.fallecido      || '',
-                'clínica_hospital_o_rsd': datos.clinica      || '',
-                'numero_prestación':    datos.prestacion     || '',
-                origen:                 datos.origen         || '',
-                destino:                datos.destino        || '',
-                hora_de_salida:         datos.hora_salida    || '',
-                hora_de_ingreso:        datos.hora_ingreso   || '',
-                km__salida:             datos.km_salida      || '',
-                km__ingreso:            datos.km_ingreso     || '',
-                total_km:               datos.total_km       || '',
-                coordinador_en_turno:   datos.coordinador    || '',
-                observaciones:          datos.observaciones  || '',
-                firma:                  datos.firma          || '',
-                imagen1:                datos.imagen1        || '',
-                imagen2:                datos.imagen2        || '',
-                imagen3:                datos.imagen3        || '',
-                imagen4:                datos.imagen4        || ''
+                id_salida:            'JR-' + Date.now(),
+                fecha:                new Date().toLocaleDateString('es-CO'),
+                regional:             datos.regional      || '',
+                conductor:            datos.conductor     || '',
+                nnum_telefono:        datos.telefono      || '',
+                placa:                datos.placa         || '',
+                motivo_de_salida:     datos.motivo        || '',
+                nombre_del_fallecido: datos.fallecido     || '',
+                origen:               datos.origen        || '',
+                destino:              datos.destino       || '',
+                hora_de_salida:       datos.hora_salida   || '',
+                hora_de_ingreso:      datos.hora_ingreso  || '',
+                km__salida:           datos.km_salida     || '',
+                km__ingreso:          datos.km_ingreso    || '',
+                total_km:             datos.total_km      || '',
+                coordinador_en_turno: datos.coordinador   || '',
+                observaciones:        datos.observaciones || '',
+                firma:                datos.firma         || '',
+                imagen1:              datos.imagen1       || '',
+                imagen2:              datos.imagen2       || '',
+                imagen3:              datos.imagen3       || '',
+                imagen4:              datos.imagen4       || ''
             };
+            payload['clinica_hospital_o_rsd'] = datos.clinica    || '';
+            payload['numero_prestacion']      = datos.prestacion || '';
             const { error } = await _supabase.from('Traslado').insert([payload]);
             return { ok: !error, error };
         } catch (err) {
