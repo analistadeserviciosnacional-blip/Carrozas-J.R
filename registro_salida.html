@@ -34,6 +34,46 @@
         .btn-save { background: var(--azul-principal); color: white; }
         .btn-wa { background: var(--verde-wa); color: white; display: none; text-align: center; }
         .btn-volver { width: 100%; padding: 13px; border: 2px solid #cbd5e1; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 10px; background: var(--blanco); color: #64748b; }
+        /* Botones de acción finales */
+        .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .btn-accion-guardar {
+            width: 100%; padding: 16px; border: none; border-radius: 14px;
+            font-weight: 800; font-size: 15px; cursor: pointer;
+            background: var(--azul-principal); color: white;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 14px rgba(0,74,153,0.25); transition: 0.2s;
+        }
+        .btn-accion-guardar:active { transform: scale(0.98); }
+        .btn-accion-guardar:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+        .btn-accion-wa {
+            width: 100%; padding: 16px; border: none; border-radius: 14px;
+            font-weight: 800; font-size: 15px; cursor: pointer;
+            background: #25D366; color: white;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 14px rgba(37,211,102,0.3); transition: 0.2s;
+        }
+        .btn-accion-wa:active { transform: scale(0.98); }
+        .btn-accion-fotos {
+            width: 100%; padding: 14px; border: none; border-radius: 14px;
+            font-weight: 700; font-size: 14px; cursor: pointer;
+            background: #128C7E; color: white;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: 0.2s;
+        }
+        .btn-accion-fotos:active { transform: scale(0.98); }
+        .btn-accion-volver {
+            width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px;
+            font-weight: 600; font-size: 14px; cursor: pointer;
+            background: transparent; color: #94a3b8;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: 0.2s;
+        }
+        .btn-accion-volver:active { background: #f1f5f9; }
+        .instruccion-fotos {
+            background: #fff9e6; border: 1px solid #f59e0b; border-radius: 12px;
+            padding: 12px 14px; font-size: 12px; color: #92400e;
+            text-align: center; line-height: 1.6; display: none;
+        }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     </style>
 </head>
@@ -129,10 +169,30 @@
             <option value="3110000000" data-nombre="Logística J.R.">Logística J.R.</option>
         </select>
 
-        <button class="btn btn-save" id="btn-envio" onclick="guardarTodo()">1. GUARDAR EN SISTEMA</button>
-        <button class="btn btn-wa" id="btn-wa" onclick="enviarWA()">2. ENVIAR POR WHATSAPP ✅</button>
-        <!-- BOTÓN VOLVER al fondo, visible en móvil -->
-        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
+        <div class="acciones">
+            <!-- Guardar -->
+            <button class="btn-accion-guardar" id="btn-envio" onclick="guardarTodo()">
+                <span>💾</span> GUARDAR EN SISTEMA
+            </button>
+
+            <!-- Bloque WhatsApp — aparece tras guardar exitosamente -->
+            <div id="bloque-wa" style="display:none; display:flex; flex-direction:column; gap:8px;">
+                <button class="btn-accion-wa" id="btn-wa-texto" onclick="enviarWA()">
+                    <span>💬</span> ENVIAR REPORTE POR WHATSAPP
+                </button>
+                <button class="btn-accion-fotos" id="btn-wa-fotos" onclick="compartirFotos()">
+                    <span>📸</span> COMPARTIR FOTOS
+                </button>
+                <div class="instruccion-fotos" id="instruccion-fotos">
+                    <b>📱 Descarga lista.</b> Abre WhatsApp → busca el coordinador → adjunta las fotos desde tu galería.
+                </div>
+            </div>
+
+            <!-- Volver -->
+            <button class="btn-accion-volver" onclick="irAtras()">
+                ← Volver
+            </button>
+        </div>
     </div>
 </div>
 
@@ -274,17 +334,20 @@
         if (res.ok) {
             btn.innerText = "✓ GUARDADO EXITOSO";
             btn.style.background = "#25D366";
-            document.getElementById('btn-wa').style.display = "block";
+            document.getElementById('bloque-wa').style.display = 'flex';
+            document.getElementById('bloque-wa').style.flexDirection = 'column';
+            document.getElementById('bloque-wa').style.gap = '8px';
         } else {
             alert("Error: " + (res.error?.message || res.error));
             btn.disabled = false;
-            btn.innerText = "1. GUARDAR EN SISTEMA";
+            btn.innerText = "💾 GUARDAR EN SISTEMA";
         }
     }
 
     function enviarWA() {
         const num = document.getElementById('select-coordinador').value;
         const saludo = new Date().getHours() < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
+        const cantFotos = fotosArray.length;
         
         const msg = saludo + "\n\n" +
             "📢 *Reporte de Salida De Carroza*\n\n" +
@@ -302,10 +365,55 @@
             "📊 *Km De Ingreso:* " + datosFinales.km_ingreso + "\n" +
             "🛣️ *Total Recorrido:* " + datosFinales.total_km + " KM\n" +
             "👨🏻‍✈️ *Nom. Conductor:* " + datosFinales.conductor + "\n\n" +
-            "📝 *Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
+            "📝 *Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n" +
+            (cantFotos > 0 ? "📸 *Evidencias:* " + cantFotos + " foto(s) adjunta(s) por separado\n" : "") + "\n" +
             "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
 
         window.open("https://wa.me/57" + num + "?text=" + encodeURIComponent(msg), '_blank');
+    }
+
+    // Descarga las fotos al dispositivo para que el conductor las adjunte manualmente en WhatsApp
+    function compartirFotos() {
+        if (fotosArray.length === 0) {
+            alert("No hay fotos para compartir.");
+            return;
+        }
+
+        // Intentar Web Share API (funciona en móvil Android/iOS)
+        if (navigator.share && navigator.canShare) {
+            const fetchBlobs = fotosArray.map((dataUrl, i) => {
+                return fetch(dataUrl)
+                    .then(r => r.blob())
+                    .then(blob => new File([blob], 'evidencia_' + (i+1) + '_' + datosFinales.placa + '.jpg', { type: 'image/jpeg' }));
+            });
+
+            Promise.all(fetchBlobs).then(files => {
+                if (navigator.canShare({ files })) {
+                    navigator.share({
+                        files: files,
+                        title: 'Evidencias J.R. - ' + datosFinales.placa,
+                        text: 'Fotos del servicio - Placa: ' + datosFinales.placa
+                    }).catch(() => descargarFotos());
+                } else {
+                    descargarFotos();
+                }
+            }).catch(() => descargarFotos());
+        } else {
+            // Fallback: descarga las fotos
+            descargarFotos();
+        }
+    }
+
+    function descargarFotos() {
+        fotosArray.forEach((dataUrl, i) => {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = 'evidencia_' + (i+1) + '_' + (datosFinales.placa || 'JR') + '.jpg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+        document.getElementById('instruccion-fotos').style.display = 'block';
     }
 </script>
 </body>
