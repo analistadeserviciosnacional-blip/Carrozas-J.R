@@ -269,25 +269,28 @@
             }
         }
 
-        function reenviarWhatsApp(d) {
+        function reenviarWhatsApp(btn) {
+            const d = JSON.parse(btn.getAttribute('data-t'));
             const hora = new Date().getHours();
-            const saludo = hora < 12 ? "Buenos dias" : "Buenas tardes";
+            const saludo = hora < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
             const mensaje = saludo + "\n\n" +
-                "REPORTE DE SALIDA DE CARROZA\n\n" +
-                "Regional: " + (d.regional || 'Pereira') + "\n" +
-                "Fecha: " + (d.fecha || '---') + "\n" +
-                "Coordinador: " + (d.coordinador_en_turno || '---') + "\n" +
-                "Hora De Salida: " + (d.hora_de_salida || '---') + "\n" +
-                "Placa: " + (d.placa || '---') + "\n" +
-                "Motivo: " + (d.motivo_de_salida || '---') + "\n" +
-                "Fallecido: " + (d.nombre_del_fallecido || '---') + "\n" +
-                "Recogida: " + (d.clinica_hospital_o_rsd || '---') + "\n" +
-                "Origen: " + (d.origen || '---') + "\n" +
-                "Destino: " + (d.destino || '---') + "\n" +
-                "Km Salida: " + (d.km__salida || 0) + "\n" +
-                "Conductor: " + (d.conductor || '---') + "\n" +
-                "Observaciones: " + (d.observaciones || '---') + "\n\n" +
-                "La Carroza se Encuentra: Todo En Orden";
+                "📢 *Reporte de Salida De Carroza*\n\n" +
+                "📍 *Regional:* " + (d.regional || '---') + "\n" +
+                "📅 *Fecha:* " + (d.fecha || '---') + "\n" +
+                "👤 *Coordinador:* " + (d.coordinador_en_turno || '---') + "\n" +
+                "🕒 *Hora De Salida:* " + (d.hora_de_salida || '---') + "\n" +
+                "🚗 *Placa:* " + (d.placa || '---') + "\n" +
+                "❓ *Motivo:* " + (d.motivo_de_salida || '---') + "\n" +
+                "⚱️ *Fallecido:* " + (d.nombre_del_fallecido || '---') + "\n" +
+                "🏥 *Recogida:* " + (d.clinica_hospital_o_rsd || '---') + "\n" +
+                "🚩 *Origen:* " + (d.origen || '---') + "\n" +
+                "🏁 *Destino:* " + (d.destino || '---') + "\n" +
+                "📊 *KM Salida:* " + (d.km__salida || '---') + "\n" +
+                "📊 *KM Ingreso:* " + (d.km__ingreso || '---') + "\n" +
+                "👨🏻‍✈️ *Conductor:* " + (d.conductor || '---') + "\n" +
+                "📞 *Teléfono:* " + (d.nnum_telefono || '---') + "\n" +
+                "📝 *Observaciones:* " + (d.observaciones || 'Sin novedades') + "\n\n" +
+                "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
             window.open("https://wa.me/?text=" + encodeURIComponent(mensaje), '_blank');
         }
 
