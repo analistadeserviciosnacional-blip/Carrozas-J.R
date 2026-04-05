@@ -11,8 +11,9 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 10px; }
         .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
-        .header { background: var(--rojo); color: white; padding: 20px; text-align: center; position: relative; }
-        .btn-volver { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
+        .header { background: var(--rojo); color: white; padding: 20px; text-align: center; }
+        .header h2 { font-size: 18px; margin: 0; }
+        .header p { font-size: 10px; opacity: 0.9; margin-top: 5px; font-weight: bold; }
         .content { padding: 20px; }
         .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #546e7a; margin: 20px 0 10px; border-bottom: 2px solid var(--celeste); padding-bottom: 5px; font-weight: 700; }
         label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; margin-top: 10px; }
@@ -27,6 +28,7 @@
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
         .btn-db { background: var(--rojo); color: white; }
         .btn-wa { background: var(--verde); color: white; }
+        .btn-volver { width: 100%; padding: 14px; border: 2px solid #cbd5e1; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 10px; background: var(--blanco); color: #64748b; }
         .btn-action:disabled { opacity: 0.6; cursor: not-allowed; }
         .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
     </style>
@@ -35,9 +37,8 @@
 
 <div class="container">
     <div class="header">
-        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
         <h2>⚠️ REPORTE DE AVERÍA</h2>
-        <p id="rol-info" style="font-size:10px; opacity:0.9; margin-top:5px; font-weight:bold;"></p>
+        <p id="rol-info"></p>
     </div>
 
     <div class="content">
@@ -85,6 +86,7 @@
 
         <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
         <button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
+        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
     </div>
 </div>
 
@@ -93,13 +95,12 @@
 let fotosArray = [];
 
 window.onload = async () => {
-    // CORRECCIÓN: clave unificada 'usuario_sesion'
     const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
     if (!sesion.nombre) { window.location.href = 'index.html'; return; }
 
     document.getElementById('reportado_por').value = sesion.nombre;
     const esAdmin = (sesion.usuario || '').toLowerCase() === 'admin' || (sesion.rol || '').toLowerCase() === 'admin';
-    document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : "CONDUCTOR").toUpperCase();
+    document.getElementById('rol-info').innerText = "SESIÓN: " + (esAdmin ? "ADMINISTRADOR" : "CONDUCTOR");
 
     const select = document.getElementById('vehiculo');
     try {
@@ -108,15 +109,15 @@ window.onload = async () => {
             select.innerHTML = '<option value="">Seleccionar...</option>';
             res.data.forEach(v => {
                 let opt = document.createElement('option');
-                opt.value = `${v.placa}|${v.modelo || 'Vehículo'}`;
-                opt.textContent = `${v.placa} — ${v.modelo || ''}`;
+                opt.value = v.placa + '|' + (v.modelo || 'Vehículo');
+                opt.textContent = v.placa + ' — ' + (v.modelo || '');
                 select.appendChild(opt);
             });
         } else {
             select.innerHTML = '<option value="">No hay flota registrada</option>';
         }
     } catch (err) {
-        select.innerHTML = '<option value="">Error al conectar con la base de datos</option>';
+        select.innerHTML = '<option value="">Error al conectar</option>';
     }
 };
 
@@ -137,9 +138,10 @@ function procesarFotos(input) {
 }
 
 function renderGaleria() {
-    document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => `
-        <div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`).join('');
-    document.getElementById('upload-text').innerText = `📸 ${fotosArray.length} de 4 fotos cargadas`;
+    document.getElementById('galeria').innerHTML = fotosArray.map((img, i) =>
+        '<div class="thumb-wrap"><img src="' + img + '"><button class="btn-del" onclick="eliminarFoto(' + i + ')">x</button></div>'
+    ).join('');
+    document.getElementById('upload-text').innerText = fotosArray.length + ' de 4 fotos cargadas';
 }
 
 function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
@@ -149,66 +151,64 @@ async function guardarAveria() {
     const v_select = document.getElementById('vehiculo').value;
     const falla = document.getElementById('tipo_falla').value;
 
-    if (!v_select || !falla) { 
-        alert("Por favor selecciona el Vehículo y el Tipo de Falla"); 
-        return; 
+    if (!v_select || !falla) {
+        alert("Por favor selecciona el Vehículo y el Tipo de Falla");
+        return;
     }
 
-    const [placa, nombreV] = v_select.split('|');
-    btn.disabled = true; 
-    btn.innerText = "⏳ ENVIANDO...";
+    const partes = v_select.split('|');
+    const placa = partes[0];
+    const nombreV = partes[1] || 'Vehículo';
+    btn.disabled = true;
+    btn.innerText = "Enviando...";
 
     const datos = {
-        reportado_por:       document.getElementById('reportado_por').value,
-        regional:            document.getElementById('regional').value,
-        placa_vehiculo:      placa,
-        tipo_vehiculo:       nombreV,
-        tipo_falla:          falla,
+        reportado_por:        document.getElementById('reportado_por').value,
+        regional:             document.getElementById('regional').value,
+        placa_vehiculo:       placa,
+        tipo_vehiculo:        nombreV,
+        tipo_falla:           falla,
         descripcion_sintomas: document.getElementById('sintomas').value,
-        observaciones:       document.getElementById('observaciones').value,
-        imagen1:             fotosArray[0] || "",
-        imagen2:             fotosArray[1] || "",
-        imagen3:             fotosArray[2] || "",
-        imagen4:             fotosArray[3] || ""
+        observaciones:        document.getElementById('observaciones').value,
+        imagen1:              fotosArray[0] || "",
+        imagen2:              fotosArray[1] || "",
+        imagen3:              fotosArray[2] || "",
+        imagen4:              fotosArray[3] || ""
     };
 
     try {
         const res = await DB.guardarAveria(datos);
         if (res.ok) {
-            // Marcar vehículo En Taller
-            await DB.supabase.from('carrozas')
-                .update({ estado: 'En Taller' })
-                .eq('placa', placa);
-
-            btn.innerText = "✓ GUARDADO CORRECTAMENTE";
+            await DB.supabase.from('carrozas').update({ estado: 'En Taller' }).eq('placa', placa);
+            btn.innerText = "GUARDADO CORRECTAMENTE";
             btn.style.background = "#16a34a";
-            setTimeout(() => irAtras(), 1500);
+            setTimeout(function() { irAtras(); }, 1500);
         } else {
-            alert("Error al guardar: " + (res.error?.message || "Desconocido"));
-            btn.disabled = false; 
-            btn.innerText = "🚨 REINTENTAR ENVÍO";
+            alert("Error al guardar: " + (res.error && res.error.message ? res.error.message : "Desconocido"));
+            btn.disabled = false;
+            btn.innerText = "REINTENTAR ENVIO";
         }
     } catch (e) {
-        alert("Error de conexión");
+        alert("Error de conexion");
         btn.disabled = false;
-        btn.innerText = "🚨 REINTENTAR ENVÍO";
+        btn.innerText = "REINTENTAR ENVIO";
     }
 }
 
 function enviarWhatsAppAveria() {
     const v_select = document.getElementById('vehiculo').value;
-    if (!v_select) return alert("Seleccione vehículo antes de enviar WhatsApp");
-    const [placa, nombreV] = v_select.split('|');
-    const reportado = document.getElementById('reportado_por').value;
-    const regional = document.getElementById('regional').value;
-    const msj = `*🚨 REPORTE DE AVERÍA J.R.*\n\n` +
-        `🚗 *Vehículo:* ${placa} — ${nombreV}\n` +
-        `⚠️ *Falla:* ${document.getElementById('tipo_falla').value}\n` +
-        `📍 *Regional:* ${regional}\n` +
-        `👤 *Reportado por:* ${reportado}\n` +
-        `📝 *Síntomas:* ${document.getElementById('sintomas').value || '---'}\n\n` +
-        `_Reporte generado desde App J.R._`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msj)}`, '_blank');
+    if (!v_select) return alert("Seleccione vehiculo antes de enviar WhatsApp");
+    const partes = v_select.split('|');
+    const placa = partes[0];
+    const nombreV = partes[1] || '';
+    const msj = "*REPORTE DE AVERIA J.R.*\n\n" +
+        "Vehiculo: " + placa + " - " + nombreV + "\n" +
+        "Falla: " + document.getElementById('tipo_falla').value + "\n" +
+        "Regional: " + document.getElementById('regional').value + "\n" +
+        "Reportado por: " + document.getElementById('reportado_por').value + "\n" +
+        "Sintomas: " + (document.getElementById('sintomas').value || '---') + "\n\n" +
+        "Reporte generado desde App J.R.";
+    window.open("https://wa.me/?text=" + encodeURIComponent(msj), '_blank');
 }
 </script>
 </body>
