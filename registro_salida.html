@@ -163,11 +163,8 @@
         <p onclick="borrarFirma()" style="text-align: right; color: #ff4444; font-size: 11px; cursor: pointer; margin-top: 5px; font-weight: bold;">✖ BORRAR FIRMA</p>
 
         <div class="section-title">Notificación</div>
-        <label>Seleccionar Coordinador</label>
-        <select id="select-coordinador">
-            <option value="3001234567" data-nombre="Coordinador Pereira">Coordinador Pereira</option>
-            <option value="3110000000" data-nombre="Logística J.R.">Logística J.R.</option>
-        </select>
+        <label>Nombre del Coordinador (para el reporte)</label>
+        <input type="text" id="nombre-coordinador" placeholder="Ej: Coordinador Pereira">
 
         <div class="acciones">
             <!-- Guardar -->
@@ -295,8 +292,6 @@
 
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
-        const selCoord = document.getElementById('select-coordinador');
-        
         if (!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
 
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
@@ -316,7 +311,7 @@
             km_salida:     document.getElementById('km_s').value,
             km_ingreso:    document.getElementById('km_i').value,
             total_km:      document.getElementById('total_km').value,
-            coordinador:   selCoord.options[selCoord.selectedIndex].getAttribute('data-nombre'),
+            coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
             observaciones: document.getElementById('observaciones').value,
             imagen1:       fotosArray[0] || "",
             imagen2:       fotosArray[1] || "",
@@ -345,7 +340,6 @@
     }
 
     function enviarWA() {
-        const num = document.getElementById('select-coordinador').value;
         const saludo = new Date().getHours() < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
         const cantFotos = fotosArray.length;
         
@@ -369,7 +363,8 @@
             (cantFotos > 0 ? "📸 *Evidencias:* " + cantFotos + " foto(s) adjunta(s) por separado\n" : "") + "\n" +
             "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
 
-        window.open("https://wa.me/57" + num + "?text=" + encodeURIComponent(msg), '_blank');
+        // Abre WhatsApp sin número fijo — el conductor elige el contacto
+        window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
 
     // Descarga las fotos al dispositivo para que el conductor las adjunte manualmente en WhatsApp
