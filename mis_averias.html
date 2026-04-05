@@ -55,7 +55,7 @@ async function cargarAverias() {
 
     try {
         const { data, error } = await DB.supabase
-            .from('averias')
+            .from('Averias')
             .select('*')
             .ilike('reportado_por', `%${sesion.nombre}%`)
             .order('created_at', { ascending: false });
