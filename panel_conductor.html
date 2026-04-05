@@ -112,7 +112,7 @@
         async function cargarSalidasRecientes(nombre) {
             const { data, error } = await DB.supabase
                 .from('Traslado') 
-                .select('placa, motivo_de_salida, destino, fecha')
+                .select('*')
                 .ilike('conductor', `%${nombre}%`)
                 .order('created_at', { ascending: false }) 
                 .limit(3);
@@ -126,13 +126,13 @@
                 <tr>
                     <td><b>${s.placa || 'S/P'}</b><br><small>${s.destino || 'Local'}</small></td>
                     <td style="font-size: 11px;">${s.fecha || '---'}</td>
-                    <td style="text-align: right;"><span class="servicio-pill">${(s.motivo_de_salida || 'SERVICIO').toUpperCase()}</span></td>
+                    <td style="text-align: right;"><span class="servicio-pill">${(s.motivo_de_salida || s.motivo || 'SERVICIO').toUpperCase()}</span></td>
                 </tr>`).join('');
         }
 
         async function cargarResumenAverias(nombre) {
             const { data, error } = await DB.supabase
-                .from('averias')
+                .from('Averias')
                 .select('placa_vehiculo, tipo_falla, created_at')
                 .ilike('reportado_por', `%${nombre}%`)
                 .order('created_at', { ascending: false })
