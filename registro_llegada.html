@@ -22,10 +22,18 @@
             background: #10b981; color: white; border: none; width: 100%; 
             padding: 16px; border-radius: 15px; font-weight: 700; font-size: 16px; 
             cursor: pointer; margin-top: 10px; transition: 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 14px rgba(16,185,129,0.3);
         }
-        .btn-finalizar:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-finalizar:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
         .btn-finalizar:active { transform: scale(0.98); }
-        .btn-regresar { display: block; text-align: center; margin-top: 20px; color: #64748b; text-decoration: none; font-size: 14px; font-weight: 500; }
+        .btn-regresar {
+            width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px;
+            font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px;
+            background: transparent; color: #94a3b8; text-decoration: none;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-regresar:active { background: #f1f5f9; }
         .info-km { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 12px; margin-bottom: 15px; font-size: 13px; color: #15803d; display: none; }
     </style>
 </head>
@@ -70,11 +78,11 @@
             <textarea id="observaciones" rows="3" placeholder="¿Alguna novedad en el servicio?"></textarea>
         </div>
 
-        <button type="submit" class="btn-finalizar" id="btn-submit">FINALIZAR SERVICIO</button>
+        <button type="submit" class="btn-finalizar" id="btn-submit"><span>🏁</span> FINALIZAR SERVICIO</button>
     </form>
 
     <!-- CORRECCIÓN: enlace al panel correcto según rol -->
-    <a href="#" onclick="irAtras()" class="btn-regresar">← Volver</a>
+    <button onclick="irAtras()" class="btn-regresar">← Volver</button>
 </div>
 
 <script src="db.js"></script>
@@ -144,7 +152,7 @@
         if (errorCarroza) {
             alert("Error al actualizar: " + errorCarroza.message);
             btn.disabled = false;
-            btn.innerText = "FINALIZAR SERVICIO";
+            btn.innerText = "🏁 FINALIZAR SERVICIO";
         } else {
             enviarConfirmacionWA({
                 placa,
