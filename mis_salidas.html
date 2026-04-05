@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.R. — Mis Salidas</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --azul: #001a70; --celeste: #eef5ff; --blanco: #ffffff; --verde: #25d366; --gris: #64748b; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 20px; color: var(--azul); }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .btn-volver { background: var(--blanco); border: none; padding: 10px 15px; border-radius: 10px; cursor: pointer; font-weight: bold; color: var(--azul); box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-size: 16px; text-decoration: none; }
+        h2 { margin: 0; font-size: 20px; }
+
+        .card-salida {
+            background: var(--blanco); border-radius: 15px; padding: 18px;
+            margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border-left: 4px solid var(--azul);
+        }
+        .salida-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .placa { font-weight: 800; font-size: 18px; color: var(--azul); }
+        .fecha { font-size: 11px; color: var(--gris); text-align: right; }
+        .motivo { display: inline-block; background: #e0e7ff; color: var(--azul); font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; text-transform: uppercase; margin-bottom: 8px; }
+        .ruta { font-size: 13px; color: #475569; margin-bottom: 6px; }
+        .ruta b { color: var(--azul); }
+        .detalle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+        .detalle-item { background: #f8fafc; border-radius: 8px; padding: 7px 10px; font-size: 11px; color: var(--gris); }
+        .detalle-item b { display: block; color: #1e293b; font-size: 13px; }
+        .btn-wa {
+            width: 100%; background: var(--verde); color: white; border: none;
+            padding: 11px; border-radius: 10px; font-weight: 700; cursor: pointer;
+            margin-top: 12px; font-size: 13px; display: flex; align-items: center;
+            justify-content: center; gap: 8px;
+        }
+        .btn-wa:active { transform: scale(0.98); }
+        .loader { text-align: center; padding: 50px 20px; color: var(--gris); font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <a href="panel_conductor.html" class="btn-volver">←</a>
+        <h2>Mis Salidas Registradas</h2>
+    </div>
+    <div id="lista-salidas">
+        <div class="loader">Cargando registros...</div>
+    </div>
+</div>
+
+<script src="db.js"></script>
+<script>
+const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+
+async function cargarSalidas() {
+    const lista = document.getElementById('lista-salidas');
+    if (!sesion.nombre) { window.location.href = 'index.html'; return; }
+
+    try {
+        const { data, error } = await DB.supabase
+            .from('Traslado')
+            .select('*')
+            .ilike('conductor', '%' + sesion.nombre + '%')
+            .order('id_salida', { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            lista.innerHTML = '<div class="loader"><p>📭 No tienes salidas registradas.</p></div>';
+            return;
+        }
+
+        lista.innerHTML = data.map(t => {
+            const motivo = t.motivo_de_salida || 'Servicio';
+            const ruta = (t.origen && t.destino) ? t.origen + ' ➔ ' + t.destino : (t.origen || t.destino || 'Sin ruta');
+            const kmTotal = (t.km__salida && t.km__ingreso) 
+                ? (parseInt(t.km__ingreso) - parseInt(t.km__salida)) + ' KM'
+                : '---';
+
+            return '<div class="card-salida">' +
+                '<div class="salida-top">' +
+                    '<div>' +
+                        '<div class="placa">🚗 ' + (t.placa || 'S/P') + '</div>' +
+                        '<span class="motivo">' + motivo + '</span>' +
+                    '</div>' +
+                    '<div class="fecha">' + (t.fecha || '---') + '<br>' + (t.hora_de_salida || '') + '</div>' +
+                '</div>' +
+
+                (t.nombre_del_fallecido ? '<div class="ruta">⚱️ <b>' + t.nombre_del_fallecido + '</b></div>' : '') +
+                '<div class="ruta">📍 ' + ruta + '</div>' +
+
+                '<div class="detalle-grid">' +
+                    '<div class="detalle-item">KM Salida<b>' + (t.km__salida || '---') + '</b></div>' +
+                    '<div class="detalle-item">KM Ingreso<b>' + (t.km__ingreso || '---') + '</b></div>' +
+                    '<div class="detalle-item">Total Recorrido<b>' + kmTotal + '</b></div>' +
+                    '<div class="detalle-item">Coordinador<b>' + (t.coordinador_en_turno || '---') + '</b></div>' +
+                '</div>' +
+
+                (t.observaciones ? '<div class="ruta" style="margin-top:8px; font-size:12px; color:#64748b;">📝 ' + t.observaciones + '</div>' : '') +
+
+                '<button class="btn-wa" onclick="enviarWA(this)" data-t=\'' + JSON.stringify(t).replace(/'/g,"&#39;") + '\'>' +
+                    '<span>💬</span> REENVIAR POR WHATSAPP' +
+                '</button>' +
+            '</div>';
+        }).join('');
+
+    } catch (err) {
+        lista.innerHTML = '<div class="loader" style="color:red;">❌ Error: ' + err.message + '</div>';
+    }
+}
+
+function enviarWA(btn) {
+    const t = JSON.parse(btn.getAttribute('data-t'));
+    const hora = new Date().getHours();
+    const saludo = hora < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
+    const msg = saludo + "\n\n" +
+        "📢 *Reporte de Salida De Carroza*\n\n" +
+        "📍 *Regional:* " + (t.regional || '---') + "\n" +
+        "📅 *Fecha:* " + (t.fecha || '---') + "\n" +
+        "👤 *Coordinador:* " + (t.coordinador_en_turno || '---') + "\n" +
+        "🕒 *Hora De Salida:* " + (t.hora_de_salida || '---') + "\n" +
+        "🚗 *Placa:* " + (t.placa || '---') + "\n" +
+        "❓ *Motivo:* " + (t.motivo_de_salida || '---') + "\n" +
+        "⚱️ *Fallecido:* " + (t.nombre_del_fallecido || '---') + "\n" +
+        "🏥 *Recogida:* " + (t.clinica_hospital_o_rsd || '---') + "\n" +
+        "🚩 *Origen:* " + (t.origen || '---') + "\n" +
+        "🏁 *Destino:* " + (t.destino || '---') + "\n" +
+        "📊 *KM Salida:* " + (t.km__salida || '---') + "\n" +
+        "📊 *KM Ingreso:* " + (t.km__ingreso || '---') + "\n" +
+        "👨🏻‍✈️ *Conductor:* " + (t.conductor || '---') + "\n" +
+        "📞 *Teléfono:* " + (t.nnum_telefono || '---') + "\n" +
+        "📝 *Observaciones:* " + (t.observaciones || 'Sin novedades') + "\n\n" +
+        "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
+    window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
+}
+
+window.onload = cargarSalidas;
+</script>
+</body>
+</html>
