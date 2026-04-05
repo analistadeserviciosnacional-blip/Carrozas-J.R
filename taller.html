@@ -19,7 +19,14 @@
         input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 14px; box-sizing: border-box; font-family: inherit; margin-bottom: 15px; }
         input:focus, select:focus { outline: none; border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn-registrar { background: var(--azul); color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+        .btn-registrar {
+            background: var(--azul); color: white; border: none; width: 100%;
+            padding: 15px; border-radius: 14px; font-weight: 800; font-size: 15px;
+            cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 14px rgba(0,26,112,0.2);
+        }
+        .btn-registrar:active { transform: scale(0.98); }
         .btn-registrar:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-cancelar { background: #fee2e2; color: #991b1b; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; margin-top: 10px; width: 100%; display: none; }
         .historial { background: var(--blanco); padding: 20px; border-radius: 25px; overflow-x: auto; }
@@ -80,7 +87,7 @@
             <label>Observaciones</label>
             <textarea id="observaciones" rows="2" placeholder="Detalles del servicio..."></textarea>
 
-            <button type="submit" class="btn-registrar" id="btn-submit">GUARDAR MANTENIMIENTO</button>
+            <button type="submit" class="btn-registrar" id="btn-submit"><span>🔧</span> GUARDAR MANTENIMIENTO</button>
             <button type="button" id="btn-cancelar" class="btn-cancelar" onclick="cancelarEdicion()">CANCELAR EDICIÓN</button>
         </form>
     </div>
