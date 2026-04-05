@@ -118,7 +118,7 @@ const DB = {
     async guardarAveria(datos) {
         try {
             const { error } = await _supabase
-                .from('averias')
+                .from('Averias')
                 .insert([datos]);
             return { ok: !error, error };
         } catch (err) {
@@ -130,7 +130,7 @@ const DB = {
     async obtenerTodasAverias() {
         try {
             const { data, error } = await _supabase
-                .from('averias')
+                .from('Averias')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(20);
@@ -144,7 +144,7 @@ const DB = {
     async obtenerMisAverias(nombreConductor) {
         try {
             const { data, error } = await _supabase
-                .from('averias')
+                .from('Averias')
                 .select('*')
                 .ilike('reportado_por', `%${nombreConductor}%`)
                 .order('created_at', { ascending: false });
