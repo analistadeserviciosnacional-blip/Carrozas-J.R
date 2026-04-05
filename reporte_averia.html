@@ -28,8 +28,34 @@
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
         .btn-db { background: var(--rojo); color: white; }
         .btn-wa { background: var(--verde); color: white; }
-        .btn-volver { width: 100%; padding: 14px; border: 2px solid #cbd5e1; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 10px; background: var(--blanco); color: #64748b; }
         .btn-action:disabled { opacity: 0.6; cursor: not-allowed; }
+        /* Botones rediseñados */
+        .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .btn-accion-enviar {
+            width: 100%; padding: 16px; border: none; border-radius: 14px;
+            font-weight: 800; font-size: 15px; cursor: pointer;
+            background: var(--rojo); color: white;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 14px rgba(220,38,38,0.25); transition: 0.2s;
+        }
+        .btn-accion-enviar:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+        .btn-accion-enviar:active { transform: scale(0.98); }
+        .btn-accion-wa {
+            width: 100%; padding: 16px; border: none; border-radius: 14px;
+            font-weight: 800; font-size: 15px; cursor: pointer;
+            background: #25d366; color: white;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 14px rgba(37,211,102,0.3); transition: 0.2s;
+        }
+        .btn-accion-wa:active { transform: scale(0.98); }
+        .btn-accion-volver {
+            width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px;
+            font-weight: 600; font-size: 14px; cursor: pointer;
+            background: transparent; color: #94a3b8;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: 0.2s;
+        }
+        .btn-accion-volver:active { background: #f1f5f9; }
         .badge-usuario { background: #eef5ff; border: 2px solid var(--azul); font-weight: bold; }
     </style>
 </head>
@@ -84,9 +110,17 @@
         </div>
         <div class="preview-gallery" id="galeria"></div>
 
-        <button class="btn-action btn-db" id="btn-envio" onclick="guardarAveria()">🚨 1. ENVIAR AL SISTEMA</button>
-        <button class="btn-action btn-wa" onclick="enviarWhatsAppAveria()">✅ 2. INFORMAR POR WHATSAPP</button>
-        <button class="btn-volver" onclick="irAtras()">← VOLVER</button>
+        <div class="acciones">
+            <button class="btn-accion-enviar" id="btn-envio" onclick="guardarAveria()">
+                <span>🚨</span> ENVIAR AVERÍA AL SISTEMA
+            </button>
+            <button class="btn-accion-wa" onclick="enviarWhatsAppAveria()">
+                <span>💬</span> INFORMAR POR WHATSAPP
+            </button>
+            <button class="btn-accion-volver" onclick="irAtras()">
+                ← Volver
+            </button>
+        </div>
     </div>
 </div>
 
@@ -180,18 +214,18 @@ async function guardarAveria() {
         const res = await DB.guardarAveria(datos);
         if (res.ok) {
             await DB.supabase.from('carrozas').update({ estado: 'En Taller' }).eq('placa', placa);
-            btn.innerText = "GUARDADO CORRECTAMENTE";
+            btn.innerText = "AVERÍA REGISTRADA ✓";
             btn.style.background = "#16a34a";
             setTimeout(function() { irAtras(); }, 1500);
         } else {
             alert("Error al guardar: " + (res.error && res.error.message ? res.error.message : "Desconocido"));
             btn.disabled = false;
-            btn.innerText = "REINTENTAR ENVIO";
+            btn.innerText = "ENVIAR AVERÍA AL SISTEMA";
         }
     } catch (e) {
         alert("Error de conexion");
         btn.disabled = false;
-        btn.innerText = "REINTENTAR ENVIO";
+        btn.innerText = "ENVIAR AVERÍA AL SISTEMA";
     }
 }
 
