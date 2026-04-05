@@ -114,7 +114,7 @@
                 .from('Traslado') 
                 .select('*')
                 .ilike('conductor', `%${nombre}%`)
-                .order('created_at', { ascending: false }) 
+                .order('id_salida', { ascending: false })
                 .limit(3);
 
             const tabla = document.getElementById('tabla-salidas');
