@@ -70,6 +70,45 @@
             <input type="text" id="reg_usuario" placeholder="Cédula (Usuario)">
             <input type="text" id="reg_telefono" placeholder="Teléfono">
             <input type="password" id="reg_password" placeholder="Contraseña">
+
+            <!-- BLOQUE CARROZA -->
+            <div style="border-top:1.5px solid #e2e8f0; margin:16px 0 10px; padding-top:16px;">
+                <p style="font-size:12px; font-weight:800; color:#1e3a8a; text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                    🚗 Tu Carroza Asignada <span style="font-weight:400; color:#94a3b8; font-size:10px;">(opcional)</span>
+                </p>
+
+                <!-- Opción A: seleccionar existente -->
+                <label style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px; display:block;">
+                    Seleccionar carroza ya registrada
+                </label>
+                <select id="reg_placa" style="margin-bottom:12px;">
+                    <option value="">Cargando flota...</option>
+                </select>
+
+                <!-- Separador -->
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                    <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+                    <span style="font-size:11px; color:#94a3b8; font-weight:600;">O REGISTRA UNA NUEVA</span>
+                    <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+                </div>
+
+                <!-- Opción B: crear nueva -->
+                <label style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px; display:block;">
+                    Placa del vehículo
+                </label>
+                <input type="text" id="reg_placa_nueva" placeholder="Ej: GJX-497" style="margin-bottom:8px; text-transform:uppercase;">
+                <label style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px; display:block;">
+                    Modelo / Marca
+                </label>
+                <input type="text" id="reg_modelo_nuevo" placeholder="Ej: Mercedes Sprinter 2020" style="margin-bottom:0;">
+
+                <!-- Nota informativa -->
+                <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:9px 12px; margin-top:10px; font-size:11px; color:#0369a1; text-align:left; line-height:1.5;">
+                    💡 Si tu carroza ya existe en el sistema, selecciónala arriba.<br>
+                    Si es nueva, escribe la placa y modelo y se creará automáticamente.
+                </div>
+            </div>
+
             <button class="btn-login" style="background: var(--exito);" id="btn-reg-exec" onclick="ejecutarRegistro()">REGISTRARME</button>
             <button onclick="cerrarRegistro()" style="background:none; border:none; color:#64748b; margin-top:15px; cursor:pointer; font-weight:600;">Volver al inicio</button>
         </div>
@@ -80,6 +119,23 @@
         function abrirRegistro() {
             document.getElementById('modalRegistro').style.display = "block";
             document.getElementById('error-msg').style.display = "none";
+            cargarFlotaRegistro();
+        }
+
+        async function cargarFlotaRegistro() {
+            const sel = document.getElementById('reg_placa');
+            try {
+                const { data } = await DB.supabase
+                    .from('carrozas').select('placa, modelo').order('placa');
+                if (data && data.length > 0) {
+                    sel.innerHTML = '<option value="">Sin asignar por ahora</option>' +
+                        data.map(c => '<option value="'+c.placa+'">'+c.placa+(c.modelo?' — '+c.modelo:'')+'</option>').join('');
+                } else {
+                    sel.innerHTML = '<option value="">No hay carrozas — registra una nueva abajo</option>';
+                }
+            } catch(e) {
+                sel.innerHTML = '<option value="">Error al cargar flota</option>';
+            }
         }
         function cerrarRegistro() { document.getElementById('modalRegistro').style.display = "none"; }
 
@@ -133,22 +189,54 @@
             };
 
             if (!datos.nombre || !datos.usuario || !datos.password) {
-                alert("Por favor, llena los campos obligatorios"); return;
+                alert("Por favor, llena los campos obligatorios: Nombre, Cédula y Contraseña"); return;
             }
+
+            const placaExistente = document.getElementById('reg_placa').value;
+            const placaNueva     = document.getElementById('reg_placa_nueva').value.trim().toUpperCase();
+            const modeloNuevo    = document.getElementById('reg_modelo_nuevo').value.trim();
 
             btn.disabled = true;
             btn.innerText = "PROCESANDO...";
 
             try {
+                // 1. Registrar usuario
                 const res = await DB.registrarUsuario(datos);
-                if (res.ok) {
-                    alert("¡Registro exitoso! Ya puedes iniciar sesión.");
-                    cerrarRegistro();
-                } else {
+                if (!res.ok) {
                     alert("Error: " + (res.error?.message || "Problema en el servidor"));
+                    btn.disabled = false; btn.innerText = "REGISTRARME"; return;
                 }
+
+                // 2. Asignar carroza existente al conductor
+                if (placaExistente) {
+                    await DB.supabase.from('carrozas')
+                        .update({ conductor_asignado: datos.nombre })
+                        .eq('placa', placaExistente);
+                }
+
+                // 3. Crear carroza nueva si llenó el campo
+                if (placaNueva) {
+                    await DB.supabase.from('carrozas').insert([{
+                        placa:               placaNueva,
+                        modelo:              modeloNuevo || 'Sin modelo',
+                        estado:              'Disponible',
+                        conductor_asignado:  datos.nombre,
+                        kilometraje_inicial: 0,
+                        kilometraje_actual:  0
+                    }]);
+                }
+
+                const msg = placaNueva
+                    ? "¡Registro exitoso! Carroza " + placaNueva + " creada y asignada."
+                    : placaExistente
+                        ? "¡Registro exitoso! Carroza " + placaExistente + " asignada."
+                        : "¡Registro exitoso! Ya puedes iniciar sesión.";
+
+                alert(msg);
+                cerrarRegistro();
+
             } catch (err) {
-                alert("Fallo crítico en el registro");
+                alert("Error en el registro: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerText = "REGISTRARME";
