@@ -215,6 +215,31 @@
 
         await cargarPlacas();
 
+        // ── PRE-LLENAR DESDE SOLICITUD DE APOYO ──
+        const apoyo = localStorage.getItem('apoyo_prellenado');
+        if (apoyo) {
+            try {
+                const d = JSON.parse(apoyo);
+                if (d.fallecido)    document.getElementById('fallecido').value   = d.fallecido;
+                if (d.clinica)      document.getElementById('clinica').value      = d.clinica;
+                if (d.origen)       document.getElementById('origen').value       = d.origen;
+                if (d.destino)      document.getElementById('destino').value      = d.destino;
+                if (d.coordinador)  document.getElementById('coordinador_turno').value = d.coordinador;
+                if (d.observaciones) document.getElementById('observaciones').value = '🤝 APOYO REGIONAL\n' + d.observaciones;
+                if (d.motivo) {
+                    const sel = document.getElementById('motivo');
+                    for (let o of sel.options) { if (o.value === d.motivo) { sel.value = d.motivo; break; } }
+                }
+                // Mostrar banner de apoyo
+                const banner = document.createElement('div');
+                banner.style.cssText = 'background:#ecfdf5; border:2px solid #6ee7b7; border-radius:12px; padding:12px 15px; margin-bottom:15px; font-size:13px; color:#065f46; font-weight:600; display:flex; align-items:center; gap:10px;';
+                banner.innerHTML = '<span style="font-size:20px;">🤝</span><div><b>Formulario pre-llenado desde solicitud de apoyo</b><br><span style="font-weight:400; font-size:12px;">Revisa los datos y completa los campos que faltan</span></div>';
+                document.querySelector('.content').insertBefore(banner, document.querySelector('.content').firstChild);
+                // Limpiar para no re-usar
+                localStorage.removeItem('apoyo_prellenado');
+            } catch(e) { console.log('Sin apoyo prellenado'); }
+        }
+
         const now = new Date();
         document.getElementById('hora_salida').value = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
 
@@ -411,5 +436,6 @@
         document.getElementById('instruccion-fotos').style.display = 'block';
     }
 </script>
+    <script src="config-aplicar.js"></script>
 </body>
 </html>
