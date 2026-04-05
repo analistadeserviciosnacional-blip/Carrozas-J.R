@@ -97,7 +97,7 @@ const DB = {
             const { data, error } = await _supabase
                 .from('Traslado')
                 .select('*')
-                .order('created_at', { ascending: false })
+                .order('id_salida', { ascending: false })
                 .limit(50);
             if (error) throw error;
             return { data: data || [], ok: true };
@@ -112,7 +112,7 @@ const DB = {
                 .from('Traslado')
                 .select('*')
                 .ilike('conductor', '%' + nombreConductor + '%')
-                .order('created_at', { ascending: false })
+                .order('id_salida', { ascending: false })
                 .limit(10);
             if (error) throw error;
             return { data: data || [], ok: true };
