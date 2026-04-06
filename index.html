@@ -192,15 +192,23 @@
                         .eq('placa', placaExistente);
                 }
 
-                // 3. Crear carroza nueva si llenó el campo
+                // 3. Crear carroza nueva con todos los campos
                 if (placaNueva) {
+                    // Leer campos extra guardados en dataset
+                    const extraRaw = document.getElementById('reg_placa_nueva').dataset.extra;
+                    const extra = extraRaw ? JSON.parse(extraRaw) : {};
                     await DB.supabase.from('carrozas').insert([{
-                        placa:               placaNueva,
-                        modelo:              modeloNuevo || 'Sin modelo',
-                        estado:              'Disponible',
-                        conductor_asignado:  datos.nombre,
-                        kilometraje_inicial: 0,
-                        kilometraje_actual:  0
+                        placa:                 placaNueva,
+                        modelo:                modeloNuevo || 'Sin modelo',
+                        conductor_asignado:    datos.nombre,
+                        anio:                  extra.anio || null,
+                        fecha_ingreso_empresa: extra.fecha_ingreso_empresa || null,
+                        kilometraje_inicial:   extra.kilometraje_inicial || 0,
+                        kilometraje_actual:    extra.kilometraje_actual  || 0,
+                        estado:                extra.estado || 'Disponible',
+                        ultimo_mantenimiento:  extra.ultimo_mantenimiento  || null,
+                        proximo_mantenimiento: extra.proximo_mantenimiento || null,
+                        observaciones:         extra.observaciones || ''
                     }]);
                 }
 
@@ -239,54 +247,138 @@
     </script>
     <script src="config-aplicar.js"></script>
 
-    <!-- MODAL CARROZA -->
-    <div id="modalCarroza" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
-        <div style="background:white; border-radius:24px; padding:25px; width:92%; max-width:360px; max-height:90vh; overflow-y:auto;">
-            <h3 style="font-size:17px; font-weight:800; color:#1e3a8a; margin-bottom:5px;">🚗 Tu Carroza</h3>
+    <!-- MODAL CARROZA COMPLETO -->
+    <div id="modalCarroza" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:2000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:15px;">
+        <div style="background:white; border-radius:24px; padding:25px; width:100%; max-width:480px; margin:auto;">
+            
+            <h3 style="font-size:17px; font-weight:800; color:#1e3a8a; margin-bottom:4px;">🚗 Tu Carroza</h3>
             <p style="font-size:12px; color:#64748b; margin-bottom:18px;">Selecciona la tuya o registra una nueva</p>
 
-            <!-- Tab selector -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px;">
-                <button id="tab-existente" onclick="switchTab('existente')" style="padding:10px; border-radius:10px; border:2px solid #1e3a8a; background:#1e3a8a; color:white; font-weight:700; font-size:13px; cursor:pointer;">
+            <!-- TABS -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
+                <button id="tab-existente" onclick="switchTab('existente')"
+                    style="padding:11px; border-radius:10px; border:2px solid #e2e8f0; background:#f8fafc; color:#64748b; font-weight:700; font-size:13px; cursor:pointer;">
                     📋 Ya existe
                 </button>
-                <button id="tab-nueva" onclick="switchTab('nueva')" style="padding:10px; border-radius:10px; border:2px solid #e2e8f0; background:#f8fafc; color:#64748b; font-weight:700; font-size:13px; cursor:pointer;">
+                <button id="tab-nueva" onclick="switchTab('nueva')"
+                    style="padding:11px; border-radius:10px; border:2px solid #1e3a8a; background:#1e3a8a; color:white; font-weight:700; font-size:13px; cursor:pointer;">
                     ➕ Es nueva
                 </button>
             </div>
 
-            <!-- Panel: existente -->
-            <div id="panel-existente">
+            <!-- PANEL EXISTENTE -->
+            <div id="panel-existente" style="display:none;">
                 <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Selecciona tu placa</label>
-                <select id="sel-placa-existente" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; margin-bottom:16px; font-family:inherit; background:#f8fafc;">
+                <select id="sel-placa-existente" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; background:#f8fafc; box-sizing:border-box;">
                     <option value="">Cargando...</option>
                 </select>
             </div>
 
-            <!-- Panel: nueva -->
-            <div id="panel-nueva" style="display:none;">
-                <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Placa del vehículo *</label>
-                <input type="text" id="nueva-placa" placeholder="Ej: URQ-419" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; margin-bottom:12px; font-family:inherit; text-transform:uppercase; box-sizing:border-box;">
-                <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Modelo / Marca *</label>
-                <input type="text" id="nueva-modelo" placeholder="Ej: Ssangyong 2019" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; margin-bottom:12px; font-family:inherit; box-sizing:border-box;">
-                <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Año</label>
-                <input type="number" id="nueva-anio" placeholder="Ej: 2019" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; margin-bottom:0; font-family:inherit; box-sizing:border-box;">
+            <!-- PANEL NUEVA — FORMULARIO COMPLETO -->
+            <div id="panel-nueva">
+                
+                <!-- Fila 1: Placa + Modelo -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div>
+                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Placa *</label>
+                        <input type="text" id="nueva-placa" placeholder="PFO-147"
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; text-transform:uppercase; box-sizing:border-box; background:#f8fafc;">
+                    </div>
+                    <div>
+                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Modelo / Marca *</label>
+                        <input type="text" id="nueva-modelo" placeholder="Mercedes Sprinter"
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                    </div>
+                </div>
+
+                <!-- Fila 2: Año + Fecha Ingreso -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div>
+                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Año</label>
+                        <input type="number" id="nueva-anio" placeholder="2020"
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                    </div>
+                    <div>
+                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Fecha Ingreso Empresa</label>
+                        <input type="date" id="nueva-fecha-ingreso"
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                    </div>
+                </div>
+
+                <!-- Fila 3: KM Inicial + KM Actual -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div>
+                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Kilometraje Inicial</label>
+                        <input type="number" id="nueva-km-ini" placeholder="0" value="0"
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                    </div>
+                    <div>
+                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Kilometraje Actual</label>
+                        <input type="number" id="nueva-km-act" placeholder="0" value="0"
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                    </div>
+                </div>
+
+                <!-- Fila 4: Estado -->
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Estado</label>
+                    <select id="nueva-estado"
+                        style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                        <option value="Disponible">Disponible</option>
+                        <option value="En Servicio">En Servicio</option>
+                        <option value="En Taller">En Taller</option>
+                    </select>
+                </div>
+
+                <!-- Fila 5: Último + Próximo Mantenimiento -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div>
+                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Último Mantenimiento</label>
+                        <input type="date" id="nueva-ult-mant"
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                    </div>
+                    <div>
+                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Próximo Mantenimiento</label>
+                        <input type="date" id="nueva-prox-mant"
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                    </div>
+                </div>
+
+                <!-- Fila 6: Observaciones -->
+                <div style="margin-bottom:0;">
+                    <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Observaciones</label>
+                    <textarea id="nueva-obs" rows="2" placeholder="Detalles adicionales..."
+                        style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; resize:none;"></textarea>
+                </div>
             </div>
 
+            <!-- BOTONES -->
             <div style="display:flex; gap:10px; margin-top:18px;">
-                <button onclick="cerrarModalCarroza()" style="flex:1; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; color:#64748b; font-weight:700; cursor:pointer; font-size:14px;">Cancelar</button>
-                <button onclick="confirmarCarroza()" style="flex:2; padding:12px; border:none; border-radius:10px; background:#1e3a8a; color:white; font-weight:800; cursor:pointer; font-size:14px;">CONFIRMAR</button>
+                <button onclick="cerrarModalCarroza()"
+                    style="flex:1; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; color:#64748b; font-weight:700; cursor:pointer; font-size:14px;">
+                    Cancelar
+                </button>
+                <button onclick="confirmarCarroza()"
+                    style="flex:2; padding:12px; border:none; border-radius:10px; background:#1e3a8a; color:white; font-weight:800; cursor:pointer; font-size:14px;">
+                    CONFIRMAR
+                </button>
             </div>
         </div>
     </div>
 
     <script>
-        // ── MODAL CARROZA ──
-        let tabActivo = 'existente';
+        let tabActivo = 'nueva';
+
+        // Poner fecha de hoy por defecto
+        document.addEventListener('DOMContentLoaded', () => {
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('nueva-fecha-ingreso').value = hoy;
+        });
 
         async function abrirModalCarroza() {
             document.getElementById('modalCarroza').style.display = 'flex';
-            // Cargar flota real desde Supabase
+            switchTab('nueva');
+            // Cargar flota para tab "Ya existe"
             const sel = document.getElementById('sel-placa-existente');
             sel.innerHTML = '<option value="">Cargando...</option>';
             try {
@@ -296,8 +388,7 @@
                     sel.innerHTML = '<option value="">— Selecciona tu placa —</option>' +
                         data.map(c => '<option value="' + c.placa + '">' + c.placa + (c.modelo ? ' — ' + c.modelo : '') + '</option>').join('');
                 } else {
-                    sel.innerHTML = '<option value="">No hay carrozas registradas</option>';
-                    switchTab('nueva'); // ir directo a nueva
+                    sel.innerHTML = '<option value="">No hay carrozas — registra una nueva</option>';
                 }
             } catch(e) {
                 sel.innerHTML = '<option value="">Error al cargar</option>';
@@ -312,32 +403,46 @@
             tabActivo = tab;
             document.getElementById('panel-existente').style.display = tab === 'existente' ? 'block' : 'none';
             document.getElementById('panel-nueva').style.display     = tab === 'nueva'     ? 'block' : 'none';
-            // Estilos botones
-            document.getElementById('tab-existente').style.cssText = tab === 'existente'
-                ? 'padding:10px;border-radius:10px;border:2px solid #1e3a8a;background:#1e3a8a;color:white;font-weight:700;font-size:13px;cursor:pointer;'
-                : 'padding:10px;border-radius:10px;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;font-weight:700;font-size:13px;cursor:pointer;';
-            document.getElementById('tab-nueva').style.cssText = tab === 'nueva'
-                ? 'padding:10px;border-radius:10px;border:2px solid #1e3a8a;background:#1e3a8a;color:white;font-weight:700;font-size:13px;cursor:pointer;'
-                : 'padding:10px;border-radius:10px;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;font-weight:700;font-size:13px;cursor:pointer;';
+            const baseStyle = 'padding:11px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;';
+            document.getElementById('tab-existente').style.cssText = baseStyle +
+                (tab === 'existente' ? 'border:2px solid #1e3a8a; background:#1e3a8a; color:white;'
+                                     : 'border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;');
+            document.getElementById('tab-nueva').style.cssText = baseStyle +
+                (tab === 'nueva'     ? 'border:2px solid #1e3a8a; background:#1e3a8a; color:white;'
+                                     : 'border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;');
         }
 
         function confirmarCarroza() {
             if (tabActivo === 'existente') {
-                const sel = document.getElementById('sel-placa-existente');
+                const sel   = document.getElementById('sel-placa-existente');
                 const placa = sel.value;
                 const texto = sel.options[sel.selectedIndex]?.text || '';
                 if (!placa) { alert('Selecciona una placa'); return; }
-                document.getElementById('reg_placa').value = placa;
-                document.getElementById('reg_placa_nueva').value = '';
+                document.getElementById('reg_placa').value        = placa;
+                document.getElementById('reg_placa_nueva').value  = '';
                 document.getElementById('reg_modelo_nuevo').value = '';
                 mostrarBadgeCarroza('🚗 ' + texto);
             } else {
                 const placa  = document.getElementById('nueva-placa').value.trim().toUpperCase();
                 const modelo = document.getElementById('nueva-modelo').value.trim();
-                if (!placa || !modelo) { alert('La placa y el modelo son obligatorios'); return; }
-                document.getElementById('reg_placa').value = '';
-                document.getElementById('reg_placa_nueva').value = placa;
+                if (!placa)  { alert('La placa es obligatoria'); return; }
+                if (!modelo) { alert('El modelo es obligatorio'); return; }
+                // Guardar todos los datos de la nueva carroza
+                document.getElementById('reg_placa').value        = '';
+                document.getElementById('reg_placa_nueva').value  = placa;
                 document.getElementById('reg_modelo_nuevo').value = modelo;
+                // Guardar campos extra en dataset del hidden input para usarlos al registrar
+                const extra = {
+                    anio:                parseInt(document.getElementById('nueva-anio').value) || null,
+                    fecha_ingreso_empresa: document.getElementById('nueva-fecha-ingreso').value || null,
+                    kilometraje_inicial:  parseInt(document.getElementById('nueva-km-ini').value) || 0,
+                    kilometraje_actual:   parseInt(document.getElementById('nueva-km-act').value) || 0,
+                    estado:              document.getElementById('nueva-estado').value,
+                    ultimo_mantenimiento: document.getElementById('nueva-ult-mant').value || null,
+                    proximo_mantenimiento:document.getElementById('nueva-prox-mant').value || null,
+                    observaciones:       document.getElementById('nueva-obs').value.trim()
+                };
+                document.getElementById('reg_placa_nueva').dataset.extra = JSON.stringify(extra);
                 mostrarBadgeCarroza('🚗 ' + placa + ' — ' + modelo + ' (nueva)');
             }
             cerrarModalCarroza();
@@ -351,10 +456,10 @@
         }
 
         function limpiarCarroza() {
-            document.getElementById('reg_placa').value = '';
-            document.getElementById('reg_placa_nueva').value = '';
+            document.getElementById('reg_placa').value        = '';
+            document.getElementById('reg_placa_nueva').value  = '';
             document.getElementById('reg_modelo_nuevo').value = '';
-            document.getElementById('carroza-badge').style.display = 'none';
+            document.getElementById('carroza-badge').style.display      = 'none';
             document.getElementById('btn-agregar-carroza').style.display = 'block';
         }
     </script>
