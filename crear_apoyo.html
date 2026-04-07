@@ -27,20 +27,17 @@
         .form-group { margin-bottom: 12px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-        /* URGENCIA */
         .pills { display: flex; gap: 8px; }
         .pill { flex:1; padding: 11px 6px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; }
         .pill.sel-normal  { border-color: var(--verde);   background: #ecfdf5; color: #065f46; }
         .pill.sel-urgente { border-color: var(--naranja); background: #fffbeb; color: #92400e; }
         .pill.sel-critica { border-color: var(--rojo);    background: #fef2f2; color: #991b1b; }
 
-        /* ALCANCE */
         .alcance-pills { display: flex; gap: 8px; }
         .a-pill { flex:1; padding: 13px 6px; border-radius: 12px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 13px; cursor: pointer; text-align: center; transition: 0.15s; }
         .a-pill.sel { border-color: var(--azul); background: var(--celeste); color: var(--azul); }
         .alcance-desc { font-size: 11px; color: var(--gris); margin-top: 10px; line-height: 1.5; }
 
-        /* SMS PREVIEW */
         .sms-preview {
             background: #0f172a; color: #94a3b8; border-radius: 12px;
             padding: 14px; font-size: 11px; font-family: monospace; line-height: 1.7;
@@ -48,10 +45,8 @@
         }
         .sms-preview .sms-titulo { color: #38bdf8; font-weight: bold; }
 
-        /* BTN ENVIAR */
         .btn-enviar { width: 100%; padding: 16px; border: none; border-radius: 14px; background: var(--azul); color: white; font-weight: 800; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,26,112,0.2); transition: 0.2s; }
         .btn-enviar:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-enviar:active { transform: scale(0.98); }
 
         .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: #1e293b; color: white; padding: 13px 22px; border-radius: 14px; font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: 0.3s; }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -150,14 +145,10 @@
 
     <div class="card">
         <div class="card-title">📱 Notificación SMS</div>
-        <p style="font-size:12px; color:var(--gris); margin-bottom:10px; line-height:1.5;">
-            Al crear la solicitud se enviará un SMS automático a todos los conductores activos de la regional seleccionada notificándoles del apoyo.
-        </p>
         <div class="sms-preview">
             <span class="sms-titulo">📱 Vista previa del SMS:</span><br>
             🤝 <span id="sms-preview-text">APOYO J.R. | Regional: Pereira → Armenia | Tipo: Servicio Funerario | Urgencia: Normal | Revisa la app para aceptar.</span>
         </div>
-        <p style="font-size:10px; color:#94a3b8; margin-top:8px;">* Requiere configurar Twilio en el panel de administración</p>
     </div>
 
     <button class="btn-enviar" id="btn-crear" onclick="crearSolicitud()">
@@ -184,16 +175,13 @@
         document.getElementById('sub-info').textContent = sesion.nombre + ' · ' + regional;
         document.getElementById('c-fecha').valueAsDate = new Date();
         actualizarSMSPreview();
-        // Actualizar preview al cambiar campos
+
         ['c-origen','c-destino','c-tipo'].forEach(id => {
             document.getElementById(id).addEventListener('input', actualizarSMSPreview);
-            document.getElementById(id).addEventListener('change', actualizarSMSPreview);
         });
     };
 
-    function irAtras() {
-        window.location.href = 'dashboard.html';
-    }
+    function irAtras() { window.location.href = 'dashboard.html'; }
 
     function setUrgencia(u) {
         urgencia = u;
@@ -208,10 +196,6 @@
         ['regional','nacional'].forEach(x => {
             document.getElementById('a-'+x).className = 'a-pill' + (x===a?' sel':'');
         });
-        const regional = document.getElementById('c-regional').value;
-        document.getElementById('alcance-desc').innerHTML = a === 'nacional'
-            ? 'Todos los conductores del <b>país</b> verán esta solicitud.'
-            : 'Solo conductores de <b>' + regional + '</b> verán esta solicitud.';
         actualizarSMSPreview();
     }
 
@@ -220,48 +204,42 @@
         const origen  = document.getElementById('c-origen').value || 'Origen';
         const destino = document.getElementById('c-destino').value || 'Destino';
         const tipo    = document.getElementById('c-tipo').value;
-        const urg     = urgencia.charAt(0).toUpperCase() + urgencia.slice(1);
-        const alc     = alcance === 'nacional' ? 'NACIONAL' : regional;
-        document.getElementById('sms-preview-text').textContent =
-            '🤝 APOYO J.R. | ' + alc + ' | ' + origen + ' → ' + destino +
-            ' | ' + tipo + ' | Urgencia: ' + urg + ' | Revisa la app y acepta el servicio.';
+        const urg     = urgencia.toUpperCase();
+        document.getElementById('sms-preview-text').textContent = 
+            `🤝 APOYO J.R. | ${regional} | ${origen} → ${destino} | ${tipo} | Urgencia: ${urg} | Revisa la app.`;
     }
 
     async function crearSolicitud() {
         const btn = document.getElementById('btn-crear');
-        const origen  = document.getElementById('c-origen').value.trim();
+        const origen = document.getElementById('c-origen').value.trim();
         const destino = document.getElementById('c-destino').value.trim();
-        if (!origen || !destino) { toast('⚠️ Origen y Destino son obligatorios', '#f59e0b'); return; }
+        
+        if (!origen || !destino) { toast('⚠️ Origen y Destino obligatorios', '#f59e0b'); return; }
 
         btn.disabled = true;
         btn.innerHTML = '<span>⏳</span> ENVIANDO...';
 
         const datos = {
-            regional_solicitante: document.getElementById('c-regional').value,
-            coordinador:          sesion.nombre,
-            tipo_servicio:        document.getElementById('c-tipo').value,
-            nombre_fallecido:     document.getElementById('c-fallecido').value.trim(),
-            clinica_hospital:     document.getElementById('c-clinica').value.trim(),
+            solicitante_regional: document.getElementById('c-regional').value,
+            coordinador: sesion.nombre,
+            tipo_servicio: document.getElementById('c-tipo').value,
+            nombre_fallecido: document.getElementById('c-fallecido').value.trim(),
+            clinica_hospital: document.getElementById('c-clinica').value.trim(),
             origen, destino,
-            fecha_servicio:       document.getElementById('c-fecha').value,
-            hora_requerida:       document.getElementById('c-hora').value,
-            observaciones:        document.getElementById('c-obs').value.trim(),
+            fecha_servicio: document.getElementById('c-fecha').value,
+            hora_requerida: document.getElementById('c-hora').value,
+            observaciones: document.getElementById('c-obs').value.trim(),
             urgencia, alcance, estado: 'pendiente'
         };
 
         try {
-            const { error } = await DB.supabase.from('solicitudes_apoyo').insert([datos]);
+            // USANDO EL NOMBRE DE TABLA CORRECTO: solicitud_apoyo
+            const { error } = await DB.supabase.from('solicitud_apoyo').insert([datos]);
             if (error) throw error;
 
-            // Intentar notificación WhatsApp (fallback si no hay SMS)
-            enviarNotificacionWA(datos);
-
-            btn.innerHTML = '<span>✅</span> SOLICITUD ENVIADA';
-            btn.style.background = '#10b981';
-            toast('✅ Solicitud creada y conductores notificados', '#10b981');
-
+            btn.innerHTML = '<span>✅</span> ENVIADA';
+            toast('✅ Solicitud creada con éxito', '#10b981');
             setTimeout(() => { window.location.href = 'solicitud_apoyo.html'; }, 1500);
-
         } catch(e) {
             toast('❌ Error: ' + e.message, '#dc2626');
             btn.disabled = false;
@@ -269,28 +247,12 @@
         }
     }
 
-    // Notificación por WhatsApp como fallback (abre WA con el mensaje del apoyo)
-    function enviarNotificacionWA(d) {
-        const waCoord = localStorage.getItem('jr_wa_coord');
-        if (!waCoord) return; // Si no hay número configurado, omitir
-        const msg = '🤝 *SOLICITUD DE APOYO J.R.*\n\n' +
-            '📍 Regional: ' + d.regional_solicitante + '\n' +
-            '🚩 Ruta: ' + d.origen + ' → ' + d.destino + '\n' +
-            '⚱️ Fallecido: ' + (d.nombre_fallecido || '---') + '\n' +
-            '🏥 Lugar: ' + (d.clinica_hospital || '---') + '\n' +
-            '📅 Fecha: ' + (d.fecha_servicio || '---') + ' · ' + (d.hora_requerida || '') + '\n' +
-            '🚨 Urgencia: ' + d.urgencia.toUpperCase() + '\n\n' +
-            '👉 *Abre la app para aceptar el servicio*';
-        window.open('https://wa.me/' + waCoord + '?text=' + encodeURIComponent(msg), '_blank');
-    }
-
     function toast(msg, color) {
         const t = document.getElementById('toast');
-        t.textContent = msg; t.style.background = color || '#1e293b';
+        t.textContent = msg; t.style.background = color;
         t.classList.add('show');
         setTimeout(() => t.classList.remove('show'), 3000);
     }
 </script>
-<script src="config-aplicar.js"></script>
 </body>
 </html>
