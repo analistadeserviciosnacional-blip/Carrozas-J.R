@@ -196,6 +196,10 @@
         ['regional','nacional'].forEach(x => {
             document.getElementById('a-'+x).className = 'a-pill' + (x===a?' sel':'');
         });
+        const regional = document.getElementById('c-regional').value;
+        document.getElementById('alcance-desc').innerHTML = a === 'nacional'
+            ? 'Todos los conductores del país verán esta solicitud.'
+            : 'Solo conductores de <b>' + regional + '</b> verán esta solicitud.';
         actualizarSMSPreview();
     }
 
@@ -205,7 +209,7 @@
         const destino = document.getElementById('c-destino').value || 'Destino';
         const tipo    = document.getElementById('c-tipo').value;
         const urg     = urgencia.toUpperCase();
-        document.getElementById('sms-preview-text').textContent = 
+        document.getElementById('sms-preview-text').textContent =
             `🤝 APOYO J.R. | ${regional} | ${origen} → ${destino} | ${tipo} | Urgencia: ${urg} | Revisa la app.`;
     }
 
@@ -213,28 +217,32 @@
         const btn = document.getElementById('btn-crear');
         const origen = document.getElementById('c-origen').value.trim();
         const destino = document.getElementById('c-destino').value.trim();
-        
+
         if (!origen || !destino) { toast('⚠️ Origen y Destino obligatorios', '#f59e0b'); return; }
 
         btn.disabled = true;
         btn.innerHTML = '<span>⏳</span> ENVIANDO...';
 
         const datos = {
-            solicitante_regional: document.getElementById('c-regional').value,
-            coordinador: sesion.nombre,
-            tipo_servicio: document.getElementById('c-tipo').value,
-            nombre_fallecido: document.getElementById('c-fallecido').value.trim(),
-            clinica_hospital: document.getElementById('c-clinica').value.trim(),
-            origen, destino,
-            fecha_servicio: document.getElementById('c-fecha').value,
-            hora_requerida: document.getElementById('c-hora').value,
-            observaciones: document.getElementById('c-obs').value.trim(),
-            urgencia, alcance, estado: 'pendiente'
+            regional_solicitante: document.getElementById('c-regional').value,  // ← CORREGIDO (era solicitante_regional)
+            coordinador:          sesion.nombre,
+            tipo_servicio:        document.getElementById('c-tipo').value,
+            nombre_fallecido:     document.getElementById('c-fallecido').value.trim(),
+            clinica_hospital:     document.getElementById('c-clinica').value.trim(),
+            origen,
+            destino,
+            fecha_servicio:       document.getElementById('c-fecha').value,
+            hora_requerida:       document.getElementById('c-hora').value,
+            observaciones:        document.getElementById('c-obs').value.trim(),
+            urgencia,
+            alcance,
+            estado: 'pendiente'
         };
 
         try {
-            // USANDO EL NOMBRE DE TABLA CORRECTO: solicitud_apoyo
-            const { error } = await DB.supabase.from('solicitud_apoyo').insert([datos]);
+            const { error } = await DB.supabase
+                .from('solicitud_apoyo')   // ← nombre correcto de la tabla
+                .insert([datos]);
             if (error) throw error;
 
             btn.innerHTML = '<span>✅</span> ENVIADA';
