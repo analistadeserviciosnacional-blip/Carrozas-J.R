@@ -364,8 +364,18 @@
         }
     }
 
-    function enviarWA() {
-        const saludo = new Date().getHours() < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
+     function enviarWA() {
+    const hora = new Date().getHours();
+    let saludo = "";
+
+    // Lógica de saludos por franja horaria
+    if (hora >= 6 && hora < 12) {
+        saludo = "*Buenos Días* ☀️";
+    } else if (hora >= 12 && hora < 18) {
+        saludo = "*Buenas Tardes* 🌤️";
+    } else {
+        saludo = "*Buenas Noches* 🌙";
+    };
         const cantFotos = fotosArray.length;
         
         const msg = saludo + "\n\n" +
