@@ -277,7 +277,7 @@
     async function cargar() {
         try {
             const { data, error } = await DB.supabase
-                .from('solicitudes_apoyo')
+                .from('solicitud_apoyo')          // ← CORREGIDO (era solicitudes_apoyo)
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(60);
@@ -429,7 +429,7 @@
         try {
             // Marcar como aceptada
             const { error } = await DB.supabase
-                .from('solicitudes_apoyo')
+                .from('solicitud_apoyo')          // ← CORREGIDO (era solicitudes_apoyo)
                 .update({ estado: 'aceptada', 'conductor_aceptó': sesion.nombre })
                 .eq('id', solPendiente.id);
 
