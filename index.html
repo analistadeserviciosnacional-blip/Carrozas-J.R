@@ -8,8 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root {
---azul-principal: #004a99; --azul-oscuro: #1e3a8a; --azul-cielo: #e3f2fd; 
---blanco: #ffffff; --gris-suave: #f1f5f9; --texto-oscuro: #1a3a6d; --exito: #10b981;
+--azul-principal: #004a99; --azul-cielo: #e3f2fd; --blanco: #ffffff;
+--gris-suave: #f0f4f8; --texto-oscuro: #1a3a6d; --exito: #10b981;
 }
 body {
 background: linear-gradient(135deg, var(--azul-cielo) 0%, #bbdefb 100%);
@@ -43,247 +43,304 @@ box-shadow: 0 8px 15px rgba(0,74,153,0.2);
 }
 .btn-login:disabled { background: #94a3b8; cursor: not-allowed; }
 .link-reg { color: var(--azul-principal); font-weight: 700; cursor: pointer; display: block; margin-top: 20px; font-size: 14px; text-decoration: none; }
-.modal { display: none; position: fixed; z-index: 1000; inset: 0; background-color: rgba(0,74,153,0.3); backdrop-filter: blur(4px); }
-.modal-content { background-color: white; margin: 2% auto; padding: 25px; border-radius: 28px; width: 92%; max-width: 400px; text-align: center; max-height: 95vh; overflow-y: auto; }
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,74,153,0.3); backdrop-filter: blur(4px); }
+.modal-content { background-color: white; margin: 5% auto; padding: 25px; border-radius: 28px; width: 92%; max-width: 380px; text-align: center; max-height: 90vh; overflow-y: auto; }
+.modal-content input { text-align: left; }
 #error-msg { color: #e11d48; font-size: 13px; margin-top: 15px; display: none; background: #fff1f2; padding: 10px; border-radius: 10px; }
 </style>
 </head>
 <body>
 
 <div class="login-card">
-    <div class="logo-container">JR</div>
-    <h2>Bienvenido</h2>
-    <p>Inicia sesión para continuar</p>
-    <input type="text" id="user" placeholder="Usuario o Cédula">
-    <input type="password" id="pass" placeholder="Contraseña">
-    <button class="btn-login" id="btn-action" onclick="login()">INGRESAR AL SISTEMA</button>
-    <span class="link-reg" onclick="abrirRegistro()">¿No tienes cuenta? Regístrate aquí</span>
-    <div id="error-msg"></div>
+<div class="logo-container">JR</div>
+<h2>Bienvenido</h2>
+<p>Inicia sesión para continuar</p>
+<input type="text" id="user" placeholder="Usuario o Cédula">
+<input type="password" id="pass" placeholder="Contraseña">
+<button class="btn-login" id="btn-action" onclick="login()">INGRESAR AL SISTEMA</button>
+<span class="link-reg" onclick="abrirRegistro()">¿No tienes cuenta? Regístrate aquí</span>
+<div id="error-msg"></div>
 </div>
 
 <div id="modalRegistro" class="modal">
-    <div class="modal-content">
-        <h2 style="font-size: 20px;">Crear Cuenta Nueva</h2>
-        <p style="margin-bottom: 20px;">Completa tus datos de acceso</p>
-        
-        <input type="text" id="reg_nombre" placeholder="Nombre Completo *">
-        <input type="text" id="reg_usuario" placeholder="Cédula (Usuario) *">
-        <input type="text" id="reg_telefono" placeholder="Teléfono">
-        <input type="password" id="reg_password" placeholder="Contraseña *">
-        
-        <select id="reg_rol">
-            <option value="">— Selecciona tu Rol —</option>
-            <option value="conductor">Conductor</option>
-            <option value="coordinador">Coordinador</option>
-            <option value="admin">Administrador</option>
-        </select>
+<div class="modal-content">
+<h2 style="font-size: 20px;">Crear Cuenta Nueva</h2>
+<p style="margin-bottom: 20px;">Completa tus datos de acceso</p>
+<input type="text" id="reg_nombre" placeholder="Nombre Completo *">
+<input type="text" id="reg_usuario" placeholder="Cédula (Usuario) *">
+<input type="text" id="reg_telefono" placeholder="Teléfono">
+<input type="password" id="reg_password" placeholder="Contraseña *">
 
-        <select id="reg_regional">
-            <option value="">— Selecciona tu Regional —</option>
-            <option value="Antioquia">Antioquia</option>
-            <option value="Risaralda">Risaralda</option>
-            <option value="Caldas">Caldas</option>
-            <option value="Quindío">Quindío</option>
-            <option value="Valle">Valle</option>
-        </select>
+<select id="reg_rol">
+    <option value="">— Selecciona tu Rol —</option>
+    <option value="conductor">Conductor</option>
+    <option value="coordinador">Coordinador</option>
+    <option value="admin">Administrador</option>
+</select>
 
-        <div style="border-top:1.5px solid #e2e8f0; margin:16px 0 10px; padding-top:16px;">
-            <div id="carroza-badge" style="display:none; background:#ecfdf5; border:1.5px solid #10b981; border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; font-size:13px; color:#065f46; font-weight:600; align-items:center; justify-content:space-between;">
-                <span id="carroza-badge-texto">🚗 Sin asignar</span>
-                <button onclick="limpiarCarroza()" style="background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:0;">✕</button>
-            </div>
-            <button type="button" id="btn-agregar-carroza" onclick="abrirModalCarroza()" style="width:100%; padding:13px; border:2px dashed #cbd5e1; border-radius:12px; background:#f8fafc; color:#64748b; font-weight:700; font-size:14px; cursor:pointer;">
-                🚗 Vincular Carroza (Opcional)
-            </button>
-            <input type="hidden" id="reg_placa">
-            <input type="hidden" id="reg_placa_nueva">
-            <input type="hidden" id="reg_modelo_nuevo">
-        </div>
+<select id="reg_regional">
+    <option value="">— Selecciona tu Regional —</option>
+    <option value="Antioquia">Antioquia</option>
+    <option value="Risaralda">Risaralda</option>
+    <option value="Caldas">Caldas</option>
+    <option value="Quindío">Quindío</option>
+    <option value="Valle">Valle</option>
+</select>
 
-        <button class="btn-login" style="background: var(--exito);" id="btn-reg-exec" onclick="ejecutarRegistro()">REGISTRARME</button>
-        <button onclick="cerrarRegistro()" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:12px; background:transparent; color:#94a3b8; margin-top:10px; cursor:pointer; font-weight:600; font-size:14px;">← Volver</button>
-    </div>
+<div style="border-top:1.5px solid #e2e8f0; margin:16px 0 10px; padding-top:16px;">
+<div id="carroza-badge" style="display:none; background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; font-size:13px; color:#065f46; font-weight:600; display:none; align-items:center; justify-content:space-between;">
+<span id="carroza-badge-texto">🚗 Sin asignar</span>
+<button onclick="limpiarCarroza()" style="background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:0;">✕</button>
+</div>
+<button type="button" id="btn-agregar-carroza" onclick="abrirModalCarroza()" style="width:100%; padding:13px; border:2px dashed #cbd5e1; border-radius:12px; background:#f8fafc; color:#64748b; font-weight:700; font-size:14px; cursor:pointer; transition:0.2s;">
+🚗 Agregar mi Carroza (opcional)
+</button>
+<input type="hidden" id="reg_placa">
+<input type="hidden" id="reg_placa_nueva">
+<input type="hidden" id="reg_modelo_nuevo">
 </div>
 
-<div id="modalCarroza" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:2000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:15px;">
-    <div style="background:white; border-radius:24px; padding:25px; width:100%; max-width:480px; margin:auto;">
-        <h3 style="font-size:17px; font-weight:800; color:#1e3a8a; margin-bottom:4px;">🚗 Gestión de Carroza</h3>
-        
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px; margin-top:15px;">
-            <button id="tab-existente" onclick="switchTab('existente')" style="padding:11px; border-radius:10px; border:2px solid #e2e8f0; background:#f8fafc; color:#64748b; font-weight:700; cursor:pointer;">📋 EXISTENTE</button>
-            <button id="tab-nueva" onclick="switchTab('nueva')" style="padding:11px; border-radius:10px; border:2px solid #1e3a8a; background:#1e3a8a; color:white; font-weight:700; cursor:pointer;">➕ NUEVA</button>
-        </div>
-
-        <div id="panel-existente" style="display:none;">
-            <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Seleccionar Placa</label>
-            <select id="sel-placa-existente"></select>
-        </div>
-
-        <div id="panel-nueva">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <div><label style="font-size:10px; font-weight:700;">Placa *</label><input type="text" id="nueva-placa" placeholder="PFO-147" style="text-transform:uppercase;"></div>
-                <div><label style="font-size:10px; font-weight:700;">Modelo *</label><input type="text" id="nueva-modelo" placeholder="Ej: Mercedes"></div>
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <div><label style="font-size:10px; font-weight:700;">Año</label><input type="number" id="nueva-anio" placeholder="2022"></div>
-                <div><label style="font-size:10px; font-weight:700;">KM Actual</label><input type="number" id="nueva-km-act" value="0"></div>
-            </div>
-            <div>
-                <label style="font-size:10px; font-weight:700;">Estado</label>
-                <select id="nueva-estado">
-                    <option value="Disponible">Disponible</option>
-                    <option value="En Servicio">En Servicio</option>
-                    <option value="En Taller">En Taller</option>
-                </select>
-            </div>
-        </div>
-
-        <div style="display:flex; gap:10px; margin-top:18px;">
-            <button onclick="cerrarModalCarroza()" style="flex:1; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; font-weight:700; cursor:pointer;">Cerrar</button>
-            <button onclick="confirmarCarroza()" style="flex:2; padding:12px; border:none; border-radius:10px; background:#1e3a8a; color:white; font-weight:800; cursor:pointer;">VINCULAR</button>
-        </div>
-    </div>
+<button class="btn-login" style="background: var(--exito);" id="btn-reg-exec" onclick="ejecutarRegistro()">REGISTRARME</button>
+<button onclick="cerrarRegistro()" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:12px; background:transparent; color:#94a3b8; margin-top:10px; cursor:pointer; font-weight:600; font-size:14px;">← Volver al inicio</button>
+</div>
 </div>
 
 <script src="db.js"></script>
 <script>
-// --- FLUJO PRINCIPAL ---
 function abrirRegistro() {
-    document.getElementById('modalRegistro').style.display = "block";
-    document.getElementById('error-msg').style.display = "none";
+document.getElementById('modalRegistro').style.display = "block";
+document.getElementById('error-msg').style.display = "none";
+// Se elimina cargarFlotaRegistro de aquí ya que se hace dentro del modal de carroza
 }
+
 function cerrarRegistro() { document.getElementById('modalRegistro').style.display = "none"; }
 
 async function login() {
-    const u = document.getElementById('user').value.trim();
-    const p = document.getElementById('pass').value.trim();
-    const btn = document.getElementById('btn-action');
-    const errorDiv = document.getElementById('error-msg');
+const u = document.getElementById('user').value.trim();
+const p = document.getElementById('pass').value.trim();
+const btn = document.getElementById('btn-action');
+const errorDiv = document.getElementById('error-msg');
 
-    if (!u || !p) { mostrarError("Ingresa datos"); return; }
-    btn.disabled = true; btn.innerText = "ENTRANDO...";
-    
-    try {
-        const res = await DB.login(u, p);
-        if (res.ok && res.data) {
-            localStorage.setItem('usuario_sesion', JSON.stringify(res.data));
-            window.location.href = (res.data.rol === 'admin') ? "dashboard.html" : "panel_conductor.html";
-        } else { mostrarError("Datos incorrectos"); }
-    } catch (err) { mostrarError("Error de conexión"); }
-    finally { btn.disabled = false; btn.innerText = "INGRESAR AL SISTEMA"; }
+if (!u || !p) { mostrarError("Ingresa usuario y contraseña"); return; }
+
+btn.disabled = true;
+btn.innerText = "VERIFICANDO...";
+errorDiv.style.display = "none";
+
+try {
+if (typeof DB === 'undefined') throw new Error("El sistema de conexión (db.js) no se ha cargado.");
+const res = await DB.login(u, p);
+if (res.ok && res.data) {
+const usuario = res.data;
+localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
+if (usuario.rol && usuario.rol.toLowerCase() === 'admin') {
+window.location.href = "dashboard.html";
+} else {
+window.location.href = "panel_conductor.html";
+}
+} else {
+mostrarError("Usuario o clave incorrectos");
+}
+} catch (err) {
+mostrarError("Error: " + err.message);
+} finally {
+btn.disabled = false;
+btn.innerText = "INGRESAR AL SISTEMA";
+}
 }
 
 async function ejecutarRegistro() {
-    const btn = document.getElementById('btn-reg-exec');
-    const datos = {
-        nombre: document.getElementById('reg_nombre').value.trim(),
-        usuario: document.getElementById('reg_usuario').value.trim(),
-        telefono: document.getElementById('reg_telefono').value.trim(),
-        password: document.getElementById('reg_password').value.trim(),
-        rol: document.getElementById('reg_rol').value,
-        regional: document.getElementById('reg_regional').value
-    };
+const btn = document.getElementById('btn-reg-exec');
+const datos = {
+nombre: document.getElementById('reg_nombre').value.trim(),
+usuario: document.getElementById('reg_usuario').value.trim(),
+telefono: document.getElementById('reg_telefono').value.trim(),
+password: document.getElementById('reg_password').value.trim(),
+rol: document.getElementById('reg_rol').value,
+regional: document.getElementById('reg_regional').value
+};
 
-    if (!datos.nombre || !datos.usuario || !datos.password || !datos.rol || !datos.regional) {
-        alert("Completa todos los campos obligatorios (*)"); return;
-    }
-
-    btn.disabled = true; btn.innerText = "PROCESANDO...";
-
-    try {
-        const res = await DB.registrarUsuario(datos);
-        if (!res.ok) throw new Error(res.error?.message);
-
-        const pEx = document.getElementById('reg_placa').value;
-        const pNu = document.getElementById('reg_placa_nueva').value;
-
-        if (pEx) {
-            await DB.supabase.from('carrozas').update({ conductor_asignado: datos.nombre }).eq('placa', pEx);
-        }
-        if (pNu) {
-            const extra = JSON.parse(document.getElementById('reg_placa_nueva').dataset.extra);
-            await DB.supabase.from('carrozas').insert([{ 
-                placa: pNu, 
-                modelo: document.getElementById('reg_modelo_nuevo').value, 
-                conductor_asignado: datos.nombre, 
-                ...extra 
-            }]);
-        }
-
-        alert("¡Registro exitoso! Ya puedes iniciar sesión.");
-        cerrarRegistro();
-    } catch (err) { alert("Error: " + err.message); }
-    finally { btn.disabled = false; btn.innerText = "REGISTRARME"; }
+if (!datos.nombre || !datos.usuario || !datos.password || !datos.rol || !datos.regional) {
+alert("Por favor, llena los campos obligatorios: Nombre, Cédula, Contraseña, Rol y Regional"); return;
 }
 
-// --- GESTIÓN CARROZAS ---
-let tabActivo = 'nueva';
-async function abrirModalCarroza() {
-    document.getElementById('modalCarroza').style.display = 'flex';
-    const sel = document.getElementById('sel-placa-existente');
-    sel.innerHTML = '<option>Cargando...</option>';
-    try {
-        const { data } = await DB.supabase.from('carrozas').select('placa, modelo').order('placa');
-        sel.innerHTML = '<option value="">— Elija Placa —</option>' + 
-            data.map(c => `<option value="${c.placa}">${c.placa} (${c.modelo || 'S.M'})</option>`).join('');
-    } catch(e) { sel.innerHTML = '<option>Error al cargar</option>'; }
+const placaExistente = document.getElementById('reg_placa').value;
+const placaNueva = document.getElementById('reg_placa_nueva').value.trim().toUpperCase();
+const modeloNuevo = document.getElementById('reg_modelo_nuevo').value.trim();
+
+btn.disabled = true;
+btn.innerText = "PROCESANDO...";
+
+try {
+const res = await DB.registrarUsuario(datos);
+if (!res.ok) {
+alert("Error: " + (res.error?.message || "Problema en el servidor"));
+btn.disabled = false; btn.innerText = "REGISTRARME"; return;
 }
 
-function switchTab(tab) {
-    tabActivo = tab;
-    document.getElementById('panel-existente').style.display = tab === 'existente' ? 'block' : 'none';
-    document.getElementById('panel-nueva').style.display = tab === 'nueva' ? 'block' : 'none';
-    const tabs = ['tab-existente', 'tab-nueva'];
-    tabs.forEach(t => {
-        const el = document.getElementById(t);
-        if(t.includes(tab)) {
-            el.style.background = '#1e3a8a'; el.style.color = 'white'; el.style.border = '2px solid #1e3a8a';
-        } else {
-            el.style.background = '#f8fafc'; el.style.color = '#64748b'; el.style.border = '2px solid #e2e8f0';
-        }
-    });
+if (placaExistente) {
+await DB.supabase.from('carrozas').update({ conductor_asignado: datos.nombre }).eq('placa', placaExistente);
 }
 
-function confirmarCarroza() {
-    if (tabActivo === 'existente') {
-        const val = document.getElementById('sel-placa-existente').value;
-        if (!val) return alert('Elija una placa');
-        document.getElementById('reg_placa').value = val;
-        document.getElementById('reg_placa_nueva').value = '';
-        mostrarBadgeCarroza('🚗 ' + val);
-    } else {
-        const placa = document.getElementById('nueva-placa').value.trim().toUpperCase();
-        const modelo = document.getElementById('nueva-modelo').value.trim();
-        if (!placa || !modelo) return alert('Placa y Modelo requeridos');
-        document.getElementById('reg_placa_nueva').value = placa;
-        document.getElementById('reg_modelo_nuevo').value = modelo;
-        document.getElementById('reg_placa').value = '';
-        document.getElementById('reg_placa_nueva').dataset.extra = JSON.stringify({
-            anio: parseInt(document.getElementById('nueva-anio').value) || null,
-            kilometraje_actual: parseInt(document.getElementById('nueva-km-act').value) || 0,
-            estado: document.getElementById('nueva-estado').value
-        });
-        mostrarBadgeCarroza('🚗 ' + placa + ' (Nueva)');
-    }
-    document.getElementById('modalCarroza').style.display = 'none';
+if (placaNueva) {
+const extraRaw = document.getElementById('reg_placa_nueva').dataset.extra;
+const extra = extraRaw ? JSON.parse(extraRaw) : {};
+await DB.supabase.from('carrozas').insert([{
+placa: placaNueva,
+modelo: modeloNuevo || 'Sin modelo',
+conductor_asignado: datos.nombre,
+anio: extra.anio || null,
+fecha_ingreso_empresa: extra.fecha_ingreso_empresa || null,
+kilometraje_inicial: extra.kilometraje_inicial || 0,
+kilometraje_actual: extra.kilometraje_actual || 0,
+estado: extra.estado || 'Disponible',
+ultimo_mantenimiento: extra.ultimo_mantenimiento || null,
+proximo_mantenimiento: extra.proximo_mantenimiento || null,
+observaciones: extra.observaciones || ''
+}]);
 }
 
-function mostrarBadgeCarroza(txt) {
-    document.getElementById('carroza-badge-texto').innerText = txt;
-    document.getElementById('carroza-badge').style.display = 'flex';
-    document.getElementById('btn-agregar-carroza').style.display = 'none';
-}
+alert("¡Registro exitoso! Ya puedes iniciar sesión.");
+cerrarRegistro();
 
-function limpiarCarroza() {
-    document.getElementById('reg_placa').value = '';
-    document.getElementById('reg_placa_nueva').value = '';
-    document.getElementById('carroza-badge').style.display = 'none';
-    document.getElementById('btn-agregar-carroza').style.display = 'block';
+} catch (err) {
+alert("Error en el registro: " + err.message);
+} finally {
+btn.disabled = false;
+btn.innerText = "REGISTRARME";
+}
 }
 
 function mostrarError(msg) {
-    const errorDiv = document.getElementById('error-msg');
-    errorDiv.innerText = msg; errorDiv.style.display = "block";
+const errorDiv = document.getElementById('error-msg');
+errorDiv.innerText = msg;
+errorDiv.style.display = "block";
+}
+</script>
+
+<div id="modalCarroza" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:2000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:15px;">
+<div style="background:white; border-radius:24px; padding:25px; width:100%; max-width:480px; margin:auto;">
+<h3 style="font-size:17px; font-weight:800; color:#1e3a8a; margin-bottom:4px;">🚗 Tu Carroza</h3>
+<p style="font-size:12px; color:#64748b; margin-bottom:18px;">Selecciona la tuya o registra una nueva</p>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
+<button id="tab-existente" onclick="switchTab('existente')"
+style="padding:11px; border-radius:10px; border:2px solid #e2e8f0; background:#f8fafc; color:#64748b; font-weight:700; font-size:13px; cursor:pointer;">📋 Ya existe</button>
+<button id="tab-nueva" onclick="switchTab('nueva')"
+style="padding:11px; border-radius:10px; border:2px solid #1e3a8a; background:#1e3a8a; color:white; font-weight:700; font-size:13px; cursor:pointer;">➕ Es nueva</button>
+</div>
+
+<div id="panel-existente" style="display:none;">
+<label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Selecciona tu placa</label>
+<select id="sel-placa-existente" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; background:#f8fafc; box-sizing:border-box;">
+<option value="">Cargando...</option>
+</select>
+</div>
+
+<div id="panel-nueva">
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+<div><label style="font-size:10px; font-weight:700;">Placa *</label><input type="text" id="nueva-placa" placeholder="PFO-147" style="text-transform:uppercase;"></div>
+<div><label style="font-size:10px; font-weight:700;">Modelo / Marca *</label><input type="text" id="nueva-modelo" placeholder="Mercedes Sprinter"></div>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+<div><label style="font-size:10px; font-weight:700;">Año</label><input type="number" id="nueva-anio" placeholder="2020"></div>
+<div><label style="font-size:10px; font-weight:700;">Fecha Ingreso</label><input type="date" id="nueva-fecha-ingreso"></div>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+<div><label style="font-size:10px; font-weight:700;">KM Inicial</label><input type="number" id="nueva-km-ini" value="0"></div>
+<div><label style="font-size:10px; font-weight:700;">KM Actual</label><input type="number" id="nueva-km-act" value="0"></div>
+</div>
+<div style="margin-bottom:10px;">
+<label style="font-size:10px; font-weight:700;">Estado</label>
+<select id="nueva-estado"><option value="Disponible">Disponible</option><option value="En Servicio">En Servicio</option><option value="En Taller">En Taller</option></select>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+<div><label style="font-size:10px; font-weight:700;">Último Mant.</label><input type="date" id="nueva-ult-mant"></div>
+<div><label style="font-size:10px; font-weight:700;">Próximo Mant.</label><input type="date" id="nueva-prox-mant"></div>
+</div>
+<div><label style="font-size:10px; font-weight:700;">Observaciones</label><textarea id="nueva-obs" rows="2" placeholder="Detalles..."></textarea></div>
+</div>
+
+<div style="display:flex; gap:10px; margin-top:18px;">
+<button onclick="cerrarModalCarroza()" style="flex:1; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; font-weight:700; cursor:pointer;">Cancelar</button>
+<button onclick="confirmarCarroza()" style="flex:2; padding:12px; border:none; border-radius:10px; background:#1e3a8a; color:white; font-weight:800; cursor:pointer;">CONFIRMAR</button>
+</div>
+</div>
+</div>
+
+<script>
+// SCRIPTS DE CARROZA MANTENIDOS IGUAL
+let tabActivo = 'nueva';
+document.addEventListener('DOMContentLoaded', () => {
+const hoy = new Date().toISOString().split('T')[0];
+if(document.getElementById('nueva-fecha-ingreso')) document.getElementById('nueva-fecha-ingreso').value = hoy;
+});
+
+async function abrirModalCarroza() {
+document.getElementById('modalCarroza').style.display = 'flex';
+switchTab('nueva');
+const sel = document.getElementById('sel-placa-existente');
+sel.innerHTML = '<option value="">Cargando...</option>';
+try {
+const { data } = await DB.supabase.from('carrozas').select('placa, modelo').order('placa');
+if (data && data.length > 0) {
+sel.innerHTML = '<option value="">— Selecciona tu placa —</option>' + data.map(c => '<option value="' + c.placa + '">' + c.placa + (c.modelo ? ' — ' + c.modelo : '') + '</option>').join('');
+} else { sel.innerHTML = '<option value="">No hay carrozas</option>'; }
+} catch(e) { sel.innerHTML = '<option value="">Error</option>'; }
+}
+
+function cerrarModalCarroza() { document.getElementById('modalCarroza').style.display = 'none'; }
+
+function switchTab(tab) {
+tabActivo = tab;
+document.getElementById('panel-existente').style.display = tab === 'existente' ? 'block' : 'none';
+document.getElementById('panel-nueva').style.display = tab === 'nueva' ? 'block' : 'none';
+const baseStyle = 'padding:11px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;';
+document.getElementById('tab-existente').style.cssText = baseStyle + (tab === 'existente' ? 'border:2px solid #1e3a8a; background:#1e3a8a; color:white;' : 'border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;');
+document.getElementById('tab-nueva').style.cssText = baseStyle + (tab === 'nueva' ? 'border:2px solid #1e3a8a; background:#1e3a8a; color:white;' : 'border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;');
+}
+
+function confirmarCarroza() {
+if (tabActivo === 'existente') {
+const sel = document.getElementById('sel-placa-existente');
+if (!sel.value) { alert('Selecciona una placa'); return; }
+document.getElementById('reg_placa').value = sel.value;
+document.getElementById('reg_placa_nueva').value = '';
+mostrarBadgeCarroza('🚗 ' + sel.options[sel.selectedIndex].text);
+} else {
+const placa = document.getElementById('nueva-placa').value.trim().toUpperCase();
+const modelo = document.getElementById('nueva-modelo').value.trim();
+if (!placa || !modelo) { alert('Placa y modelo obligatorios'); return; }
+document.getElementById('reg_placa').value = '';
+document.getElementById('reg_placa_nueva').value = placa;
+document.getElementById('reg_modelo_nuevo').value = modelo;
+const extra = {
+anio: parseInt(document.getElementById('nueva-anio').value) || null,
+fecha_ingreso_empresa: document.getElementById('nueva-fecha-ingreso').value || null,
+kilometraje_inicial: parseInt(document.getElementById('nueva-km-ini').value) || 0,
+kilometraje_actual: parseInt(document.getElementById('nueva-km-act').value) || 0,
+estado: document.getElementById('nueva-estado').value,
+ultimo_mantenimiento: document.getElementById('nueva-ult-mant').value || null,
+proximo_mantenimiento:document.getElementById('nueva-prox-mant').value || null,
+observaciones: document.getElementById('nueva-obs').value.trim()
+};
+document.getElementById('reg_placa_nueva').dataset.extra = JSON.stringify(extra);
+mostrarBadgeCarroza('🚗 ' + placa + ' (nueva)');
+}
+cerrarModalCarroza();
+}
+
+function mostrarBadgeCarroza(texto) {
+document.getElementById('carroza-badge-texto').textContent = texto;
+document.getElementById('carroza-badge').style.display = 'flex';
+document.getElementById('btn-agregar-carroza').style.display = 'none';
+}
+
+function limpiarCarroza() {
+document.getElementById('reg_placa').value = '';
+document.getElementById('reg_placa_nueva').value = '';
+document.getElementById('carroza-badge').style.display = 'none';
+document.getElementById('btn-agregar-carroza').style.display = 'block';
 }
 </script>
 </body>
