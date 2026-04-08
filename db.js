@@ -1,7 +1,8 @@
 // ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
-// ⚠️ REEMPLAZA ESTA LÍNEA con la clave que empieza por "eyJ..."
-const supabaseKey = 'PEGA_AQUI_TU_CLAVE_ANON_PUBLIC'; 
+
+// ✅ Clave Anon Public proporcionada
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndmdjaGprZHZuamZ4cWRrbWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTI1MjksImV4cCI6MjA5MDQ2ODUyOX0.HAOgrHOmMhRb4m6WFrqBuXnYQgXjxedDzxF0i84_SnQ'; 
 
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
@@ -11,11 +12,12 @@ const DB = {
     // ── 1. SESIÓN Y REGISTRO ────────────────────────────
     async login(usuario, clave) {
         try {
+            // Verificado en tu tabla: la columna se llama 'password'
             const { data, error } = await _supabase
                 .from('usuarios')
                 .select('*')
                 .eq('usuario', usuario.trim())
-                .eq('password', clave.trim())
+                .eq('password', clave.trim()) 
                 .maybeSingle();
 
             if (error) throw error;
@@ -23,16 +25,14 @@ const DB = {
 
             return { data, ok: true };
         } catch (err) {
-            console.error("Error Login:", err.message);
+            console.error("Error en login:", err.message);
             return { data: null, ok: false, error: err.message };
         }
     },
 
     async registrarUsuario(datos) {
         try {
-            const { error } = await _supabase
-                .from('usuarios')
-                .insert([datos]);
+            const { error } = await _supabase.from('usuarios').insert([datos]);
             return { ok: !error, error };
         } catch (err) {
             return { ok: false, error: err };
@@ -102,20 +102,6 @@ const DB = {
         }
     },
 
-    async obtenerMisSalidas(nombreConductor) {
-        try {
-            const { data, error } = await _supabase
-                .from('Traslado')
-                .select('*')
-                .ilike('conductor', '%' + nombreConductor + '%')
-                .order('id_salida', { ascending: false })
-                .limit(10);
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
     // ── 4. AVERÍAS ───────────────────────────────────────
     async guardarAveria(datos) {
         try {
@@ -123,19 +109,6 @@ const DB = {
             return { ok: !error, error };
         } catch (err) {
             return { ok: false, error: err };
-        }
-    },
-
-    async obtenerTodasAverias() {
-        try {
-            const { data, error } = await _supabase
-                .from('Averias')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(20);
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
         }
     }
 };
