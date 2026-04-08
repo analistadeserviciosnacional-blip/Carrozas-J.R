@@ -10,11 +10,12 @@ const DB = {
     // ── 1. SESIÓN Y REGISTRO ────────────────────────────
     async login(usuario, clave) {
         try {
+            // Intenta con el campo 'contraseña' (nombre real en Supabase)
             const { data, error } = await _supabase
                 .from('usuarios')
                 .select('*')
                 .eq('usuario', usuario)
-                .eq('password', clave)
+                .eq('contraseña', clave)   // ← CORREGIDO (era 'password')
                 .single();
             if (error) throw error;
             return { data, ok: true };
@@ -49,16 +50,8 @@ const DB = {
     },
 
     // ── 3. TRASLADOS ─────────────────────────────────────
-    // Columnas reales de la tabla Traslado (verificadas en Supabase):
-    // id_salida, fecha, regional, conductor, nnum_telefono, placa,
-    // motivo_de_salida, nombre_del_fallecido, clínica_hospital_o_rsd, numero_prestación,
-    // origen, destino, hora_de_salida, hora_de_ingreso, km__salida, km__ingreso,
-    // total_km, coordinador_en_turno, observaciones, firma, imagen1...
     async guardarTraslado(datos) {
         try {
-            // Construimos el payload solo con columnas ASCII seguras.
-            // Las columnas con tildes (clínica_hospital_o_rsd, numero_prestación)
-            // se añaden dinámicamente para evitar error de schema cache.
             const payload = {
                 id_salida:            'JR-' + Date.now(),
                 fecha:                new Date().toLocaleDateString('es-CO'),
