@@ -1,7 +1,6 @@
 // ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
-
-// ✅ CLAVE CORRECTA: Usamos la clave Anon Public (Legacy) de tu imagen
+// ✅ CLAVE CORREGIDA: Usando la clave Anon Public (Legacy) de tus ajustes
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndmdjaGprZHZuamZ4cWRrbWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTI1MjksImV4cCI6MjA5MDQ2ODUyOX0.HAOgrHOmMhRb4m6WFrqBuXnYQgXjxedDzxF0i84_SnQ'; 
 
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -9,43 +8,61 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 const DB = {
     supabase: _supabase,
 
-    // ── 1. SESIÓN (LOGIN CORREGIDO) ─────────────────────
+    // ── 1. SESIÓN (LOGIN RESISTENTE) ─────────────────────
     async login(usuario, clave) {
         try {
-            // CORRECCIÓN: Usamos 'contraseña' porque así aparece en tu Editor de Tablas
+            // Buscamos solo por el nombre de usuario para evitar conflictos con la 'ñ' en la URL
             const { data, error } = await _supabase
                 .from('usuarios')
                 .select('*')
                 .eq('usuario', usuario.trim())
-                .eq('contraseña', clave.trim()) 
                 .maybeSingle();
 
-            if (error) throw error;
-            if (!data) return { data: null, ok: false, error: "Usuario o clave incorrectos" };
+            if (error) {
+                console.error("Error de base de datos:", error.message);
+                return { data: null, ok: false, error: "Error de conexión (400)" };
+            }
 
-            return { data, ok: true };
+            if (!data) {
+                return { data: null, ok: false, error: "Usuario no encontrado" };
+            }
+
+            // Verificamos la contraseña internamente comparando los datos obtenidos
+            // En tu tabla la columna se llama 'contraseña'
+            if (data.contraseña === clave.trim()) {
+                return { data, ok: true };
+            } else {
+                return { data: null, ok: false, error: "Contraseña incorrecta" };
+            }
         } catch (err) {
-            console.error("Error en login:", err.message);
-            return { data: null, ok: false, error: err.message };
+            return { data: null, ok: false, error: "Error inesperado" };
         }
     },
 
-    async registrarUsuario(datos) {
+    // ── 2. PANEL COORDINADOR: SOLICITUDES (ERROR 404 FIJADO) ──
+    async obtenerSolicitudesApoyo() {
         try {
-            const { error } = await _supabase.from('usuarios').insert([datos]);
-            return { ok: !error, error };
+            // CORRECCIÓN: 'solicitud_apoyo' en singular según tu Editor de Tablas
+            const { data, error } = await _supabase
+                .from('solicitud_apoyo') 
+                .select('*')
+                .order('id', { ascending: false });
+            
+            if (error) throw error;
+            return { data: data || [], ok: true };
         } catch (err) {
-            return { ok: false, error: err };
+            console.error("Error 404 - Tabla no encontrada:", err.message);
+            return { data: [], ok: false };
         }
     },
 
-    // ── 2. FLOTA ────────────────────────────────────────
-    async obtenerFlota() {
+    // ── 3. PANEL COORDINADOR: VISIÓN GLOBAL ──────────────
+    async obtenerTodosLosTraslados() {
         try {
             const { data, error } = await _supabase
-                .from('carrozas')
+                .from('Traslado')
                 .select('*')
-                .order('placa', { ascending: true });
+                .order('id_salida', { ascending: false });
             if (error) throw error;
             return { data: data || [], ok: true };
         } catch (err) {
@@ -53,7 +70,34 @@ const DB = {
         }
     },
 
-    // ── 3. TRASLADOS (CORREGIDO) ─────────────────────────
+    async obtenerTodasLasAverias() {
+        try {
+            const { data, error } = await _supabase
+                .from('Averias')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
+        }
+    },
+
+    // ── 4. FUNCIONES PARA CONDUCTORES ─────────────────────
+    async obtenerMisSalidas(nombreConductor) {
+        try {
+            const { data, error } = await _supabase
+                .from('Traslado')
+                .select('*')
+                .ilike('conductor', `%${nombreConductor}%`)
+                .order('id_salida', { ascending: false })
+                .limit(10);
+            return { data: data || [], ok: true };
+        } catch (err) {
+            return { data: [], ok: false };
+        }
+    },
+
     async guardarTraslado(datos) {
         try {
             const payload = {
@@ -79,7 +123,6 @@ const DB = {
                 imagen2: datos.imagen2 || '',
                 imagen3: datos.imagen3 || '',
                 imagen4: datos.imagen4 || '',
-                // Evitamos tildes en las claves del objeto para mayor seguridad
                 clinica_hospital_o_rsd: datos.clinica || '',
                 numero_prestacion: datos.prestacion || ''
             };
@@ -90,54 +133,13 @@ const DB = {
         }
     },
 
-    async obtenerMisSalidas(nombreConductor) {
+    // ── 5. ESTADO DE LA FLOTA ────────────────────────────
+    async obtenerEstadoFlota() {
         try {
             const { data, error } = await _supabase
-                .from('Traslado')
+                .from('carrozas')
                 .select('*')
-                .ilike('conductor', `%${nombreConductor}%`)
-                .order('id_salida', { ascending: false })
-                .limit(10);
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
-    // ── 4. AVERÍAS ───────────────────────────────────────
-    async guardarAveria(datos) {
-        try {
-            const { error } = await _supabase.from('Averias').insert([datos]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
-        }
-    },
-
-    async obtenerMisAverias(nombreConductor) {
-        try {
-            const { data, error } = await _supabase
-                .from('Averias')
-                .select('*')
-                .ilike('reportado_por', `%${nombreConductor}%`)
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
-    // ── 5. SOLICITUDES DE APOYO (CORRECCIÓN ERROR 404) ───
-    async obtenerSolicitudesApoyo() {
-        try {
-            // Se usa 'solicitud_apoyo' en singular según tu base de datos
-            const { data, error } = await _supabase
-                .from('solicitud_apoyo') 
-                .select('*')
-                .order('id', { ascending: false });
-            
+                .order('placa', { ascending: true });
             if (error) throw error;
             return { data: data || [], ok: true };
         } catch (err) {
