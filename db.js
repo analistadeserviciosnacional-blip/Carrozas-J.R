@@ -1,6 +1,6 @@
 // ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
-// Llave Anon Public corregida para evitar el Error 400
+// Clave Anon Public (Legacy) para evitar el Error 400
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndmdjaGprZHZuamZ4cWRrbWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTI1MjksImV4cCI6MjA5MDQ2ODUyOX0.HAOgrHOmMhRb4m6WFrqBuXnYQgXjxedDzxF0i84_SnQ'; 
 
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -11,7 +11,7 @@ const DB = {
     // ── 1. SESIÓN (LOGIN) ────────────────────────────────
     async login(usuario, clave) {
         try {
-            // Se usa 'contraseña' según tu estructura de tabla actual
+            // Se usa 'contraseña' según tu tabla de usuarios
             const { data, error } = await _supabase
                 .from('usuarios')
                 .select('*')
@@ -23,11 +23,29 @@ const DB = {
             if (!data) return { data: null, ok: false, error: "Usuario o clave incorrectos" };
             return { data, ok: true };
         } catch (err) {
+            console.error("Error en login:", err.message);
             return { data: null, ok: false, error: err.message };
         }
     },
 
-    // ── 2. TRASLADOS (CONDUCTOR Y COORDINADOR) ──────────
+    // ── 2. SOLICITUD DE APOYO (CORRECCIÓN ERROR 404) ─────
+    async obtenerSolicitudesApoyo() {
+        try {
+            // Corregido a 'solicitud_apoyo' (singular) para evitar el Error 404
+            const { data, error } = await _supabase
+                .from('solicitud_apoyo') 
+                .select('*')
+                .order('id', { ascending: false });
+            
+            if (error) throw error;
+            return { data: data || [], ok: true };
+        } catch (err) {
+            console.error("Error en tabla solicitud_apoyo:", err.message);
+            return { data: [], ok: false };
+        }
+    },
+
+    // ── 3. TRASLADOS ─────────────────────────────────────
     async guardarTraslado(datos) {
         try {
             const payload = {
@@ -74,36 +92,6 @@ const DB = {
             if (error) throw error;
             return { data: data || [], ok: true };
         } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
-    async obtenerTodosLosTraslados() {
-        try {
-            const { data, error } = await _supabase
-                .from('Traslado')
-                .select('*')
-                .order('id_salida', { ascending: false });
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
-    // ── 3. SOLICITUD DE APOYO (CORRECCIÓN ERROR 404) ─────
-    async obtenerSolicitudesApoyo() {
-        try {
-            // Corregido a 'solicitud_apoyo' (singular) según tu DB
-            const { data, error } = await _supabase
-                .from('solicitud_apoyo') 
-                .select('*')
-                .order('id', { ascending: false });
-            
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            console.error("Error en tabla solicitud_apoyo:", err.message);
             return { data: [], ok: false };
         }
     },
