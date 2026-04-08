@@ -222,6 +222,14 @@
         sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (!sesion.nombre) { window.location.href = 'index.html'; return; }
 
+        // Verificar que sea coordinador o admin
+        const rolSesion = (sesion.rol || '').toLowerCase().trim();
+        const usrSesion = (sesion.usuario || '').toLowerCase().trim();
+        if (rolSesion !== 'coordinador' && rolSesion !== 'admin' && usrSesion !== 'admin') {
+            window.location.href = 'panel_conductor.html';
+            return;
+        }
+
         regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
         document.getElementById('txt-nombre').textContent  = 'Hola, ' + sesion.nombre.split(' ')[0];
         document.getElementById('txt-regional').textContent = '📍 ' + regional;
