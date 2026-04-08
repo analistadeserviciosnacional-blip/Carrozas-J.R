@@ -29,12 +29,12 @@
         }
         h2 { color: var(--texto-oscuro); font-size: 24px; margin-bottom: 5px; font-weight: 700; }
         p { color: #64748b; font-size: 14px; margin-bottom: 25px; }
-        input { 
+        input, select { 
             width: 100%; padding: 15px; margin-bottom: 12px; border: 1.5px solid #e2e8f0; 
             border-radius: 14px; background: #f8fafc; box-sizing: border-box; 
-            outline: none; font-size: 15px; transition: 0.3s;
+            outline: none; font-size: 15px; transition: 0.3s; font-family: inherit;
         }
-        input:focus { border-color: var(--azul-principal); background: white; }
+        input:focus, select:focus { border-color: var(--azul-principal); background: white; }
         .btn-login { 
             width: 100%; padding: 16px; background: var(--azul-principal); 
             color: white; border: none; border-radius: 14px; font-weight: 700; 
@@ -45,7 +45,7 @@
         .link-reg { color: var(--azul-principal); font-weight: 700; cursor: pointer; display: block; margin-top: 20px; font-size: 14px; text-decoration: none; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,74,153,0.3); backdrop-filter: blur(4px); }
         .modal-content { background-color: white; margin: 5% auto; padding: 25px; border-radius: 28px; width: 92%; max-width: 380px; text-align: center; max-height: 90vh; overflow-y: auto; }
-        .modal-content input { text-align: left; }
+        .modal-content input, .modal-content select { text-align: left; }
         #error-msg { color: #e11d48; font-size: 13px; margin-top: 15px; display: none; background: #fff1f2; padding: 10px; border-radius: 10px; }
     </style>
 </head>
@@ -62,26 +62,41 @@
         <div id="error-msg"></div>
     </div>
 
+    <!-- MODAL REGISTRO -->
     <div id="modalRegistro" class="modal">
         <div class="modal-content">
             <h2 style="font-size: 20px;">Crear Cuenta Nueva</h2>
             <p style="margin-bottom: 20px;">Completa tus datos de conductor</p>
-            <input type="text" id="reg_nombre" placeholder="Nombre Completo">
-            <input type="text" id="reg_usuario" placeholder="Cédula (Usuario)">
-            <input type="text" id="reg_telefono" placeholder="Teléfono">
-            <input type="password" id="reg_password" placeholder="Contraseña">
 
-            <!-- BLOQUE CARROZA — botón simple -->
+            <input type="text"     id="reg_nombre"   placeholder="Nombre Completo *">
+            <input type="text"     id="reg_usuario"  placeholder="Cédula (Usuario) *">
+            <input type="text"     id="reg_telefono" placeholder="Teléfono">
+            <input type="password" id="reg_password" placeholder="Contraseña *">
+
+            <!-- REGIONAL -->
+            <select id="reg_regional" style="color:#64748b;">
+                <option value="">— Selecciona tu Regional —</option>
+                <option value="Pereira">Pereira</option>
+                <option value="Manizales">Manizales</option>
+                <option value="Armenia">Armenia</option>
+                <option value="Medellín">Medellín</option>
+                <option value="Bogotá">Bogotá</option>
+                <option value="Cali">Cali</option>
+                <option value="Bucaramanga">Bucaramanga</option>
+                <option value="Barranquilla">Barranquilla</option>
+                <option value="Cartagena">Cartagena</option>
+                <option value="Otra">Otra</option>
+            </select>
+
+            <!-- BLOQUE CARROZA -->
             <div style="border-top:1.5px solid #e2e8f0; margin:16px 0 10px; padding-top:16px;">
-                <!-- Badge de carroza seleccionada (oculto hasta que se elija) -->
-                <div id="carroza-badge" style="display:none; background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; font-size:13px; color:#065f46; font-weight:600; display:none; align-items:center; justify-content:space-between;">
+                <div id="carroza-badge" style="display:none; background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; font-size:13px; color:#065f46; font-weight:600; align-items:center; justify-content:space-between;">
                     <span id="carroza-badge-texto">🚗 Sin asignar</span>
                     <button onclick="limpiarCarroza()" style="background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:0;">✕</button>
                 </div>
                 <button type="button" id="btn-agregar-carroza" onclick="abrirModalCarroza()" style="width:100%; padding:13px; border:2px dashed #cbd5e1; border-radius:12px; background:#f8fafc; color:#64748b; font-weight:700; font-size:14px; cursor:pointer; transition:0.2s;">
                     🚗 Agregar mi Carroza (opcional)
                 </button>
-                <!-- Campos ocultos para guardar la selección -->
                 <input type="hidden" id="reg_placa">
                 <input type="hidden" id="reg_placa_nueva">
                 <input type="hidden" id="reg_modelo_nuevo">
@@ -97,25 +112,10 @@
         function abrirRegistro() {
             document.getElementById('modalRegistro').style.display = "block";
             document.getElementById('error-msg').style.display = "none";
-            cargarFlotaRegistro();
         }
-
-        async function cargarFlotaRegistro() {
-            const sel = document.getElementById('reg_placa');
-            try {
-                const { data } = await DB.supabase
-                    .from('carrozas').select('placa, modelo').order('placa');
-                if (data && data.length > 0) {
-                    sel.innerHTML = '<option value="">Sin asignar por ahora</option>' +
-                        data.map(c => '<option value="'+c.placa+'">'+c.placa+(c.modelo?' — '+c.modelo:'')+'</option>').join('');
-                } else {
-                    sel.innerHTML = '<option value="">No hay carrozas — registra una nueva abajo</option>';
-                }
-            } catch(e) {
-                sel.innerHTML = '<option value="">Error al cargar flota</option>';
-            }
+        function cerrarRegistro() {
+            document.getElementById('modalRegistro').style.display = "none";
         }
-        function cerrarRegistro() { document.getElementById('modalRegistro').style.display = "none"; }
 
         async function login() {
             const u = document.getElementById('user').value.trim();
@@ -136,12 +136,11 @@
 
                 if (res.ok && res.data) {
                     const usuario = res.data;
-                    // CORRECCIÓN: se usa UNA sola clave consistente en todos los archivos
                     localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
 
                     const rol = (usuario.rol || '').toLowerCase();
                     const usr = u.toLowerCase();
-                    if (usr === 'admin' || rol === 'admin') {
+                    if (usr === 'admin' || usr === 'administración' || rol === 'admin' || rol === 'administración') {
                         window.location.href = "dashboard.html";
                     } else if (rol === 'coordinador') {
                         window.location.href = "panel_coordinador.html";
@@ -162,15 +161,20 @@
 
         async function ejecutarRegistro() {
             const btn = document.getElementById('btn-reg-exec');
-            const datos = {
-                nombre:   document.getElementById('reg_nombre').value.trim(),
-                usuario:  document.getElementById('reg_usuario').value.trim(),
-                telefono: document.getElementById('reg_telefono').value.trim(),
-                password: document.getElementById('reg_password').value.trim()
-            };
 
-            if (!datos.nombre || !datos.usuario || !datos.password) {
-                alert("Por favor, llena los campos obligatorios: Nombre, Cédula y Contraseña"); return;
+            const nombre   = document.getElementById('reg_nombre').value.trim();
+            const usuario  = document.getElementById('reg_usuario').value.trim();
+            const telefono = document.getElementById('reg_telefono').value.trim();
+            const password = document.getElementById('reg_password').value.trim();
+            const regional = document.getElementById('reg_regional').value;
+
+            if (!nombre || !usuario || !password) {
+                alert("Por favor, llena los campos obligatorios: Nombre, Cédula y Contraseña");
+                return;
+            }
+            if (!regional) {
+                alert("Por favor, selecciona tu Regional");
+                return;
             }
 
             const placaExistente = document.getElementById('reg_placa').value;
@@ -181,29 +185,37 @@
             btn.innerText = "PROCESANDO...";
 
             try {
-                // 1. Registrar usuario
-                const res = await DB.registrarUsuario(datos);
-                if (!res.ok) {
-                    alert("Error: " + (res.error?.message || "Problema en el servidor"));
-                    btn.disabled = false; btn.innerText = "REGISTRARME"; return;
-                }
+                // 1. Insertar usuario directamente con los nombres exactos de columna
+                const { data, error } = await DB.supabase
+                    .from('usuarios')
+                    .insert([{
+                        nombre:      nombre,
+                        usuario:     usuario,
+                        'contraseña': password,   // columna exacta en Supabase
+                        'teléfono':  telefono,    // columna exacta en Supabase (con tilde)
+                        rol:         'conductor',
+                        regional:    regional
+                    }])
+                    .select()
+                    .single();
 
-                // 2. Asignar carroza existente al conductor
+                if (error) throw error;
+
+                // 2. Asignar carroza existente
                 if (placaExistente) {
                     await DB.supabase.from('carrozas')
-                        .update({ conductor_asignado: datos.nombre })
+                        .update({ conductor_asignado: nombre })
                         .eq('placa', placaExistente);
                 }
 
-                // 3. Crear carroza nueva con todos los campos
+                // 3. Crear carroza nueva
                 if (placaNueva) {
-                    // Leer campos extra guardados en dataset
                     const extraRaw = document.getElementById('reg_placa_nueva').dataset.extra;
                     const extra = extraRaw ? JSON.parse(extraRaw) : {};
                     await DB.supabase.from('carrozas').insert([{
                         placa:                 placaNueva,
                         modelo:                modeloNuevo || 'Sin modelo',
-                        conductor_asignado:    datos.nombre,
+                        conductor_asignado:    nombre,
                         anio:                  extra.anio || null,
                         fecha_ingreso_empresa: extra.fecha_ingreso_empresa || null,
                         kilometraje_inicial:   extra.kilometraje_inicial || 0,
@@ -223,6 +235,10 @@
 
                 alert(msg);
                 cerrarRegistro();
+
+                // Auto-llenar login
+                document.getElementById('user').value = usuario;
+                document.getElementById('pass').value = password;
 
             } catch (err) {
                 alert("Error en el registro: " + err.message);
@@ -277,78 +293,71 @@
                 </select>
             </div>
 
-            <!-- PANEL NUEVA — FORMULARIO COMPLETO -->
+            <!-- PANEL NUEVA -->
             <div id="panel-nueva">
-                
-                <!-- Fila 1: Placa + Modelo -->
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                     <div>
                         <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Placa *</label>
                         <input type="text" id="nueva-placa" placeholder="PFO-147"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; text-transform:uppercase; box-sizing:border-box; background:#f8fafc;">
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; text-transform:uppercase; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                     </div>
                     <div>
                         <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Modelo / Marca *</label>
                         <input type="text" id="nueva-modelo" placeholder="Mercedes Sprinter"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                     </div>
                 </div>
 
-                <!-- Fila 2: Año + Fecha Ingreso -->
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                     <div>
                         <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Año</label>
                         <input type="number" id="nueva-anio" placeholder="2020"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                     </div>
                     <div>
                         <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Fecha Ingreso Empresa</label>
                         <input type="date" id="nueva-fecha-ingreso"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                     </div>
                 </div>
 
-                <!-- Fila 3: KM Inicial + KM Actual -->
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                     <div>
                         <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Kilometraje Inicial</label>
                         <input type="number" id="nueva-km-ini" placeholder="0" value="0"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                     </div>
                     <div>
                         <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Kilometraje Actual</label>
                         <input type="number" id="nueva-km-act" placeholder="0" value="0"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                     </div>
                 </div>
 
-                <!-- Fila 4: Estado -->
                 <div style="margin-bottom:10px;">
                     <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Estado</label>
                     <select id="nueva-estado"
-                        style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                        style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                         <option value="Disponible">Disponible</option>
                         <option value="En Servicio">En Servicio</option>
                         <option value="En Taller">En Taller</option>
                     </select>
                 </div>
 
-                <!-- Fila 5: Último + Próximo Mantenimiento -->
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                     <div>
                         <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Último Mantenimiento</label>
                         <input type="date" id="nueva-ult-mant"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                     </div>
                     <div>
                         <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Próximo Mantenimiento</label>
                         <input type="date" id="nueva-prox-mant"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
+                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; margin-bottom:0;">
                     </div>
                 </div>
 
-                <!-- Fila 6: Observaciones -->
-                <div style="margin-bottom:0;">
+                <div>
                     <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Observaciones</label>
                     <textarea id="nueva-obs" rows="2" placeholder="Detalles adicionales..."
                         style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; resize:none;"></textarea>
@@ -372,16 +381,15 @@
     <script>
         let tabActivo = 'nueva';
 
-        // Poner fecha de hoy por defecto
         document.addEventListener('DOMContentLoaded', () => {
             const hoy = new Date().toISOString().split('T')[0];
-            document.getElementById('nueva-fecha-ingreso').value = hoy;
+            const fi = document.getElementById('nueva-fecha-ingreso');
+            if (fi) fi.value = hoy;
         });
 
         async function abrirModalCarroza() {
             document.getElementById('modalCarroza').style.display = 'flex';
             switchTab('nueva');
-            // Cargar flota para tab "Ya existe"
             const sel = document.getElementById('sel-placa-existente');
             sel.innerHTML = '<option value="">Cargando...</option>';
             try {
@@ -430,20 +438,18 @@
                 const modelo = document.getElementById('nueva-modelo').value.trim();
                 if (!placa)  { alert('La placa es obligatoria'); return; }
                 if (!modelo) { alert('El modelo es obligatorio'); return; }
-                // Guardar todos los datos de la nueva carroza
                 document.getElementById('reg_placa').value        = '';
                 document.getElementById('reg_placa_nueva').value  = placa;
                 document.getElementById('reg_modelo_nuevo').value = modelo;
-                // Guardar campos extra en dataset del hidden input para usarlos al registrar
                 const extra = {
-                    anio:                parseInt(document.getElementById('nueva-anio').value) || null,
+                    anio:                  parseInt(document.getElementById('nueva-anio').value) || null,
                     fecha_ingreso_empresa: document.getElementById('nueva-fecha-ingreso').value || null,
-                    kilometraje_inicial:  parseInt(document.getElementById('nueva-km-ini').value) || 0,
-                    kilometraje_actual:   parseInt(document.getElementById('nueva-km-act').value) || 0,
-                    estado:              document.getElementById('nueva-estado').value,
-                    ultimo_mantenimiento: document.getElementById('nueva-ult-mant').value || null,
-                    proximo_mantenimiento:document.getElementById('nueva-prox-mant').value || null,
-                    observaciones:       document.getElementById('nueva-obs').value.trim()
+                    kilometraje_inicial:   parseInt(document.getElementById('nueva-km-ini').value) || 0,
+                    kilometraje_actual:    parseInt(document.getElementById('nueva-km-act').value) || 0,
+                    estado:                document.getElementById('nueva-estado').value,
+                    ultimo_mantenimiento:  document.getElementById('nueva-ult-mant').value || null,
+                    proximo_mantenimiento: document.getElementById('nueva-prox-mant').value || null,
+                    observaciones:         document.getElementById('nueva-obs').value.trim()
                 };
                 document.getElementById('reg_placa_nueva').dataset.extra = JSON.stringify(extra);
                 mostrarBadgeCarroza('🚗 ' + placa + ' — ' + modelo + ' (nueva)');
