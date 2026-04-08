@@ -1,479 +1,347 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Control de Acceso Corporativo</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root { 
-            --azul-principal: #004a99; --azul-cielo: #e3f2fd; --blanco: #ffffff; 
-            --gris-suave: #f0f4f8; --texto-oscuro: #1a3a6d; --exito: #10b981;
-        }
-        body { 
-            background: linear-gradient(135deg, var(--azul-cielo) 0%, #bbdefb 100%); 
-            font-family: 'DM Sans', sans-serif; display: flex; align-items: center; 
-            justify-content: center; min-height: 100vh; margin: 0;
-        }
-        .login-card { 
-            background: var(--blanco); padding: 40px 30px; border-radius: 32px; 
-            width: 100%; max-width: 360px; box-shadow: 0 25px 50px rgba(0,74,153,0.15); 
-            text-align: center; border: 1px solid rgba(255,255,255,0.7);
-        }
-        .logo-container { 
-            width: 70px; height: 70px; background: var(--azul-principal); border-radius: 20px; 
-            margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; 
-            color: white; font-size: 26px; font-weight: 800; transform: rotate(-5deg);
-            box-shadow: 0 10px 20px rgba(0,74,153,0.2);
-        }
-        h2 { color: var(--texto-oscuro); font-size: 24px; margin-bottom: 5px; font-weight: 700; }
-        p { color: #64748b; font-size: 14px; margin-bottom: 25px; }
-        input { 
-            width: 100%; padding: 15px; margin-bottom: 12px; border: 1.5px solid #e2e8f0; 
-            border-radius: 14px; background: #f8fafc; box-sizing: border-box; 
-            outline: none; font-size: 15px; transition: 0.3s;
-        }
-        input:focus { border-color: var(--azul-principal); background: white; }
-        .btn-login { 
-            width: 100%; padding: 16px; background: var(--azul-principal); 
-            color: white; border: none; border-radius: 14px; font-weight: 700; 
-            font-size: 16px; cursor: pointer; transition: 0.3s; margin-top: 5px;
-            box-shadow: 0 8px 15px rgba(0,74,153,0.2);
-        }
-        .btn-login:disabled { background: #94a3b8; cursor: not-allowed; }
-        .link-reg { color: var(--azul-principal); font-weight: 700; cursor: pointer; display: block; margin-top: 20px; font-size: 14px; text-decoration: none; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,74,153,0.3); backdrop-filter: blur(4px); }
-        .modal-content { background-color: white; margin: 5% auto; padding: 25px; border-radius: 28px; width: 92%; max-width: 380px; text-align: center; max-height: 90vh; overflow-y: auto; }
-        .modal-content input { text-align: left; }
-        #error-msg { color: #e11d48; font-size: 13px; margin-top: 15px; display: none; background: #fff1f2; padding: 10px; border-radius: 10px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.R. — Control de Acceso Corporativo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+--azul-principal: #004a99; --azul-cielo: #e3f2fd; --blanco: #ffffff;
+--gris-suave: #f0f4f8; --texto-oscuro: #1a3a6d; --exito: #10b981;
+}
+body {
+background: linear-gradient(135deg, var(--azul-cielo) 0%, #bbdefb 100%);
+font-family: 'DM Sans', sans-serif; display: flex; align-items: center;
+justify-content: center; min-height: 100vh; margin: 0;
+}
+.login-card {
+background: var(--blanco); padding: 40px 30px; border-radius: 32px;
+width: 100%; max-width: 360px; box-shadow: 0 25px 50px rgba(0,74,153,0.15);
+text-align: center; border: 1px solid rgba(255,255,255,0.7);
+}
+.logo-container {
+width: 70px; height: 70px; background: var(--azul-principal); border-radius: 20px;
+margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;
+color: white; font-size: 26px; font-weight: 800; transform: rotate(-5deg);
+box-shadow: 0 10px 20px rgba(0,74,153,0.2);
+}
+h2 { color: var(--texto-oscuro); font-size: 24px; margin-bottom: 5px; font-weight: 700; }
+p { color: #64748b; font-size: 14px; margin-bottom: 25px; }
+input, select, textarea {
+width: 100%; padding: 15px; margin-bottom: 12px; border: 1.5px solid #e2e8f0;
+border-radius: 14px; background: #f8fafc; box-sizing: border-box;
+outline: none; font-size: 15px; transition: 0.3s; font-family: inherit;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--azul-principal); background: white; }
+.btn-login {
+width: 100%; padding: 16px; background: var(--azul-principal);
+color: white; border: none; border-radius: 14px; font-weight: 700;
+font-size: 16px; cursor: pointer; transition: 0.3s; margin-top: 5px;
+box-shadow: 0 8px 15px rgba(0,74,153,0.2);
+}
+.btn-login:disabled { background: #94a3b8; cursor: not-allowed; }
+.link-reg { color: var(--azul-principal); font-weight: 700; cursor: pointer; display: block; margin-top: 20px; font-size: 14px; text-decoration: none; }
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,74,153,0.3); backdrop-filter: blur(4px); }
+.modal-content { background-color: white; margin: 5% auto; padding: 25px; border-radius: 28px; width: 92%; max-width: 380px; text-align: center; max-height: 90vh; overflow-y: auto; }
+.modal-content input { text-align: left; }
+#error-msg { color: #e11d48; font-size: 13px; margin-top: 15px; display: none; background: #fff1f2; padding: 10px; border-radius: 10px; }
+</style>
 </head>
 <body>
 
-    <div class="login-card">
-        <div class="logo-container">JR</div>
-        <h2>Bienvenido</h2>
-        <p>Inicia sesión para continuar</p>
-        <input type="text" id="user" placeholder="Usuario o Cédula">
-        <input type="password" id="pass" placeholder="Contraseña">
-        <button class="btn-login" id="btn-action" onclick="login()">INGRESAR AL SISTEMA</button>
-        <span class="link-reg" onclick="abrirRegistro()">¿No tienes cuenta? Regístrate aquí</span>
-        <div id="error-msg"></div>
-    </div>
+<div class="login-card">
+<div class="logo-container">JR</div>
+<h2>Bienvenido</h2>
+<p>Inicia sesión para continuar</p>
+<input type="text" id="user" placeholder="Usuario o Cédula">
+<input type="password" id="pass" placeholder="Contraseña">
+<button class="btn-login" id="btn-action" onclick="login()">INGRESAR AL SISTEMA</button>
+<span class="link-reg" onclick="abrirRegistro()">¿No tienes cuenta? Regístrate aquí</span>
+<div id="error-msg"></div>
+</div>
 
-    <div id="modalRegistro" class="modal">
-        <div class="modal-content">
-            <h2 style="font-size: 20px;">Crear Cuenta Nueva</h2>
-            <p style="margin-bottom: 20px;">Completa tus datos de conductor</p>
-            <input type="text" id="reg_nombre" placeholder="Nombre Completo">
-            <input type="text" id="reg_usuario" placeholder="Cédula (Usuario)">
-            <input type="text" id="reg_telefono" placeholder="Teléfono">
-            <input type="password" id="reg_password" placeholder="Contraseña">
+<div id="modalRegistro" class="modal">
+<div class="modal-content">
+<h2 style="font-size: 20px;">Crear Cuenta Nueva</h2>
+<p style="margin-bottom: 20px;">Completa tus datos de acceso</p>
+<input type="text" id="reg_nombre" placeholder="Nombre Completo *">
+<input type="text" id="reg_usuario" placeholder="Cédula (Usuario) *">
+<input type="text" id="reg_telefono" placeholder="Teléfono">
+<input type="password" id="reg_password" placeholder="Contraseña *">
 
-            <!-- BLOQUE CARROZA — botón simple -->
-            <div style="border-top:1.5px solid #e2e8f0; margin:16px 0 10px; padding-top:16px;">
-                <!-- Badge de carroza seleccionada (oculto hasta que se elija) -->
-                <div id="carroza-badge" style="display:none; background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; font-size:13px; color:#065f46; font-weight:600; display:none; align-items:center; justify-content:space-between;">
-                    <span id="carroza-badge-texto">🚗 Sin asignar</span>
-                    <button onclick="limpiarCarroza()" style="background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:0;">✕</button>
-                </div>
-                <button type="button" id="btn-agregar-carroza" onclick="abrirModalCarroza()" style="width:100%; padding:13px; border:2px dashed #cbd5e1; border-radius:12px; background:#f8fafc; color:#64748b; font-weight:700; font-size:14px; cursor:pointer; transition:0.2s;">
-                    🚗 Agregar mi Carroza (opcional)
-                </button>
-                <!-- Campos ocultos para guardar la selección -->
-                <input type="hidden" id="reg_placa">
-                <input type="hidden" id="reg_placa_nueva">
-                <input type="hidden" id="reg_modelo_nuevo">
-            </div>
+<select id="reg_rol">
+    <option value="">— Selecciona tu Rol —</option>
+    <option value="conductor">Conductor</option>
+    <option value="coordinador">Coordinador</option>
+    <option value="admin">Administrador</option>
+</select>
 
-            <button class="btn-login" style="background: var(--exito);" id="btn-reg-exec" onclick="ejecutarRegistro()">REGISTRARME</button>
-            <button onclick="cerrarRegistro()" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:12px; background:transparent; color:#94a3b8; margin-top:10px; cursor:pointer; font-weight:600; font-size:14px;">← Volver al inicio</button>
-        </div>
-    </div>
+<select id="reg_regional">
+    <option value="">— Selecciona tu Regional —</option>
+    <option value="Antioquia">Antioquia</option>
+    <option value="Risaralda">Risaralda</option>
+    <option value="Caldas">Caldas</option>
+    <option value="Quindío">Quindío</option>
+    <option value="Valle">Valle</option>
+</select>
 
-    <script src="db.js"></script>
-    <script>
-        function abrirRegistro() {
-            document.getElementById('modalRegistro').style.display = "block";
-            document.getElementById('error-msg').style.display = "none";
-            cargarFlotaRegistro();
-        }
+<div style="border-top:1.5px solid #e2e8f0; margin:16px 0 10px; padding-top:16px;">
+<div id="carroza-badge" style="display:none; background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; font-size:13px; color:#065f46; font-weight:600; display:none; align-items:center; justify-content:space-between;">
+<span id="carroza-badge-texto">🚗 Sin asignar</span>
+<button onclick="limpiarCarroza()" style="background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:0;">✕</button>
+</div>
+<button type="button" id="btn-agregar-carroza" onclick="abrirModalCarroza()" style="width:100%; padding:13px; border:2px dashed #cbd5e1; border-radius:12px; background:#f8fafc; color:#64748b; font-weight:700; font-size:14px; cursor:pointer; transition:0.2s;">
+🚗 Agregar mi Carroza (opcional)
+</button>
+<input type="hidden" id="reg_placa">
+<input type="hidden" id="reg_placa_nueva">
+<input type="hidden" id="reg_modelo_nuevo">
+</div>
 
-        async function cargarFlotaRegistro() {
-            const sel = document.getElementById('reg_placa');
-            try {
-                const { data } = await DB.supabase
-                    .from('carrozas').select('placa, modelo').order('placa');
-                if (data && data.length > 0) {
-                    sel.innerHTML = '<option value="">Sin asignar por ahora</option>' +
-                        data.map(c => '<option value="'+c.placa+'">'+c.placa+(c.modelo?' — '+c.modelo:'')+'</option>').join('');
-                } else {
-                    sel.innerHTML = '<option value="">No hay carrozas — registra una nueva abajo</option>';
-                }
-            } catch(e) {
-                sel.innerHTML = '<option value="">Error al cargar flota</option>';
-            }
-        }
-        function cerrarRegistro() { document.getElementById('modalRegistro').style.display = "none"; }
+<button class="btn-login" style="background: var(--exito);" id="btn-reg-exec" onclick="ejecutarRegistro()">REGISTRARME</button>
+<button onclick="cerrarRegistro()" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:12px; background:transparent; color:#94a3b8; margin-top:10px; cursor:pointer; font-weight:600; font-size:14px;">← Volver al inicio</button>
+</div>
+</div>
 
-        async function login() {
-            const u = document.getElementById('user').value.trim();
-            const p = document.getElementById('pass').value.trim();
-            const btn = document.getElementById('btn-action');
-            const errorDiv = document.getElementById('error-msg');
+<script src="db.js"></script>
+<script>
+function abrirRegistro() {
+document.getElementById('modalRegistro').style.display = "block";
+document.getElementById('error-msg').style.display = "none";
+// Se elimina cargarFlotaRegistro de aquí ya que se hace dentro del modal de carroza
+}
 
-            if (!u || !p) { mostrarError("Ingresa usuario y contraseña"); return; }
+function cerrarRegistro() { document.getElementById('modalRegistro').style.display = "none"; }
 
-            btn.disabled = true;
-            btn.innerText = "VERIFICANDO...";
-            errorDiv.style.display = "none";
+async function login() {
+const u = document.getElementById('user').value.trim();
+const p = document.getElementById('pass').value.trim();
+const btn = document.getElementById('btn-action');
+const errorDiv = document.getElementById('error-msg');
 
-            try {
-                if (typeof DB === 'undefined') throw new Error("El sistema de conexión (db.js) no se ha cargado.");
+if (!u || !p) { mostrarError("Ingresa usuario y contraseña"); return; }
 
-                const res = await DB.login(u, p);
+btn.disabled = true;
+btn.innerText = "VERIFICANDO...";
+errorDiv.style.display = "none";
 
-                if (res.ok && res.data) {
-                    const usuario = res.data;
-                    // Guardar sesión completa con rol y regional
-                    localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
-                    // También guardar regional por separado para fácil acceso
-                    if (usuario.regional) {
-                        localStorage.setItem('jr_regional_usuario', usuario.regional);
-                    }
+try {
+if (typeof DB === 'undefined') throw new Error("El sistema de conexión (db.js) no se ha cargado.");
+const res = await DB.login(u, p);
+if (res.ok && res.data) {
+const usuario = res.data;
+localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
+if (usuario.rol && usuario.rol.toLowerCase() === 'admin') {
+window.location.href = "dashboard.html";
+} else {
+window.location.href = "panel_conductor.html";
+}
+} else {
+mostrarError("Usuario o clave incorrectos");
+}
+} catch (err) {
+mostrarError("Error: " + err.message);
+} finally {
+btn.disabled = false;
+btn.innerText = "INGRESAR AL SISTEMA";
+}
+}
 
-                    // Detectar rol — prioridad: campo 'rol' de DB, luego usuario='admin'
-                    const rolDB = (usuario.rol || '').toLowerCase().trim();
-                    const usrLower = u.toLowerCase().trim();
+async function ejecutarRegistro() {
+const btn = document.getElementById('btn-reg-exec');
+const datos = {
+nombre: document.getElementById('reg_nombre').value.trim(),
+usuario: document.getElementById('reg_usuario').value.trim(),
+telefono: document.getElementById('reg_telefono').value.trim(),
+password: document.getElementById('reg_password').value.trim(),
+rol: document.getElementById('reg_rol').value,
+regional: document.getElementById('reg_regional').value
+};
 
-                    console.log('Login OK — rol:', rolDB, '| usuario:', usrLower);
+if (!datos.nombre || !datos.usuario || !datos.password || !datos.rol || !datos.regional) {
+alert("Por favor, llena los campos obligatorios: Nombre, Cédula, Contraseña, Rol y Regional"); return;
+}
 
-                    if (usrLower === 'admin' || rolDB === 'admin') {
-                        window.location.href = "dashboard.html";
-                    } else if (rolDB === 'coordinador') {
-                        window.location.href = "panel_coordinador.html";
-                    } else {
-                        window.location.href = "panel_conductor.html";
-                    }
-                } else {
-                    mostrarError("Usuario o clave incorrectos");
-                }
-            } catch (err) {
-                console.error("Error en Login:", err);
-                mostrarError("Error: " + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "INGRESAR AL SISTEMA";
-            }
-        }
+const placaExistente = document.getElementById('reg_placa').value;
+const placaNueva = document.getElementById('reg_placa_nueva').value.trim().toUpperCase();
+const modeloNuevo = document.getElementById('reg_modelo_nuevo').value.trim();
 
-        async function ejecutarRegistro() {
-            const btn = document.getElementById('btn-reg-exec');
-            const datos = {
-                nombre:   document.getElementById('reg_nombre').value.trim(),
-                usuario:  document.getElementById('reg_usuario').value.trim(),
-                telefono: document.getElementById('reg_telefono').value.trim(),
-                password: document.getElementById('reg_password').value.trim()
-            };
+btn.disabled = true;
+btn.innerText = "PROCESANDO...";
 
-            if (!datos.nombre || !datos.usuario || !datos.password) {
-                alert("Por favor, llena los campos obligatorios: Nombre, Cédula y Contraseña"); return;
-            }
+try {
+const res = await DB.registrarUsuario(datos);
+if (!res.ok) {
+alert("Error: " + (res.error?.message || "Problema en el servidor"));
+btn.disabled = false; btn.innerText = "REGISTRARME"; return;
+}
 
-            const placaExistente = document.getElementById('reg_placa').value;
-            const placaNueva     = document.getElementById('reg_placa_nueva').value.trim().toUpperCase();
-            const modeloNuevo    = document.getElementById('reg_modelo_nuevo').value.trim();
+if (placaExistente) {
+await DB.supabase.from('carrozas').update({ conductor_asignado: datos.nombre }).eq('placa', placaExistente);
+}
 
-            btn.disabled = true;
-            btn.innerText = "PROCESANDO...";
+if (placaNueva) {
+const extraRaw = document.getElementById('reg_placa_nueva').dataset.extra;
+const extra = extraRaw ? JSON.parse(extraRaw) : {};
+await DB.supabase.from('carrozas').insert([{
+placa: placaNueva,
+modelo: modeloNuevo || 'Sin modelo',
+conductor_asignado: datos.nombre,
+anio: extra.anio || null,
+fecha_ingreso_empresa: extra.fecha_ingreso_empresa || null,
+kilometraje_inicial: extra.kilometraje_inicial || 0,
+kilometraje_actual: extra.kilometraje_actual || 0,
+estado: extra.estado || 'Disponible',
+ultimo_mantenimiento: extra.ultimo_mantenimiento || null,
+proximo_mantenimiento: extra.proximo_mantenimiento || null,
+observaciones: extra.observaciones || ''
+}]);
+}
 
-            try {
-                // 1. Registrar usuario
-                const res = await DB.registrarUsuario(datos);
-                if (!res.ok) {
-                    alert("Error: " + (res.error?.message || "Problema en el servidor"));
-                    btn.disabled = false; btn.innerText = "REGISTRARME"; return;
-                }
+alert("¡Registro exitoso! Ya puedes iniciar sesión.");
+cerrarRegistro();
 
-                // 2. Asignar carroza existente al conductor
-                if (placaExistente) {
-                    await DB.supabase.from('carrozas')
-                        .update({ conductor_asignado: datos.nombre })
-                        .eq('placa', placaExistente);
-                }
+} catch (err) {
+alert("Error en el registro: " + err.message);
+} finally {
+btn.disabled = false;
+btn.innerText = "REGISTRARME";
+}
+}
 
-                // 3. Crear carroza nueva con todos los campos
-                if (placaNueva) {
-                    // Leer campos extra guardados en dataset
-                    const extraRaw = document.getElementById('reg_placa_nueva').dataset.extra;
-                    const extra = extraRaw ? JSON.parse(extraRaw) : {};
-                    await DB.supabase.from('carrozas').insert([{
-                        placa:                 placaNueva,
-                        modelo:                modeloNuevo || 'Sin modelo',
-                        conductor_asignado:    datos.nombre,
-                        anio:                  extra.anio || null,
-                        fecha_ingreso_empresa: extra.fecha_ingreso_empresa || null,
-                        kilometraje_inicial:   extra.kilometraje_inicial || 0,
-                        kilometraje_actual:    extra.kilometraje_actual  || 0,
-                        estado:                extra.estado || 'Disponible',
-                        ultimo_mantenimiento:  extra.ultimo_mantenimiento  || null,
-                        proximo_mantenimiento: extra.proximo_mantenimiento || null,
-                        observaciones:         extra.observaciones || ''
-                    }]);
-                }
+function mostrarError(msg) {
+const errorDiv = document.getElementById('error-msg');
+errorDiv.innerText = msg;
+errorDiv.style.display = "block";
+}
+</script>
 
-                const msg = placaNueva
-                    ? "¡Registro exitoso! Carroza " + placaNueva + " creada y asignada."
-                    : placaExistente
-                        ? "¡Registro exitoso! Carroza " + placaExistente + " asignada."
-                        : "¡Registro exitoso! Ya puedes iniciar sesión.";
+<div id="modalCarroza" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:2000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:15px;">
+<div style="background:white; border-radius:24px; padding:25px; width:100%; max-width:480px; margin:auto;">
+<h3 style="font-size:17px; font-weight:800; color:#1e3a8a; margin-bottom:4px;">🚗 Tu Carroza</h3>
+<p style="font-size:12px; color:#64748b; margin-bottom:18px;">Selecciona la tuya o registra una nueva</p>
 
-                alert(msg);
-                cerrarRegistro();
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
+<button id="tab-existente" onclick="switchTab('existente')"
+style="padding:11px; border-radius:10px; border:2px solid #e2e8f0; background:#f8fafc; color:#64748b; font-weight:700; font-size:13px; cursor:pointer;">📋 Ya existe</button>
+<button id="tab-nueva" onclick="switchTab('nueva')"
+style="padding:11px; border-radius:10px; border:2px solid #1e3a8a; background:#1e3a8a; color:white; font-weight:700; font-size:13px; cursor:pointer;">➕ Es nueva</button>
+</div>
 
-            } catch (err) {
-                alert("Error en el registro: " + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "REGISTRARME";
-            }
-        }
+<div id="panel-existente" style="display:none;">
+<label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Selecciona tu placa</label>
+<select id="sel-placa-existente" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; background:#f8fafc; box-sizing:border-box;">
+<option value="">Cargando...</option>
+</select>
+</div>
 
-        function mostrarError(msg) {
-            const errorDiv = document.getElementById('error-msg');
-            errorDiv.innerText = msg;
-            errorDiv.style.display = "block";
-        }
+<div id="panel-nueva">
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+<div><label style="font-size:10px; font-weight:700;">Placa *</label><input type="text" id="nueva-placa" placeholder="PFO-147" style="text-transform:uppercase;"></div>
+<div><label style="font-size:10px; font-weight:700;">Modelo / Marca *</label><input type="text" id="nueva-modelo" placeholder="Mercedes Sprinter"></div>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+<div><label style="font-size:10px; font-weight:700;">Año</label><input type="number" id="nueva-anio" placeholder="2020"></div>
+<div><label style="font-size:10px; font-weight:700;">Fecha Ingreso</label><input type="date" id="nueva-fecha-ingreso"></div>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+<div><label style="font-size:10px; font-weight:700;">KM Inicial</label><input type="number" id="nueva-km-ini" value="0"></div>
+<div><label style="font-size:10px; font-weight:700;">KM Actual</label><input type="number" id="nueva-km-act" value="0"></div>
+</div>
+<div style="margin-bottom:10px;">
+<label style="font-size:10px; font-weight:700;">Estado</label>
+<select id="nueva-estado"><option value="Disponible">Disponible</option><option value="En Servicio">En Servicio</option><option value="En Taller">En Taller</option></select>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+<div><label style="font-size:10px; font-weight:700;">Último Mant.</label><input type="date" id="nueva-ult-mant"></div>
+<div><label style="font-size:10px; font-weight:700;">Próximo Mant.</label><input type="date" id="nueva-prox-mant"></div>
+</div>
+<div><label style="font-size:10px; font-weight:700;">Observaciones</label><textarea id="nueva-obs" rows="2" placeholder="Detalles..."></textarea></div>
+</div>
 
-        document.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                if (document.getElementById('modalRegistro').style.display === "block") {
-                    ejecutarRegistro();
-                } else {
-                    login();
-                }
-            }
-        });
-    </script>
-    <script src="config-aplicar.js"></script>
+<div style="display:flex; gap:10px; margin-top:18px;">
+<button onclick="cerrarModalCarroza()" style="flex:1; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; font-weight:700; cursor:pointer;">Cancelar</button>
+<button onclick="confirmarCarroza()" style="flex:2; padding:12px; border:none; border-radius:10px; background:#1e3a8a; color:white; font-weight:800; cursor:pointer;">CONFIRMAR</button>
+</div>
+</div>
+</div>
 
-    <!-- MODAL CARROZA COMPLETO -->
-    <div id="modalCarroza" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:2000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:15px;">
-        <div style="background:white; border-radius:24px; padding:25px; width:100%; max-width:480px; margin:auto;">
-            
-            <h3 style="font-size:17px; font-weight:800; color:#1e3a8a; margin-bottom:4px;">🚗 Tu Carroza</h3>
-            <p style="font-size:12px; color:#64748b; margin-bottom:18px;">Selecciona la tuya o registra una nueva</p>
+<script>
+// SCRIPTS DE CARROZA MANTENIDOS IGUAL
+let tabActivo = 'nueva';
+document.addEventListener('DOMContentLoaded', () => {
+const hoy = new Date().toISOString().split('T')[0];
+if(document.getElementById('nueva-fecha-ingreso')) document.getElementById('nueva-fecha-ingreso').value = hoy;
+});
 
-            <!-- TABS -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
-                <button id="tab-existente" onclick="switchTab('existente')"
-                    style="padding:11px; border-radius:10px; border:2px solid #e2e8f0; background:#f8fafc; color:#64748b; font-weight:700; font-size:13px; cursor:pointer;">
-                    📋 Ya existe
-                </button>
-                <button id="tab-nueva" onclick="switchTab('nueva')"
-                    style="padding:11px; border-radius:10px; border:2px solid #1e3a8a; background:#1e3a8a; color:white; font-weight:700; font-size:13px; cursor:pointer;">
-                    ➕ Es nueva
-                </button>
-            </div>
+async function abrirModalCarroza() {
+document.getElementById('modalCarroza').style.display = 'flex';
+switchTab('nueva');
+const sel = document.getElementById('sel-placa-existente');
+sel.innerHTML = '<option value="">Cargando...</option>';
+try {
+const { data } = await DB.supabase.from('carrozas').select('placa, modelo').order('placa');
+if (data && data.length > 0) {
+sel.innerHTML = '<option value="">— Selecciona tu placa —</option>' + data.map(c => '<option value="' + c.placa + '">' + c.placa + (c.modelo ? ' — ' + c.modelo : '') + '</option>').join('');
+} else { sel.innerHTML = '<option value="">No hay carrozas</option>'; }
+} catch(e) { sel.innerHTML = '<option value="">Error</option>'; }
+}
 
-            <!-- PANEL EXISTENTE -->
-            <div id="panel-existente" style="display:none;">
-                <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Selecciona tu placa</label>
-                <select id="sel-placa-existente" style="width:100%; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; background:#f8fafc; box-sizing:border-box;">
-                    <option value="">Cargando...</option>
-                </select>
-            </div>
+function cerrarModalCarroza() { document.getElementById('modalCarroza').style.display = 'none'; }
 
-            <!-- PANEL NUEVA — FORMULARIO COMPLETO -->
-            <div id="panel-nueva">
-                
-                <!-- Fila 1: Placa + Modelo -->
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-                    <div>
-                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Placa *</label>
-                        <input type="text" id="nueva-placa" placeholder="PFO-147"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; text-transform:uppercase; box-sizing:border-box; background:#f8fafc;">
-                    </div>
-                    <div>
-                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Modelo / Marca *</label>
-                        <input type="text" id="nueva-modelo" placeholder="Mercedes Sprinter"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
-                    </div>
-                </div>
+function switchTab(tab) {
+tabActivo = tab;
+document.getElementById('panel-existente').style.display = tab === 'existente' ? 'block' : 'none';
+document.getElementById('panel-nueva').style.display = tab === 'nueva' ? 'block' : 'none';
+const baseStyle = 'padding:11px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;';
+document.getElementById('tab-existente').style.cssText = baseStyle + (tab === 'existente' ? 'border:2px solid #1e3a8a; background:#1e3a8a; color:white;' : 'border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;');
+document.getElementById('tab-nueva').style.cssText = baseStyle + (tab === 'nueva' ? 'border:2px solid #1e3a8a; background:#1e3a8a; color:white;' : 'border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;');
+}
 
-                <!-- Fila 2: Año + Fecha Ingreso -->
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-                    <div>
-                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Año</label>
-                        <input type="number" id="nueva-anio" placeholder="2020"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
-                    </div>
-                    <div>
-                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Fecha Ingreso Empresa</label>
-                        <input type="date" id="nueva-fecha-ingreso"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
-                    </div>
-                </div>
+function confirmarCarroza() {
+if (tabActivo === 'existente') {
+const sel = document.getElementById('sel-placa-existente');
+if (!sel.value) { alert('Selecciona una placa'); return; }
+document.getElementById('reg_placa').value = sel.value;
+document.getElementById('reg_placa_nueva').value = '';
+mostrarBadgeCarroza('🚗 ' + sel.options[sel.selectedIndex].text);
+} else {
+const placa = document.getElementById('nueva-placa').value.trim().toUpperCase();
+const modelo = document.getElementById('nueva-modelo').value.trim();
+if (!placa || !modelo) { alert('Placa y modelo obligatorios'); return; }
+document.getElementById('reg_placa').value = '';
+document.getElementById('reg_placa_nueva').value = placa;
+document.getElementById('reg_modelo_nuevo').value = modelo;
+const extra = {
+anio: parseInt(document.getElementById('nueva-anio').value) || null,
+fecha_ingreso_empresa: document.getElementById('nueva-fecha-ingreso').value || null,
+kilometraje_inicial: parseInt(document.getElementById('nueva-km-ini').value) || 0,
+kilometraje_actual: parseInt(document.getElementById('nueva-km-act').value) || 0,
+estado: document.getElementById('nueva-estado').value,
+ultimo_mantenimiento: document.getElementById('nueva-ult-mant').value || null,
+proximo_mantenimiento:document.getElementById('nueva-prox-mant').value || null,
+observaciones: document.getElementById('nueva-obs').value.trim()
+};
+document.getElementById('reg_placa_nueva').dataset.extra = JSON.stringify(extra);
+mostrarBadgeCarroza('🚗 ' + placa + ' (nueva)');
+}
+cerrarModalCarroza();
+}
 
-                <!-- Fila 3: KM Inicial + KM Actual -->
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-                    <div>
-                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Kilometraje Inicial</label>
-                        <input type="number" id="nueva-km-ini" placeholder="0" value="0"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
-                    </div>
-                    <div>
-                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Kilometraje Actual</label>
-                        <input type="number" id="nueva-km-act" placeholder="0" value="0"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
-                    </div>
-                </div>
+function mostrarBadgeCarroza(texto) {
+document.getElementById('carroza-badge-texto').textContent = texto;
+document.getElementById('carroza-badge').style.display = 'flex';
+document.getElementById('btn-agregar-carroza').style.display = 'none';
+}
 
-                <!-- Fila 4: Estado -->
-                <div style="margin-bottom:10px;">
-                    <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Estado</label>
-                    <select id="nueva-estado"
-                        style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
-                        <option value="Disponible">Disponible</option>
-                        <option value="En Servicio">En Servicio</option>
-                        <option value="En Taller">En Taller</option>
-                    </select>
-                </div>
-
-                <!-- Fila 5: Último + Próximo Mantenimiento -->
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-                    <div>
-                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Último Mantenimiento</label>
-                        <input type="date" id="nueva-ult-mant"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
-                    </div>
-                    <div>
-                        <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Próximo Mantenimiento</label>
-                        <input type="date" id="nueva-prox-mant"
-                            style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc;">
-                    </div>
-                </div>
-
-                <!-- Fila 6: Observaciones -->
-                <div style="margin-bottom:0;">
-                    <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Observaciones</label>
-                    <textarea id="nueva-obs" rows="2" placeholder="Detalles adicionales..."
-                        style="width:100%; padding:11px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; background:#f8fafc; resize:none;"></textarea>
-                </div>
-            </div>
-
-            <!-- BOTONES -->
-            <div style="display:flex; gap:10px; margin-top:18px;">
-                <button onclick="cerrarModalCarroza()"
-                    style="flex:1; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; color:#64748b; font-weight:700; cursor:pointer; font-size:14px;">
-                    Cancelar
-                </button>
-                <button onclick="confirmarCarroza()"
-                    style="flex:2; padding:12px; border:none; border-radius:10px; background:#1e3a8a; color:white; font-weight:800; cursor:pointer; font-size:14px;">
-                    CONFIRMAR
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let tabActivo = 'nueva';
-
-        // Poner fecha de hoy por defecto
-        document.addEventListener('DOMContentLoaded', () => {
-            const hoy = new Date().toISOString().split('T')[0];
-            document.getElementById('nueva-fecha-ingreso').value = hoy;
-        });
-
-        async function abrirModalCarroza() {
-            document.getElementById('modalCarroza').style.display = 'flex';
-            switchTab('nueva');
-            // Cargar flota para tab "Ya existe"
-            const sel = document.getElementById('sel-placa-existente');
-            sel.innerHTML = '<option value="">Cargando...</option>';
-            try {
-                const { data } = await DB.supabase
-                    .from('carrozas').select('placa, modelo').order('placa');
-                if (data && data.length > 0) {
-                    sel.innerHTML = '<option value="">— Selecciona tu placa —</option>' +
-                        data.map(c => '<option value="' + c.placa + '">' + c.placa + (c.modelo ? ' — ' + c.modelo : '') + '</option>').join('');
-                } else {
-                    sel.innerHTML = '<option value="">No hay carrozas — registra una nueva</option>';
-                }
-            } catch(e) {
-                sel.innerHTML = '<option value="">Error al cargar</option>';
-            }
-        }
-
-        function cerrarModalCarroza() {
-            document.getElementById('modalCarroza').style.display = 'none';
-        }
-
-        function switchTab(tab) {
-            tabActivo = tab;
-            document.getElementById('panel-existente').style.display = tab === 'existente' ? 'block' : 'none';
-            document.getElementById('panel-nueva').style.display     = tab === 'nueva'     ? 'block' : 'none';
-            const baseStyle = 'padding:11px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;';
-            document.getElementById('tab-existente').style.cssText = baseStyle +
-                (tab === 'existente' ? 'border:2px solid #1e3a8a; background:#1e3a8a; color:white;'
-                                     : 'border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;');
-            document.getElementById('tab-nueva').style.cssText = baseStyle +
-                (tab === 'nueva'     ? 'border:2px solid #1e3a8a; background:#1e3a8a; color:white;'
-                                     : 'border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;');
-        }
-
-        function confirmarCarroza() {
-            if (tabActivo === 'existente') {
-                const sel   = document.getElementById('sel-placa-existente');
-                const placa = sel.value;
-                const texto = sel.options[sel.selectedIndex]?.text || '';
-                if (!placa) { alert('Selecciona una placa'); return; }
-                document.getElementById('reg_placa').value        = placa;
-                document.getElementById('reg_placa_nueva').value  = '';
-                document.getElementById('reg_modelo_nuevo').value = '';
-                mostrarBadgeCarroza('🚗 ' + texto);
-            } else {
-                const placa  = document.getElementById('nueva-placa').value.trim().toUpperCase();
-                const modelo = document.getElementById('nueva-modelo').value.trim();
-                if (!placa)  { alert('La placa es obligatoria'); return; }
-                if (!modelo) { alert('El modelo es obligatorio'); return; }
-                // Guardar todos los datos de la nueva carroza
-                document.getElementById('reg_placa').value        = '';
-                document.getElementById('reg_placa_nueva').value  = placa;
-                document.getElementById('reg_modelo_nuevo').value = modelo;
-                // Guardar campos extra en dataset del hidden input para usarlos al registrar
-                const extra = {
-                    anio:                parseInt(document.getElementById('nueva-anio').value) || null,
-                    fecha_ingreso_empresa: document.getElementById('nueva-fecha-ingreso').value || null,
-                    kilometraje_inicial:  parseInt(document.getElementById('nueva-km-ini').value) || 0,
-                    kilometraje_actual:   parseInt(document.getElementById('nueva-km-act').value) || 0,
-                    estado:              document.getElementById('nueva-estado').value,
-                    ultimo_mantenimiento: document.getElementById('nueva-ult-mant').value || null,
-                    proximo_mantenimiento:document.getElementById('nueva-prox-mant').value || null,
-                    observaciones:       document.getElementById('nueva-obs').value.trim()
-                };
-                document.getElementById('reg_placa_nueva').dataset.extra = JSON.stringify(extra);
-                mostrarBadgeCarroza('🚗 ' + placa + ' — ' + modelo + ' (nueva)');
-            }
-            cerrarModalCarroza();
-        }
-
-        function mostrarBadgeCarroza(texto) {
-            const badge = document.getElementById('carroza-badge');
-            document.getElementById('carroza-badge-texto').textContent = texto;
-            badge.style.display = 'flex';
-            document.getElementById('btn-agregar-carroza').style.display = 'none';
-        }
-
-        function limpiarCarroza() {
-            document.getElementById('reg_placa').value        = '';
-            document.getElementById('reg_placa_nueva').value  = '';
-            document.getElementById('reg_modelo_nuevo').value = '';
-            document.getElementById('carroza-badge').style.display      = 'none';
-            document.getElementById('btn-agregar-carroza').style.display = 'block';
-        }
-    </script>
-
+function limpiarCarroza() {
+document.getElementById('reg_placa').value = '';
+document.getElementById('reg_placa_nueva').value = '';
+document.getElementById('carroza-badge').style.display = 'none';
+document.getElementById('btn-agregar-carroza').style.display = 'block';
+}
+</script>
 </body>
 </html>
