@@ -79,10 +79,6 @@
                 <option value="Medellín">Medellín</option>
                 <option value="Bogotá">Bogotá</option>
                 <option value="Cali">Cali</option>
-                <option value="Bucaramanga">Bucaramanga</option>
-                <option value="Barranquilla">Barranquilla</option>
-                <option value="Cartagena">Cartagena</option>
-                <option value="Otra">Otra</option>
             </select>
 
             <div style="border-top:1.5px solid #e2e8f0; margin:16px 0 10px; padding-top:16px;">
@@ -139,10 +135,6 @@
                         <option value="En Taller">En Taller</option>
                     </select>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-                    <div><label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Último Mant.</label><input type="date" id="nueva-ult-mant" style="margin-bottom:0;"></div>
-                    <div><label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Próximo Mant.</label><input type="date" id="nueva-prox-mant" style="margin-bottom:0;"></div>
-                </div>
                 <textarea id="nueva-obs" rows="2" placeholder="Observaciones..." style="resize:none;"></textarea>
             </div>
 
@@ -155,7 +147,7 @@
 
     <script src="db.js"></script>
     <script>
-        // LOGIN Y REDIRECCIÓN
+        // LOGIN CORREGIDO
         async function login() {
             const u = document.getElementById('user').value.trim();
             const p = document.getElementById('pass').value.trim();
@@ -169,7 +161,9 @@
                     localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
                     const rol = (usuario.rol || '').toLowerCase();
                     const usr = u.toLowerCase();
-                    if (usr === 'admin' || usr === 'administración' || rol === 'admin' || rol === 'administración') {
+                    
+                    // Redirección por jerarquía
+                    if (usr === 'admin' || rol === 'admin' || rol === 'administración') {
                         window.location.href = "dashboard.html";
                     } else if (rol === 'coordinador') {
                         window.location.href = "panel_coordinador.html";
@@ -177,11 +171,11 @@
                         window.location.href = "panel_conductor.html";
                     }
                 } else { mostrarError("Usuario o clave incorrectos"); }
-            } catch (err) { mostrarError("Error: " + err.message); }
+            } catch (err) { mostrarError("Error de sistema: Reintenta"); }
             finally { btn.disabled = false; btn.innerText = "INGRESAR AL SISTEMA"; }
         }
 
-        // REGISTRO DE CONDUCTOR Y CARROZA
+        // REGISTRO CORREGIDO (NOMBRES DE COLUMNAS)
         async function ejecutarRegistro() {
             const btn = document.getElementById('btn-reg-exec');
             const n = document.getElementById('reg_nombre').value.trim();
@@ -192,37 +186,54 @@
 
             if (!n || !u || !p || !r) { alert("Completa los campos obligatorios"); return; }
 
-            const placaExt = document.getElementById('reg_placa').value;
-            const placaNue = document.getElementById('reg_placa_nueva').value.trim().toUpperCase();
-            const modNue = document.getElementById('reg_modelo_nuevo').value.trim();
-
             btn.disabled = true; btn.innerText = "PROCESANDO...";
             try {
-                const { error } = await DB.supabase.from('usuarios').insert([{
-                    nombre: n, usuario: u, 'contraseña': p, 'teléfono': t, rol: 'conductor', regional: r
+                // Inserción de Usuario con columnas password y telefono (corregidas)
+                const { error: userErr } = await DB.supabase.from('usuarios').insert([{
+                    nombre: n, 
+                    usuario: u, 
+                    password: p, 
+                    telefono: t, 
+                    rol: 'conductor', 
+                    regional: r
                 }]);
-                if (error) throw error;
+                
+                if (userErr) {
+                    if (userErr.message.includes('schema cache')) {
+                        throw new Error("Error de caché: Por favor recarga la página (F5) e intenta de nuevo.");
+                    }
+                    throw userErr;
+                }
+
+                // Lógica de Carroza
+                const placaExt = document.getElementById('reg_placa').value;
+                const placaNue = document.getElementById('reg_placa_nueva').value.trim().toUpperCase();
 
                 if (placaExt) {
                     await DB.supabase.from('carrozas').update({ conductor_asignado: n }).eq('placa', placaExt);
                 }
+                
                 if (placaNue) {
                     const extra = JSON.parse(document.getElementById('reg_placa_nueva').dataset.extra || '{}');
                     await DB.supabase.from('carrozas').insert([{
-                        placa: placaNue, modelo: modNue || 'Sin modelo', conductor_asignado: n,
-                        anio: extra.anio, fecha_ingreso_empresa: extra.fecha_ingreso_empresa,
-                        kilometraje_inicial: extra.kilometraje_inicial, kilometraje_actual: extra.kilometraje_actual,
-                        estado: extra.estado, ultimo_mantenimiento: extra.ultimo_mantenimiento, proximo_mantenimiento: extra.proximo_mantenimiento,
-                        observaciones: extra.observaciones
+                        placa: placaNue, 
+                        modelo: document.getElementById('reg_modelo_nuevo').value || 'Sin modelo', 
+                        conductor_asignado: n,
+                        anio: extra.anio, 
+                        kilometraje_actual: extra.kilometraje_actual,
+                        estado: extra.estado
                     }]);
                 }
-                alert("¡Registro exitoso!"); cerrarRegistro();
-                document.getElementById('user').value = u; document.getElementById('pass').value = p;
+
+                alert("¡Registro exitoso!"); 
+                cerrarRegistro();
+                document.getElementById('user').value = u; 
+                document.getElementById('pass').value = p;
             } catch (err) { alert("Error: " + err.message); }
             finally { btn.disabled = false; btn.innerText = "REGISTRARME"; }
         }
 
-        // MODAL CARROZA LÓGICA
+        // Lógica de Modales y Tabs
         let tabActivo = 'nueva';
         async function abrirModalCarroza() {
             document.getElementById('modalCarroza').style.display = 'flex';
@@ -261,13 +272,8 @@
                 document.getElementById('reg_modelo_nuevo').value = m;
                 const extra = {
                     anio: parseInt(document.getElementById('nueva-anio').value) || null,
-                    fecha_ingreso_empresa: document.getElementById('nueva-fecha-ingreso').value || null,
-                    kilometraje_inicial: parseInt(document.getElementById('nueva-km-ini').value) || 0,
                     kilometraje_actual: parseInt(document.getElementById('nueva-km-act').value) || 0,
-                    estado: document.getElementById('nueva-estado').value,
-                    ultimo_mantenimiento: document.getElementById('nueva-ult-mant').value || null,
-                    proximo_mantenimiento: document.getElementById('nueva-prox-mant').value || null,
-                    observaciones: document.getElementById('nueva-obs').value.trim()
+                    estado: document.getElementById('nueva-estado').value
                 };
                 document.getElementById('reg_placa_nueva').dataset.extra = JSON.stringify(extra);
                 mostrarBadgeCarroza('🚗 ' + p + ' (nueva)');
@@ -281,7 +287,8 @@
             document.getElementById('btn-agregar-carroza').style.display = 'none';
         }
         function limpiarCarroza() {
-            document.getElementById('reg_placa').value = ''; document.getElementById('reg_placa_nueva').value = '';
+            document.getElementById('reg_placa').value = ''; 
+            document.getElementById('reg_placa_nueva').value = '';
             document.getElementById('carroza-badge').style.display = 'none';
             document.getElementById('btn-agregar-carroza').style.display = 'block';
         }
