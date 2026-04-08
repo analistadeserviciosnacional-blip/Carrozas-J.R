@@ -1,5 +1,6 @@
 // ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
 const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
+// Clave 'anon public' extraída de tu panel de configuración
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndmdjaGprZHZuamZ4cWRrbWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTI1MjksImV4cCI6MjA5MDQ2ODUyOX0.HAOgrHOmMhRb4m6WFrqBuXnYQgXjxedDzxF0i84_SnQ'; 
 
 const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -7,12 +8,10 @@ const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 const DB = {
     supabase: _supabase,
 
-    // ── 1. SESIÓN (LOGIN RESISTENTE A ERRORES) ───────────
+    // ── 1. SESIÓN (LOGIN RESISTENTE) ─────────────────────
     async login(usuario, clave) {
         try {
-            console.log("Iniciando sesión para:", usuario);
-            
-            // Buscamos solo por usuario para evitar problemas de codificación con la 'ñ'
+            // Buscamos solo por el nombre de usuario para evitar el error 400 con la 'ñ'
             const { data, error } = await _supabase
                 .from('usuarios')
                 .select('*')
@@ -20,32 +19,29 @@ const DB = {
                 .maybeSingle();
 
             if (error) {
-                console.error("Error 400 - Verifica nombres de columnas:", error.message);
-                return { data: null, ok: false, error: "Error de comunicación con el servidor" };
+                console.error("Error en base de datos:", error.message);
+                return { data: null, ok: false, error: "Error de conexión (400)" };
             }
 
             if (!data) {
-                return { data: null, ok: false, error: "El usuario no existe" };
+                return { data: null, ok: false, error: "Usuario no encontrado" };
             }
 
-            // Comparamos la clave aquí para evitar errores de caracteres especiales
-            // Probamos con 'contraseña' y con 'password' por si acaso
-            const claveEnDB = data.contraseña || data.password;
-
-            if (claveEnDB == clave.trim()) {
-                console.log("Acceso concedido para:", data.nombre);
+            // Verificamos la contraseña internamente
+            if (data.contraseña === clave.trim()) {
                 return { data, ok: true };
             } else {
-                return { data: null, ok: false, error: "La clave es incorrecta" };
+                return { data: null, ok: false, error: "Contraseña incorrecta" };
             }
         } catch (err) {
-            return { data: null, ok: false, error: "Error inesperado en el sistema" };
+            return { data: null, ok: false, error: "Error inesperado" };
         }
     },
 
     // ── 2. SOLICITUD DE APOYO (CORRECCIÓN ERROR 404) ─────
     async obtenerSolicitudesApoyo() {
         try {
+            // Se usa 'solicitud_apoyo' en singular según tu base de datos
             const { data, error } = await _supabase
                 .from('solicitud_apoyo') 
                 .select('*')
@@ -54,7 +50,7 @@ const DB = {
             if (error) throw error;
             return { data: data || [], ok: true };
         } catch (err) {
-            console.error("Error en tabla solicitud_apoyo:", err.message);
+            console.error("Error 404 - Tabla no encontrada:", err.message);
             return { data: [], ok: false };
         }
     },
@@ -83,28 +79,7 @@ const DB = {
         }
     },
 
-    async obtenerTodosLosTraslados() {
-        try {
-            const { data, error } = await _supabase
-                .from('Traslado')
-                .select('*')
-                .order('id_salida', { ascending: false });
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
-    },
-
     // ── 4. AVERÍAS ───────────────────────────────────────
-    async guardarAveria(datos) {
-        try {
-            const { error } = await _supabase.from('Averias').insert([datos]);
-            return { ok: !error, error };
-        } catch (err) {
-            return { ok: false, error: err };
-        }
-    },
-
     async obtenerTodasLasAverias() {
         try {
             const { data, error } = await _supabase
