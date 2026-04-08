@@ -139,8 +139,12 @@
                     // CORRECCIÓN: se usa UNA sola clave consistente en todos los archivos
                     localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
 
-                    if (u.toLowerCase() === 'admin' || (usuario.rol && usuario.rol.toLowerCase() === 'admin')) {
+                    const rol = (usuario.rol || '').toLowerCase();
+                    const usr = u.toLowerCase();
+                    if (usr === 'admin' || rol === 'admin') {
                         window.location.href = "dashboard.html";
+                    } else if (rol === 'coordinador') {
+                        window.location.href = "panel_coordinador.html";
                     } else {
                         window.location.href = "panel_conductor.html";
                     }
