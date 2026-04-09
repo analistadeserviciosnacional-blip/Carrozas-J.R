@@ -14,14 +14,11 @@
         .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
         .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
         .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
-        
-        /* AJUSTE: Grid de 4 botones simétricos */
         .menu-conductor { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 25px; }
         .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .card-condu:active { transform: scale(0.95); background: #f0f7ff; border-color: var(--azul); }
         .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
         .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 11px; }
-
         .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
         .monitor-mini h2 { font-size: 15px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; }
         .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
@@ -52,17 +49,14 @@
             <i>🚚</i>
             <span>Nueva Salida</span>
         </a>
-
         <a href="registro_llegada.html" class="card-condu">
-    <i>🏁</i>
-    <span>Llegadas</span>
-</a>
-
+            <i>🏁</i>
+            <span>Llegadas</span>
+        </a>
         <a href="reporte_averia.html" class="card-condu">
             <i>⚠️</i>
             <span>Reportar Avería</span>
         </a>
-
         <a href="solicitud_apoyo.html" class="card-condu" style="border: 2px solid #10b981; position:relative;">
             <div id="badge-apoyo" style="display:none; position:absolute; top:-6px; right:-6px; background:#ef4444; color:white; font-size:10px; font-weight:800; padding:3px 7px; border-radius:8px;">0</div>
             <i>🤝</i>
@@ -77,7 +71,7 @@
         </h2>
         <table>
             <tbody id="tabla-salidas">
-                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando salidas...</td></tr>
+                <tr><td colspan="3" style="text-align:center; color:#94a3b8;">Cargando salidas...</td></tr>
             </tbody>
         </table>
     </div>
@@ -89,7 +83,7 @@
         </h2>
         <table>
             <tbody id="tabla-averias">
-                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando reportes...</td></tr>
+                <tr><td colspan="3" style="text-align:center; color:#94a3b8;">Cargando reportes...</td></tr>
             </tbody>
         </table>
     </div>
@@ -98,26 +92,51 @@
         <h2>Estado de Flota</h2>
         <table>
             <tbody id="tabla-monitor">
-                <tr><td colspan="3" style="text-align: center; color: #94a3b8;">Cargando flota...</td></tr>
+                <tr><td colspan="3" style="text-align:center; color:#94a3b8;">Cargando flota...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script src="db.js"></script>
     <script>
+        // ── Normaliza string: minúsculas, sin tildes, sin espacios extra ──
+        const norm = str => (str || '')
+            .toLowerCase().trim()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
         window.onload = async () => {
             const sesionRaw = localStorage.getItem('usuario_sesion');
             if (!sesionRaw) { window.location.href = "index.html"; return; }
-            
+
             try {
                 const user = JSON.parse(sesionRaw);
+                const rol = norm(user.rol);
+                const usr = norm(user.usuario);
+
+                // ── REDIRIGIR SI NO ES CONDUCTOR ──
+                if (rol.includes('admin') || rol.includes('administracion') || usr.includes('admin')) {
+                    window.location.href = "dashboard.html";
+                    return;
+                }
+                if (rol.includes('coordinador')) {
+                    window.location.href = "panel_coordinador.html";
+                    return;
+                }
+
+                // ── Es conductor: mostrar panel ──
                 const nombre = user.nombre || "Conductor";
-                document.getElementById('txt-conductor').innerText = "Hola, " + nombre;
+                // Limpiar prefijos del nombre igual que en panel coordinador
+                const nombreLimpio = nombre
+                    .replace(/^conductor\s+/i, '')
+                    .replace(/^director\s+de\s+orquesta\s+/i, '')
+                    .trim();
+                document.getElementById('txt-conductor').innerText = "Hola, " + nombreLimpio;
 
                 cargarSalidasRecientes(nombre);
                 cargarResumenAverias(nombre);
                 cargarMonitorFlota();
-                verificarApoyosPendientes();
+                verificarApoyosPendientes(user);
+
             } catch (e) {
                 console.error("Error de sesión:", e);
                 window.location.href = "index.html";
@@ -126,44 +145,46 @@
 
         async function cargarSalidasRecientes(nombre) {
             const { data, error } = await DB.supabase
-                .from('Traslado') 
+                .from('Traslado')
                 .select('*')
-                .ilike('conductor', `%${nombre}%`)
+                .ilike('conductor', '%' + nombre + '%')
                 .order('id_salida', { ascending: false })
                 .limit(3);
 
             const tabla = document.getElementById('tabla-salidas');
             if (error || !data || data.length === 0) {
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">Sin salidas registradas recientemente.</td></tr>';
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align:center; font-size:11px;">Sin salidas registradas recientemente.</td></tr>';
                 return;
             }
-            tabla.innerHTML = data.map(s => `
-                <tr>
-                    <td><b>${s.placa || 'S/P'}</b><br><small>${s.destino || 'Local'}</small></td>
-                    <td style="font-size: 11px;">${s.fecha || '---'}</td>
-                    <td style="text-align: right;"><span class="servicio-pill">${(s.motivo_de_salida || s.motivo || 'SERVICIO').toUpperCase()}</span></td>
-                </tr>`).join('');
+            tabla.innerHTML = data.map(s =>
+                '<tr>' +
+                    '<td><b>' + (s.placa||'S/P') + '</b><br><small>' + (s.destino||'Local') + '</small></td>' +
+                    '<td style="font-size:11px;">' + (s.fecha||'---') + '</td>' +
+                    '<td style="text-align:right;"><span class="servicio-pill">' + ((s.motivo_de_salida||s.motivo||'SERVICIO').toUpperCase()) + '</span></td>' +
+                '</tr>'
+            ).join('');
         }
 
         async function cargarResumenAverias(nombre) {
             const { data, error } = await DB.supabase
                 .from('Averias')
                 .select('placa_vehiculo, tipo_falla, created_at')
-                .ilike('reportado_por', `%${nombre}%`)
+                .ilike('reportado_por', '%' + nombre + '%')
                 .order('created_at', { ascending: false })
                 .limit(3);
 
             const tabla = document.getElementById('tabla-averias');
             if (error || !data || data.length === 0) {
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; font-size: 11px;">No tienes reportes pendientes.</td></tr>';
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align:center; font-size:11px;">No tienes reportes pendientes.</td></tr>';
                 return;
             }
-            tabla.innerHTML = data.map(av => `
-                <tr>
-                    <td><b>${av.placa_vehiculo}</b></td>
-                    <td style="font-size: 11px;">${new Date(av.created_at).toLocaleDateString('es-CO')}</td>
-                    <td style="text-align: right;"><span class="falla-pill">${av.tipo_falla.toUpperCase()}</span></td>
-                </tr>`).join('');
+            tabla.innerHTML = data.map(av =>
+                '<tr>' +
+                    '<td><b>' + av.placa_vehiculo + '</b></td>' +
+                    '<td style="font-size:11px;">' + new Date(av.created_at).toLocaleDateString('es-CO') + '</td>' +
+                    '<td style="text-align:right;"><span class="falla-pill">' + av.tipo_falla.toUpperCase() + '</span></td>' +
+                '</tr>'
+            ).join('');
         }
 
         async function cargarMonitorFlota() {
@@ -174,39 +195,33 @@
 
             const tabla = document.getElementById('tabla-monitor');
             if (error || !data) {
-                tabla.innerHTML = '<tr><td colspan="3" style="text-align: center;">Error al cargar flota</td></tr>';
+                tabla.innerHTML = '<tr><td colspan="3" style="text-align:center;">Error al cargar flota</td></tr>';
                 return;
             }
             tabla.innerHTML = data.map(c => {
-                let clasePill = 'pill-disponible';
-                let estadoTexto = c.estado || 'S/E';
-                if (estadoTexto.includes('Taller')) clasePill = 'pill-taller';
-                if (estadoTexto.includes('Ruta') || estadoTexto.includes('Servicio')) clasePill = 'pill-ruta';
-                return `
-                    <tr>
-                        <td><b>${c.placa}</b></td>
-                        <td style="font-size: 11px; color: gray;">${Number(c.kilometraje_actual || 0).toLocaleString()} KM</td>
-                        <td style="text-align: right;">
-                            <span class="status-pill ${clasePill}">● ${estadoTexto.toUpperCase()}</span>
-                        </td>
-                    </tr>`;
+                let cls = 'pill-disponible';
+                const est = c.estado || 'S/E';
+                if (est.includes('Taller')) cls = 'pill-taller';
+                if (est.includes('Ruta') || est.includes('Servicio')) cls = 'pill-ruta';
+                return '<tr>' +
+                    '<td><b>' + c.placa + '</b></td>' +
+                    '<td style="font-size:11px; color:gray;">' + Number(c.kilometraje_actual||0).toLocaleString() + ' KM</td>' +
+                    '<td style="text-align:right;"><span class="status-pill ' + cls + '">● ' + est.toUpperCase() + '</span></td>' +
+                '</tr>';
             }).join('');
         }
 
-        async function verificarApoyosPendientes() {
+        async function verificarApoyosPendientes(user) {
             try {
-                const regional = localStorage.getItem('jr_regional_usuario') || 'Pereira';
+                const regional = user.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
                 const { data } = await DB.supabase
-                    .from('solicitudes_apoyo')
+                    .from('solicitud_apoyo')          // ← CORREGIDO (era solicitudes_apoyo)
                     .select('id')
                     .eq('estado', 'pendiente')
                     .or('alcance.eq.nacional,regional_solicitante.eq.' + regional);
                 if (data && data.length > 0) {
                     const badge = document.getElementById('badge-apoyo');
-                    if (badge) {
-                        badge.style.display = 'block';
-                        badge.textContent = data.length;
-                    }
+                    if (badge) { badge.style.display = 'block'; badge.textContent = data.length; }
                 }
             } catch(e) {}
         }
