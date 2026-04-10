@@ -153,13 +153,11 @@
         sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (!sesion.nombre) { window.location.href = 'index.html'; return; }
 
-        // ── VERIFICACIÓN DE ROL ROBUSTA ──
-        // Normaliza: quita tildes, minúsculas, espacios extra
         const normalizar = str => (str || '')
             .toLowerCase()
             .trim()
             .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');  // quita tildes
+            .replace(/[\u0300-\u036f]/g, '');
 
         const rol = normalizar(sesion.rol);
         const usr = normalizar(sesion.usuario);
@@ -174,14 +172,11 @@
 
         regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
 
-        // ── NOMBRE PARA SALUDO ──
-        // Si el nombre contiene "Coordinador" al inicio, lo quitamos para el saludo
         let nombreMostrar = sesion.nombre || '';
         nombreMostrar = nombreMostrar
-            .replace(/^coordinador\s+/i, '')   // quita "Coordinador " del inicio
-            .replace(/^director\s+de\s+orquesta\s+/i, '') // quita prefijos similares
+            .replace(/^coordinador\s+/i, '')
+            .replace(/^director\s+de\s+orquesta\s+/i, '')
             .trim();
-        // Tomar solo el primer nombre real
         const primerNombre = nombreMostrar.split(' ')[0];
 
         document.getElementById('txt-nombre').textContent   = 'Hola, ' + primerNombre;
