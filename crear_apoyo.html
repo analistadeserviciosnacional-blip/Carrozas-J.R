@@ -181,7 +181,8 @@
         });
     };
 
-    function irAtras() { window.location.href = 'dashboard.html'; }
+    // ✅ CORREGIDO: regresa al panel coordinador, no al admin
+    function irAtras() { window.location.href = 'panel_coordinador.html'; }
 
     function setUrgencia(u) {
         urgencia = u;
@@ -224,7 +225,7 @@
         btn.innerHTML = '<span>⏳</span> ENVIANDO...';
 
         const datos = {
-            regional_solicitante: document.getElementById('c-regional').value,  // ← CORREGIDO (era solicitante_regional)
+            regional_solicitante: document.getElementById('c-regional').value,
             coordinador:          sesion.nombre,
             tipo_servicio:        document.getElementById('c-tipo').value,
             nombre_fallecido:     document.getElementById('c-fallecido').value.trim(),
@@ -241,13 +242,14 @@
 
         try {
             const { error } = await DB.supabase
-                .from('solicitud_apoyo')   // ← nombre correcto de la tabla
+                .from('solicitud_apoyo')
                 .insert([datos]);
             if (error) throw error;
 
             btn.innerHTML = '<span>✅</span> ENVIADA';
             toast('✅ Solicitud creada con éxito', '#10b981');
-            setTimeout(() => { window.location.href = 'solicitud_apoyo.html'; }, 1500);
+            // ✅ CORREGIDO: vuelve al panel coordinador, no a solicitud_apoyo
+            setTimeout(() => { window.location.href = 'panel_coordinador.html'; }, 1500);
         } catch(e) {
             toast('❌ Error: ' + e.message, '#dc2626');
             btn.disabled = false;
