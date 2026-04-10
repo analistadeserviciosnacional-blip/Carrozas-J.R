@@ -118,14 +118,19 @@
                 </select>
             </div>
             <div>
-                <label>Motivo Salida</label>
-                <select id="motivo">
-                    <option value="Servicio Funerario">Servicio Funerario</option>
-                    <option value="Traslado Nacional">Traslado Nacional</option>
-                    <option value="Recogida Clínica">Recogida Clínica</option>
-                    <option value="Mantenimiento">Mantenimiento</option>
-                </select>
-            </div>
+    <label>Motivo Salida</label>
+    <select id="motivo">
+        <option value="Sepelio">Sepelio</option>
+        <option value="Traslado Nacional">Traslado Nacional</option>
+        <option value="Recogida De Cuerpo">Recogida De Cuerpo</option>
+        <option value="Recogida Y traslado De Mascota">Recogida Y traslado De Mascota</option>
+        <option value="Recogida y Traslado De Restos">Recogida y Traslado De Restos</option>
+        <option value="Recogida De Cofres">Recogida De Cofres</option>
+        <option value="Puesta En Velación">Puesta En Velación</option>
+        <option value="Taller">Taller</option>
+        <option value="Tramites Empresarial">Tramites Empresarial</option>
+    </select>
+</div>
         </div>
 
         <div class="section-title">Datos del Servicio</div>
@@ -398,7 +403,6 @@
             "🏁 *Destino:* " + (datosFinales.destino || '---') + "\n" +
             "📊 *Km De Salida:* " + datosFinales.km_salida + "\n" +
             "📊 *Km De Ingreso:* " + datosFinales.km_ingreso + "\n" +
-            "🛣️ *Total Recorrido:* " + datosFinales.total_km + " KM\n" +
             "👨🏻‍✈️ *Nom. Conductor:* " + datosFinales.conductor + "\n\n" +
             "📝 *Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n" +
             (cantFotos > 0 ? "📸 *Evidencias:* " + cantFotos + " foto(s) adjunta(s) por separado\n" : "") + "\n" +
