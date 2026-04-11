@@ -8,17 +8,25 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --amarillo: #f59e0b; }
-        body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 15px; color: #1e293b; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 15px; color: #1e293b; }
         .container { max-width: 900px; margin: auto; }
-        .nav-header { margin-bottom: 20px; }
-        .btn-volver { text-decoration: none; color: var(--azul); font-weight: 700; font-size: 14px; }
+
+        .nav-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+        .btn-volver { text-decoration: none; color: var(--azul); font-weight: 700; font-size: 14px; background: var(--blanco); padding: 10px 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; border: none; }
+
         .card { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 5px solid var(--azul); }
         .card.edit-mode { border-top-color: var(--amarillo); background: #fffcf5; }
-        h2 { color: var(--azul); text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; margin-top: 0; }
+
+        h2 { color: var(--azul); text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; }
         label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; text-transform: uppercase; }
-        input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 14px; box-sizing: border-box; font-family: inherit; margin-bottom: 15px; }
-        input:focus, select:focus { outline: none; border-color: var(--azul); }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        input, select, textarea {
+            width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px;
+            font-size: 14px; font-family: inherit; margin-bottom: 15px; background: #f8fafc;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); background: white; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
         .btn-registrar {
             background: var(--azul); color: white; border: none; width: 100%;
             padding: 15px; border-radius: 14px; font-weight: 800; font-size: 15px;
@@ -28,73 +36,132 @@
         }
         .btn-registrar:active { transform: scale(0.98); }
         .btn-registrar:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-cancelar { background: #fee2e2; color: #991b1b; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; margin-top: 10px; width: 100%; display: none; }
-        .historial { background: var(--blanco); padding: 20px; border-radius: 25px; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; }
-        th { text-align: left; font-size: 10px; color: #64748b; padding: 10px; border-bottom: 2px solid var(--celeste); text-transform: uppercase; }
-        td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
-        .btn-edit { background: var(--celeste); color: var(--azul); border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 11px; }
+        .btn-cancelar {
+            background: #fee2e2; color: #991b1b; border: none; padding: 12px;
+            border-radius: 12px; font-weight: 700; cursor: pointer; margin-top: 10px;
+            width: 100%; display: none; font-size: 14px; font-family: inherit;
+        }
+
+        /* INFO KM */
+        .info-km {
+            background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px;
+            padding: 11px 14px; font-size: 12px; color: #166534; font-weight: 600;
+            margin-bottom: 14px; display: none;
+        }
+
+        /* HISTORIAL */
+        .historial { background: var(--blanco); padding: 20px 25px; border-radius: 25px; overflow-x: auto; box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
+        .historial-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .historial-header h2 { margin: 0; font-size: 14px; text-align: left; }
+        .badge-total { background: var(--celeste); color: var(--azul); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 8px; }
+
+        table { width: 100%; border-collapse: collapse; min-width: 650px; }
+        th { text-align: left; font-size: 10px; color: #64748b; padding: 10px 8px; border-bottom: 2px solid var(--celeste); text-transform: uppercase; white-space: nowrap; }
+        td { padding: 10px 8px; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+
+        .tipo-pill { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; text-transform: uppercase; white-space: nowrap; }
+        .tp-aceite { background: #fef3c7; color: #92400e; }
+        .tp-frenos { background: #fee2e2; color: #991b1b; }
+        .tp-llantas { background: #ede9fe; color: #5b21b6; }
+        .tp-sinc    { background: #ecfdf5; color: #065f46; }
+        .tp-otro    { background: #f1f5f9; color: #475569; }
+
+        .btn-edit { background: var(--celeste); color: var(--azul); border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 11px; transition: 0.15s; font-family: inherit; }
         .btn-edit:hover { background: var(--azul); color: white; }
+        .empty { text-align: center; color: #94a3b8; padding: 30px; font-size: 13px; }
     </style>
 </head>
 <body>
 
 <div class="container">
+
     <div class="nav-header">
-        <a href="dashboard.html" class="btn-volver">← VOLVER AL PANEL</a>
+        <button class="btn-volver" onclick="irAtras()">← Volver</button>
+        <span style="font-size:13px; color:#64748b; font-weight:600;">🔧 Control de Taller</span>
     </div>
 
+    <!-- FORMULARIO -->
     <div class="card" id="contenedor-form">
         <h2 id="titulo-form">🛠️ Registro de Mantenimiento</h2>
+
         <form id="form-taller">
-            <div class="form-group">
-                <label>Placa del Vehículo</label>
-                <select id="placa" required></select>
-            </div>
 
             <div class="grid-2">
                 <div>
-                    <label>Fecha</label>
-                    <input type="date" id="fecha" required>
-                </div>
-                <div>
-                    <label>Tipo de Servicio</label>
-                    <select id="tipo_servicio" required>
-                        <option value="Cambio de Aceite">Cambio de Aceite</option>
-                        <option value="Frenos">Frenos</option>
-                        <option value="Llantas">Llantas</option>
-                        <option value="Sincronización">Sincronización</option>
-                        <option value="Suspensión">Suspensión</option>
-                        <option value="Otro">Otro</option>
+                    <label>Placa del Vehículo *</label>
+                    <select id="placa" required onchange="alSeleccionarPlaca()">
+                        <option value="">Cargando flota...</option>
                     </select>
                 </div>
+                <div>
+                    <label>Fecha *</label>
+                    <input type="date" id="fecha" required>
+                </div>
+            </div>
+
+            <!-- KM actual al seleccionar placa -->
+            <div class="info-km" id="info-km">
+                📊 KM actual registrado: <b id="km-actual-txt">---</b>
             </div>
 
             <div class="grid-2">
                 <div>
-                    <label>Kilometraje al Servicio</label>
-                    <input type="number" id="km_servicio" required placeholder="Ej: 155000">
+                    <label>Tipo de Servicio *</label>
+                    <select id="tipo_servicio" required>
+                        <option value="Cambio de Aceite">🛢️ Cambio de Aceite</option>
+                        <option value="Frenos">🛑 Frenos</option>
+                        <option value="Llantas">⚫ Llantas</option>
+                        <option value="Sincronización">⚙️ Sincronización</option>
+                        <option value="Suspensión">🔩 Suspensión</option>
+                        <option value="Eléctrico">⚡ Eléctrico</option>
+                        <option value="Lavado">🧼 Lavado</option>
+                        <option value="Otro">🔧 Otro</option>
+                    </select>
                 </div>
                 <div>
-                    <label>Costo ($)</label>
-                    <input type="number" id="costo" required placeholder="Ej: 350000">
+                    <label>Kilometraje al Servicio *</label>
+                    <input type="number" id="km_servicio" required placeholder="Ej: 155000" min="0">
                 </div>
             </div>
 
-            <label>Taller / Mecánico</label>
-            <input type="text" id="taller" required placeholder="Nombre del taller o mecánico">
+            <div class="grid-2">
+                <div>
+                    <label>Costo ($)</label>
+                    <input type="number" id="costo" placeholder="Ej: 350000" min="0" value="0">
+                </div>
+                <div>
+                    <label>Taller / Mecánico</label>
+                    <!-- columna: taller -->
+                    <input type="text" id="taller" placeholder="Nombre del taller o mecánico">
+                </div>
+            </div>
+
+            <label>Responsable del Registro</label>
+            <!-- columna: responsable -->
+            <input type="text" id="responsable" placeholder="Coordinador o técnico" readonly style="background:#eef5ff; font-weight:600;">
 
             <label>Observaciones</label>
+            <!-- columna: observaciones -->
             <textarea id="observaciones" rows="2" placeholder="Detalles del servicio..."></textarea>
 
-            <button type="submit" class="btn-registrar" id="btn-submit"><span>🔧</span> GUARDAR MANTENIMIENTO</button>
-            <button type="button" id="btn-cancelar" class="btn-cancelar" onclick="cancelarEdicion()">CANCELAR EDICIÓN</button>
+            <button type="submit" class="btn-registrar" id="btn-submit">
+                <span>🔧</span> <span id="btn-texto">GUARDAR MANTENIMIENTO</span>
+            </button>
+            <button type="button" id="btn-cancelar" class="btn-cancelar" onclick="cancelarEdicion()">
+                ✕ CANCELAR EDICIÓN
+            </button>
+
         </form>
     </div>
 
+    <!-- HISTORIAL -->
     <div class="historial">
-        <h2 style="font-size: 14px; text-align: left;">📋 Últimos Registros de Mantenimiento</h2>
-        <table id="tabla-mantenimientos">
+        <div class="historial-header">
+            <h2>📋 Últimos Mantenimientos</h2>
+            <span class="badge-total" id="badge-total">0 registros</span>
+        </div>
+        <table>
             <thead>
                 <tr>
                     <th>Fecha</th>
@@ -103,80 +170,145 @@
                     <th>KM</th>
                     <th>Costo</th>
                     <th>Taller</th>
-                    <th>Acciones</th>
+                    <th>Responsable</th>
+                    <th>Obs.</th>
+                    <th></th>
                 </tr>
             </thead>
-            <tbody>
-                <tr><td colspan="7" style="text-align:center; color:#94a3b8;">Cargando registros...</td></tr>
+            <tbody id="tbody-mant">
+                <tr><td colspan="9" class="empty">Cargando registros...</td></tr>
             </tbody>
         </table>
     </div>
+
 </div>
 
 <script src="db.js"></script>
 <script>
     let editandoID = null;
+    let flotaData  = [];
 
+    // ── INIT ────────────────────────────────────────────
     window.onload = async () => {
         document.getElementById('fecha').valueAsDate = new Date();
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        if (sesion.nombre) document.getElementById('responsable').value = sesion.nombre;
         await cargarPlacas();
         await cargarHistorial();
     };
 
-    async function cargarPlacas() {
-        // CORRECCIÓN: tabla 'carrozas' (minúsculas)
-        const { data, error } = await DB.supabase.from('carrozas').select('placa').order('placa');
-        const select = document.getElementById('placa');
-        if (data && data.length > 0) {
-            select.innerHTML = '<option value="">Seleccione placa...</option>' + 
-                data.map(c => `<option value="${c.placa}">${c.placa}</option>`).join('');
+    function irAtras() {
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        const rol = (sesion.rol || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        if (rol === 'admin' || rol === 'administracion') {
+            window.location.href = 'dashboard.html';
+        } else if (rol === 'coordinador') {
+            window.location.href = 'panel_coordinador.html';
         } else {
-            select.innerHTML = '<option value="">Sin vehículos registrados</option>';
-            if (error) console.error("Error cargando placas:", error);
+            window.location.href = 'panel_conductor.html';
         }
     }
 
+    // ── CARGAR PLACAS ───────────────────────────────────
+    async function cargarPlacas() {
+        const { data } = await DB.supabase
+            .from('carrozas')
+            .select('placa, modelo, kilometraje_actual')
+            .order('placa');
+        flotaData = data || [];
+        const sel = document.getElementById('placa');
+        if (flotaData.length > 0) {
+            sel.innerHTML = '<option value="">— Seleccione placa —</option>' +
+                flotaData.map(c =>
+                    '<option value="' + c.placa + '">' + c.placa +
+                    (c.modelo ? ' — ' + c.modelo : '') + '</option>'
+                ).join('');
+        } else {
+            sel.innerHTML = '<option value="">Sin vehículos registrados</option>';
+        }
+    }
+
+    // Al seleccionar placa → mostrar KM actual y prellenar campo
+    function alSeleccionarPlaca() {
+        const placa  = document.getElementById('placa').value;
+        const veh    = flotaData.find(c => c.placa === placa);
+        const infoEl = document.getElementById('info-km');
+        if (veh && placa) {
+            document.getElementById('km-actual-txt').textContent =
+                Number(veh.kilometraje_actual || 0).toLocaleString() + ' KM';
+            document.getElementById('km_servicio').value = veh.kilometraje_actual || '';
+            infoEl.style.display = 'block';
+        } else {
+            infoEl.style.display = 'none';
+        }
+    }
+
+    // ── HISTORIAL ───────────────────────────────────────
     async function cargarHistorial() {
         const { data, error } = await DB.supabase
             .from('mantenimientos')
             .select('*')
-            .order('created_at', { ascending: false })
-            .limit(20);
+            .order('fecha', { ascending: false })
+            .limit(30);
 
-        const tbody = document.querySelector('#tabla-mantenimientos tbody');
-        if (data && data.length > 0) {
-            tbody.innerHTML = data.map(m => `
-                <tr>
-                    <td>${m.fecha || '---'}</td>
-                    <td><b>${m.placa}</b></td>
-                    <td>${m.tipo_servicio}</td>
-                    <td>${Number(m.kilometraje_servicio || 0).toLocaleString()}</td>
-                    <td>$${Number(m.costo || 0).toLocaleString()}</td>
-                    <td style="font-size:11px;">${m.taller || '---'}</td>
-                    <td><button class="btn-edit" onclick='prepararEdicion(${JSON.stringify(m).replace(/'/g,"&#39;")})'>EDITAR</button></td>
-                </tr>`).join('');
-        } else {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8;">Sin registros de mantenimiento.</td></tr>';
+        const tbody = document.getElementById('tbody-mant');
+        document.getElementById('badge-total').textContent = (data ? data.length : 0) + ' registros';
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="empty">Sin registros de mantenimiento.</td></tr>';
+            return;
         }
+
+        tbody.innerHTML = data.map(m => {
+            const tipo = m.tipo_servicio || '';
+            let cls = 'tp-otro';
+            if (tipo.includes('Aceite'))      cls = 'tp-aceite';
+            else if (tipo.includes('Freno'))  cls = 'tp-frenos';
+            else if (tipo.includes('Llanta')) cls = 'tp-llantas';
+            else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
+
+            const safe = JSON.stringify(m).replace(/'/g, '&#39;');
+            return '<tr>' +
+                '<td>' + (m.fecha || '---') + '</td>' +
+                '<td><b>' + (m.placa || '---') + '</b></td>' +
+                '<td><span class="tipo-pill ' + cls + '">' + tipo + '</span></td>' +
+                '<td>' + Number(m.kilometraje_servicio || 0).toLocaleString() + '</td>' +
+                '<td>$' + Number(m.costo || 0).toLocaleString() + '</td>' +
+                '<td style="font-size:11px;">' + (m.taller || '---') + '</td>' +
+                '<td style="font-size:11px;">' + (m.responsable || '---') + '</td>' +
+                '<td style="font-size:11px; color:#64748b;">' + (m.observaciones || '') + '</td>' +
+                '<td><button class="btn-edit" onclick=\'prepararEdicion(' + safe + ')\'>EDITAR</button></td>' +
+            '</tr>';
+        }).join('');
     }
 
+    // ── GUARDAR / ACTUALIZAR ────────────────────────────
     document.getElementById('form-taller').onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btn-submit');
+        const txt = document.getElementById('btn-texto');
         btn.disabled = true;
-        btn.innerText = "GUARDANDO...";
+        txt.textContent = 'GUARDANDO...';
 
+        const placa = document.getElementById('placa').value;
+        if (!placa) {
+            alert("Selecciona una placa");
+            btn.disabled = false;
+            txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
+            return;
+        }
+
+        // Objeto con nombres EXACTOS de columnas confirmados por CSV
         const registro = {
-            placa:                  document.getElementById('placa').value,
-            fecha:                  document.getElementById('fecha').value,
-            tipo_servicio:          document.getElementById('tipo_servicio').value,
-            kilometraje_servicio:   parseInt(document.getElementById('km_servicio').value) || 0,
-            costo:                  parseFloat(document.getElementById('costo').value) || 0,
-            taller:                 document.getElementById('taller').value,
-            observaciones:          document.getElementById('observaciones').value
+            placa:                placa,
+            fecha:                document.getElementById('fecha').value,
+            tipo_servicio:        document.getElementById('tipo_servicio').value,
+            kilometraje_servicio: parseInt(document.getElementById('km_servicio').value) || 0,
+            costo:                parseFloat(document.getElementById('costo').value) || 0,
+            taller:               document.getElementById('taller').value.trim(),
+            responsable:          document.getElementById('responsable').value.trim(),
+            observaciones:        document.getElementById('observaciones').value.trim()
         };
-
-        if (!registro.placa) { alert("Selecciona una placa"); btn.disabled = false; btn.innerText = editandoID ? "ACTUALIZAR CAMBIOS" : "GUARDAR MANTENIMIENTO"; return; }
 
         let res;
         if (editandoID) {
@@ -186,38 +318,47 @@
         }
 
         if (res.error) {
-            alert("Error: " + res.error.message);
+            alert("Error al guardar: " + res.error.message);
             btn.disabled = false;
-            btn.innerText = editandoID ? "ACTUALIZAR CAMBIOS" : "GUARDAR MANTENIMIENTO";
-        } else {
-            // Actualizar km y último mantenimiento en carrozas
-            await DB.supabase.from('carrozas').update({ 
-                kilometraje_actual: registro.kilometraje_servicio,
-                ultimo_mantenimiento: registro.fecha,
-                estado: 'Disponible'
-            }).eq('placa', registro.placa);
-
-            alert(editandoID ? "✅ Registro actualizado" : "✅ Mantenimiento guardado");
-            cancelarEdicion();
-            cargarHistorial();
+            txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
+            return;
         }
+
+        // Actualizar carrozas: km, último y próximo mantenimiento (3 meses después)
+        const proxFecha = new Date(registro.fecha);
+        proxFecha.setMonth(proxFecha.getMonth() + 3);
+        const proxFechaStr = proxFecha.toISOString().split('T')[0];
+
+        await DB.supabase.from('carrozas').update({
+            kilometraje_actual:    registro.kilometraje_servicio,
+            ultimo_mantenimiento:  registro.fecha,
+            proximo_mantenimiento: proxFechaStr,
+            estado:                'Disponible'
+        }).eq('placa', placa);
+
+        alert(editandoID ? '✅ Registro actualizado' : '✅ Mantenimiento guardado');
+        cancelarEdicion();
+        await cargarHistorial();
     };
 
+    // ── EDITAR ──────────────────────────────────────────
     function prepararEdicion(m) {
         editandoID = m.id;
         document.getElementById('contenedor-form').classList.add('edit-mode');
-        document.getElementById('titulo-form').innerText = "📝 Editando Registro";
-        document.getElementById('btn-submit').innerText = "ACTUALIZAR CAMBIOS";
-        document.getElementById('btn-cancelar').style.display = "block";
+        document.getElementById('titulo-form').innerText  = '📝 Editando Registro';
+        document.getElementById('btn-texto').textContent  = 'ACTUALIZAR CAMBIOS';
+        document.getElementById('btn-cancelar').style.display = 'block';
 
-        document.getElementById('placa').value = m.placa;
-        document.getElementById('fecha').value = m.fecha;
-        document.getElementById('tipo_servicio').value = m.tipo_servicio;
-        document.getElementById('km_servicio').value = m.kilometraje_servicio;
-        document.getElementById('costo').value = m.costo;
-        document.getElementById('taller').value = m.taller || '';
+        document.getElementById('placa').value         = m.placa         || '';
+        document.getElementById('fecha').value         = m.fecha         || '';
+        document.getElementById('tipo_servicio').value = m.tipo_servicio || '';
+        document.getElementById('km_servicio').value   = m.kilometraje_servicio || '';
+        document.getElementById('costo').value         = m.costo         || 0;
+        document.getElementById('taller').value        = m.taller        || '';
+        document.getElementById('responsable').value   = m.responsable   || '';
         document.getElementById('observaciones').value = m.observaciones || '';
-        
+
+        alSeleccionarPlaca();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -225,11 +366,14 @@
         editandoID = null;
         document.getElementById('form-taller').reset();
         document.getElementById('fecha').valueAsDate = new Date();
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        if (sesion.nombre) document.getElementById('responsable').value = sesion.nombre;
         document.getElementById('contenedor-form').classList.remove('edit-mode');
-        document.getElementById('titulo-form').innerText = "🛠️ Registro de Mantenimiento";
-        document.getElementById('btn-submit').innerText = "GUARDAR MANTENIMIENTO";
-        document.getElementById('btn-cancelar').style.display = "none";
-        document.getElementById('btn-submit').disabled = false;
+        document.getElementById('titulo-form').innerText  = '🛠️ Registro de Mantenimiento';
+        document.getElementById('btn-texto').textContent  = 'GUARDAR MANTENIMIENTO';
+        document.getElementById('btn-cancelar').style.display = 'none';
+        document.getElementById('btn-submit').disabled   = false;
+        document.getElementById('info-km').style.display = 'none';
     }
 </script>
 </body>
