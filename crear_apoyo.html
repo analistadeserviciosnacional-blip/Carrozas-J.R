@@ -14,10 +14,9 @@
         .header { background: var(--azul); color: white; padding: 16px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top:0; z-index:50; }
         .header h1 { font-size: 16px; font-weight: 800; }
         .header p { font-size: 11px; opacity: 0.7; margin-top: 2px; }
-        .btn-back { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 13px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; flex-shrink:0; }
+        .btn-back { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 13px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; flex-shrink:0; font-family:inherit; }
 
         .content { padding: 16px; max-width: 600px; margin: 0 auto; }
-
         .card { background: var(--blanco); border-radius: 16px; padding: 18px; margin-bottom: 14px; border: 1.5px solid #e8efff; }
         .card-title { font-size: 11px; font-weight: 800; color: var(--azul); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1.5px solid var(--fondo); }
 
@@ -28,30 +27,36 @@
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
         .pills { display: flex; gap: 8px; }
-        .pill { flex:1; padding: 11px 6px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; }
+        .pill { flex:1; padding: 11px 6px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; font-family:inherit; }
         .pill.sel-normal  { border-color: var(--verde);   background: #ecfdf5; color: #065f46; }
         .pill.sel-urgente { border-color: var(--naranja); background: #fffbeb; color: #92400e; }
         .pill.sel-critica { border-color: var(--rojo);    background: #fef2f2; color: #991b1b; }
 
         .alcance-pills { display: flex; gap: 8px; margin-bottom: 12px; }
-        .a-pill { flex:1; padding: 13px 6px; border-radius: 12px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; }
+        .a-pill { flex:1; padding: 13px 6px; border-radius: 12px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; font-family:inherit; }
         .a-pill.sel-regional   { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
         .a-pill.sel-especifica { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
         .a-pill.sel-nacional   { border-color: var(--azul); background: var(--celeste); color: var(--azul); }
 
         @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
-        .regional-selector { display: none; animation: slideDown 0.25s ease; }
-        .regional-selector.visible { display: block; }
+        .regional-selector { display: none; }
+        .regional-selector.visible { display: block; animation: slideDown 0.25s ease; }
 
         .regionales-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-        .reg-btn { padding: 12px 8px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; color: #1e293b; }
+        .reg-btn { padding: 12px 8px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; color: #1e293b; font-family:inherit; }
         .reg-btn.sel { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
         .reg-btn:hover { border-color: #8b5cf6; background: #faf5ff; }
 
         .alcance-desc { font-size: 12px; color: var(--gris); margin-top: 10px; line-height: 1.5; padding: 10px 12px; background: #f8faff; border-radius: 10px; border: 1px solid #e8efff; }
 
-        .conductores-badge { display: inline-flex; align-items: center; gap: 6px; background: #ecfdf5; border: 1.5px solid #6ee7b7; border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: #065f46; margin-top: 8px; }
-        .conductores-badge.cero { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+        .conductores-badge { display: none; align-items: center; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 12px; font-weight: 700; margin-top: 10px; }
+        .conductores-badge.ok   { background: #ecfdf5; border: 1.5px solid #6ee7b7; color: #065f46; }
+        .conductores-badge.cero { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; }
+        .conductores-badge.loading { background: #f8faff; border: 1.5px solid #e2e8f0; color: #64748b; }
+        .c-num { font-size: 24px; font-weight: 900; line-height: 1; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.15); border-top-color: currentColor; border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
 
         .push-preview { background: #1e293b; border-radius: 14px; padding: 14px; margin-top: 12px; position: relative; overflow: hidden; }
         .push-preview::before { content: ''; position: absolute; top:0; left:0; right:0; height: 3px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981); }
@@ -60,11 +65,11 @@
         .push-app-name { font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
         .push-time { font-size: 10px; color: #64748b; margin-left: auto; }
         .push-titulo { font-size: 14px; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; }
-        .push-body { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+        .push-body   { font-size: 12px; color: #94a3b8; line-height: 1.5; }
         .push-destinatarios { margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
         .push-destinatarios b { color: #38bdf8; }
 
-        .btn-enviar { width: 100%; padding: 16px; border: none; border-radius: 14px; background: var(--azul); color: white; font-weight: 800; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,26,112,0.2); transition: 0.2s; }
+        .btn-enviar { width: 100%; padding: 16px; border: none; border-radius: 14px; background: var(--azul); color: white; font-weight: 800; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,26,112,0.2); transition: 0.2s; font-family:inherit; }
         .btn-enviar:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: #1e293b; color: white; padding: 13px 22px; border-radius: 14px; font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: 0.3s; white-space: nowrap; }
@@ -145,25 +150,24 @@
     <div class="card">
         <div class="card-title">🚨 Urgencia</div>
         <div class="pills">
-            <div class="pill sel-normal" id="u-normal" onclick="setUrgencia('normal')">✅ Normal</div>
-            <div class="pill" id="u-urgente" onclick="setUrgencia('urgente')">⚡ Urgente</div>
-            <div class="pill" id="u-critica" onclick="setUrgencia('critica')">🚨 Crítica</div>
+            <button class="pill sel-normal" id="u-normal"  onclick="setUrgencia('normal')">✅ Normal</button>
+            <button class="pill"            id="u-urgente" onclick="setUrgencia('urgente')">⚡ Urgente</button>
+            <button class="pill"            id="u-critica" onclick="setUrgencia('critica')">🚨 Crítica</button>
         </div>
     </div>
 
     <div class="card">
         <div class="card-title">🌎 Alcance y Destino de la Notificación</div>
-
         <div class="alcance-pills">
-            <div class="a-pill sel-regional" id="a-regional"   onclick="setAlcance('regional')">📍 Mi Regional</div>
-            <div class="a-pill"              id="a-especifica" onclick="setAlcance('especifica')">🎯 Regional Específica</div>
-            <div class="a-pill"              id="a-nacional"   onclick="setAlcance('nacional')">🌎 Nacional</div>
+            <button class="a-pill sel-regional" id="a-regional"   onclick="setAlcance('regional')">📍 Mi Regional</button>
+            <button class="a-pill"              id="a-especifica" onclick="setAlcance('especifica')">🎯 Regional Específica</button>
+            <button class="a-pill"              id="a-nacional"   onclick="setAlcance('nacional')">🌎 Nacional</button>
         </div>
 
         <div class="regional-selector" id="regional-selector">
-            <label style="margin-bottom:8px;">Selecciona la regional que te apoyará:</label>
+            <label style="margin-bottom:8px; display:block;">Selecciona la regional que te apoyará:</label>
             <div class="regionales-grid" id="regionales-grid"></div>
-            <div class="conductores-badge" id="conductores-badge" style="display:none;"></div>
+            <div class="conductores-badge" id="conductores-badge"></div>
         </div>
 
         <div class="alcance-desc" id="alcance-desc">
@@ -190,107 +194,154 @@
     <button class="btn-enviar" id="btn-crear" onclick="crearSolicitud()">
         <span>📤</span> ENVIAR SOLICITUD Y NOTIFICAR
     </button>
-
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script src="db.js"></script>
 <script>
-    let sesion = {};
+    let sesion   = {};
     let urgencia = 'normal';
     let alcance  = 'regional';
     let regionalEspecifica = '';
 
+    // ── REGIONALES EXACTAS como están en la columna "regional" de Supabase ──
+    // Confirmadas visualmente en la tabla: con tildes donde corresponde
     const REGIONALES = [
-        'Risaralda','Antioquia','Caldas','Quindio',
-        'Valle Norte','Valle Centro','Valle Sur',
-        'C/ Marca','Tolima Norte','Palmira'
+        'Pereira',
+        'Risaralda',
+        'Quindío',       // ← CON tilde — así está en Supabase
+        'Caldas',
+        'Antioquia',
+        'Valle Centro',
+        'Valle Norte',
+        'Valle Sur',
+        'C/ Marca',
+        'Tolima Norte',
+        'Palmira'
     ];
 
     window.onload = () => {
         sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (!sesion.nombre) { window.location.href = 'index.html'; return; }
 
-        const regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
-        document.getElementById('c-coordinador').value       = sesion.nombre;
-        document.getElementById('c-regional').value         = regional;
+        const regional = sesion.regional || 'Pereira';
+        document.getElementById('c-coordinador').value          = sesion.nombre;
+        document.getElementById('c-regional').value             = regional;
         document.getElementById('txt-regional-desc').textContent = regional;
-        document.getElementById('sub-info').textContent     = sesion.nombre + ' · ' + regional;
-        document.getElementById('c-fecha').valueAsDate      = new Date();
+        document.getElementById('sub-info').textContent         = sesion.nombre + ' · ' + regional;
+        document.getElementById('c-fecha').valueAsDate          = new Date();
 
         construirGridRegionales(regional);
         actualizarPreview();
 
-        ['c-origen','c-destino','c-tipo','c-obs'].forEach(id => {
-            document.getElementById(id).addEventListener('input', actualizarPreview);
-        });
+        ['c-origen','c-destino','c-tipo','c-obs'].forEach(id =>
+            document.getElementById(id).addEventListener('input', actualizarPreview)
+        );
     };
 
+    // ── GRID REGIONALES ─────────────────────────────────
     function construirGridRegionales(miRegional) {
         const grid = document.getElementById('regionales-grid');
-        grid.innerHTML = REGIONALES
-            .filter(r => r !== miRegional)
-            .map(r =>
-                '<div class="reg-btn" id="rbtn-' + r.replace(/[\s\/]/g,'_') + '" onclick="selRegional(\'' + r + '\')">' + r + '</div>'
-            ).join('');
+        // Mostrar todas excepto la propia del coordinador
+        const opciones = REGIONALES.filter(r => r !== miRegional);
+        grid.innerHTML = opciones.map(r => {
+            // ID seguro: reemplazar caracteres especiales
+            const safeId = 'rbtn-' + r.replace(/[^a-zA-Z0-9]/g, '_');
+            // Escapar comillas para onclick
+            const safeR  = r.replace(/'/g, "\\'");
+            return '<button class="reg-btn" id="' + safeId + '" onclick="selRegional(\'' + safeR + '\')">' + r + '</button>';
+        }).join('');
     }
 
     function selRegional(r) {
         regionalEspecifica = r;
         document.querySelectorAll('.reg-btn').forEach(b => b.classList.remove('sel'));
-        const el = document.getElementById('rbtn-' + r.replace(/[\s\/]/g,'_'));
+        const safeId = 'rbtn-' + r.replace(/[^a-zA-Z0-9]/g, '_');
+        const el = document.getElementById(safeId);
         if (el) el.classList.add('sel');
         contarConductores(r);
         actualizarPreview();
     }
 
+    // ── CONTAR CONDUCTORES ───────────────────────────────
     async function contarConductores(regional) {
         const badge = document.getElementById('conductores-badge');
-        badge.style.display = 'none';
+        badge.className = 'conductores-badge loading';
+        badge.style.display = 'flex';
+        badge.innerHTML = '<div class="spinner-sm"></div> Verificando conductores en <b style="margin-left:4px;">' + regional + '</b>...';
+
         try {
-            const { data } = await DB.supabase
+            // Buscar conductores con la regional EXACTA (respeta tildes y mayúsculas)
+            const { data, error } = await DB.supabase
                 .from('usuarios')
-                .select('identificac')
-                .eq('regional', regional)
+                .select('*')
+                .eq('regional', regional)   // valor exacto como está en BD
                 .eq('rol', 'conductor');
+
+            if (error) throw error;
+
             const count = data ? data.length : 0;
-            badge.style.display = 'inline-flex';
-            badge.className = 'conductores-badge' + (count === 0 ? ' cero' : '');
-            badge.textContent = count === 0
-                ? '⚠️ Sin conductores en ' + regional
-                : '✅ ' + count + ' conductor' + (count > 1 ? 'es' : '') + ' en ' + regional + ' serán notificados';
-        } catch(e) { badge.style.display = 'none'; }
+
+            if (count > 0) {
+                badge.className = 'conductores-badge ok';
+                badge.innerHTML =
+                    '<span class="c-num">' + count + '</span>' +
+                    '<div>' +
+                        '<div style="font-size:13px;">conductor' + (count > 1 ? 'es' : '') + ' en <b>' + regional + '</b></div>' +
+                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">✅ Recibirán la notificación de apoyo</div>' +
+                    '</div>';
+            } else {
+                badge.className = 'conductores-badge cero';
+                badge.innerHTML =
+                    '<span style="font-size:22px;">⚠️</span>' +
+                    '<div>' +
+                        '<div>Sin conductores en <b>' + regional + '</b></div>' +
+                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">La solicitud se guardará pero nadie será notificado</div>' +
+                    '</div>';
+            }
+        } catch(e) {
+            badge.className = 'conductores-badge cero';
+            badge.innerHTML = '❌ Error al verificar: ' + e.message;
+        }
     }
 
+    // ── ALCANCE ──────────────────────────────────────────
     function setAlcance(a) {
         alcance = a;
         ['regional','especifica','nacional'].forEach(x => {
             document.getElementById('a-' + x).className = 'a-pill' + (x === a ? ' sel-' + x : '');
         });
 
-        const selector  = document.getElementById('regional-selector');
+        const selector   = document.getElementById('regional-selector');
         const miRegional = document.getElementById('c-regional').value;
+        const badge      = document.getElementById('conductores-badge');
 
         if (a === 'especifica') {
             selector.classList.add('visible');
-            if (!regionalEspecifica)
-                document.getElementById('alcance-desc').innerHTML = '🎯 Selecciona arriba la regional que necesitas que te apoye.';
+            if (!regionalEspecifica) {
+                badge.style.display = 'none';
+                document.getElementById('alcance-desc').innerHTML =
+                    '🎯 Selecciona arriba la regional que necesitas que te apoye.';
+            }
         } else {
             selector.classList.remove('visible');
             regionalEspecifica = '';
+            badge.style.display = 'none';
             document.querySelectorAll('.reg-btn').forEach(b => b.classList.remove('sel'));
-            document.getElementById('conductores-badge').style.display = 'none';
         }
 
         if (a === 'regional')
-            document.getElementById('alcance-desc').innerHTML = '📍 Solo conductores de <b>' + miRegional + '</b> recibirán la notificación.';
+            document.getElementById('alcance-desc').innerHTML =
+                '📍 Solo conductores de <b>' + miRegional + '</b> recibirán la notificación.';
         else if (a === 'nacional')
-            document.getElementById('alcance-desc').innerHTML = '🌎 <b>Todos los conductores del país</b> recibirán la notificación.';
+            document.getElementById('alcance-desc').innerHTML =
+                '🌎 <b>Todos los conductores del país</b> recibirán la notificación.';
 
         actualizarPreview();
     }
 
+    // ── URGENCIA ─────────────────────────────────────────
     function setUrgencia(u) {
         urgencia = u;
         ['normal','urgente','critica'].forEach(x => {
@@ -299,6 +350,7 @@
         actualizarPreview();
     }
 
+    // ── PREVIEW ──────────────────────────────────────────
     function actualizarPreview() {
         const regional = document.getElementById('c-regional').value;
         const origen   = document.getElementById('c-origen').value  || '—';
@@ -308,16 +360,17 @@
         const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '✅';
         const urgLabel = urgencia === 'critica' ? 'CRÍTICA' : urgencia === 'urgente' ? 'URGENTE' : 'Normal';
 
-        document.getElementById('push-titulo').textContent = urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo;
-        document.getElementById('push-body').textContent   =
+        document.getElementById('push-titulo').textContent =
+            urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo;
+        document.getElementById('push-body').textContent =
             '🚩 ' + origen + ' → 🏁 ' + destino +
             (obs ? '\n📝 ' + obs.substring(0,60) + (obs.length>60?'...':'') : '');
 
         let dest = '';
-        if (alcance === 'regional')                              dest = 'conductores de ' + regional;
-        else if (alcance === 'nacional')                         dest = 'todos los conductores del país';
-        else if (alcance === 'especifica' && regionalEspecifica) dest = 'conductores de ' + regionalEspecifica;
-        else                                                     dest = 'regional específica (elige arriba)';
+        if      (alcance === 'regional')                              dest = 'conductores de ' + regional;
+        else if (alcance === 'nacional')                              dest = 'todos los conductores del país';
+        else if (alcance === 'especifica' && regionalEspecifica)      dest = 'conductores de ' + regionalEspecifica;
+        else                                                          dest = 'regional específica (elige arriba)';
         document.getElementById('push-destinatarios').textContent = dest;
 
         if (alcance === 'especifica' && regionalEspecifica)
@@ -325,18 +378,21 @@
                 '🎯 La solicitud se enviará a conductores de <b>' + regionalEspecifica + '</b>.';
     }
 
+    // ── CREAR SOLICITUD ──────────────────────────────────
     async function crearSolicitud() {
-        const btn     = document.getElementById('btn-crear');
-        const origen  = document.getElementById('c-origen').value.trim();
-        const destino = document.getElementById('c-destino').value.trim();
+        const btn    = document.getElementById('btn-crear');
+        const origen = document.getElementById('c-origen').value.trim();
+        const destino= document.getElementById('c-destino').value.trim();
 
         if (!origen || !destino) { toast('⚠️ Origen y Destino obligatorios', '#f59e0b'); return; }
-        if (alcance === 'especifica' && !regionalEspecifica) { toast('⚠️ Elige la regional específica', '#f59e0b'); return; }
+        if (alcance === 'especifica' && !regionalEspecifica) {
+            toast('⚠️ Elige la regional específica', '#f59e0b'); return;
+        }
 
         btn.disabled  = true;
         btn.innerHTML = '<span>⏳</span> ENVIANDO...';
 
-        const alcanceGuardar     = alcance === 'especifica' ? regionalEspecifica : alcance;
+        const alcanceGuardar       = alcance === 'especifica' ? regionalEspecifica : alcance;
         const regionalNotificacion = alcance === 'regional'
             ? document.getElementById('c-regional').value
             : alcance === 'especifica' ? regionalEspecifica : 'NACIONAL';
@@ -363,7 +419,6 @@
         };
 
         try {
-            // 1. Guardar solicitud
             const { data, error } = await DB.supabase
                 .from('solicitud_apoyo')
                 .insert([datos])
@@ -371,10 +426,9 @@
                 .single();
             if (error) throw error;
 
-            // 2. Insertar en notificaciones_apoyo → dispara Realtime a los conductores
-            const { error: errNotif } = await DB.supabase
-                .from('notificaciones_apoyo')
-                .insert([{
+            // Notificación Realtime (no crítico si falla)
+            try {
+                await DB.supabase.from('notificaciones_apoyo').insert([{
                     tipo:         'apoyo',
                     titulo:       urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo,
                     cuerpo:       '🚩 ' + origen + ' → 🏁 ' + destino + (obs ? ' | ' + obs : ''),
@@ -384,11 +438,10 @@
                     solicitud_id: data?.id || null,
                     remitente:    sesion.nombre
                 }]);
-
-            if (errNotif) console.warn('Notif error (no crítico):', errNotif.message);
+            } catch(eN) { console.warn('Notif:', eN.message); }
 
             btn.innerHTML = '<span>✅</span> ENVIADA Y NOTIFICADA';
-            toast('✅ Solicitud enviada · Conductores notificados en tiempo real', '#10b981');
+            toast('✅ Solicitud enviada · Conductores notificados', '#10b981');
             setTimeout(() => { window.location.href = 'panel_coordinador.html'; }, 1800);
 
         } catch(e) {
