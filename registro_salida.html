@@ -30,11 +30,42 @@
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid var(--azul-cielo); }
         .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         canvas { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 140px; background: #fff; touch-action: none; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; }
-        .btn-save { background: var(--azul-principal); color: white; }
-        .btn-wa { background: var(--verde-wa); color: white; display: none; text-align: center; }
-        .btn-volver { width: 100%; padding: 13px; border: 2px solid #cbd5e1; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 10px; background: var(--blanco); color: #64748b; }
-        /* Botones de acción finales */
+
+        /* ── BANNER KM PRECARGADO ── */
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+        @keyframes pulse  { 0%,100%{transform:scale(1);} 50%{transform:scale(1.03);} }
+
+        .km-banner {
+            display: none;
+            background: linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%);
+            border: 2.5px solid #4dd0e1;
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 16px;
+            animation: fadeIn 0.4s ease;
+        }
+        .km-banner-top { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+        .km-banner-icono { font-size: 40px; flex-shrink: 0; }
+        .km-banner-derecha { flex: 1; }
+        .km-banner-label { font-size: 11px; font-weight: 800; color: #00695c; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+        .km-banner-numero { font-size: 34px; font-weight: 800; color: #004a99; line-height: 1; letter-spacing: -1px; }
+        .km-banner-placa { font-size: 12px; color: #37474f; font-weight: 600; margin-top: 5px; }
+        .km-banner-aviso {
+            background: rgba(255,255,255,0.75); border-radius: 10px;
+            padding: 10px 12px; font-size: 13px; color: #37474f;
+            font-weight: 600; display: flex; align-items: center; gap: 10px; line-height: 1.5;
+        }
+        .km-banner-aviso-icono { font-size: 20px; flex-shrink: 0; }
+        .km-precargado {
+            background: #e8f5e9 !important;
+            border: 2.5px solid #66bb6a !important;
+            color: #1b5e20 !important;
+            font-weight: 800 !important;
+            font-size: 20px !important;
+            animation: pulse 0.6s ease 1;
+        }
+
+        /* BOTONES */
         .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
         .btn-accion-guardar {
             width: 100%; padding: 16px; border: none; border-radius: 14px;
@@ -74,7 +105,9 @@
             padding: 12px 14px; font-size: 12px; color: #92400e;
             text-align: center; line-height: 1.6; display: none;
         }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ✅ bloque-wa SIEMPRE oculto por clase, JS lo muestra */
+        .bloque-wa-oculto { display: none !important; }
     </style>
 </head>
 <body>
@@ -93,44 +126,61 @@
                 <input type="text" id="conductor" readonly style="background: #eef5ff; font-weight: bold;">
             </div>
             <div>
-    <label>Regional</label>
-    <select id="regional">
-        <option value="Risaralda">Risaralda</option>
-        <option value="Antioquia">Antioquia</option>
-        <option value="Caldas">Caldas</option>
-        <option value="Quindio">Quindío</option>
-        <option value="Valle Norte">Valle Norte</option>
-        <option value="Valle Centro">Valle Centro</option>
-        <option value="Valle Sur">Valle Sur</option>
-        <option value="C/ Marca">Cundinamarca</option>
-        <option value="Tolima Norte">Tolima Norte</option>
-        <option value="Palmira">Palmira</option>
-    </select>
-   </div>
-</div>
-        
+                <label>Regional</label>
+                <select id="regional">
+                    <option value="Risaralda">Risaralda</option>
+                    <option value="Antioquia">Antioquia</option>
+                    <option value="Caldas">Caldas</option>
+                    <option value="Quindio">Quindío</option>
+                    <option value="Valle Norte">Valle Norte</option>
+                    <option value="Valle Centro">Valle Centro</option>
+                    <option value="Valle Sur">Valle Sur</option>
+                    <option value="C/ Marca">Cundinamarca</option>
+                    <option value="Tolima Norte">Tolima Norte</option>
+                    <option value="Palmira">Palmira</option>
+                </select>
+            </div>
+        </div>
+
         <div class="section-title">Información del Vehículo</div>
         <div class="grid-2">
             <div>
                 <label>Placa Vehículo</label>
-                <select id="placa">
+                <!-- ✅ onchange dispara precarga de KM -->
+                <select id="placa" onchange="alSeleccionarPlaca()">
                     <option value="">Cargando flota...</option>
                 </select>
             </div>
             <div>
-    <label>Motivo Salida</label>
-    <select id="motivo">
-        <option value="Sepelio">Sepelio</option>
-        <option value="Traslado Nacional">Traslado Nacional</option>
-        <option value="Recogida De Cuerpo">Recogida De Cuerpo</option>
-        <option value="Recogida Y traslado De Mascota">Recogida Y traslado De Mascota</option>
-        <option value="Recogida y Traslado De Restos">Recogida y Traslado De Restos</option>
-        <option value="Recogida De Cofres">Recogida De Cofres</option>
-        <option value="Puesta En Velación">Puesta En Velación</option>
-        <option value="Taller">Taller</option>
-        <option value="Tramites Empresarial">Tramites Empresarial</option>
-    </select>
-</div>
+                <label>Motivo Salida</label>
+                <select id="motivo">
+                    <option value="Sepelio">Sepelio</option>
+                    <option value="Traslado Nacional">Traslado Nacional</option>
+                    <option value="Recogida De Cuerpo">Recogida De Cuerpo</option>
+                    <option value="Recogida Y traslado De Mascota">Recogida Y traslado De Mascota</option>
+                    <option value="Recogida y Traslado De Restos">Recogida y Traslado De Restos</option>
+                    <option value="Recogida De Cofres">Recogida De Cofres</option>
+                    <option value="Puesta En Velación">Puesta En Velación</option>
+                    <option value="Taller">Taller</option>
+                    <option value="Tramites Empresarial">Tramites Empresarial</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- ✅ BANNER KM — aparece al elegir placa -->
+        <div class="km-banner" id="km-banner">
+            <div class="km-banner-top">
+                <div class="km-banner-icono">🚗</div>
+                <div class="km-banner-derecha">
+                    <div class="km-banner-label">✅ Kilometraje cargado automáticamente</div>
+                    <div class="km-banner-numero" id="km-banner-numero">— KM</div>
+                    <div class="km-banner-placa"  id="km-banner-placa"></div>
+                </div>
+            </div>
+            <div class="km-banner-aviso">
+                <div class="km-banner-aviso-icono">✏️</div>
+                <div>Si el número <b>no es correcto</b>, puede cambiarlo directamente en el campo <b>KM Salida</b> aquí abajo.</div>
+            </div>
         </div>
 
         <div class="section-title">Datos del Servicio</div>
@@ -153,8 +203,14 @@
             <div><label>Hora Ingreso</label><input type="time" id="hora_ingreso"></div>
         </div>
         <div class="grid-2">
-            <div><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
-            <div><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
+            <div>
+                <label>KM Salida</label>
+                <input type="number" id="km_s" oninput="calcularTotal()" placeholder="Se carga al elegir placa">
+            </div>
+            <div>
+                <label>KM Ingreso</label>
+                <input type="number" id="km_i" oninput="calcularTotal()" placeholder="Al regresar">
+            </div>
         </div>
         <label>Total KM Recorridos</label>
         <input type="number" id="total_km" readonly style="background: #eef5ff; font-weight: bold; font-size: 16px;">
@@ -183,8 +239,8 @@
                 <span>💾</span> GUARDAR EN SISTEMA
             </button>
 
-            <!-- Bloque WhatsApp — aparece tras guardar exitosamente -->
-            <div id="bloque-wa" style="display:none; display:flex; flex-direction:column; gap:8px;">
+            <!-- ✅ CORREGIDO: solo display:none, sin conflicto -->
+            <div id="bloque-wa" class="bloque-wa-oculto" style="flex-direction:column; gap:8px;">
                 <button class="btn-accion-wa" id="btn-wa-texto" onclick="enviarWA()">
                     <span>💬</span> ENVIAR REPORTE POR WHATSAPP
                 </button>
@@ -206,77 +262,116 @@
 
 <script src="db.js"></script>
 <script>
-    let fotosArray = [];
-    let datosFinales = {};
+    let fotosArray    = [];
+    let datosFinales  = {};
+    let flotaCompleta = []; // ✅ guarda datos de flota para precargar KM
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx    = canvas.getContext('2d');
     let dibujando = false;
 
+    // ── INIT ────────────────────────────────────────────
     window.onload = async () => {
-        // CORRECCIÓN: clave unificada 'usuario_sesion'
         const sesionData = localStorage.getItem('usuario_sesion');
         if (!sesionData) { window.location.href = "index.html"; return; }
-        
+
         const user = JSON.parse(sesionData);
         document.getElementById('conductor').value = user.nombre;
         document.getElementById('saludo').innerText = "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
-        
+
         const esAdmin = (user.usuario || '').toLowerCase() === 'admin' || (user.rol || '').toLowerCase() === 'admin';
         document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : "CONDUCTOR");
 
         await cargarPlacas();
 
-        // ── PRE-LLENAR DESDE SOLICITUD DE APOYO ──
+        // Pre-llenar desde solicitud de apoyo
         const apoyo = localStorage.getItem('apoyo_prellenado');
         if (apoyo) {
             try {
                 const d = JSON.parse(apoyo);
-                if (d.fallecido)    document.getElementById('fallecido').value   = d.fallecido;
-                if (d.clinica)      document.getElementById('clinica').value      = d.clinica;
-                if (d.origen)       document.getElementById('origen').value       = d.origen;
-                if (d.destino)      document.getElementById('destino').value      = d.destino;
-                if (d.coordinador)  document.getElementById('coordinador_turno').value = d.coordinador;
-                if (d.observaciones) document.getElementById('observaciones').value = '🤝 APOYO REGIONAL\n' + d.observaciones;
+                if (d.fallecido)     document.getElementById('fallecido').value     = d.fallecido;
+                if (d.clinica)       document.getElementById('clinica').value        = d.clinica;
+                if (d.origen)        document.getElementById('origen').value         = d.origen;
+                if (d.destino)       document.getElementById('destino').value        = d.destino;
+                if (d.observaciones) document.getElementById('observaciones').value  = '🤝 APOYO REGIONAL\n' + d.observaciones;
                 if (d.motivo) {
                     const sel = document.getElementById('motivo');
                     for (let o of sel.options) { if (o.value === d.motivo) { sel.value = d.motivo; break; } }
                 }
-                // Mostrar banner de apoyo
                 const banner = document.createElement('div');
                 banner.style.cssText = 'background:#ecfdf5; border:2px solid #6ee7b7; border-radius:12px; padding:12px 15px; margin-bottom:15px; font-size:13px; color:#065f46; font-weight:600; display:flex; align-items:center; gap:10px;';
                 banner.innerHTML = '<span style="font-size:20px;">🤝</span><div><b>Formulario pre-llenado desde solicitud de apoyo</b><br><span style="font-weight:400; font-size:12px;">Revisa los datos y completa los campos que faltan</span></div>';
                 document.querySelector('.content').insertBefore(banner, document.querySelector('.content').firstChild);
-                // Limpiar para no re-usar
                 localStorage.removeItem('apoyo_prellenado');
             } catch(e) { console.log('Sin apoyo prellenado'); }
         }
 
         const now = new Date();
-        document.getElementById('hora_salida').value = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+        document.getElementById('hora_salida').value =
+            now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
 
-        canvas.width = canvas.offsetWidth;
+        canvas.width  = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
     };
 
+    // ── CARGAR PLACAS con KM y datos de mantenimiento ───
     async function cargarPlacas() {
         const select = document.getElementById('placa');
         try {
-            const res = await DB.obtenerFlota();
-            if (res.ok && res.data.length > 0) {
-                select.innerHTML = '<option value="">Seleccione placa...</option>';
-                res.data.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.placa;
-                    // CORRECCIÓN: campo es 'modelo', no 'tipo'
-                    opt.textContent = c.placa + ' — ' + (c.modelo || 'S/M');
-                    select.appendChild(opt);
-                });
+            const { data, error } = await DB.supabase
+                .from('carrozas')
+                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento')
+                .order('placa');
+
+            if (error) throw error;
+            flotaCompleta = data || [];
+
+            if (flotaCompleta.length > 0) {
+                select.innerHTML = '<option value="">Seleccione placa...</option>' +
+                    flotaCompleta.map(c =>
+                        '<option value="' + c.placa + '">' + c.placa + ' — ' + (c.modelo || 'S/M') + '</option>'
+                    ).join('');
             } else {
                 select.innerHTML = '<option value="">Sin flota registrada</option>';
             }
-        } catch (e) { select.innerHTML = '<option>Error al cargar placas</option>'; }
+        } catch(e) {
+            select.innerHTML = '<option>Error al cargar placas</option>';
+        }
     }
 
+    // ── AL SELECCIONAR PLACA: precarga KM ───────────────
+    function alSeleccionarPlaca() {
+        const placa   = document.getElementById('placa').value;
+        const kmInput = document.getElementById('km_s');
+        const banner  = document.getElementById('km-banner');
+
+        if (!placa) {
+            banner.style.display = 'none';
+            kmInput.value        = '';
+            kmInput.className    = '';
+            calcularTotal();
+            return;
+        }
+
+        const vehiculo = flotaCompleta.find(c => c.placa === placa);
+        if (!vehiculo) { banner.style.display = 'none'; return; }
+
+        const kmActual = parseInt(vehiculo.kilometraje_actual) || 0;
+
+        // Llenar campo KM Salida con efecto visual
+        kmInput.value     = kmActual;
+        kmInput.className = 'km-precargado';
+
+        // Mostrar banner informativo grande
+        document.getElementById('km-banner-numero').textContent =
+            kmActual.toLocaleString('es-CO') + ' KM';
+        document.getElementById('km-banner-placa').textContent  =
+            'Placa: ' + placa + '  ·  Estado: ' + (vehiculo.estado || 'Sin estado');
+        banner.style.display = 'block';
+
+        calcularTotal();
+    }
+
+    // ── NAVEGACIÓN ──────────────────────────────────────
     function irAtras() {
         const sesionData = localStorage.getItem('usuario_sesion');
         if (!sesionData) { window.location.href = "index.html"; return; }
@@ -285,20 +380,19 @@
         window.location.href = esAdmin ? "dashboard.html" : "panel_conductor.html";
     }
 
+    // ── FOTOS ────────────────────────────────────────────
     function procesarFotos(input) {
-        const archivos = Array.from(input.files);
-        archivos.forEach(f => {
+        Array.from(input.files).forEach(f => {
             if (fotosArray.length < 4) {
                 const reader = new FileReader();
-                reader.onload = (e) => { fotosArray.push(e.target.result); renderGaleria(); };
+                reader.onload = e => { fotosArray.push(e.target.result); renderGaleria(); };
                 reader.readAsDataURL(f);
             }
         });
     }
 
     function renderGaleria() {
-        const g = document.getElementById('galeria');
-        g.innerHTML = fotosArray.map((img, i) =>
+        document.getElementById('galeria').innerHTML = fotosArray.map((img, i) =>
             '<div class="thumb-wrap"><img src="' + img + '"><button class="btn-del" onclick="eliminarFoto(' + i + ')">×</button></div>'
         ).join('');
         document.getElementById('upload-text').innerText = '📸 ' + fotosArray.length + ' de 4 fotos';
@@ -306,13 +400,13 @@
 
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
-    // Firma — igual al original, funciona perfecto
+    // ── FIRMA ────────────────────────────────────────────
     const obtenerPos = e => {
         const rect = canvas.getBoundingClientRect();
         return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
     };
     const iniciar = e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); };
-    const mover  = e => { if (!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
+    const mover   = e => { if (!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
     canvas.addEventListener('mousedown', iniciar);
     canvas.addEventListener('mousemove', mover);
     window.addEventListener('mouseup', () => dibujando = false);
@@ -320,12 +414,14 @@
     canvas.addEventListener('touchmove', mover);
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
+    // ── KM TOTAL ─────────────────────────────────────────
     function calcularTotal() {
         const s = parseFloat(document.getElementById('km_s').value) || 0;
         const i = parseFloat(document.getElementById('km_i').value) || 0;
         document.getElementById('total_km').value = (i - s).toFixed(1);
     }
 
+    // ── GUARDAR ──────────────────────────────────────────
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
         if (!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
@@ -356,90 +452,76 @@
             firma:         canvas.toDataURL()
         };
 
-        // Actualizar estado de la carroza a "En Servicio"
         await DB.supabase.from('carrozas')
             .update({ estado: 'En Servicio', kilometraje_actual: parseInt(datosFinales.km_salida) || 0 })
             .eq('placa', datosFinales.placa);
 
         const res = await DB.guardarTraslado(datosFinales);
         if (res.ok) {
-            btn.innerText = "✓ GUARDADO EXITOSO";
+            btn.innerText        = "✓ GUARDADO EXITOSO";
             btn.style.background = "#25D366";
-            document.getElementById('bloque-wa').style.display = 'flex';
-            document.getElementById('bloque-wa').style.flexDirection = 'column';
-            document.getElementById('bloque-wa').style.gap = '8px';
+
+            // ✅ Mostrar bloque WhatsApp correctamente
+            const bloqueWA = document.getElementById('bloque-wa');
+            bloqueWA.classList.remove('bloque-wa-oculto');
+            bloqueWA.style.display       = 'flex';
+            bloqueWA.style.flexDirection = 'column';
+            bloqueWA.style.gap           = '8px';
         } else {
             alert("Error: " + (res.error?.message || res.error));
-            btn.disabled = false;
+            btn.disabled  = false;
             btn.innerText = "💾 GUARDAR EN SISTEMA";
         }
     }
 
-     function enviarWA() {
-    const hora = new Date().getHours();
-    let saludo = "";
-
-    // Lógica de saludos por franja horaria
-    if (hora >= 6 && hora < 12) {
-        saludo = "*Buenos Días* ☀️";
-    } else if (hora >= 12 && hora < 18) {
-        saludo = "*Buenas Tardes* 🌤️";
-    } else {
-        saludo = "*Buenas Noches* 🌙";
-    };
+    // ── WHATSAPP ─────────────────────────────────────────
+    function enviarWA() {
+        const hora = new Date().getHours();
+        const saludo = hora >= 6 && hora < 12 ? "*Buenos Días* ☀️"
+                     : hora >= 12 && hora < 18 ? "*Buenas Tardes* 🌤️"
+                     : "*Buenas Noches* 🌙";
         const cantFotos = fotosArray.length;
-        
+
         const msg = saludo + "\n\n" +
             "📢 *Reporte de Salida De Carroza*\n\n" +
-            "📍 *Regional:* " + datosFinales.regional + "\n" +
-            "📅 *Fecha:* " + new Date().toLocaleDateString('es-CO') + "\n" +
-            "👤 *Coordinador:* " + datosFinales.coordinador + "\n" +
-            "🕒 *Hora De Salida:* " + datosFinales.hora_salida + "\n" +
-            "🚗 *Placas Del Vehiculo:* " + datosFinales.placa + "\n" +
-            "❓ *Motivo De Salida:* " + datosFinales.motivo + "\n" +
-            "⚱️ *Nombre Del Fallecido:* " + (datosFinales.fallecido || '---') + "\n" +
-            "🏥 *Lugar de Recogida:* " + (datosFinales.clinica || '---') + "\n" +
-            "🚩 *Origen:* " + (datosFinales.origen || '---') + "\n" +
-            "🏁 *Destino:* " + (datosFinales.destino || '---') + "\n" +
-            "📊 *Km De Salida:* " + datosFinales.km_salida + "\n" +
-            "📊 *Km De Ingreso:* " + datosFinales.km_ingreso + "\n" +
-            "👨🏻‍✈️ *Nom. Conductor:* " + datosFinales.conductor + "\n\n" +
-            "📝 *Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n" +
+            "📍 *Regional:* "              + datosFinales.regional    + "\n" +
+            "📅 *Fecha:* "                 + new Date().toLocaleDateString('es-CO') + "\n" +
+            "👤 *Coordinador:* "           + datosFinales.coordinador + "\n" +
+            "🕒 *Hora De Salida:* "        + datosFinales.hora_salida + "\n" +
+            "🚗 *Placas Del Vehiculo:* "   + datosFinales.placa       + "\n" +
+            "❓ *Motivo De Salida:* "      + datosFinales.motivo      + "\n" +
+            "⚱️ *Nombre Del Fallecido:* "  + (datosFinales.fallecido  || '---') + "\n" +
+            "🏥 *Lugar de Recogida:* "     + (datosFinales.clinica    || '---') + "\n" +
+            "🚩 *Origen:* "                + (datosFinales.origen     || '---') + "\n" +
+            "🏁 *Destino:* "               + (datosFinales.destino    || '---') + "\n" +
+            "📊 *Km De Salida:* "          + datosFinales.km_salida   + "\n" +
+            "📊 *Km De Ingreso:* "         + datosFinales.km_ingreso  + "\n" +
+            "👨🏻‍✈️ *Nom. Conductor:* "       + datosFinales.conductor   + "\n\n" +
+            "📝 *Observaciones:* "         + (datosFinales.observaciones || 'Sin novedades') + "\n" +
             (cantFotos > 0 ? "📸 *Evidencias:* " + cantFotos + " foto(s) adjunta(s) por separado\n" : "") + "\n" +
             "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
 
-        // Abre WhatsApp sin número fijo — el conductor elige el contacto
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
 
-    // Descarga las fotos al dispositivo para que el conductor las adjunte manualmente en WhatsApp
+    // ── COMPARTIR FOTOS ──────────────────────────────────
     function compartirFotos() {
-        if (fotosArray.length === 0) {
-            alert("No hay fotos para compartir.");
-            return;
-        }
+        if (fotosArray.length === 0) { alert("No hay fotos para compartir."); return; }
 
-        // Intentar Web Share API (funciona en móvil Android/iOS)
         if (navigator.share && navigator.canShare) {
-            const fetchBlobs = fotosArray.map((dataUrl, i) => {
-                return fetch(dataUrl)
-                    .then(r => r.blob())
-                    .then(blob => new File([blob], 'evidencia_' + (i+1) + '_' + datosFinales.placa + '.jpg', { type: 'image/jpeg' }));
-            });
-
-            Promise.all(fetchBlobs).then(files => {
+            Promise.all(fotosArray.map((dataUrl, i) =>
+                fetch(dataUrl).then(r => r.blob())
+                    .then(blob => new File([blob], 'evidencia_' + (i+1) + '_' + datosFinales.placa + '.jpg', { type: 'image/jpeg' }))
+            )).then(files => {
                 if (navigator.canShare({ files })) {
                     navigator.share({
-                        files: files,
+                        files,
                         title: 'Evidencias J.R. - ' + datosFinales.placa,
-                        text: 'Fotos del servicio - Placa: ' + datosFinales.placa
+                        text:  'Fotos del servicio - Placa: ' + datosFinales.placa
                     }).catch(() => descargarFotos());
-                } else {
-                    descargarFotos();
-                }
+                } else descargarFotos();
             }).catch(() => descargarFotos());
         } else {
-            // Fallback: descarga las fotos
             descargarFotos();
         }
     }
@@ -447,15 +529,13 @@
     function descargarFotos() {
         fotosArray.forEach((dataUrl, i) => {
             const a = document.createElement('a');
-            a.href = dataUrl;
+            a.href     = dataUrl;
             a.download = 'evidencia_' + (i+1) + '_' + (datosFinales.placa || 'JR') + '.jpg';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
         });
         document.getElementById('instruccion-fotos').style.display = 'block';
     }
 </script>
-    <script src="config-aplicar.js"></script>
+<script src="config-aplicar.js"></script>
 </body>
 </html>
