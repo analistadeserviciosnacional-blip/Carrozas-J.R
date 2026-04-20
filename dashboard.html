@@ -37,7 +37,7 @@
         .user-info span { font-weight: 700; color: var(--azul); font-size: 14px; }
         .user-info small { display: block; font-size: 10px; color: var(--gris-texto); }
         .btn-salir { border: none; background: #fee2e2; color: var(--rojo); cursor: pointer; 
-                     font-size: 11px; font-weight: bold; padding: 5px 10px; border-radius: 8px; margin-top: 4px; }
+                     font-size: 11px; font-weight: bold; padding: 5px 10px; border-radius: 8px; margin-top: 4px; font-family: inherit; }
 
         /* ── MENÚ GRID ── */
         .grid-menu { 
@@ -87,6 +87,7 @@
             background: var(--verde-wa); color: white; border: none;
             padding: 7px 10px; border-radius: 8px; cursor: pointer;
             font-weight: 700; font-size: 10px; text-transform: uppercase; white-space: nowrap;
+            font-family: inherit;
         }
 
         /* ── AVERÍAS ── */
@@ -112,13 +113,11 @@
                 grid-template-columns: 1fr;
             }
 
-            /* En móvil las tablas hacen scroll horizontal */
             th, td { font-size: 11px; padding: 8px 6px; }
 
             .monitor { padding: 15px; }
             .monitor h2 { font-size: 13px; }
 
-            /* Ocultar columna "Modelo" en móvil para ahorrar espacio */
             .col-modelo { display: none; }
         }
 
@@ -207,11 +206,28 @@
 
     <script src="db.js"></script>
     <script>
+        // Normaliza texto: minúsculas, sin tildes, sin espacios extra
+        const norm = s => (s||'').toLowerCase().trim()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
         window.onload = async () => {
-            const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
+            const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
             if (!sesion) { window.location.href = "index.html"; return; }
+
+            // ── VERIFICAR ROL: solo admin puede entrar aquí ──
+            const rol = norm(sesion.rol);
+            const usr = norm(sesion.usuario);
+            const esAdmin = rol === 'admin' || rol === 'administracion'
+                         || usr === 'admin' || usr === 'administracion';
+            const esCoord = rol === 'coordinador';
+
+            if (!esAdmin) {
+                // Si presiona atrás y no es admin → redirigir al panel correcto
+                window.location.href = esCoord ? 'panel_coordinador.html' : 'panel_conductor.html';
+                return;
+            }
+
             document.getElementById('user-name').innerText = sesion.nombre || "Admin J.R.";
-            
             await Promise.all([cargarFlota(), cargarTraslados(), cargarAverias()]);
         };
 
@@ -241,13 +257,14 @@
             const tbody = document.getElementById('lista-traslados');
             if (data && data.length > 0) {
                 tbody.innerHTML = data.map(t => {
-                    const safeT = JSON.stringify(t).replace(/'/g, "&#39;");
+                    // ← CORRECCIÓN: usar data-json con comillas escapadas
+                    const safeJson = JSON.stringify(t).replace(/"/g, '&quot;');
                     return '<tr>' +
                         '<td>' + (t.fecha || '---') + '</td>' +
                         '<td><b>' + (t.placa || '---') + '</b></td>' +
                         '<td class="col-modelo">' + (t.nombre_del_fallecido || '---') + '</td>' +
                         '<td style="font-size:10px;">' + (t.origen || '---') + ' ➔ ' + (t.destino || '---') + '</td>' +
-                        '<td><button class="btn-wa" onclick=\'reenviarWhatsApp(' + safeT + ')\'>WA</button></td>' +
+                        '<td><button class="btn-wa" data-json="' + safeJson + '" onclick="reenviarWhatsApp(this)">WA</button></td>' +
                         '</tr>';
                 }).join('');
             } else {
@@ -271,27 +288,28 @@
             }
         }
 
+        // ← CORRECCIÓN: recibe el elemento botón y lee data-json
         function reenviarWhatsApp(btn) {
-            const d = JSON.parse(btn.getAttribute('data-t'));
+            const d = JSON.parse(btn.getAttribute('data-json'));
             const hora = new Date().getHours();
-            const saludo = hora < 12 ? "Buenos días ☀️" : "Buenas tardes 🌤️";
+            const saludo = hora < 12 ? "Buenos días ☀️" : hora < 18 ? "Buenas tardes 🌤️" : "Buenas noches 🌙";
             const mensaje = saludo + "\n\n" +
                 "📢 *Reporte de Salida De Carroza*\n\n" +
-                "📍 *Regional:* " + (d.regional || '---') + "\n" +
-                "📅 *Fecha:* " + (d.fecha || '---') + "\n" +
-                "👤 *Coordinador:* " + (d.coordinador_en_turno || '---') + "\n" +
-                "🕒 *Hora De Salida:* " + (d.hora_de_salida || '---') + "\n" +
-                "🚗 *Placa:* " + (d.placa || '---') + "\n" +
-                "❓ *Motivo:* " + (d.motivo_de_salida || '---') + "\n" +
-                "⚱️ *Fallecido:* " + (d.nombre_del_fallecido || '---') + "\n" +
-                "🏥 *Recogida:* " + (d.clinica_hospital_o_rsd || '---') + "\n" +
-                "🚩 *Origen:* " + (d.origen || '---') + "\n" +
-                "🏁 *Destino:* " + (d.destino || '---') + "\n" +
-                "📊 *KM Salida:* " + (d.km__salida || '---') + "\n" +
-                "📊 *KM Ingreso:* " + (d.km__ingreso || '---') + "\n" +
-                "👨🏻‍✈️ *Conductor:* " + (d.conductor || '---') + "\n" +
-                "📞 *Teléfono:* " + (d.nnum_telefono || '---') + "\n" +
-                "📝 *Observaciones:* " + (d.observaciones || 'Sin novedades') + "\n\n" +
+                "📍 *Regional:* "      + (d.regional              || '---') + "\n" +
+                "📅 *Fecha:* "         + (d.fecha                 || '---') + "\n" +
+                "👤 *Coordinador:* "   + (d.coordinador_en_turno  || '---') + "\n" +
+                "🕒 *Hora De Salida:* "+ (d.hora_de_salida        || '---') + "\n" +
+                "🚗 *Placa:* "         + (d.placa                 || '---') + "\n" +
+                "❓ *Motivo:* "        + (d.motivo_de_salida      || '---') + "\n" +
+                "⚱️ *Fallecido:* "     + (d.nombre_del_fallecido  || '---') + "\n" +
+                "🏥 *Recogida:* "      + (d.clinica_hospital_o_rsd|| '---') + "\n" +
+                "🚩 *Origen:* "        + (d.origen                || '---') + "\n" +
+                "🏁 *Destino:* "       + (d.destino               || '---') + "\n" +
+                "📊 *KM Salida:* "     + (d.km__salida            || '---') + "\n" +
+                "📊 *KM Ingreso:* "    + (d.km__ingreso           || '---') + "\n" +
+                "👨🏻‍✈️ *Conductor:* "    + (d.conductor             || '---') + "\n" +
+                "📞 *Teléfono:* "      + (d.nnum_telefono         || '---') + "\n" +
+                "📝 *Observaciones:* " + (d.observaciones         || 'Sin novedades') + "\n\n" +
                 "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
             window.open("https://wa.me/?text=" + encodeURIComponent(mensaje), '_blank');
         }
