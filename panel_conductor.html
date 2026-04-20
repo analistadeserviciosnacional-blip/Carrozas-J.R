@@ -26,6 +26,11 @@
         td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
         .status-pill { font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 8px; }
         .pill-disponible { color: #10b981; background: #ecfdf5; }
+
+        @keyframes badgePulse {
+            0%,100% { transform: scale(1); box-shadow: 0 3px 10px rgba(220,38,38,0.5); }
+            50%      { transform: scale(1.18); box-shadow: 0 4px 20px rgba(220,38,38,0.8); }
+        }
         .pill-taller { color: var(--rojo); background: #fef2f2; }
         .pill-ruta { color: #3b82f6; background: #eff6ff; }
         .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
@@ -157,9 +162,24 @@
         <a href="reporte_averia.html" class="card-condu">
             <i>⚠️</i><span>Reportar Avería</span>
         </a>
-        <a href="solicitud_apoyo.html" class="card-condu" style="border: 2px solid #10b981; position:relative;">
-            <div id="badge-apoyo" style="display:none; position:absolute; top:-6px; right:-6px; background:#ef4444; color:white; font-size:10px; font-weight:800; padding:3px 7px; border-radius:8px;">0</div>
-            <i>🤝</i><span>Solicitudes de Apoyo</span>
+        <a href="solicitud_apoyo.html" class="card-condu" style="border: 2px solid #10b981; position:relative; background: linear-gradient(135deg, #f0fdf4, #ffffff);">
+            <!-- ✅ Badge esquina estilo WhatsApp — sin display duplicado -->
+            <div id="badge-apoyo" style="
+                display:none;
+                position:absolute; top:-10px; right:-10px;
+                background: linear-gradient(135deg, #dc2626, #ef4444);
+                color:white; font-size:14px; font-weight:900;
+                min-width:30px; height:30px; padding: 0 8px;
+                border-radius:15px;
+                align-items:center; justify-content:center;
+                box-shadow: 0 3px 12px rgba(220,38,38,0.55);
+                border: 2.5px solid white;
+                animation: badgePulse 1.5s ease infinite;
+                z-index:10;
+            ">0</div>
+            <i>🤝</i>
+            <span>Solicitudes de Apoyo</span>
+            <span id="badge-texto" style="display:none; font-size:10px; color:#10b981; font-weight:800; margin-top:4px;"></span>
         </a>
     </div>
 
@@ -327,15 +347,33 @@
 
     async function actualizarBadge(user) {
         try {
-            const regional = user.regional || '';
+            const regional = norm(user.regional || '');
             const { data } = await DB.supabase
                 .from('solicitud_apoyo')
-                .select('id')
-                .eq('estado', 'pendiente')
-                .or('alcance.eq.nacional,regional_solicitante.eq.' + regional);
-            if (data && data.length > 0) {
-                const badge = document.getElementById('badge-apoyo');
-                if (badge) { badge.style.display = 'block'; badge.textContent = data.length; }
+                .select('id, alcance, regional_solicitante')
+                .eq('estado', 'pendiente');
+
+            const visibles = (data || []).filter(s => {
+                const alcance = norm(s.alcance);
+                const regSol  = norm(s.regional_solicitante);
+                return alcance === 'nacional' || alcance === regional || regSol === regional;
+            });
+
+            const badge      = document.getElementById('badge-apoyo');
+            const badgeTexto = document.getElementById('badge-texto');
+
+            if (visibles.length > 0) {
+                // Badge número
+                badge.style.display      = 'flex';
+                badge.textContent        = visibles.length;
+                // Texto debajo del ícono
+                badgeTexto.style.display = 'block';
+                badgeTexto.textContent   = visibles.length === 1
+                    ? '1 pendiente'
+                    : visibles.length + ' pendientes';
+            } else {
+                badge.style.display      = 'none';
+                badgeTexto.style.display = 'none';
             }
         } catch(e) {}
     }
@@ -391,14 +429,26 @@
 
     async function verificarApoyosPendientes(user) {
         try {
-            const regional = user.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+            const regional = norm(user.regional || localStorage.getItem('jr_regional_usuario') || '');
             const { data } = await DB.supabase
-                .from('solicitud_apoyo').select('id')
-                .eq('estado', 'pendiente')
-                .or('alcance.eq.nacional,regional_solicitante.eq.' + regional);
-            if (data && data.length > 0) {
-                const badge = document.getElementById('badge-apoyo');
-                if (badge) { badge.style.display = 'block'; badge.textContent = data.length; }
+                .from('solicitud_apoyo')
+                .select('id, alcance, regional_solicitante')
+                .eq('estado', 'pendiente');
+
+            const visibles = (data || []).filter(s => {
+                const alcance = norm(s.alcance);
+                const regSol  = norm(s.regional_solicitante);
+                return alcance === 'nacional' || alcance === regional || regSol === regional;
+            });
+
+            const badge      = document.getElementById('badge-apoyo');
+            const badgeTexto = document.getElementById('badge-texto');
+
+            if (visibles.length > 0) {
+                badge.style.display      = 'flex';
+                badge.textContent        = visibles.length;
+                badgeTexto.style.display = 'block';
+                badgeTexto.textContent   = visibles.length === 1 ? '1 pendiente' : visibles.length + ' pendientes';
             }
         } catch(e) {}
     }
