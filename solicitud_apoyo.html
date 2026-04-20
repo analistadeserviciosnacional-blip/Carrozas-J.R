@@ -15,7 +15,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: var(--fondo); font-family: 'DM Sans', sans-serif; color: #1e293b; min-height: 100vh; }
 
-        /* ── HEADER ── */
         .header {
             background: var(--azul); color: white;
             padding: 18px 20px 16px; position: sticky; top: 0; z-index: 50;
@@ -26,7 +25,6 @@
         .header small { font-size: 10px; opacity: 0.7; display: block; }
         .btn-back { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 13px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; }
 
-        /* ── FILTROS ── */
         .filtros-bar {
             display: flex; gap: 8px; padding: 14px 16px 10px;
             overflow-x: auto; background: var(--blanco);
@@ -40,17 +38,8 @@
         }
         .filtro.on { background: var(--azul); color: white; border-color: var(--azul); }
 
-        /* ── CONTADOR BADGE ── */
-        .badge-count {
-            display: inline-flex; align-items: center; justify-content: center;
-            background: var(--rojo); color: white; font-size: 10px; font-weight: 800;
-            width: 18px; height: 18px; border-radius: 50%; margin-left: 5px;
-        }
-
-        /* ── LISTA ── */
         .lista { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 
-        /* ── CARD SOLICITUD ── */
         .sol-card {
             background: var(--blanco); border-radius: 18px;
             overflow: hidden; box-shadow: 0 2px 10px rgba(0,26,112,0.06);
@@ -58,23 +47,20 @@
             animation: fadeIn 0.3s ease;
         }
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
-
         .sol-card.urgente { border-left: 4px solid var(--naranja); }
         .sol-card.critica { border-left: 4px solid var(--rojo); animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100%{box-shadow:0 2px 10px rgba(220,38,38,0.1);} 50%{box-shadow:0 2px 20px rgba(220,38,38,0.3);} }
 
-        /* Banda superior de urgencia */
         .sol-urgencia-bar {
             padding: 6px 16px; font-size: 11px; font-weight: 800;
             text-transform: uppercase; letter-spacing: 0.5px;
             display: flex; align-items: center; gap: 6px;
         }
-        .bar-normal   { background: #ecfdf5; color: #065f46; }
-        .bar-urgente  { background: #fffbeb; color: #92400e; }
-        .bar-critica  { background: #fef2f2; color: #991b1b; }
+        .bar-normal  { background: #ecfdf5; color: #065f46; }
+        .bar-urgente { background: #fffbeb; color: #92400e; }
+        .bar-critica { background: #fef2f2; color: #991b1b; }
 
         .sol-body { padding: 16px; }
-
         .sol-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .sol-regional { font-size: 18px; font-weight: 800; color: var(--azul); }
         .sol-tiempo { font-size: 10px; color: var(--gris); text-align: right; line-height: 1.5; }
@@ -94,9 +80,7 @@
         .sol-ruta .flecha { color: #94a3b8; font-size: 16px; }
 
         .sol-detalles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-        .detalle-item {
-            background: var(--fondo); border-radius: 10px; padding: 9px 11px;
-        }
+        .detalle-item { background: var(--fondo); border-radius: 10px; padding: 9px 11px; }
         .detalle-item .d-label { font-size: 10px; color: var(--gris); font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
         .detalle-item .d-val { font-size: 13px; font-weight: 700; color: #1e293b; }
 
@@ -106,15 +90,12 @@
             border-left: 3px solid var(--naranja); line-height: 1.5;
         }
 
-        /* ALCANCE badge */
-        .alcance-tag {
-            font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px;
-            margin-left: 6px;
-        }
-        .tag-nacional { background: #f5f3ff; color: #6d28d9; }
-        .tag-regional { background: #ecfdf5; color: #065f46; }
+        /* ✅ NUEVO: badge que muestra para quién es el apoyo */
+        .alcance-tag { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; margin-left: 6px; }
+        .tag-nacional  { background: #f5f3ff; color: #6d28d9; }
+        .tag-regional  { background: #ecfdf5; color: #065f46; }
+        .tag-especifica{ background: #fff7ed; color: #c2410c; }
 
-        /* ── BOTÓN ACEPTAR ── */
         .btn-aceptar {
             width: 100%; padding: 15px; border: none; border-radius: 13px;
             background: var(--verde); color: white; font-weight: 800; font-size: 15px;
@@ -128,27 +109,15 @@
             text-align: center; font-size: 13px; font-weight: 700; color: #065f46;
         }
 
-        /* ── EMPTY ── */
-        .empty {
-            text-align: center; padding: 60px 20px; color: var(--gris);
-        }
+        .empty { text-align: center; padding: 60px 20px; color: var(--gris); }
         .empty .icon { font-size: 48px; margin-bottom: 12px; }
         .empty p { font-size: 15px; font-weight: 600; }
         .empty small { font-size: 12px; margin-top: 6px; display: block; }
 
-        /* ── LOADER ── */
-        .loader {
-            display: flex; align-items: center; justify-content: center;
-            padding: 60px; color: var(--gris); font-size: 14px; gap: 10px;
-        }
-        .spinner {
-            width: 20px; height: 20px; border: 2px solid #e2e8f0;
-            border-top-color: var(--azul); border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
+        .loader { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--gris); font-size: 14px; gap: 10px; }
+        .spinner { width: 20px; height: 20px; border: 2px solid #e2e8f0; border-top-color: var(--azul); border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── TOAST ── */
         .toast {
             position: fixed; bottom: 24px; left: 50%;
             transform: translateX(-50%) translateY(60px);
@@ -159,7 +128,6 @@
         }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-        /* ── MODAL CONFIRMAR ── */
         .modal-bg {
             display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
@@ -178,31 +146,15 @@
             text-align: center; margin-bottom: 20px;
         }
         .modal-btns { display: flex; flex-direction: column; gap: 10px; }
-        .btn-confirmar {
-            width: 100%; padding: 16px; border: none; border-radius: 13px;
-            background: var(--verde); color: white; font-weight: 800;
-            font-size: 16px; cursor: pointer;
-        }
-        .btn-cancelar-m {
-            width: 100%; padding: 13px; border: 1.5px solid #e2e8f0;
-            border-radius: 13px; background: white; color: var(--gris);
-            font-weight: 700; font-size: 14px; cursor: pointer;
-        }
+        .btn-confirmar { width: 100%; padding: 16px; border: none; border-radius: 13px; background: var(--verde); color: white; font-weight: 800; font-size: 16px; cursor: pointer; }
+        .btn-cancelar-m { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 13px; background: white; color: var(--gris); font-weight: 700; font-size: 14px; cursor: pointer; }
 
-        /* ── REFRESH BTN ── */
-        .refresh-bar {
-            text-align: center; padding: 10px;
-        }
-        .btn-refresh {
-            background: none; border: 1.5px solid #e2e8f0; border-radius: 10px;
-            padding: 8px 16px; font-size: 12px; font-weight: 700;
-            color: var(--gris); cursor: pointer;
-        }
+        .refresh-bar { text-align: center; padding: 10px; }
+        .btn-refresh { background: none; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: var(--gris); cursor: pointer; }
     </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="header">
     <div class="header-left">
         <button class="btn-back" onclick="irAtras()">←</button>
@@ -214,15 +166,13 @@
     <div id="badge-pendientes" style="display:none; background:#ef4444; color:white; font-size:12px; font-weight:800; padding:5px 10px; border-radius:10px;"></div>
 </div>
 
-<!-- FILTROS -->
 <div class="filtros-bar">
     <div class="filtro on" onclick="setFiltro('disponibles',this)">⏳ Disponibles</div>
-    <div class="filtro" onclick="setFiltro('mi_regional',this)">📍 Mi Regional</div>
-    <div class="filtro" onclick="setFiltro('nacional',this)">🌎 Nacional</div>
-    <div class="filtro" onclick="setFiltro('mis_aceptadas',this)">✅ Mis Aceptadas</div>
+    <div class="filtro"    onclick="setFiltro('mi_regional',this)">📍 Mi Regional</div>
+    <div class="filtro"    onclick="setFiltro('nacional',this)">🌎 Nacional</div>
+    <div class="filtro"    onclick="setFiltro('mis_aceptadas',this)">✅ Mis Aceptadas</div>
 </div>
 
-<!-- LISTA -->
 <div class="lista" id="lista">
     <div class="loader"><div class="spinner"></div> Cargando solicitudes...</div>
 </div>
@@ -231,7 +181,6 @@
     <button class="btn-refresh" onclick="cargar()">↻ Actualizar</button>
 </div>
 
-<!-- MODAL CONFIRMAR ACEPTAR -->
 <div class="modal-bg" id="modal-bg">
     <div class="modal-sheet">
         <h3>🤝 Confirmar Apoyo</h3>
@@ -253,9 +202,9 @@
     let sesion = {};
     let filtroActual = 'disponibles';
     let todasSolicitudes = [];
-    let solPendiente = null; // la que está por aceptar
+    let solPendiente = null;
 
-    // ── INIT ──
+    // ── INIT ──────────────────────────────────────────
     window.onload = async () => {
         sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (!sesion.nombre) { window.location.href = 'index.html'; return; }
@@ -264,23 +213,23 @@
         document.getElementById('sub-info').textContent = sesion.nombre + ' · ' + regional;
 
         await cargar();
-        // Auto-refresh cada 30 segundos
         setInterval(cargar, 30000);
     };
 
     function irAtras() {
-        const esAdmin = (sesion.usuario||'').toLowerCase()==='admin'||(sesion.rol||'').toLowerCase()==='admin';
-        window.location.href = esAdmin ? 'dashboard.html' : 'panel_conductor.html';
+        const esAdmin = (sesion.usuario||'').toLowerCase()==='admin' || (sesion.rol||'').toLowerCase()==='admin';
+        const esCoord = (sesion.rol||'').toLowerCase().includes('coordinador');
+        window.location.href = esAdmin ? 'dashboard.html' : esCoord ? 'panel_coordinador.html' : 'panel_conductor.html';
     }
 
-    // ── CARGAR ──
+    // ── CARGAR ────────────────────────────────────────
     async function cargar() {
         try {
             const { data, error } = await DB.supabase
-                .from('solicitud_apoyo')          // ← CORREGIDO (era solicitudes_apoyo)
+                .from('solicitud_apoyo')
                 .select('*')
                 .order('created_at', { ascending: false })
-                .limit(60);
+                .limit(100);
             if (error) throw error;
             todasSolicitudes = data || [];
             renderLista();
@@ -291,11 +240,24 @@
         }
     }
 
+    // ── FUNCIÓN CLAVE: determina si una solicitud es visible para MI regional ──
+    // ✅ CORREGIDO: ahora incluye solicitudes donde alcance === miRegional
+    function solicitudEsParaMiRegional(s, miRegional) {
+        const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const alcance = norm(s.alcance);
+        const regional = norm(miRegional);
+
+        return (
+            alcance === 'nacional' ||           // Es para todo el país
+            alcance === regional ||              // ✅ Coordinador eligió MI regional específicamente
+            norm(s.regional_solicitante) === regional  // Es de mi misma regional
+        );
+    }
+
     function actualizarBadge() {
-        const regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+        const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
         const pendientes = todasSolicitudes.filter(s =>
-            s.estado === 'pendiente' &&
-            (s.alcance === 'nacional' || s.regional_solicitante === regional)
+            s.estado === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
         ).length;
         const badge = document.getElementById('badge-pendientes');
         if (pendientes > 0) {
@@ -306,7 +268,7 @@
         }
     }
 
-    // ── FILTROS ──
+    // ── FILTROS ───────────────────────────────────────
     function setFiltro(f, el) {
         filtroActual = f;
         document.querySelectorAll('.filtro').forEach(b => b.classList.remove('on'));
@@ -314,20 +276,25 @@
         renderLista();
     }
 
-    // ── RENDER ──
+    // ── RENDER ────────────────────────────────────────
     function renderLista() {
-        const regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+        const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+        const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         let lista = [...todasSolicitudes];
 
         if (filtroActual === 'disponibles') {
+            // ✅ CORREGIDO: muestra pendientes que son para MI regional (cualquier forma)
             lista = lista.filter(s =>
-                s.estado === 'pendiente' &&
-                (s.alcance === 'nacional' || s.regional_solicitante === regional)
+                s.estado === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
             );
         } else if (filtroActual === 'mi_regional') {
-            lista = lista.filter(s => s.regional_solicitante === regional);
+            // Solicitudes que vienen DE mi regional o que me piden A mí
+            lista = lista.filter(s =>
+                norm(s.regional_solicitante) === norm(miRegional) ||
+                norm(s.alcance) === norm(miRegional)
+            );
         } else if (filtroActual === 'nacional') {
-            lista = lista.filter(s => s.alcance === 'nacional');
+            lista = lista.filter(s => norm(s.alcance) === 'nacional');
         } else if (filtroActual === 'mis_aceptadas') {
             lista = lista.filter(s => s['conductor_aceptó'] === sesion.nombre);
         }
@@ -337,51 +304,55 @@
         if (!lista.length) {
             div.innerHTML = '<div class="empty">' +
                 '<div class="icon">' + (filtroActual==='disponibles' ? '🎉' : '📭') + '</div>' +
-                '<p>' + (filtroActual==='disponibles' ? 'Sin solicitudes pendientes' : 'Nada aquí todavía') + '</p>' +
+                '<p>' + (filtroActual==='disponibles' ? 'Sin solicitudes pendientes para tu regional' : 'Nada aquí todavía') + '</p>' +
                 '<small>Actualiza en unos minutos</small></div>';
             return;
         }
 
-        div.innerHTML = lista.map(s => renderCard(s)).join('');
+        div.innerHTML = lista.map(s => renderCard(s, miRegional)).join('');
     }
 
-    function renderCard(s) {
+    function renderCard(s, miRegional) {
+        const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         const yaAceptada = s.estado !== 'pendiente';
         const esLaMia    = s['conductor_aceptó'] === sesion.nombre;
         const tiempo     = tiempoAtras(s.created_at);
 
-        const barClass   = s.urgencia === 'critica' ? 'bar-critica' : s.urgencia === 'urgente' ? 'bar-urgente' : 'bar-normal';
-        const barIcon    = s.urgencia === 'critica' ? '🚨 CRÍTICA'  : s.urgencia === 'urgente' ? '⚡ URGENTE'  : '✅ Normal';
-        const cardClass  = s.urgencia === 'critica' ? 'critica'     : s.urgencia === 'urgente' ? 'urgente'    : '';
+        const barClass  = s.urgencia === 'critica' ? 'bar-critica' : s.urgencia === 'urgente' ? 'bar-urgente' : 'bar-normal';
+        const barIcon   = s.urgencia === 'critica' ? '🚨 CRÍTICA'  : s.urgencia === 'urgente' ? '⚡ URGENTE'  : '✅ Normal';
+        const cardClass = s.urgencia === 'critica' ? 'critica'     : s.urgencia === 'urgente' ? 'urgente'    : '';
 
-        const alcanceTag = s.alcance === 'nacional'
-            ? '<span class="alcance-tag tag-nacional">🌎 Nacional</span>'
-            : '<span class="alcance-tag tag-regional">📍 Regional</span>';
+        // ✅ Badge de alcance más descriptivo
+        let alcanceTag = '';
+        if (norm(s.alcance) === 'nacional') {
+            alcanceTag = '<span class="alcance-tag tag-nacional">🌎 Nacional</span>';
+        } else if (norm(s.alcance) === norm(miRegional)) {
+            alcanceTag = '<span class="alcance-tag tag-especifica">🎯 Para ' + miRegional + '</span>';
+        } else {
+            alcanceTag = '<span class="alcance-tag tag-regional">📍 ' + (s.alcance || 'Regional') + '</span>';
+        }
 
         return '<div class="sol-card ' + cardClass + '">' +
 
-            // Banda urgencia
             '<div class="sol-urgencia-bar ' + barClass + '">' + barIcon + alcanceTag + '</div>' +
 
             '<div class="sol-body">' +
                 '<div class="sol-top">' +
                     '<div>' +
-                        '<div class="sol-regional">📍 ' + s.regional_solicitante + '</div>' +
-                        '<div style="font-size:11px;color:var(--gris);margin-top:2px;">Solicitado por ' + s.coordinador + '</div>' +
+                        '<div class="sol-regional">📍 ' + (s.regional_solicitante||'---') + '</div>' +
+                        '<div style="font-size:11px;color:var(--gris);margin-top:2px;">Solicitado por ' + (s.coordinador||'---') + '</div>' +
                     '</div>' +
                     '<div class="sol-tiempo">' + tiempo + '</div>' +
                 '</div>' +
 
-                '<div class="sol-tipo">' + s.tipo_servicio + '</div>' +
+                '<div class="sol-tipo">' + (s.tipo_servicio||'---') + '</div>' +
 
-                // Ruta
                 '<div class="sol-ruta">' +
-                    '<div class="ciudad">🚩 ' + (s.origen || '---') + '</div>' +
+                    '<div class="ciudad">🚩 ' + (s.origen||'---') + '</div>' +
                     '<div class="flecha">➔</div>' +
-                    '<div class="ciudad" style="text-align:right;">🏁 ' + (s.destino || '---') + '</div>' +
+                    '<div class="ciudad" style="text-align:right;">🏁 ' + (s.destino||'---') + '</div>' +
                 '</div>' +
 
-                // Detalles
                 '<div class="sol-detalles">' +
                     (s.nombre_fallecido ? '<div class="detalle-item"><div class="d-label">Fallecido</div><div class="d-val">⚱️ ' + s.nombre_fallecido + '</div></div>' : '') +
                     (s.clinica_hospital ? '<div class="detalle-item"><div class="d-label">Lugar</div><div class="d-val">🏥 ' + s.clinica_hospital + '</div></div>' : '') +
@@ -391,7 +362,6 @@
 
                 (s.observaciones ? '<div class="sol-obs">📝 ' + s.observaciones + '</div>' : '') +
 
-                // BOTÓN o estado
                 (!yaAceptada ?
                     '<button class="btn-aceptar" onclick="pedirConfirmar(' + s.id + ')">' +
                         '<span>🤝</span> ACEPTAR ESTE SERVICIO' +
@@ -405,7 +375,7 @@
         '</div>';
     }
 
-    // ── CONFIRMAR MODAL ──
+    // ── CONFIRMAR ─────────────────────────────────────
     function pedirConfirmar(id) {
         solPendiente = todasSolicitudes.find(s => s.id === id);
         if (!solPendiente) return;
@@ -427,15 +397,12 @@
         btn.textContent = '⏳ Procesando...';
 
         try {
-            // Marcar como aceptada
             const { error } = await DB.supabase
-                .from('solicitud_apoyo')          // ← CORREGIDO (era solicitudes_apoyo)
+                .from('solicitud_apoyo')
                 .update({ estado: 'aceptada', 'conductor_aceptó': sesion.nombre })
                 .eq('id', solPendiente.id);
-
             if (error) throw error;
 
-            // Guardar datos para pre-llenar formulario de salida
             localStorage.setItem('apoyo_prellenado', JSON.stringify({
                 solicitud_id:  solPendiente.id,
                 fallecido:     solPendiente.nombre_fallecido || '',
@@ -450,7 +417,6 @@
 
             toast('✅ Apoyo aceptado — abriendo formulario...', '#10b981');
             cerrarModal();
-
             setTimeout(() => { window.location.href = 'registro_salida.html'; }, 1000);
 
         } catch(e) {
@@ -460,7 +426,7 @@
         }
     }
 
-    // ── HELPERS ──
+    // ── HELPERS ───────────────────────────────────────
     function estadoLabel(e) {
         return { pendiente:'Pendiente', aceptada:'Aceptada', en_curso:'En Curso', completada:'Completada' }[e] || e;
     }
