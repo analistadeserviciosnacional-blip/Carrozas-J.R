@@ -14,7 +14,7 @@
         .header { background: var(--azul); color: white; padding: 20px 20px 16px; display: flex; justify-content: space-between; align-items: center; }
         .header-logo { font-size: 18px; font-weight: 800; }
         .header-sub  { font-size: 11px; opacity: 0.65; margin-top: 2px; }
-        .btn-salir   { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .btn-salir   { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
 
         .welcome { padding: 22px 20px 10px; text-align: center; }
         .welcome h1 { font-size: 22px; font-weight: 800; color: var(--azul); }
@@ -92,29 +92,23 @@
 
 <div class="menu">
     <a href="crear_apoyo.html" class="menu-card destacado full">
-        <i>📤</i>
-        <span>Crear Solicitud de Apoyo</span>
+        <i>📤</i><span>Crear Solicitud de Apoyo</span>
     </a>
     <a href="solicitud_apoyo.html" class="menu-card alerta" id="card-ver-apoyos">
         <div class="badge-nuevo" id="badge-apoyos" style="display:none;">0</div>
-        <i>🤝</i>
-        <span>Ver Apoyos</span>
+        <i>🤝</i><span>Ver Apoyos</span>
     </a>
     <a href="registro_llegada.html" class="menu-card">
-        <i>🏁</i>
-        <span>Registro Llegada</span>
+        <i>🏁</i><span>Registro Llegada</span>
     </a>
     <a href="taller.html" class="menu-card">
-        <i>🔧</i>
-        <span>Taller</span>
+        <i>🔧</i><span>Taller</span>
     </a>
     <a href="flota.html" class="menu-card">
-        <i>🚗</i>
-        <span>Gestión Flota</span>
+        <i>🚗</i><span>Gestión Flota</span>
     </a>
     <a href="reporte_averia.html" class="menu-card">
-        <i>⚠️</i>
-        <span>Reportar Avería</span>
+        <i>⚠️</i><span>Reportar Avería</span>
     </a>
 </div>
 
@@ -146,48 +140,43 @@
 
 <script src="db.js"></script>
 <script>
-    let sesion = {};
+    let sesion  = {};
     let regional = 'Pereira';
 
+    const norm = s => (s||'').toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
     window.onload = async () => {
-        sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        if (!sesion.nombre) { window.location.href = 'index.html'; return; }
+        sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
+        if (!sesion) { window.location.href = 'index.html'; return; }
 
-        const normalizar = str => (str || '')
-            .toLowerCase()
-            .trim()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
+        const rol = norm(sesion.rol);
+        const usr = norm(sesion.usuario);
 
-        const rol = normalizar(sesion.rol);
-        const usr = normalizar(sesion.usuario);
+        const esAdmin = rol === 'admin' || rol === 'administracion'
+                     || usr === 'admin' || usr === 'administracion';
+        const esCoord = rol === 'coordinador';
 
-        const esAdmin = rol.includes('admin') || rol.includes('administracion') || usr.includes('admin');
-        const esCoord = rol.includes('coordinador');
+        // ── REDIRECCIÓN ESTRICTA ──
+        // Admin → siempre al dashboard, NO al panel coordinador
+        if (esAdmin) { window.location.href = 'dashboard.html'; return; }
+        // Conductor → su panel
+        if (!esCoord) { window.location.href = 'panel_conductor.html'; return; }
 
-        if (!esCoord && !esAdmin) {
-            window.location.href = 'panel_conductor.html';
-            return;
-        }
+        // Solo llega aquí si es coordinador puro
+        regional = sesion.regional || 'Pereira';
 
-        regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
-
-        let nombreMostrar = sesion.nombre || '';
-        nombreMostrar = nombreMostrar
+        // Limpiar prefijos del nombre para el saludo
+        let nombreMostrar = (sesion.nombre || '')
             .replace(/^coordinador\s+/i, '')
             .replace(/^director\s+de\s+orquesta\s+/i, '')
             .trim();
-        const primerNombre = nombreMostrar.split(' ')[0];
+        const primerNombre = nombreMostrar.split(' ')[0] || 'Coordinador';
 
         document.getElementById('txt-nombre').textContent   = 'Hola, ' + primerNombre;
         document.getElementById('txt-regional').textContent = '📍 ' + regional;
 
-        await Promise.all([
-            cargarMisApoyos(),
-            cargarTraslados(),
-            cargarFlota()
-        ]);
-
+        await Promise.all([cargarMisApoyos(), cargarTraslados(), cargarFlota()]);
         setInterval(cargarMisApoyos, 30000);
     };
 
@@ -264,18 +253,15 @@
                 '</div>'
             ).join('');
         } catch(e) {
-            document.getElementById('lista-traslados').innerHTML = '<div class="empty-mini">Error al cargar traslados</div>';
+            document.getElementById('lista-traslados').innerHTML = '<div class="empty-mini">Error al cargar</div>';
         }
     }
 
     async function cargarFlota() {
         try {
             const { data, error } = await DB.supabase
-                .from('carrozas')
-                .select('placa, kilometraje_actual, estado')
-                .order('placa');
+                .from('carrozas').select('placa, kilometraje_actual, estado').order('placa');
             if (error) throw error;
-
             const div = document.getElementById('lista-flota');
             if (!data || data.length === 0) {
                 div.innerHTML = '<div class="empty-mini">Sin vehículos registrados</div>';
@@ -290,14 +276,11 @@
                 '</div>';
             }).join('');
         } catch(e) {
-            document.getElementById('lista-flota').innerHTML = '<div class="empty-mini">Error al cargar flota</div>';
+            document.getElementById('lista-flota').innerHTML = '<div class="empty-mini">Error al cargar</div>';
         }
     }
 
-    function cerrarSesion() {
-        localStorage.clear();
-        window.location.href = 'index.html';
-    }
+    function cerrarSesion() { localStorage.clear(); window.location.href = 'index.html'; }
 
     function toast(msg, color) {
         const t = document.getElementById('toast');
