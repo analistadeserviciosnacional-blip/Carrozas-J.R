@@ -27,7 +27,14 @@ const DB = {
         try {
             const { error } = await _supabase
                 .from('usuarios')
-                .insert([datos]);
+                .insert([{
+                    nombre:   datos.nombre,
+                    usuario:  datos.usuario,
+                    password: datos.password,
+                    telefono: datos.telefono,
+                    rol:      datos.rol,
+                    regional: datos.regional
+                }]);
             return { ok: !error, error };
         } catch (err) {
             return { ok: false, error: err };
@@ -49,16 +56,8 @@ const DB = {
     },
 
     // ── 3. TRASLADOS ─────────────────────────────────────
-    // Columnas reales de la tabla Traslado (verificadas en Supabase):
-    // id_salida, fecha, regional, conductor, nnum_telefono, placa,
-    // motivo_de_salida, nombre_del_fallecido, clínica_hospital_o_rsd, numero_prestación,
-    // origen, destino, hora_de_salida, hora_de_ingreso, km__salida, km__ingreso,
-    // total_km, coordinador_en_turno, observaciones, firma, imagen1...
     async guardarTraslado(datos) {
         try {
-            // Construimos el payload solo con columnas ASCII seguras.
-            // Las columnas con tildes (clínica_hospital_o_rsd, numero_prestación)
-            // se añaden dinámicamente para evitar error de schema cache.
             const payload = {
                 id_salida:            'JR-' + Date.now(),
                 fecha:                new Date().toLocaleDateString('es-CO'),
@@ -94,10 +93,11 @@ const DB = {
 
     async obtenerTrasladosRecientes() {
         try {
+            // ← CORRECCIÓN: ordenar por created_at (fecha real) en vez de id_salida (texto)
             const { data, error } = await _supabase
                 .from('Traslado')
                 .select('*')
-                .order('id_salida', { ascending: false })
+                .order('created_at', { ascending: false })
                 .limit(50);
             if (error) throw error;
             return { data: data || [], ok: true };
@@ -112,7 +112,7 @@ const DB = {
                 .from('Traslado')
                 .select('*')
                 .ilike('conductor', '%' + nombreConductor + '%')
-                .order('id_salida', { ascending: false })
+                .order('created_at', { ascending: false })
                 .limit(10);
             if (error) throw error;
             return { data: data || [], ok: true };
@@ -124,9 +124,7 @@ const DB = {
     // ── 4. AVERÍAS ───────────────────────────────────────
     async guardarAveria(datos) {
         try {
-            const { error } = await _supabase
-                .from('Averias')
-                .insert([datos]);
+            const { error } = await _supabase.from('Averias').insert([datos]);
             return { ok: !error, error };
         } catch (err) {
             return { ok: false, error: err };
