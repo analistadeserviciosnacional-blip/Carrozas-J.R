@@ -24,7 +24,7 @@
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-        /* ── ALERTAS DE VEHÍCULO ── */
+        /* ── ALERTA VEHÍCULO ── */
         .alerta-vehiculo {
             display: none;
             border-radius: 16px;
@@ -36,16 +36,11 @@
         }
         @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
 
-        /* En taller — ROJA FUERTE */
         .alerta-vehiculo.en-taller {
-            background: #fef2f2;
-            border: 2px solid #ef4444;
+            background: #fef2f2; border: 2px solid #ef4444;
         }
         .alerta-vehiculo.en-taller .av-icono { font-size: 36px; }
-        .alerta-vehiculo.en-taller .av-titulo {
-            font-size: 17px; font-weight: 900; color: #991b1b;
-            margin: 6px 0 4px;
-        }
+        .alerta-vehiculo.en-taller .av-titulo { font-size: 17px; font-weight: 900; color: #991b1b; margin: 6px 0 4px; }
         .alerta-vehiculo.en-taller .av-msg { color: #7f1d1d; font-weight: 600; }
         .av-bloqueo {
             background: #ef4444; color: white; border-radius: 10px;
@@ -53,44 +48,35 @@
             font-weight: 800; text-align: center; letter-spacing: 0.5px;
         }
 
-        /* Mantenimiento vencido — ROJA */
-        .alerta-vehiculo.mant-vencido {
-            background: #fef2f2;
-            border: 2px solid #fca5a5;
-        }
+        .alerta-vehiculo.mant-vencido { background: #fef2f2; border: 2px solid #fca5a5; }
         .alerta-vehiculo.mant-vencido .av-titulo { font-size: 15px; font-weight: 800; color: #991b1b; margin-bottom: 4px; }
         .alerta-vehiculo.mant-vencido .av-msg { color: #7f1d1d; }
 
-        /* Mantenimiento próximo — AMARILLA */
-        .alerta-vehiculo.mant-proximo {
-            background: #fffbeb;
-            border: 2px solid #fcd34d;
-        }
+        .alerta-vehiculo.mant-proximo { background: #fffbeb; border: 2px solid #fcd34d; }
         .alerta-vehiculo.mant-proximo .av-titulo { font-size: 15px; font-weight: 800; color: #92400e; margin-bottom: 4px; }
         .alerta-vehiculo.mant-proximo .av-msg { color: #78350f; }
 
-        /* Al día — VERDE */
-        .alerta-vehiculo.al-dia {
-            background: #f0fdf4;
-            border: 2px solid #86efac;
-        }
+        .alerta-vehiculo.al-dia { background: #f0fdf4; border: 2px solid #86efac; }
         .alerta-vehiculo.al-dia .av-titulo { font-size: 15px; font-weight: 800; color: #166534; margin-bottom: 4px; }
         .alerta-vehiculo.al-dia .av-msg { color: #14532d; }
 
-        /* Sin fecha — GRIS */
-        .alerta-vehiculo.sin-fecha {
-            background: #f8faff;
-            border: 2px solid #e2e8f0;
-        }
-        .alerta-vehiculo.sin-fecha .av-titulo { font-size: 15px; font-weight: 800; color: #475569; margin-bottom: 4px; }
-        .alerta-vehiculo.sin-fecha .av-msg { color: #64748b; }
+        .alerta-vehiculo.sin-dato { background: #f8faff; border: 2px solid #e2e8f0; }
+        .alerta-vehiculo.sin-dato .av-titulo { font-size: 15px; font-weight: 800; color: #475569; margin-bottom: 4px; }
+        .alerta-vehiculo.sin-dato .av-msg { color: #64748b; }
 
-        /* KM badge dentro de la alerta */
         .km-badge {
             display: inline-flex; align-items: center; gap: 6px;
             background: rgba(0,0,0,0.06); border-radius: 8px;
-            padding: 5px 10px; font-size: 13px; font-weight: 800;
-            margin-top: 8px;
+            padding: 5px 10px; font-size: 13px; font-weight: 800; margin-top: 8px;
+        }
+
+        /* Barra de progreso KM */
+        .km-progreso-wrap {
+            margin-top: 12px; background: rgba(0,0,0,0.05);
+            border-radius: 10px; overflow: hidden; height: 10px;
+        }
+        .km-progreso-bar {
+            height: 100%; border-radius: 10px; transition: width 0.5s ease;
         }
 
         /* FOTOS */
@@ -107,7 +93,6 @@
         .btn-accion-guardar:active { transform: scale(0.98); }
         .btn-accion-guardar:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
         .btn-accion-wa { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(37,211,102,0.3); transition: 0.2s; font-family: inherit; }
-        .btn-accion-wa:active { transform: scale(0.98); }
         .btn-accion-fotos { width: 100%; padding: 14px; border: none; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer; background: #128C7E; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit; }
         .btn-accion-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; font-family: inherit; }
         .instruccion-fotos { background: #fff9e6; border: 1px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; text-align: center; line-height: 1.6; display: none; }
@@ -132,6 +117,7 @@
             <div>
                 <label>Regional</label>
                 <select id="regional">
+                    <option value="Pereira">Pereira</option>
                     <option value="Risaralda">Risaralda</option>
                     <option value="Antioquia">Antioquia</option>
                     <option value="Caldas">Caldas</option>
@@ -142,7 +128,6 @@
                     <option value="C/ Marca">Cundinamarca</option>
                     <option value="Tolima Norte">Tolima Norte</option>
                     <option value="Palmira">Palmira</option>
-                    <option value="Pereira">Pereira</option>
                 </select>
             </div>
         </div>
@@ -171,7 +156,7 @@
             </div>
         </div>
 
-        <!-- ── ALERTA DE VEHÍCULO (taller + mantenimiento) ── -->
+        <!-- ── ALERTA DE VEHÍCULO ── -->
         <div class="alerta-vehiculo" id="alerta-vehiculo"></div>
 
         <div class="section-title">Datos del Servicio</div>
@@ -234,14 +219,13 @@
             </div>
             <button class="btn-accion-volver" onclick="irAtras()">← Volver</button>
         </div>
-
     </div>
 </div>
 
 <script src="db.js"></script>
 <script>
-    let fotosArray   = [];
-    let datosFinales = {};
+    let fotosArray    = [];
+    let datosFinales  = {};
     let flotaCompleta = [];
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
@@ -262,12 +246,9 @@
         const esAdmin = rol === 'admin' || rol === 'administracion' || usr === 'admin';
         document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : rol.toUpperCase());
 
-        // Pre-llenar regional desde sesión
         if (user.regional) {
             const sel = document.getElementById('regional');
-            for (let o of sel.options) {
-                if (o.value === user.regional) { sel.value = o.value; break; }
-            }
+            for (let o of sel.options) { if (o.value === user.regional) { sel.value = o.value; break; } }
         }
 
         await cargarPlacas();
@@ -277,11 +258,11 @@
         if (apoyo) {
             try {
                 const d = JSON.parse(apoyo);
-                if (d.fallecido)     document.getElementById('fallecido').value     = d.fallecido;
-                if (d.clinica)       document.getElementById('clinica').value        = d.clinica;
-                if (d.origen)        document.getElementById('origen').value         = d.origen;
-                if (d.destino)       document.getElementById('destino').value        = d.destino;
-                if (d.observaciones) document.getElementById('observaciones').value  = '🤝 APOYO REGIONAL\n' + d.observaciones;
+                if (d.fallecido)     document.getElementById('fallecido').value    = d.fallecido;
+                if (d.clinica)       document.getElementById('clinica').value       = d.clinica;
+                if (d.origen)        document.getElementById('origen').value        = d.origen;
+                if (d.destino)       document.getElementById('destino').value       = d.destino;
+                if (d.observaciones) document.getElementById('observaciones').value = '🤝 APOYO REGIONAL\n' + d.observaciones;
                 if (d.motivo) {
                     const sel = document.getElementById('motivo');
                     for (let o of sel.options) { if (o.value === d.motivo) { sel.value = d.motivo; break; } }
@@ -308,7 +289,7 @@
         try {
             const { data, error } = await DB.supabase
                 .from('carrozas')
-                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento, ultimo_mantenimiento')
+                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento')
                 .order('placa');
             if (error) throw error;
             flotaCompleta = data || [];
@@ -330,10 +311,9 @@
     }
 
     // ── ALERTA AL SELECCIONAR PLACA ──────────────────────
-    function alSeleccionarPlaca() {
-        const placa     = document.getElementById('placa').value;
-        const alertaEl  = document.getElementById('alerta-vehiculo');
-        const btnGuardar = document.getElementById('btn-envio');
+    async function alSeleccionarPlaca() {
+        const placa    = document.getElementById('placa').value;
+        const alertaEl = document.getElementById('alerta-vehiculo');
 
         if (!placa) { alertaEl.style.display = 'none'; return; }
 
@@ -342,14 +322,12 @@
 
         const estado   = (veh.estado || '').trim();
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
-        const hoy      = new Date();
-        const proxMant = veh.proximo_mantenimiento ? new Date(veh.proximo_mantenimiento) : null;
 
         // Pre-llenar KM salida
         document.getElementById('km_s').value = kmActual;
         calcularTotal();
 
-        // ── 1. VEHÍCULO EN TALLER ── máxima prioridad
+        // ── 1. EN TALLER → alerta máxima prioridad ──
         if (estado === 'En Taller') {
             alertaEl.className = 'alerta-vehiculo en-taller';
             alertaEl.style.display = 'block';
@@ -357,75 +335,117 @@
                 '<div style="text-align:center;">' +
                     '<div class="av-icono">🔧</div>' +
                     '<div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div>' +
-                    '<div class="av-msg">La carroza <b>' + placa + '</b> está actualmente en taller y <b>no está disponible para servicios</b>.</div>' +
+                    '<div class="av-msg">La carroza <b>' + placa + '</b> está en taller y <b>no está disponible para servicios</b>.</div>' +
                     '<div class="av-bloqueo">🚫 SE RECOMIENDA NO USAR ESTE VEHÍCULO — Consulta con el coordinador</div>' +
-                    '<div class="km-badge">🚗 ' + placa + ' &nbsp;|&nbsp; 📊 ' + kmActual.toLocaleString() + ' KM &nbsp;|&nbsp; 🔴 ' + estado + '</div>' +
+                    '<div class="km-badge">📊 ' + kmActual.toLocaleString() + ' KM &nbsp;|&nbsp; 🔴 ' + estado + '</div>' +
                 '</div>';
-            // No bloquea completamente pero sí advierte fuerte
-            // El coordinador puede forzar si hay emergencia
             return;
         }
 
-        // ── 2. MANTENIMIENTO VENCIDO O PRÓXIMO ──
-        if (proxMant) {
-            const diasRestantes = Math.ceil((proxMant - hoy) / (1000 * 60 * 60 * 24));
+        // ── 2. CONSULTAR ÚLTIMO CAMBIO DE ACEITE en mantenimientos ──
+        try {
+            const { data: mants } = await DB.supabase
+                .from('mantenimientos')
+                .select('kilometraje_servicio, km_proximo_cambio, fecha')
+                .eq('placa', placa)
+                .eq('tipo_servicio', 'Cambio de Aceite')
+                .order('fecha', { ascending: false })
+                .limit(1);
 
-            if (diasRestantes <= 0) {
-                // VENCIDO
-                alertaEl.className = 'alerta-vehiculo mant-vencido';
-                alertaEl.style.display = 'block';
-                alertaEl.innerHTML =
-                    '<div class="av-titulo">🚨 CAMBIO DE ACEITE VENCIDO</div>' +
-                    '<div class="av-msg">El mantenimiento de <b>' + placa + '</b> venció hace <b>' + Math.abs(diasRestantes) + ' día(s)</b>.</div>' +
-                    '<div class="av-msg" style="margin-top:6px;">📅 Fecha programada: <b>' + proxMant.toLocaleDateString('es-CO') + '</b></div>' +
-                    '<div class="av-msg" style="margin-top:6px;">⚠️ Informa al coordinador antes de salir.</div>' +
-                    '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
-            } else if (diasRestantes <= 15) {
-                // PRÓXIMO
-                alertaEl.className = 'alerta-vehiculo mant-proximo';
-                alertaEl.style.display = 'block';
-                alertaEl.innerHTML =
-                    '<div class="av-titulo">⚠️ CAMBIO DE ACEITE PRÓXIMO</div>' +
-                    '<div class="av-msg">El mantenimiento de <b>' + placa + '</b> vence en <b>' + diasRestantes + ' día(s)</b>.</div>' +
-                    '<div class="av-msg" style="margin-top:6px;">📅 Fecha programada: <b>' + proxMant.toLocaleDateString('es-CO') + '</b></div>' +
-                    '<div class="av-msg" style="margin-top:6px;">📋 Programa el mantenimiento con el coordinador.</div>' +
-                    '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
+            const ultimoCambio = mants && mants.length > 0 ? mants[0] : null;
+
+            if (ultimoCambio && ultimoCambio.km_proximo_cambio > 0) {
+                // Tenemos datos de KM para comparar
+                const kmProximo  = ultimoCambio.km_proximo_cambio;
+                const kmFaltante = kmProximo - kmActual;
+                const kmRealizdo = kmActual - (ultimoCambio.kilometraje_servicio || 0);
+                const intervalo  = kmProximo - (ultimoCambio.kilometraje_servicio || 0);
+                const porcentaje = Math.min(100, Math.round((kmRealizdo / intervalo) * 100));
+                const colorBarra = porcentaje >= 90 ? '#ef4444' : porcentaje >= 70 ? '#f59e0b' : '#10b981';
+
+                if (kmFaltante <= 0) {
+                    // VENCIDO POR KM
+                    alertaEl.className = 'alerta-vehiculo mant-vencido';
+                    alertaEl.style.display = 'block';
+                    alertaEl.innerHTML =
+                        '<div class="av-titulo">🚨 CAMBIO DE ACEITE VENCIDO POR KILOMETRAJE</div>' +
+                        '<div class="av-msg">El cambio de aceite de <b>' + placa + '</b> debió hacerse a los <b>' + kmProximo.toLocaleString() + ' KM</b>.</div>' +
+                        '<div class="av-msg" style="margin-top:6px;">📊 KM actual: <b>' + kmActual.toLocaleString() + ' KM</b> — Excedido por <b>' + Math.abs(kmFaltante).toLocaleString() + ' KM</b></div>' +
+                        '<div class="av-msg" style="margin-top:6px;">⚠️ Informa al coordinador antes de salir.</div>' +
+                        '<div class="km-progreso-wrap"><div class="km-progreso-bar" style="width:100%; background:#ef4444;"></div></div>';
+                } else if (kmFaltante <= 500) {
+                    // MUY PRÓXIMO
+                    alertaEl.className = 'alerta-vehiculo mant-proximo';
+                    alertaEl.style.display = 'block';
+                    alertaEl.innerHTML =
+                        '<div class="av-titulo">⚠️ CAMBIO DE ACEITE MUY PRÓXIMO</div>' +
+                        '<div class="av-msg">Solo faltan <b>' + kmFaltante.toLocaleString() + ' KM</b> para el próximo cambio de aceite.</div>' +
+                        '<div class="av-msg" style="margin-top:6px;">🎯 Próximo cambio a los: <b>' + kmProximo.toLocaleString() + ' KM</b></div>' +
+                        '<div class="av-msg" style="margin-top:6px;">📊 KM actual: <b>' + kmActual.toLocaleString() + ' KM</b></div>' +
+                        '<div class="km-progreso-wrap"><div class="km-progreso-bar" style="width:' + porcentaje + '%; background:' + colorBarra + ';"></div></div>' +
+                        '<div style="font-size:11px; color:#92400e; margin-top:4px; text-align:right;">' + porcentaje + '% del intervalo recorrido</div>';
+                } else {
+                    // AL DÍA
+                    alertaEl.className = 'alerta-vehiculo al-dia';
+                    alertaEl.style.display = 'block';
+                    alertaEl.innerHTML =
+                        '<div class="av-titulo">✅ ACEITE AL DÍA</div>' +
+                        '<div class="av-msg">Próximo cambio de aceite a los <b>' + kmProximo.toLocaleString() + ' KM</b> — faltan <b>' + kmFaltante.toLocaleString() + ' KM</b>.</div>' +
+                        '<div class="av-msg" style="margin-top:4px;">📊 KM actual: <b>' + kmActual.toLocaleString() + ' KM</b></div>' +
+                        '<div class="km-progreso-wrap"><div class="km-progreso-bar" style="width:' + porcentaje + '%; background:' + colorBarra + ';"></div></div>' +
+                        '<div style="font-size:11px; color:#166534; margin-top:4px; text-align:right;">' + porcentaje + '% del intervalo recorrido</div>';
+                }
             } else {
-                // AL DÍA
-                alertaEl.className = 'alerta-vehiculo al-dia';
+                // Sin registro de KM próximo → usar fecha si existe
+                const hoy      = new Date();
+                const proxMant = veh.proximo_mantenimiento ? new Date(veh.proximo_mantenimiento) : null;
+
+                if (proxMant) {
+                    const dias = Math.ceil((proxMant - hoy) / (1000 * 60 * 60 * 24));
+                    if (dias <= 0) {
+                        alertaEl.className = 'alerta-vehiculo mant-vencido';
+                        alertaEl.innerHTML =
+                            '<div class="av-titulo">🚨 MANTENIMIENTO VENCIDO</div>' +
+                            '<div class="av-msg">La fecha de mantenimiento venció hace <b>' + Math.abs(dias) + ' día(s)</b>.</div>' +
+                            '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
+                    } else if (dias <= 15) {
+                        alertaEl.className = 'alerta-vehiculo mant-proximo';
+                        alertaEl.innerHTML =
+                            '<div class="av-titulo">⚠️ MANTENIMIENTO PRÓXIMO</div>' +
+                            '<div class="av-msg">El mantenimiento vence en <b>' + dias + ' día(s)</b> ('+proxMant.toLocaleDateString('es-CO')+').</div>' +
+                            '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
+                    } else {
+                        alertaEl.className = 'alerta-vehiculo al-dia';
+                        alertaEl.innerHTML =
+                            '<div class="av-titulo">✅ VEHÍCULO AL DÍA</div>' +
+                            '<div class="av-msg">Próximo mantenimiento: <b>' + proxMant.toLocaleDateString('es-CO') + '</b> (faltan <b>' + dias + ' días</b>).</div>' +
+                            '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM &nbsp;|&nbsp; 🟢 ' + estado + '</div>';
+                    }
+                } else {
+                    alertaEl.className = 'alerta-vehiculo sin-dato';
+                    alertaEl.innerHTML =
+                        '<div class="av-titulo">ℹ️ SIN REGISTRO DE MANTENIMIENTO</div>' +
+                        '<div class="av-msg">Esta carroza no tiene historial de cambio de aceite registrado en el sistema.</div>' +
+                        '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
+                }
                 alertaEl.style.display = 'block';
-                alertaEl.innerHTML =
-                    '<div class="av-titulo">✅ VEHÍCULO AL DÍA</div>' +
-                    '<div class="av-msg">Próximo mantenimiento: <b>' + proxMant.toLocaleDateString('es-CO') + '</b> (faltan <b>' + diasRestantes + ' días</b>).</div>' +
-                    '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM &nbsp;|&nbsp; 🟢 ' + estado + '</div>';
             }
-        } else {
-            // SIN FECHA DE MANTENIMIENTO
-            alertaEl.className = 'alerta-vehiculo sin-fecha';
+        } catch(e) {
+            alertaEl.className = 'alerta-vehiculo sin-dato';
             alertaEl.style.display = 'block';
-            alertaEl.innerHTML =
-                '<div class="av-titulo">ℹ️ SIN FECHA DE MANTENIMIENTO</div>' +
-                '<div class="av-msg">La carroza <b>' + placa + '</b> no tiene fecha de próximo mantenimiento registrada.</div>' +
-                '<div class="av-msg" style="margin-top:4px;">Consulta con el coordinador.</div>' +
-                '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
+            alertaEl.innerHTML = '<div class="av-titulo">ℹ️ Sin datos de mantenimiento</div><div class="av-msg">' + e.message + '</div>';
         }
     }
 
-    // ── HELPERS ──────────────────────────────────────────
+    // ── RESTO ────────────────────────────────────────────
     function irAtras() {
-        const sesionData = localStorage.getItem('usuario_sesion');
-        if (!sesionData) { window.location.href = "index.html"; return; }
-        const user = JSON.parse(sesionData);
+        const user = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         const rol  = norm(user.rol);
         const usr  = norm(user.usuario);
-        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') {
-            window.location.href = "dashboard.html";
-        } else if (rol === 'coordinador') {
-            window.location.href = "panel_coordinador.html";
-        } else {
-            window.location.href = "panel_conductor.html";
-        }
+        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = "dashboard.html";
+        else if (rol === 'coordinador') window.location.href = "panel_coordinador.html";
+        else window.location.href = "panel_conductor.html";
     }
 
     function procesarFotos(input) {
@@ -437,17 +457,14 @@
             }
         });
     }
-
     function renderGaleria() {
         document.getElementById('galeria').innerHTML = fotosArray.map((img, i) =>
             '<div class="thumb-wrap"><img src="' + img + '"><button class="btn-del" onclick="eliminarFoto(' + i + ')">×</button></div>'
         ).join('');
         document.getElementById('upload-text').innerText = '📸 ' + fotosArray.length + ' de 4 fotos';
     }
-
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
-    // Firma
     const obtenerPos = e => {
         const r = canvas.getBoundingClientRect();
         return { x: (e.clientX || e.touches[0].clientX) - r.left, y: (e.clientY || e.touches[0].clientY) - r.top };
@@ -470,7 +487,6 @@
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
         if (!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
-
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
 
         datosFinales = {
@@ -490,10 +506,8 @@
             total_km:      document.getElementById('total_km').value,
             coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
             observaciones: document.getElementById('observaciones').value,
-            imagen1: fotosArray[0] || '',
-            imagen2: fotosArray[1] || '',
-            imagen3: fotosArray[2] || '',
-            imagen4: fotosArray[3] || '',
+            imagen1: fotosArray[0] || '', imagen2: fotosArray[1] || '',
+            imagen3: fotosArray[2] || '', imagen4: fotosArray[3] || '',
             firma:   canvas.toDataURL()
         };
 
@@ -519,7 +533,6 @@
     function enviarWA() {
         const hora = new Date().getHours();
         const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
-        const cantFotos = fotosArray.length;
         const msg = saludo + "\n\n" +
             "📢 *Reporte de Salida De Carroza*\n\n" +
             "📍 *Regional:* "       + datosFinales.regional    + "\n" +
@@ -535,8 +548,7 @@
             "📊 *KM Salida:* "      + datosFinales.km_salida   + "\n" +
             "📊 *KM Ingreso:* "     + datosFinales.km_ingreso  + "\n" +
             "👨🏻‍✈️ *Conductor:* "      + datosFinales.conductor   + "\n\n" +
-            "📝 *Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n" +
-            (cantFotos > 0 ? "📸 *Evidencias:* " + cantFotos + " foto(s) adjunta(s)\n" : "") + "\n" +
+            "📝 *Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
             "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
@@ -549,8 +561,7 @@
                     .then(blob => new File([blob], 'evidencia_' + (i+1) + '_' + datosFinales.placa + '.jpg', { type: 'image/jpeg' }))
             )).then(files => {
                 if (navigator.canShare({ files })) {
-                    navigator.share({ files, title: 'Evidencias J.R. - ' + datosFinales.placa })
-                        .catch(() => descargarFotos());
+                    navigator.share({ files, title: 'Evidencias J.R. - ' + datosFinales.placa }).catch(() => descargarFotos());
                 } else descargarFotos();
             }).catch(() => descargarFotos());
         } else descargarFotos();
