@@ -93,11 +93,12 @@ const DB = {
 
     async obtenerTrasladosRecientes() {
         try {
-            // ← CORRECCIÓN: ordenar por created_at (fecha real) en vez de id_salida (texto)
+            // ✅ CORREGIDO: ordena por id_salida (texto) descendente
+            // ya que created_at puede no existir o estar vacío en registros antiguos
             const { data, error } = await _supabase
                 .from('Traslado')
                 .select('*')
-                .order('created_at', { ascending: false })
+                .order('id_salida', { ascending: false })
                 .limit(50);
             if (error) throw error;
             return { data: data || [], ok: true };
@@ -108,11 +109,12 @@ const DB = {
 
     async obtenerMisSalidas(nombreConductor) {
         try {
+            // ✅ CORREGIDO: mismo fix — orden por id_salida
             const { data, error } = await _supabase
                 .from('Traslado')
                 .select('*')
                 .ilike('conductor', '%' + nombreConductor + '%')
-                .order('created_at', { ascending: false })
+                .order('id_salida', { ascending: false })
                 .limit(10);
             if (error) throw error;
             return { data: data || [], ok: true };
