@@ -13,7 +13,7 @@
         .container { max-width: 900px; margin: auto; }
 
         .nav-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
-        .btn-volver { text-decoration: none; color: var(--azul); font-weight: 700; font-size: 14px; background: var(--blanco); padding: 10px 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; border: none; }
+        .btn-volver { text-decoration: none; color: var(--azul); font-weight: 700; font-size: 14px; background: var(--blanco); padding: 10px 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; border: none; font-family: inherit; }
 
         .card { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 5px solid var(--azul); }
         .card.edit-mode { border-top-color: var(--amarillo); background: #fffcf5; }
@@ -26,13 +26,38 @@
         }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); background: white; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+        /* KM info */
+        .info-km {
+            background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px;
+            padding: 11px 14px; font-size: 12px; color: #166534; font-weight: 600;
+            margin-bottom: 15px; display: none; align-items: center; gap: 10px;
+        }
+
+        /* Bloque próximo cambio — solo visible para Cambio de Aceite */
+        .bloque-aceite {
+            background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 14px;
+            padding: 16px; margin-bottom: 15px; display: none;
+        }
+        .bloque-aceite .ba-titulo {
+            font-size: 12px; font-weight: 800; color: #92400e;
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .ba-resumen {
+            background: #fff; border-radius: 10px; padding: 12px 14px;
+            margin-top: 10px; font-size: 13px; color: #1e293b; line-height: 1.8;
+            border: 1px solid #fde68a;
+        }
+        .ba-resumen b { color: var(--azul); }
 
         .btn-registrar {
             background: var(--azul); color: white; border: none; width: 100%;
             padding: 15px; border-radius: 14px; font-weight: 800; font-size: 15px;
             cursor: pointer; transition: 0.2s;
             display: flex; align-items: center; justify-content: center; gap: 10px;
-            box-shadow: 0 4px 14px rgba(0,26,112,0.2);
+            box-shadow: 0 4px 14px rgba(0,26,112,0.2); font-family: inherit;
         }
         .btn-registrar:active { transform: scale(0.98); }
         .btn-registrar:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -42,20 +67,13 @@
             width: 100%; display: none; font-size: 14px; font-family: inherit;
         }
 
-        /* INFO KM */
-        .info-km {
-            background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px;
-            padding: 11px 14px; font-size: 12px; color: #166534; font-weight: 600;
-            margin-bottom: 14px; display: none;
-        }
-
         /* HISTORIAL */
         .historial { background: var(--blanco); padding: 20px 25px; border-radius: 25px; overflow-x: auto; box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
         .historial-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .historial-header h2 { margin: 0; font-size: 14px; text-align: left; }
         .badge-total { background: var(--celeste); color: var(--azul); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 8px; }
 
-        table { width: 100%; border-collapse: collapse; min-width: 650px; }
+        table { width: 100%; border-collapse: collapse; min-width: 700px; }
         th { text-align: left; font-size: 10px; color: #64748b; padding: 10px 8px; border-bottom: 2px solid var(--celeste); text-transform: uppercase; white-space: nowrap; }
         td { padding: 10px 8px; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
         tr:last-child td { border-bottom: none; }
@@ -66,6 +84,11 @@
         .tp-llantas { background: #ede9fe; color: #5b21b6; }
         .tp-sinc    { background: #ecfdf5; color: #065f46; }
         .tp-otro    { background: #f1f5f9; color: #475569; }
+
+        .km-prox-badge {
+            font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px;
+            background: #fffbeb; color: #92400e; white-space: nowrap;
+        }
 
         .btn-edit { background: var(--celeste); color: var(--azul); border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 11px; transition: 0.15s; font-family: inherit; }
         .btn-edit:hover { background: var(--azul); color: white; }
@@ -108,7 +131,7 @@
             <div class="grid-2">
                 <div>
                     <label>Tipo de Servicio *</label>
-                    <select id="tipo_servicio" required>
+                    <select id="tipo_servicio" required onchange="alCambiarTipo()">
                         <option value="Cambio de Aceite">🛢️ Cambio de Aceite</option>
                         <option value="Frenos">🛑 Frenos</option>
                         <option value="Llantas">⚫ Llantas</option>
@@ -121,7 +144,31 @@
                 </div>
                 <div>
                     <label>Kilometraje al Servicio *</label>
-                    <input type="number" id="km_servicio" required placeholder="Ej: 155000" min="0">
+                    <input type="number" id="km_servicio" required placeholder="Ej: 155000" min="0" oninput="calcularProximoCambio()">
+                </div>
+            </div>
+
+            <!-- BLOQUE CAMBIO DE ACEITE — solo visible cuando tipo = Cambio de Aceite -->
+            <div class="bloque-aceite" id="bloque-aceite">
+                <div class="ba-titulo">🛢️ Configuración del Próximo Cambio de Aceite</div>
+                <div class="grid-2">
+                    <div>
+                        <label>Intervalo de KM para próximo cambio</label>
+                        <select id="intervalo-km" onchange="calcularProximoCambio()">
+                            <option value="3000">Cada 3.000 KM</option>
+                            <option value="5000" selected>Cada 5.000 KM</option>
+                            <option value="7500">Cada 7.500 KM</option>
+                            <option value="10000">Cada 10.000 KM</option>
+                            <option value="custom">Personalizado...</option>
+                        </select>
+                    </div>
+                    <div id="custom-km-wrap" style="display:none;">
+                        <label>KM personalizado</label>
+                        <input type="number" id="custom-km" placeholder="Ej: 6000" min="1000" oninput="calcularProximoCambio()">
+                    </div>
+                </div>
+                <div class="ba-resumen" id="ba-resumen">
+                    Ingresa el KM del servicio para ver el cálculo.
                 </div>
             </div>
 
@@ -132,17 +179,14 @@
                 </div>
                 <div>
                     <label>Taller / Mecánico</label>
-                    <!-- columna: taller -->
                     <input type="text" id="taller" placeholder="Nombre del taller o mecánico">
                 </div>
             </div>
 
             <label>Responsable del Registro</label>
-            <!-- columna: responsable -->
             <input type="text" id="responsable" placeholder="Coordinador o técnico" readonly style="background:#eef5ff; font-weight:600;">
 
             <label>Observaciones</label>
-            <!-- columna: observaciones -->
             <textarea id="observaciones" rows="2" placeholder="Detalles del servicio..."></textarea>
 
             <button type="submit" class="btn-registrar" id="btn-submit">
@@ -167,11 +211,11 @@
                     <th>Fecha</th>
                     <th>Placa</th>
                     <th>Servicio</th>
-                    <th>KM</th>
+                    <th>KM Servicio</th>
+                    <th>Próximo KM</th>
                     <th>Costo</th>
                     <th>Taller</th>
                     <th>Responsable</th>
-                    <th>Obs.</th>
                     <th></th>
                 </tr>
             </thead>
@@ -193,14 +237,18 @@
         document.getElementById('fecha').valueAsDate = new Date();
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (sesion.nombre) document.getElementById('responsable').value = sesion.nombre;
+        // Mostrar bloque aceite por defecto (primer tipo es Cambio de Aceite)
+        document.getElementById('bloque-aceite').style.display = 'block';
         await cargarPlacas();
         await cargarHistorial();
     };
 
     function irAtras() {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const rol = (sesion.rol || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        if (rol === 'admin' || rol === 'administracion') {
+        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const rol = norm(sesion.rol);
+        const usr = norm(sesion.usuario);
+        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') {
             window.location.href = 'dashboard.html';
         } else if (rol === 'coordinador') {
             window.location.href = 'panel_coordinador.html';
@@ -228,7 +276,7 @@
         }
     }
 
-    // Al seleccionar placa → mostrar KM actual y prellenar campo
+    // Al seleccionar placa → mostrar KM actual
     function alSeleccionarPlaca() {
         const placa  = document.getElementById('placa').value;
         const veh    = flotaData.find(c => c.placa === placa);
@@ -237,15 +285,59 @@
             document.getElementById('km-actual-txt').textContent =
                 Number(veh.kilometraje_actual || 0).toLocaleString() + ' KM';
             document.getElementById('km_servicio').value = veh.kilometraje_actual || '';
-            infoEl.style.display = 'block';
+            infoEl.style.display = 'flex';
+            calcularProximoCambio();
         } else {
             infoEl.style.display = 'none';
         }
     }
 
+    // Mostrar/ocultar bloque aceite según tipo de servicio
+    function alCambiarTipo() {
+        const tipo = document.getElementById('tipo_servicio').value;
+        const bloque = document.getElementById('bloque-aceite');
+        if (tipo === 'Cambio de Aceite') {
+            bloque.style.display = 'block';
+            calcularProximoCambio();
+        } else {
+            bloque.style.display = 'none';
+        }
+    }
+
+    // Mostrar/ocultar campo personalizado
+    document.addEventListener('DOMContentLoaded', () => {});
+    function getIntervalo() {
+        const sel = document.getElementById('intervalo-km').value;
+        if (sel === 'custom') {
+            document.getElementById('custom-km-wrap').style.display = 'block';
+            return parseInt(document.getElementById('custom-km').value) || 0;
+        } else {
+            document.getElementById('custom-km-wrap').style.display = 'none';
+            return parseInt(sel);
+        }
+    }
+
+    // Calcular y mostrar resumen del próximo cambio
+    function calcularProximoCambio() {
+        const kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
+        const intervalo  = getIntervalo();
+        const resumen    = document.getElementById('ba-resumen');
+
+        if (!kmServicio || !intervalo) {
+            resumen.innerHTML = 'Ingresa el KM del servicio para ver el cálculo.';
+            return;
+        }
+
+        const kmProximo = kmServicio + intervalo;
+        resumen.innerHTML =
+            '🔧 KM del servicio actual: <b>' + kmServicio.toLocaleString() + ' KM</b><br>' +
+            '📏 Intervalo del cambio: <b>cada ' + intervalo.toLocaleString() + ' KM</b><br>' +
+            '🎯 Próximo cambio de aceite a los: <b style="color:#92400e; font-size:15px;">' + kmProximo.toLocaleString() + ' KM</b>';
+    }
+
     // ── HISTORIAL ───────────────────────────────────────
     async function cargarHistorial() {
-        const { data, error } = await DB.supabase
+        const { data } = await DB.supabase
             .from('mantenimientos')
             .select('*')
             .order('fecha', { ascending: false })
@@ -268,15 +360,21 @@
             else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
 
             const safe = JSON.stringify(m).replace(/'/g, '&#39;');
+
+            // Mostrar próximo KM solo si es cambio de aceite y tiene el dato
+            const kmProxCell = (m.km_proximo_cambio && m.km_proximo_cambio > 0)
+                ? '<span class="km-prox-badge">🎯 ' + Number(m.km_proximo_cambio).toLocaleString() + ' KM</span>'
+                : '<span style="color:#94a3b8; font-size:11px;">—</span>';
+
             return '<tr>' +
                 '<td>' + (m.fecha || '---') + '</td>' +
                 '<td><b>' + (m.placa || '---') + '</b></td>' +
                 '<td><span class="tipo-pill ' + cls + '">' + tipo + '</span></td>' +
-                '<td>' + Number(m.kilometraje_servicio || 0).toLocaleString() + '</td>' +
+                '<td>' + Number(m.kilometraje_servicio || 0).toLocaleString() + ' KM</td>' +
+                '<td>' + kmProxCell + '</td>' +
                 '<td>$' + Number(m.costo || 0).toLocaleString() + '</td>' +
                 '<td style="font-size:11px;">' + (m.taller || '---') + '</td>' +
                 '<td style="font-size:11px;">' + (m.responsable || '---') + '</td>' +
-                '<td style="font-size:11px; color:#64748b;">' + (m.observaciones || '') + '</td>' +
                 '<td><button class="btn-edit" onclick=\'prepararEdicion(' + safe + ')\'>EDITAR</button></td>' +
             '</tr>';
         }).join('');
@@ -293,21 +391,26 @@
         const placa = document.getElementById('placa').value;
         if (!placa) {
             alert("Selecciona una placa");
-            btn.disabled = false;
-            txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
+            btn.disabled = false; txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
             return;
         }
 
-        // Objeto con nombres EXACTOS de columnas confirmados por CSV
+        const tipo       = document.getElementById('tipo_servicio').value;
+        const kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
+        const esAceite   = tipo === 'Cambio de Aceite';
+        const intervalo  = esAceite ? getIntervalo() : 0;
+        const kmProximo  = esAceite && intervalo ? kmServicio + intervalo : 0;
+
         const registro = {
-            placa:                placa,
+            placa,
             fecha:                document.getElementById('fecha').value,
-            tipo_servicio:        document.getElementById('tipo_servicio').value,
-            kilometraje_servicio: parseInt(document.getElementById('km_servicio').value) || 0,
+            tipo_servicio:        tipo,
+            kilometraje_servicio: kmServicio,
             costo:                parseFloat(document.getElementById('costo').value) || 0,
             taller:               document.getElementById('taller').value.trim(),
             responsable:          document.getElementById('responsable').value.trim(),
-            observaciones:        document.getElementById('observaciones').value.trim()
+            observaciones:        document.getElementById('observaciones').value.trim(),
+            km_proximo_cambio:    kmProximo   // ← nueva columna
         };
 
         let res;
@@ -324,13 +427,13 @@
             return;
         }
 
-        // Actualizar carrozas: km, último y próximo mantenimiento (3 meses después)
+        // Actualizar carrozas: km actual y fechas de mantenimiento
         const proxFecha = new Date(registro.fecha);
         proxFecha.setMonth(proxFecha.getMonth() + 3);
         const proxFechaStr = proxFecha.toISOString().split('T')[0];
 
         await DB.supabase.from('carrozas').update({
-            kilometraje_actual:    registro.kilometraje_servicio,
+            kilometraje_actual:    kmServicio,
             ultimo_mantenimiento:  registro.fecha,
             proximo_mantenimiento: proxFechaStr,
             estado:                'Disponible'
@@ -359,6 +462,8 @@
         document.getElementById('observaciones').value = m.observaciones || '';
 
         alSeleccionarPlaca();
+        alCambiarTipo();
+        calcularProximoCambio();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -374,6 +479,8 @@
         document.getElementById('btn-cancelar').style.display = 'none';
         document.getElementById('btn-submit').disabled   = false;
         document.getElementById('info-km').style.display = 'none';
+        document.getElementById('bloque-aceite').style.display = 'block';
+        document.getElementById('ba-resumen').innerHTML  = 'Ingresa el KM del servicio para ver el cálculo.';
     }
 </script>
 </body>
