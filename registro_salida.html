@@ -8,106 +8,109 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --azul-principal: #004a99; --azul-cielo: #e3f2fd; 
-            --blanco: #ffffff; --gris-texto: #546e7a; --verde-wa: #25D366;
+            --azul: #004a99; --azul-cielo: #e3f2fd; 
+            --blanco: #ffffff; --gris: #546e7a; --verde-wa: #25D366;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: var(--azul-cielo); font-family: 'DM Sans', sans-serif; color: var(--azul-principal); padding: 10px; }
+        body { background: var(--azul-cielo); font-family: 'DM Sans', sans-serif; color: var(--azul); padding: 10px; }
         .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
-        .header { background: var(--azul-principal); color: var(--blanco); padding: 20px; text-align: center; }
+        .header { background: var(--azul); color: var(--blanco); padding: 20px; text-align: center; }
         .header h2 { font-size: 18px; }
-        .header p { font-size: 11px; opacity: 0.8; font-weight: bold; margin-top: 4px; }
+        .header p  { font-size: 11px; opacity: 0.8; font-weight: bold; margin-top: 4px; }
         .content { padding: 20px; }
-        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gris-texto); margin: 20px 0 10px; border-bottom: 2px solid var(--azul-cielo); padding-bottom: 5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--azul-cielo); }
-        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul-principal); text-transform: uppercase; }
-        input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 2px solid var(--azul-cielo); border-radius: 10px; font-family: inherit; color: var(--azul-principal); background: #f8fbff; font-size: 14px; }
-        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul-principal); }
+        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gris); margin: 20px 0 10px; padding-bottom: 5px; font-weight: 700; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--azul-cielo); }
+        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 2px solid var(--azul-cielo); border-radius: 10px; font-family: inherit; color: var(--azul); background: #f8fbff; font-size: 14px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .upload-container { border: 2px dashed var(--azul-principal); border-radius: 15px; padding: 15px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 12px; }
+
+        /* ── ALERTAS DE VEHÍCULO ── */
+        .alerta-vehiculo {
+            display: none;
+            border-radius: 16px;
+            padding: 16px 18px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            line-height: 1.6;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+        /* En taller — ROJA FUERTE */
+        .alerta-vehiculo.en-taller {
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+        }
+        .alerta-vehiculo.en-taller .av-icono { font-size: 36px; }
+        .alerta-vehiculo.en-taller .av-titulo {
+            font-size: 17px; font-weight: 900; color: #991b1b;
+            margin: 6px 0 4px;
+        }
+        .alerta-vehiculo.en-taller .av-msg { color: #7f1d1d; font-weight: 600; }
+        .av-bloqueo {
+            background: #ef4444; color: white; border-radius: 10px;
+            padding: 10px 14px; margin-top: 12px; font-size: 12px;
+            font-weight: 800; text-align: center; letter-spacing: 0.5px;
+        }
+
+        /* Mantenimiento vencido — ROJA */
+        .alerta-vehiculo.mant-vencido {
+            background: #fef2f2;
+            border: 2px solid #fca5a5;
+        }
+        .alerta-vehiculo.mant-vencido .av-titulo { font-size: 15px; font-weight: 800; color: #991b1b; margin-bottom: 4px; }
+        .alerta-vehiculo.mant-vencido .av-msg { color: #7f1d1d; }
+
+        /* Mantenimiento próximo — AMARILLA */
+        .alerta-vehiculo.mant-proximo {
+            background: #fffbeb;
+            border: 2px solid #fcd34d;
+        }
+        .alerta-vehiculo.mant-proximo .av-titulo { font-size: 15px; font-weight: 800; color: #92400e; margin-bottom: 4px; }
+        .alerta-vehiculo.mant-proximo .av-msg { color: #78350f; }
+
+        /* Al día — VERDE */
+        .alerta-vehiculo.al-dia {
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+        }
+        .alerta-vehiculo.al-dia .av-titulo { font-size: 15px; font-weight: 800; color: #166534; margin-bottom: 4px; }
+        .alerta-vehiculo.al-dia .av-msg { color: #14532d; }
+
+        /* Sin fecha — GRIS */
+        .alerta-vehiculo.sin-fecha {
+            background: #f8faff;
+            border: 2px solid #e2e8f0;
+        }
+        .alerta-vehiculo.sin-fecha .av-titulo { font-size: 15px; font-weight: 800; color: #475569; margin-bottom: 4px; }
+        .alerta-vehiculo.sin-fecha .av-msg { color: #64748b; }
+
+        /* KM badge dentro de la alerta */
+        .km-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(0,0,0,0.06); border-radius: 8px;
+            padding: 5px 10px; font-size: 13px; font-weight: 800;
+            margin-top: 8px;
+        }
+
+        /* FOTOS */
+        .upload-container { border: 2px dashed var(--azul); border-radius: 15px; padding: 15px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 12px; }
         .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid var(--azul-cielo); }
         .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         canvas { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 140px; background: #fff; touch-action: none; }
 
-        /* ── BANNER KM PRECARGADO ── */
-        @keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
-        @keyframes pulse  { 0%,100%{transform:scale(1);} 50%{transform:scale(1.03);} }
-
-        .km-banner {
-            display: none;
-            background: linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%);
-            border: 2.5px solid #4dd0e1;
-            border-radius: 18px;
-            padding: 18px;
-            margin-bottom: 16px;
-            animation: fadeIn 0.4s ease;
-        }
-        .km-banner-top { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-        .km-banner-icono { font-size: 40px; flex-shrink: 0; }
-        .km-banner-derecha { flex: 1; }
-        .km-banner-label { font-size: 11px; font-weight: 800; color: #00695c; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
-        .km-banner-numero { font-size: 34px; font-weight: 800; color: #004a99; line-height: 1; letter-spacing: -1px; }
-        .km-banner-placa { font-size: 12px; color: #37474f; font-weight: 600; margin-top: 5px; }
-        .km-banner-aviso {
-            background: rgba(255,255,255,0.75); border-radius: 10px;
-            padding: 10px 12px; font-size: 13px; color: #37474f;
-            font-weight: 600; display: flex; align-items: center; gap: 10px; line-height: 1.5;
-        }
-        .km-banner-aviso-icono { font-size: 20px; flex-shrink: 0; }
-        .km-precargado {
-            background: #e8f5e9 !important;
-            border: 2.5px solid #66bb6a !important;
-            color: #1b5e20 !important;
-            font-weight: 800 !important;
-            font-size: 20px !important;
-            animation: pulse 0.6s ease 1;
-        }
-
         /* BOTONES */
         .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
-        .btn-accion-guardar {
-            width: 100%; padding: 16px; border: none; border-radius: 14px;
-            font-weight: 800; font-size: 15px; cursor: pointer;
-            background: var(--azul-principal); color: white;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            box-shadow: 0 4px 14px rgba(0,74,153,0.25); transition: 0.2s;
-        }
+        .btn-accion-guardar { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: var(--azul); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,74,153,0.25); transition: 0.2s; font-family: inherit; }
         .btn-accion-guardar:active { transform: scale(0.98); }
         .btn-accion-guardar:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
-        .btn-accion-wa {
-            width: 100%; padding: 16px; border: none; border-radius: 14px;
-            font-weight: 800; font-size: 15px; cursor: pointer;
-            background: #25D366; color: white;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            box-shadow: 0 4px 14px rgba(37,211,102,0.3); transition: 0.2s;
-        }
+        .btn-accion-wa { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(37,211,102,0.3); transition: 0.2s; font-family: inherit; }
         .btn-accion-wa:active { transform: scale(0.98); }
-        .btn-accion-fotos {
-            width: 100%; padding: 14px; border: none; border-radius: 14px;
-            font-weight: 700; font-size: 14px; cursor: pointer;
-            background: #128C7E; color: white;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            transition: 0.2s;
-        }
-        .btn-accion-fotos:active { transform: scale(0.98); }
-        .btn-accion-volver {
-            width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px;
-            font-weight: 600; font-size: 14px; cursor: pointer;
-            background: transparent; color: #94a3b8;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            transition: 0.2s;
-        }
-        .btn-accion-volver:active { background: #f1f5f9; }
-        .instruccion-fotos {
-            background: #fff9e6; border: 1px solid #f59e0b; border-radius: 12px;
-            padding: 12px 14px; font-size: 12px; color: #92400e;
-            text-align: center; line-height: 1.6; display: none;
-        }
-
-        /* ✅ bloque-wa SIEMPRE oculto por clase, JS lo muestra */
-        .bloque-wa-oculto { display: none !important; }
+        .btn-accion-fotos { width: 100%; padding: 14px; border: none; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer; background: #128C7E; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit; }
+        .btn-accion-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; font-family: inherit; }
+        .instruccion-fotos { background: #fff9e6; border: 1px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; text-align: center; line-height: 1.6; display: none; }
     </style>
 </head>
 <body>
@@ -119,11 +122,12 @@
     </div>
 
     <div class="content">
+
         <div class="section-title">Datos de Responsable</div>
         <div class="grid-2">
             <div>
                 <label>Conductor</label>
-                <input type="text" id="conductor" readonly style="background: #eef5ff; font-weight: bold;">
+                <input type="text" id="conductor" readonly style="background:#eef5ff; font-weight:bold;">
             </div>
             <div>
                 <label>Regional</label>
@@ -131,13 +135,14 @@
                     <option value="Risaralda">Risaralda</option>
                     <option value="Antioquia">Antioquia</option>
                     <option value="Caldas">Caldas</option>
-                    <option value="Quindio">Quindío</option>
+                    <option value="Quindío">Quindío</option>
                     <option value="Valle Norte">Valle Norte</option>
                     <option value="Valle Centro">Valle Centro</option>
                     <option value="Valle Sur">Valle Sur</option>
                     <option value="C/ Marca">Cundinamarca</option>
                     <option value="Tolima Norte">Tolima Norte</option>
                     <option value="Palmira">Palmira</option>
+                    <option value="Pereira">Pereira</option>
                 </select>
             </div>
         </div>
@@ -146,7 +151,6 @@
         <div class="grid-2">
             <div>
                 <label>Placa Vehículo</label>
-                <!-- ✅ onchange dispara precarga de KM -->
                 <select id="placa" onchange="alSeleccionarPlaca()">
                     <option value="">Cargando flota...</option>
                 </select>
@@ -167,21 +171,8 @@
             </div>
         </div>
 
-        <!-- ✅ BANNER KM — aparece al elegir placa -->
-        <div class="km-banner" id="km-banner">
-            <div class="km-banner-top">
-                <div class="km-banner-icono">🚗</div>
-                <div class="km-banner-derecha">
-                    <div class="km-banner-label">✅ Kilometraje cargado automáticamente</div>
-                    <div class="km-banner-numero" id="km-banner-numero">— KM</div>
-                    <div class="km-banner-placa"  id="km-banner-placa"></div>
-                </div>
-            </div>
-            <div class="km-banner-aviso">
-                <div class="km-banner-aviso-icono">✏️</div>
-                <div>Si el número <b>no es correcto</b>, puede cambiarlo directamente en el campo <b>KM Salida</b> aquí abajo.</div>
-            </div>
-        </div>
+        <!-- ── ALERTA DE VEHÍCULO (taller + mantenimiento) ── -->
+        <div class="alerta-vehiculo" id="alerta-vehiculo"></div>
 
         <div class="section-title">Datos del Servicio</div>
         <label>Nombre del Fallecido</label>
@@ -191,7 +182,6 @@
             <div><label>Lugar de Recogida</label><input type="text" id="clinica" placeholder="Clínica/Hosp/RSD"></div>
             <div><label>N° Prestación</label><input type="text" id="prestacion" placeholder="Código"></div>
         </div>
-
         <div class="grid-2">
             <div><label>Origen (Ciudad)</label><input type="text" id="origen" placeholder="De:"></div>
             <div><label>Destino (Ciudad)</label><input type="text" id="destino" placeholder="Para:"></div>
@@ -203,17 +193,11 @@
             <div><label>Hora Ingreso</label><input type="time" id="hora_ingreso"></div>
         </div>
         <div class="grid-2">
-            <div>
-                <label>KM Salida</label>
-                <input type="number" id="km_s" oninput="calcularTotal()" placeholder="Se carga al elegir placa">
-            </div>
-            <div>
-                <label>KM Ingreso</label>
-                <input type="number" id="km_i" oninput="calcularTotal()" placeholder="Al regresar">
-            </div>
+            <div><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
+            <div><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
         </div>
         <label>Total KM Recorridos</label>
-        <input type="number" id="total_km" readonly style="background: #eef5ff; font-weight: bold; font-size: 16px;">
+        <input type="number" id="total_km" readonly style="background:#eef5ff; font-weight:bold; font-size:16px;">
 
         <div class="section-title">Evidencias Fotográficas</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
@@ -227,49 +211,43 @@
 
         <div class="section-title">Firma de Responsable</div>
         <canvas id="canvas"></canvas>
-        <p onclick="borrarFirma()" style="text-align: right; color: #ff4444; font-size: 11px; cursor: pointer; margin-top: 5px; font-weight: bold;">✖ BORRAR FIRMA</p>
+        <p onclick="borrarFirma()" style="text-align:right; color:#ff4444; font-size:11px; cursor:pointer; margin-top:5px; font-weight:bold;">✖ BORRAR FIRMA</p>
 
         <div class="section-title">Notificación</div>
         <label>Nombre del Coordinador (para el reporte)</label>
         <input type="text" id="nombre-coordinador" placeholder="Ej: Coordinador Pereira">
 
         <div class="acciones">
-            <!-- Guardar -->
             <button class="btn-accion-guardar" id="btn-envio" onclick="guardarTodo()">
                 <span>💾</span> GUARDAR EN SISTEMA
             </button>
-
-            <!-- ✅ CORREGIDO: solo display:none, sin conflicto -->
-            <div id="bloque-wa" class="bloque-wa-oculto" style="flex-direction:column; gap:8px;">
-                <button class="btn-accion-wa" id="btn-wa-texto" onclick="enviarWA()">
+            <div id="bloque-wa" style="display:none; flex-direction:column; gap:8px;">
+                <button class="btn-accion-wa" onclick="enviarWA()">
                     <span>💬</span> ENVIAR REPORTE POR WHATSAPP
                 </button>
-                <button class="btn-accion-fotos" id="btn-wa-fotos" onclick="compartirFotos()">
+                <button class="btn-accion-fotos" onclick="compartirFotos()">
                     <span>📸</span> COMPARTIR FOTOS
                 </button>
                 <div class="instruccion-fotos" id="instruccion-fotos">
                     <b>📱 Descarga lista.</b> Abre WhatsApp → busca el coordinador → adjunta las fotos desde tu galería.
                 </div>
             </div>
-
-            <!-- Volver -->
-            <button class="btn-accion-volver" onclick="irAtras()">
-                ← Volver
-            </button>
+            <button class="btn-accion-volver" onclick="irAtras()">← Volver</button>
         </div>
+
     </div>
 </div>
 
 <script src="db.js"></script>
 <script>
-    let fotosArray    = [];
-    let datosFinales  = {};
-    let flotaCompleta = []; // ✅ guarda datos de flota para precargar KM
+    let fotosArray   = [];
+    let datosFinales = {};
+    let flotaCompleta = [];
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
     let dibujando = false;
 
-    // ── INIT ────────────────────────────────────────────
+    // ── INIT ─────────────────────────────────────────────
     window.onload = async () => {
         const sesionData = localStorage.getItem('usuario_sesion');
         if (!sesionData) { window.location.href = "index.html"; return; }
@@ -278,12 +256,23 @@
         document.getElementById('conductor').value = user.nombre;
         document.getElementById('saludo').innerText = "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
 
-        const esAdmin = (user.usuario || '').toLowerCase() === 'admin' || (user.rol || '').toLowerCase() === 'admin';
-        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : "CONDUCTOR");
+        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const rol  = norm(user.rol);
+        const usr  = norm(user.usuario);
+        const esAdmin = rol === 'admin' || rol === 'administracion' || usr === 'admin';
+        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : rol.toUpperCase());
+
+        // Pre-llenar regional desde sesión
+        if (user.regional) {
+            const sel = document.getElementById('regional');
+            for (let o of sel.options) {
+                if (o.value === user.regional) { sel.value = o.value; break; }
+            }
+        }
 
         await cargarPlacas();
 
-        // Pre-llenar desde solicitud de apoyo
+        // Pre-llenar desde apoyo
         const apoyo = localStorage.getItem('apoyo_prellenado');
         if (apoyo) {
             try {
@@ -298,38 +287,40 @@
                     for (let o of sel.options) { if (o.value === d.motivo) { sel.value = d.motivo; break; } }
                 }
                 const banner = document.createElement('div');
-                banner.style.cssText = 'background:#ecfdf5; border:2px solid #6ee7b7; border-radius:12px; padding:12px 15px; margin-bottom:15px; font-size:13px; color:#065f46; font-weight:600; display:flex; align-items:center; gap:10px;';
-                banner.innerHTML = '<span style="font-size:20px;">🤝</span><div><b>Formulario pre-llenado desde solicitud de apoyo</b><br><span style="font-weight:400; font-size:12px;">Revisa los datos y completa los campos que faltan</span></div>';
+                banner.style.cssText = 'background:#ecfdf5;border:2px solid #6ee7b7;border-radius:12px;padding:12px 15px;margin-bottom:15px;font-size:13px;color:#065f46;font-weight:600;display:flex;align-items:center;gap:10px;';
+                banner.innerHTML = '<span style="font-size:20px;">🤝</span><div><b>Formulario pre-llenado desde solicitud de apoyo</b><br><span style="font-weight:400;font-size:12px;">Revisa los datos y completa los campos que faltan</span></div>';
                 document.querySelector('.content').insertBefore(banner, document.querySelector('.content').firstChild);
                 localStorage.removeItem('apoyo_prellenado');
-            } catch(e) { console.log('Sin apoyo prellenado'); }
+            } catch(e) {}
         }
 
         const now = new Date();
         document.getElementById('hora_salida').value =
-            now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+            now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
 
         canvas.width  = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
     };
 
-    // ── CARGAR PLACAS con KM y datos de mantenimiento ───
+    // ── CARGAR PLACAS ─────────────────────────────────────
     async function cargarPlacas() {
         const select = document.getElementById('placa');
         try {
             const { data, error } = await DB.supabase
                 .from('carrozas')
-                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento')
+                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento, ultimo_mantenimiento')
                 .order('placa');
-
             if (error) throw error;
             flotaCompleta = data || [];
 
             if (flotaCompleta.length > 0) {
                 select.innerHTML = '<option value="">Seleccione placa...</option>' +
-                    flotaCompleta.map(c =>
-                        '<option value="' + c.placa + '">' + c.placa + ' — ' + (c.modelo || 'S/M') + '</option>'
-                    ).join('');
+                    flotaCompleta.map(c => {
+                        const enTaller = (c.estado || '').includes('Taller');
+                        return '<option value="' + c.placa + '"' + (enTaller ? ' style="color:#ef4444;"' : '') + '>' +
+                            c.placa + ' — ' + (c.modelo || 'S/M') + (enTaller ? ' 🔧 EN TALLER' : '') +
+                        '</option>';
+                    }).join('');
             } else {
                 select.innerHTML = '<option value="">Sin flota registrada</option>';
             }
@@ -338,49 +329,105 @@
         }
     }
 
-    // ── AL SELECCIONAR PLACA: precarga KM ───────────────
+    // ── ALERTA AL SELECCIONAR PLACA ──────────────────────
     function alSeleccionarPlaca() {
-        const placa   = document.getElementById('placa').value;
-        const kmInput = document.getElementById('km_s');
-        const banner  = document.getElementById('km-banner');
+        const placa     = document.getElementById('placa').value;
+        const alertaEl  = document.getElementById('alerta-vehiculo');
+        const btnGuardar = document.getElementById('btn-envio');
 
-        if (!placa) {
-            banner.style.display = 'none';
-            kmInput.value        = '';
-            kmInput.className    = '';
-            calcularTotal();
+        if (!placa) { alertaEl.style.display = 'none'; return; }
+
+        const veh = flotaCompleta.find(c => c.placa === placa);
+        if (!veh)  { alertaEl.style.display = 'none'; return; }
+
+        const estado   = (veh.estado || '').trim();
+        const kmActual = parseInt(veh.kilometraje_actual) || 0;
+        const hoy      = new Date();
+        const proxMant = veh.proximo_mantenimiento ? new Date(veh.proximo_mantenimiento) : null;
+
+        // Pre-llenar KM salida
+        document.getElementById('km_s').value = kmActual;
+        calcularTotal();
+
+        // ── 1. VEHÍCULO EN TALLER ── máxima prioridad
+        if (estado === 'En Taller') {
+            alertaEl.className = 'alerta-vehiculo en-taller';
+            alertaEl.style.display = 'block';
+            alertaEl.innerHTML =
+                '<div style="text-align:center;">' +
+                    '<div class="av-icono">🔧</div>' +
+                    '<div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div>' +
+                    '<div class="av-msg">La carroza <b>' + placa + '</b> está actualmente en taller y <b>no está disponible para servicios</b>.</div>' +
+                    '<div class="av-bloqueo">🚫 SE RECOMIENDA NO USAR ESTE VEHÍCULO — Consulta con el coordinador</div>' +
+                    '<div class="km-badge">🚗 ' + placa + ' &nbsp;|&nbsp; 📊 ' + kmActual.toLocaleString() + ' KM &nbsp;|&nbsp; 🔴 ' + estado + '</div>' +
+                '</div>';
+            // No bloquea completamente pero sí advierte fuerte
+            // El coordinador puede forzar si hay emergencia
             return;
         }
 
-        const vehiculo = flotaCompleta.find(c => c.placa === placa);
-        if (!vehiculo) { banner.style.display = 'none'; return; }
+        // ── 2. MANTENIMIENTO VENCIDO O PRÓXIMO ──
+        if (proxMant) {
+            const diasRestantes = Math.ceil((proxMant - hoy) / (1000 * 60 * 60 * 24));
 
-        const kmActual = parseInt(vehiculo.kilometraje_actual) || 0;
-
-        // Llenar campo KM Salida con efecto visual
-        kmInput.value     = kmActual;
-        kmInput.className = 'km-precargado';
-
-        // Mostrar banner informativo grande
-        document.getElementById('km-banner-numero').textContent =
-            kmActual.toLocaleString('es-CO') + ' KM';
-        document.getElementById('km-banner-placa').textContent  =
-            'Placa: ' + placa + '  ·  Estado: ' + (vehiculo.estado || 'Sin estado');
-        banner.style.display = 'block';
-
-        calcularTotal();
+            if (diasRestantes <= 0) {
+                // VENCIDO
+                alertaEl.className = 'alerta-vehiculo mant-vencido';
+                alertaEl.style.display = 'block';
+                alertaEl.innerHTML =
+                    '<div class="av-titulo">🚨 CAMBIO DE ACEITE VENCIDO</div>' +
+                    '<div class="av-msg">El mantenimiento de <b>' + placa + '</b> venció hace <b>' + Math.abs(diasRestantes) + ' día(s)</b>.</div>' +
+                    '<div class="av-msg" style="margin-top:6px;">📅 Fecha programada: <b>' + proxMant.toLocaleDateString('es-CO') + '</b></div>' +
+                    '<div class="av-msg" style="margin-top:6px;">⚠️ Informa al coordinador antes de salir.</div>' +
+                    '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
+            } else if (diasRestantes <= 15) {
+                // PRÓXIMO
+                alertaEl.className = 'alerta-vehiculo mant-proximo';
+                alertaEl.style.display = 'block';
+                alertaEl.innerHTML =
+                    '<div class="av-titulo">⚠️ CAMBIO DE ACEITE PRÓXIMO</div>' +
+                    '<div class="av-msg">El mantenimiento de <b>' + placa + '</b> vence en <b>' + diasRestantes + ' día(s)</b>.</div>' +
+                    '<div class="av-msg" style="margin-top:6px;">📅 Fecha programada: <b>' + proxMant.toLocaleDateString('es-CO') + '</b></div>' +
+                    '<div class="av-msg" style="margin-top:6px;">📋 Programa el mantenimiento con el coordinador.</div>' +
+                    '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
+            } else {
+                // AL DÍA
+                alertaEl.className = 'alerta-vehiculo al-dia';
+                alertaEl.style.display = 'block';
+                alertaEl.innerHTML =
+                    '<div class="av-titulo">✅ VEHÍCULO AL DÍA</div>' +
+                    '<div class="av-msg">Próximo mantenimiento: <b>' + proxMant.toLocaleDateString('es-CO') + '</b> (faltan <b>' + diasRestantes + ' días</b>).</div>' +
+                    '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM &nbsp;|&nbsp; 🟢 ' + estado + '</div>';
+            }
+        } else {
+            // SIN FECHA DE MANTENIMIENTO
+            alertaEl.className = 'alerta-vehiculo sin-fecha';
+            alertaEl.style.display = 'block';
+            alertaEl.innerHTML =
+                '<div class="av-titulo">ℹ️ SIN FECHA DE MANTENIMIENTO</div>' +
+                '<div class="av-msg">La carroza <b>' + placa + '</b> no tiene fecha de próximo mantenimiento registrada.</div>' +
+                '<div class="av-msg" style="margin-top:4px;">Consulta con el coordinador.</div>' +
+                '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
+        }
     }
 
-    // ── NAVEGACIÓN ──────────────────────────────────────
+    // ── HELPERS ──────────────────────────────────────────
     function irAtras() {
         const sesionData = localStorage.getItem('usuario_sesion');
         if (!sesionData) { window.location.href = "index.html"; return; }
         const user = JSON.parse(sesionData);
-        const esAdmin = (user.usuario || '').toLowerCase() === 'admin' || (user.rol || '').toLowerCase() === 'admin';
-        window.location.href = esAdmin ? "dashboard.html" : "panel_conductor.html";
+        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const rol  = norm(user.rol);
+        const usr  = norm(user.usuario);
+        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') {
+            window.location.href = "dashboard.html";
+        } else if (rol === 'coordinador') {
+            window.location.href = "panel_coordinador.html";
+        } else {
+            window.location.href = "panel_conductor.html";
+        }
     }
 
-    // ── FOTOS ────────────────────────────────────────────
     function procesarFotos(input) {
         Array.from(input.files).forEach(f => {
             if (fotosArray.length < 4) {
@@ -400,10 +447,10 @@
 
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
-    // ── FIRMA ────────────────────────────────────────────
+    // Firma
     const obtenerPos = e => {
-        const rect = canvas.getBoundingClientRect();
-        return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
+        const r = canvas.getBoundingClientRect();
+        return { x: (e.clientX || e.touches[0].clientX) - r.left, y: (e.clientY || e.touches[0].clientY) - r.top };
     };
     const iniciar = e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); };
     const mover   = e => { if (!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
@@ -414,14 +461,12 @@
     canvas.addEventListener('touchmove', mover);
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-    // ── KM TOTAL ─────────────────────────────────────────
     function calcularTotal() {
         const s = parseFloat(document.getElementById('km_s').value) || 0;
         const i = parseFloat(document.getElementById('km_i').value) || 0;
         document.getElementById('total_km').value = (i - s).toFixed(1);
     }
 
-    // ── GUARDAR ──────────────────────────────────────────
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
         if (!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
@@ -445,11 +490,11 @@
             total_km:      document.getElementById('total_km').value,
             coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
             observaciones: document.getElementById('observaciones').value,
-            imagen1:       fotosArray[0] || "",
-            imagen2:       fotosArray[1] || "",
-            imagen3:       fotosArray[2] || "",
-            imagen4:       fotosArray[3] || "",
-            firma:         canvas.toDataURL()
+            imagen1: fotosArray[0] || '',
+            imagen2: fotosArray[1] || '',
+            imagen3: fotosArray[2] || '',
+            imagen4: fotosArray[3] || '',
+            firma:   canvas.toDataURL()
         };
 
         await DB.supabase.from('carrozas')
@@ -458,78 +503,63 @@
 
         const res = await DB.guardarTraslado(datosFinales);
         if (res.ok) {
-            btn.innerText        = "✓ GUARDADO EXITOSO";
+            btn.innerText = "✓ GUARDADO EXITOSO";
             btn.style.background = "#25D366";
-
-            // ✅ Mostrar bloque WhatsApp correctamente
             const bloqueWA = document.getElementById('bloque-wa');
-            bloqueWA.classList.remove('bloque-wa-oculto');
-            bloqueWA.style.display       = 'flex';
+            bloqueWA.style.display = 'flex';
             bloqueWA.style.flexDirection = 'column';
-            bloqueWA.style.gap           = '8px';
+            bloqueWA.style.gap = '8px';
         } else {
             alert("Error: " + (res.error?.message || res.error));
-            btn.disabled  = false;
+            btn.disabled = false;
             btn.innerText = "💾 GUARDAR EN SISTEMA";
         }
     }
 
-    // ── WHATSAPP ─────────────────────────────────────────
     function enviarWA() {
         const hora = new Date().getHours();
-        const saludo = hora >= 6 && hora < 12 ? "*Buenos Días* ☀️"
-                     : hora >= 12 && hora < 18 ? "*Buenas Tardes* 🌤️"
-                     : "*Buenas Noches* 🌙";
+        const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
         const cantFotos = fotosArray.length;
-
         const msg = saludo + "\n\n" +
             "📢 *Reporte de Salida De Carroza*\n\n" +
-            "📍 *Regional:* "              + datosFinales.regional    + "\n" +
-            "📅 *Fecha:* "                 + new Date().toLocaleDateString('es-CO') + "\n" +
-            "👤 *Coordinador:* "           + datosFinales.coordinador + "\n" +
-            "🕒 *Hora De Salida:* "        + datosFinales.hora_salida + "\n" +
-            "🚗 *Placas Del Vehiculo:* "   + datosFinales.placa       + "\n" +
-            "❓ *Motivo De Salida:* "      + datosFinales.motivo      + "\n" +
-            "⚱️ *Nombre Del Fallecido:* "  + (datosFinales.fallecido  || '---') + "\n" +
-            "🏥 *Lugar de Recogida:* "     + (datosFinales.clinica    || '---') + "\n" +
-            "🚩 *Origen:* "                + (datosFinales.origen     || '---') + "\n" +
-            "🏁 *Destino:* "               + (datosFinales.destino    || '---') + "\n" +
-            "📊 *Km De Salida:* "          + datosFinales.km_salida   + "\n" +
-            "📊 *Km De Ingreso:* "         + datosFinales.km_ingreso  + "\n" +
-            "👨🏻‍✈️ *Nom. Conductor:* "       + datosFinales.conductor   + "\n\n" +
-            "📝 *Observaciones:* "         + (datosFinales.observaciones || 'Sin novedades') + "\n" +
-            (cantFotos > 0 ? "📸 *Evidencias:* " + cantFotos + " foto(s) adjunta(s) por separado\n" : "") + "\n" +
+            "📍 *Regional:* "       + datosFinales.regional    + "\n" +
+            "📅 *Fecha:* "          + new Date().toLocaleDateString('es-CO') + "\n" +
+            "👤 *Coordinador:* "    + datosFinales.coordinador + "\n" +
+            "🕒 *Hora De Salida:* " + datosFinales.hora_salida + "\n" +
+            "🚗 *Placa:* "          + datosFinales.placa       + "\n" +
+            "❓ *Motivo:* "         + datosFinales.motivo      + "\n" +
+            "⚱️ *Fallecido:* "      + (datosFinales.fallecido  || '---') + "\n" +
+            "🏥 *Lugar Recogida:* " + (datosFinales.clinica    || '---') + "\n" +
+            "🚩 *Origen:* "         + (datosFinales.origen     || '---') + "\n" +
+            "🏁 *Destino:* "        + (datosFinales.destino    || '---') + "\n" +
+            "📊 *KM Salida:* "      + datosFinales.km_salida   + "\n" +
+            "📊 *KM Ingreso:* "     + datosFinales.km_ingreso  + "\n" +
+            "👨🏻‍✈️ *Conductor:* "      + datosFinales.conductor   + "\n\n" +
+            "📝 *Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n" +
+            (cantFotos > 0 ? "📸 *Evidencias:* " + cantFotos + " foto(s) adjunta(s)\n" : "") + "\n" +
             "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
-
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
 
-    // ── COMPARTIR FOTOS ──────────────────────────────────
     function compartirFotos() {
         if (fotosArray.length === 0) { alert("No hay fotos para compartir."); return; }
-
         if (navigator.share && navigator.canShare) {
             Promise.all(fotosArray.map((dataUrl, i) =>
                 fetch(dataUrl).then(r => r.blob())
                     .then(blob => new File([blob], 'evidencia_' + (i+1) + '_' + datosFinales.placa + '.jpg', { type: 'image/jpeg' }))
             )).then(files => {
                 if (navigator.canShare({ files })) {
-                    navigator.share({
-                        files,
-                        title: 'Evidencias J.R. - ' + datosFinales.placa,
-                        text:  'Fotos del servicio - Placa: ' + datosFinales.placa
-                    }).catch(() => descargarFotos());
+                    navigator.share({ files, title: 'Evidencias J.R. - ' + datosFinales.placa })
+                        .catch(() => descargarFotos());
                 } else descargarFotos();
             }).catch(() => descargarFotos());
-        } else {
-            descargarFotos();
-        }
+        } else descargarFotos();
     }
 
     function descargarFotos() {
         fotosArray.forEach((dataUrl, i) => {
             const a = document.createElement('a');
-            a.href     = dataUrl;
+            a.href = dataUrl;
             a.download = 'evidencia_' + (i+1) + '_' + (datosFinales.placa || 'JR') + '.jpg';
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         });
