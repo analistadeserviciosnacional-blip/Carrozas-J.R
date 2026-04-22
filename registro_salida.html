@@ -551,6 +551,7 @@
             "📊 *KM Salida:* "      + datosFinales.km_salida   + "\n" +
             "📊 *KM Ingreso:* "     + datosFinales.km_ingreso  + "\n" +
             "👨🏻‍✈️ *Conductor:* "      + datosFinales.conductor   + "\n\n" +
+            "📞 *Teléfono:* "       + (datosFinales.telefono   || '---') + "\n\n" + // ✅ teléfono en WA
             "📝 *Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
             "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
