@@ -8,119 +8,94 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { 
-            --azul: #001a70; 
-            --celeste: #e3f2fd; 
-            --blanco: #ffffff; 
-            --rojo: #ef4444;
-            --verde-wa: #25D366;
-            --gris-texto: #64748b;
+            --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; 
+            --rojo: #ef4444; --verde-wa: #25D366; --gris-texto: #64748b;
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 15px; color: #1e293b; }
 
-        body { 
-            background-color: var(--celeste); 
-            font-family: 'DM Sans', sans-serif; 
-            padding: 15px;
-            color: #1e293b;
-        }
-
-        /* ── HEADER ── */
-        header { 
-            display: flex; justify-content: space-between; align-items: center; 
-            background: var(--blanco); padding: 15px 20px; border-radius: 18px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px;
-            flex-wrap: wrap; gap: 10px;
-        }
+        header { display: flex; justify-content: space-between; align-items: center; background: var(--blanco); padding: 15px 20px; border-radius: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .logo-text { color: var(--azul); font-size: 18px; font-weight: 700; }
         .user-info { text-align: right; }
         .user-info span { font-weight: 700; color: var(--azul); font-size: 14px; }
         .user-info small { display: block; font-size: 10px; color: var(--gris-texto); }
-        .btn-salir { border: none; background: #fee2e2; color: var(--rojo); cursor: pointer; 
-                     font-size: 11px; font-weight: bold; padding: 5px 10px; border-radius: 8px; margin-top: 4px; font-family: inherit; }
+        .btn-salir { border: none; background: #fee2e2; color: var(--rojo); cursor: pointer; font-size: 11px; font-weight: bold; padding: 5px 10px; border-radius: 8px; margin-top: 4px; font-family: inherit; }
 
-        /* ── MENÚ GRID ── */
-        .grid-menu { 
-            display: grid; 
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px; margin-bottom: 20px; 
-        }
-        .card { 
-            background: var(--blanco); padding: 18px 8px; border-radius: 20px; 
-            text-align: center; text-decoration: none; transition: 0.2s; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1.5px solid transparent;
-        }
+        .grid-menu { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        .card { background: var(--blanco); padding: 18px 8px; border-radius: 20px; text-align: center; text-decoration: none; transition: 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1.5px solid transparent; }
         .card:hover, .card:active { transform: translateY(-3px); border-color: var(--azul); }
         .card i { font-size: 26px; display: block; margin-bottom: 8px; font-style: normal; }
         .card h3 { font-size: 11px; margin: 0; color: var(--azul); text-transform: uppercase; font-weight: 700; }
 
-        /* ── LAYOUT PRINCIPAL ── */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: 15px;
-        }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 320px; gap: 15px; }
 
-        /* ── MONITORES ── */
-        .monitor { 
-            background: var(--blanco); border-radius: 20px; padding: 20px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.04); margin-bottom: 15px;
-        }
+        .monitor { background: var(--blanco); border-radius: 20px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); margin-bottom: 15px; }
         .monitor:last-child { margin-bottom: 0; }
-        .monitor h2 { font-size: 15px; color: var(--azul); margin-bottom: 15px; 
-                      text-transform: uppercase; letter-spacing: 0.5px; }
+        .monitor h2 { font-size: 15px; color: var(--azul); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* ── TABLA ── */
+        /* ── BUSCADOR ── */
+        .buscador-wrap {
+            display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+        }
+        .buscador-input {
+            flex: 1; min-width: 180px;
+            padding: 9px 14px 9px 36px;
+            border: 1.5px solid #e2e8f0; border-radius: 10px;
+            font-family: inherit; font-size: 13px; color: #1e293b;
+            background: #f8faff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z'/%3E%3C/svg%3E") no-repeat 11px center;
+            transition: 0.15s;
+        }
+        .buscador-input:focus { outline: none; border-color: var(--azul); background-color: white; }
+
+        .filtro-select {
+            padding: 9px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px;
+            font-family: inherit; font-size: 13px; color: #1e293b;
+            background: #f8faff; cursor: pointer; transition: 0.15s;
+        }
+        .filtro-select:focus { outline: none; border-color: var(--azul); }
+
+        .btn-limpiar {
+            padding: 9px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px;
+            font-family: inherit; font-size: 12px; font-weight: 700;
+            color: var(--gris-texto); background: var(--blanco); cursor: pointer;
+            transition: 0.15s; white-space: nowrap;
+        }
+        .btn-limpiar:hover { border-color: var(--rojo); color: var(--rojo); }
+
+        .resultados-info {
+            font-size: 11px; color: var(--gris-texto); margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .highlight { background: #fef9c3; border-radius: 3px; padding: 0 2px; }
+
         .tabla-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; min-width: 320px; }
-        th { text-align: left; color: var(--gris-texto); font-size: 10px; padding: 10px 8px; 
-             border-bottom: 2px solid var(--celeste); text-transform: uppercase; white-space: nowrap; }
+        th { text-align: left; color: var(--gris-texto); font-size: 10px; padding: 10px 8px; border-bottom: 2px solid var(--celeste); text-transform: uppercase; white-space: nowrap; }
         td { padding: 10px 8px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
         tr:last-child td { border-bottom: none; }
+        tr.fila-oculta { display: none; }
 
         .status-pill { font-weight: bold; font-size: 10px; padding: 4px 9px; border-radius: 8px; text-transform: uppercase; white-space: nowrap; }
         .disp { background: #ecfdf5; color: #10b981; }
         .serv { background: #fff7ed; color: #f97316; }
         .tall { background: #fef2f2; color: #ef4444; }
 
-        .btn-wa {
-            background: var(--verde-wa); color: white; border: none;
-            padding: 7px 10px; border-radius: 8px; cursor: pointer;
-            font-weight: 700; font-size: 10px; text-transform: uppercase; white-space: nowrap;
-            font-family: inherit;
-        }
+        .btn-wa { background: var(--verde-wa); color: white; border: none; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 10px; text-transform: uppercase; white-space: nowrap; font-family: inherit; }
 
-        /* ── AVERÍAS ── */
-        .averia-item {
-            border-left: 4px solid var(--rojo); background: #fffafa;
-            padding: 12px; border-radius: 10px; margin-bottom: 10px; 
-            border: 1px solid #fee2e2; border-left-width: 4px;
-        }
+        .averia-item { border-left: 4px solid var(--rojo); background: #fffafa; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #fee2e2; border-left-width: 4px; }
         .averia-item b { color: var(--azul); font-size: 14px; }
         .averia-item small { color: #475569; font-size: 12px; display: block; margin-top: 3px; }
         .averia-item span { font-size: 10px; color: var(--gris-texto); }
 
-        /* ── RESPONSIVE MÓVIL ── */
         @media (max-width: 700px) {
             body { padding: 10px; }
-
-            .grid-menu { 
-                grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
-            }
-
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-
+            .grid-menu { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .dashboard-grid { grid-template-columns: 1fr; }
             th, td { font-size: 11px; padding: 8px 6px; }
-
             .monitor { padding: 15px; }
             .monitor h2 { font-size: 13px; }
-
             .col-modelo { display: none; }
         }
-
         @media (min-width: 701px) and (max-width: 1024px) {
             .dashboard-grid { grid-template-columns: 1fr 280px; }
             .grid-menu { grid-template-columns: repeat(4, 1fr); }
@@ -129,196 +104,269 @@
 </head>
 <body>
 
-    <header>
-        <div class="logo-text">J.R. CARROZAS</div>
-        <div class="user-info">
-            <span id="user-name">Cargando...</span>
-            <small>PANEL ADMINISTRATIVO</small>
-            <button onclick="cerrarSesion()" class="btn-salir">Cerrar Sesión</button>
-        </div>
-    </header>
+<header>
+    <div class="logo-text">J.R. CARROZAS</div>
+    <div class="user-info">
+        <span id="user-name">Cargando...</span>
+        <small>PANEL ADMINISTRATIVO</small>
+        <button onclick="cerrarSesion()" class="btn-salir">Cerrar Sesión</button>
+    </div>
+</header>
 
-    <div class="grid-menu">
-        <a href="registro_salida.html" class="card"><i>🚚</i><h3>Salidas</h3></a>
-        <a href="registro_llegada.html" class="card"><i>🏁</i><h3>Llegadas</h3></a>
-        <a href="taller.html" class="card"><i>🔧</i><h3>Taller</h3></a>
-        <a href="flota.html" class="card"><i>🚗</i><h3>Flota</h3></a>
-        <a href="configuracion.html" class="card"><i>⚙️</i><h3>Config</h3></a>
-        <a href="solicitud_apoyo.html" class="card"><i>🤝</i><h3>Ver Apoyos</h3></a>
-        <a href="crear_apoyo.html" class="card"><i>📤</i><h3>Crear Apoyo</h3></a>
+<div class="grid-menu">
+    <a href="registro_salida.html" class="card"><i>🚚</i><h3>Salidas</h3></a>
+    <a href="registro_llegada.html" class="card"><i>🏁</i><h3>Llegadas</h3></a>
+    <a href="taller.html" class="card"><i>🔧</i><h3>Taller</h3></a>
+    <a href="flota.html" class="card"><i>🚗</i><h3>Flota</h3></a>
+    <a href="configuracion.html" class="card"><i>⚙️</i><h3>Config</h3></a>
+    <a href="solicitud_apoyo.html" class="card"><i>🤝</i><h3>Ver Apoyos</h3></a>
+    <a href="crear_apoyo.html" class="card"><i>📤</i><h3>Crear Apoyo</h3></a>
+</div>
+
+<div class="dashboard-grid">
+    <div>
+        <div class="monitor">
+            <h2>🚗 Monitor de Flota</h2>
+            <div class="tabla-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Placa</th>
+                            <th class="col-modelo">Modelo</th>
+                            <th>Kilometraje</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-flota">
+                        <tr><td colspan="4" style="text-align:center; color:#94a3b8;">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="monitor">
+            <h2>📋 Últimas Salidas</h2>
+
+            <!-- ── BUSCADOR ── -->
+            <div class="buscador-wrap">
+                <input
+                    type="text"
+                    class="buscador-input"
+                    id="buscador"
+                    placeholder="Buscar por placa, conductor, ruta..."
+                    oninput="filtrarTabla()"
+                >
+                <select class="filtro-select" id="filtro-regional" onchange="filtrarTabla()">
+                    <option value="">Todas las regionales</option>
+                    <option value="Quindio">Quindío</option>
+                    <option value="Risaralda">Risaralda</option>
+                    <option value="Antioquia">Antioquia</option>
+                    <option value="Caldas">Caldas</option>
+                    <option value="Valle Norte">Valle Norte</option>
+                    <option value="Valle Centro">Valle Centro</option>
+                    <option value="Valle Sur">Valle Sur</option>
+                    <option value="C/ Marca">Cundinamarca</option>
+                    <option value="Tolima Norte">Tolima Norte</option>
+                    <option value="Palmira">Palmira</option>
+                    <option value="Pereira">Pereira</option>
+                    <option value="Armenia">Armenia</option>
+                </select>
+                <button class="btn-limpiar" onclick="limpiarBusqueda()">✕ Limpiar</button>
+            </div>
+            <div class="resultados-info" id="resultados-info" style="display:none;"></div>
+
+            <div class="tabla-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Placa</th>
+                            <th class="col-modelo">Fallecido</th>
+                            <th>Ruta</th>
+                            <th>WA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-traslados">
+                        <tr><td colspan="5" style="text-align:center; color:#94a3b8;">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <div class="dashboard-grid">
-        
-        <!-- Columna izquierda -->
-        <div>
-            <div class="monitor">
-                <h2>🚗 Monitor de Flota</h2>
-                <div class="tabla-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Placa</th>
-                                <th class="col-modelo">Modelo</th>
-                                <th>Kilometraje</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-flota">
-                            <tr><td colspan="4" style="text-align:center; color:#94a3b8;">Cargando...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="monitor">
-                <h2>📋 Últimas Salidas</h2>
-                <div class="tabla-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Placa</th>
-                                <th class="col-modelo">Fallecido</th>
-                                <th>Ruta</th>
-                                <th>WA</th>
-                            </tr>
-                        </thead>
-                        <tbody id="lista-traslados">
-                            <tr><td colspan="5" style="text-align:center; color:#94a3b8;">Cargando...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+    <div>
+        <div class="monitor" style="border: 2px solid #fee2e2;">
+            <h2 style="color: var(--rojo);">⚠️ Averías Recientes</h2>
+            <div id="lista-averias">
+                <p style="text-align:center; font-size:12px; color:#94a3b8;">Buscando...</p>
             </div>
         </div>
-
-        <!-- Columna derecha: Averías -->
-        <div>
-            <div class="monitor" style="border: 2px solid #fee2e2;">
-                <h2 style="color: var(--rojo);">⚠️ Averías Recientes</h2>
-                <div id="lista-averias">
-                    <p style="text-align:center; font-size:12px; color:#94a3b8;">Buscando...</p>
-                </div>
-            </div>
-        </div>
-
     </div>
+</div>
 
-    <script src="db.js"></script>
-    <script>
-        // Normaliza texto: minúsculas, sin tildes, sin espacios extra
-        const norm = s => (s||'').toLowerCase().trim()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+<script src="db.js"></script>
+<script>
+    const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-        window.onload = async () => {
-            const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
-            if (!sesion) { window.location.href = "index.html"; return; }
+    window.onload = async () => {
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
+        if (!sesion) { window.location.href = "index.html"; return; }
 
-            // ── VERIFICAR ROL: solo admin puede entrar aquí ──
-            const rol = norm(sesion.rol);
-            const usr = norm(sesion.usuario);
-            const esAdmin = rol === 'admin' || rol === 'administracion'
-                         || usr === 'admin' || usr === 'administracion';
-            const esCoord = rol === 'coordinador';
+        const rol = norm(sesion.rol);
+        const usr = norm(sesion.usuario);
+        const esAdmin = rol === 'admin' || rol === 'administracion' || usr === 'admin' || usr === 'administracion';
+        const esCoord = rol === 'coordinador';
 
-            if (!esAdmin) {
-                // Si presiona atrás y no es admin → redirigir al panel correcto
-                window.location.href = esCoord ? 'panel_coordinador.html' : 'panel_conductor.html';
-                return;
-            }
+        if (!esAdmin) {
+            window.location.href = esCoord ? 'panel_coordinador.html' : 'panel_conductor.html';
+            return;
+        }
 
-            document.getElementById('user-name').innerText = sesion.nombre || "Admin J.R.";
-            await Promise.all([cargarFlota(), cargarTraslados(), cargarAverias()]);
-        };
+        document.getElementById('user-name').innerText = sesion.nombre || "Admin J.R.";
+        await Promise.all([cargarFlota(), cargarTraslados(), cargarAverias()]);
+    };
 
-        async function cargarFlota() {
-            const { data } = await DB.obtenerFlota();
-            const tbody = document.getElementById('tabla-flota');
-            if (data && data.length > 0) {
-                tbody.innerHTML = data.map(c => {
-                    const est = (c.estado || "").trim();
-                    let clase = 'serv';
-                    if (est === 'Disponible') clase = 'disp';
-                    if (est.includes('Taller')) clase = 'tall';
-                    return '<tr>' +
-                        '<td><b>' + c.placa + '</b></td>' +
-                        '<td class="col-modelo">' + (c.modelo || '---') + '</td>' +
-                        '<td>' + Number(c.kilometraje_actual || 0).toLocaleString() + ' KM</td>' +
-                        '<td><span class="status-pill ' + clase + '">● ' + (c.estado || 'S/E') + '</span></td>' +
-                        '</tr>';
-                }).join('');
+    async function cargarFlota() {
+        const { data } = await DB.obtenerFlota();
+        const tbody = document.getElementById('tabla-flota');
+        if (data && data.length > 0) {
+            tbody.innerHTML = data.map(c => {
+                const est = (c.estado || "").trim();
+                let clase = 'serv';
+                if (est === 'Disponible') clase = 'disp';
+                if (est.includes('Taller')) clase = 'tall';
+                return '<tr>' +
+                    '<td><b>' + c.placa + '</b></td>' +
+                    '<td class="col-modelo">' + (c.modelo || '---') + '</td>' +
+                    '<td>' + Number(c.kilometraje_actual || 0).toLocaleString() + ' KM</td>' +
+                    '<td><span class="status-pill ' + clase + '">● ' + (c.estado || 'S/E') + '</span></td>' +
+                    '</tr>';
+            }).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Sin vehículos</td></tr>';
+        }
+    }
+
+    async function cargarTraslados() {
+        const { data } = await DB.obtenerTrasladosRecientes();
+        const tbody = document.getElementById('lista-traslados');
+        if (data && data.length > 0) {
+            tbody.innerHTML = data.map(t => {
+                const safeJson = JSON.stringify(t).replace(/"/g, '&quot;');
+                // Guardar datos de búsqueda en atributos data-*
+                return '<tr' +
+                    ' data-placa="' + norm(t.placa) + '"' +
+                    ' data-conductor="' + norm(t.conductor) + '"' +
+                    ' data-fallecido="' + norm(t.nombre_del_fallecido) + '"' +
+                    ' data-origen="' + norm(t.origen) + '"' +
+                    ' data-destino="' + norm(t.destino) + '"' +
+                    ' data-regional="' + norm(t.regional) + '"' +
+                    ' data-fecha="' + norm(t.fecha) + '"' +
+                    '>' +
+                    '<td>' + (t.fecha || '---') + '</td>' +
+                    '<td><b>' + (t.placa || '---') + '</b></td>' +
+                    '<td class="col-modelo">' + (t.nombre_del_fallecido || '---') + '</td>' +
+                    '<td style="font-size:11px;">' + (t.origen || '---') + ' ➔ ' + (t.destino || '---') + '</td>' +
+                    '<td><button class="btn-wa" data-json="' + safeJson + '" onclick="reenviarWhatsApp(this)">WA</button></td>' +
+                    '</tr>';
+            }).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Sin salidas recientes</td></tr>';
+        }
+    }
+
+    // ── FILTRAR TABLA ──────────────────────────────────
+    function filtrarTabla() {
+        const texto     = norm(document.getElementById('buscador').value);
+        const regional  = norm(document.getElementById('filtro-regional').value);
+        const filas     = document.querySelectorAll('#lista-traslados tr');
+        let visibles    = 0;
+
+        filas.forEach(fila => {
+            if (!fila.dataset.placa) return; // fila de "Sin salidas"
+
+            const coincideTexto = !texto || (
+                fila.dataset.placa.includes(texto) ||
+                fila.dataset.conductor.includes(texto) ||
+                fila.dataset.fallecido.includes(texto) ||
+                fila.dataset.origen.includes(texto) ||
+                fila.dataset.destino.includes(texto) ||
+                fila.dataset.fecha.includes(texto)
+            );
+
+            const coincideRegional = !regional || fila.dataset.regional.includes(regional);
+
+            if (coincideTexto && coincideRegional) {
+                fila.classList.remove('fila-oculta');
+                visibles++;
             } else {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Sin vehículos</td></tr>';
+                fila.classList.add('fila-oculta');
             }
-        }
+        });
 
-        async function cargarTraslados() {
-            const { data } = await DB.obtenerTrasladosRecientes();
-            const tbody = document.getElementById('lista-traslados');
-            if (data && data.length > 0) {
-                tbody.innerHTML = data.map(t => {
-                    // ← CORRECCIÓN: usar data-json con comillas escapadas
-                    const safeJson = JSON.stringify(t).replace(/"/g, '&quot;');
-                    return '<tr>' +
-                        '<td>' + (t.fecha || '---') + '</td>' +
-                        '<td><b>' + (t.placa || '---') + '</b></td>' +
-                        '<td class="col-modelo">' + (t.nombre_del_fallecido || '---') + '</td>' +
-                        '<td style="font-size:10px;">' + (t.origen || '---') + ' ➔ ' + (t.destino || '---') + '</td>' +
-                        '<td><button class="btn-wa" data-json="' + safeJson + '" onclick="reenviarWhatsApp(this)">WA</button></td>' +
-                        '</tr>';
-                }).join('');
-            } else {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Sin salidas recientes</td></tr>';
-            }
+        // Mostrar contador
+        const infoEl = document.getElementById('resultados-info');
+        if (texto || regional) {
+            infoEl.style.display = 'block';
+            infoEl.textContent   = visibles + ' resultado' + (visibles !== 1 ? 's' : '') + ' encontrado' + (visibles !== 1 ? 's' : '');
+            infoEl.style.color   = visibles === 0 ? '#ef4444' : '#64748b';
+        } else {
+            infoEl.style.display = 'none';
         }
+    }
 
-        async function cargarAverias() {
-            const { data } = await DB.obtenerTodasAverias();
-            const div = document.getElementById('lista-averias');
-            if (data && data.length > 0) {
-                div.innerHTML = data.map(av =>
-                    '<div class="averia-item">' +
-                        '<b>' + (av.placa_vehiculo || '---') + '</b>' +
-                        '<small>' + (av.tipo_falla || '---') + '</small>' +
-                        '<span>' + (av.regional || '') + (av.regional && av.reportado_por ? ' · ' : '') + (av.reportado_por || '') + '</span>' +
-                    '</div>'
-                ).join('');
-            } else {
-                div.innerHTML = "<p style='text-align:center; font-size:13px;'>Sin novedades 👍</p>";
-            }
-        }
+    function limpiarBusqueda() {
+        document.getElementById('buscador').value         = '';
+        document.getElementById('filtro-regional').value  = '';
+        filtrarTabla();
+    }
 
-        // ← CORRECCIÓN: recibe el elemento botón y lee data-json
-        function reenviarWhatsApp(btn) {
-            const d = JSON.parse(btn.getAttribute('data-json'));
-            const hora = new Date().getHours();
-            const saludo = hora < 12 ? "Buenos días ☀️" : hora < 18 ? "Buenas tardes 🌤️" : "Buenas noches 🌙";
-            const mensaje = saludo + "\n\n" +
-                "📢 *Reporte de Salida De Carroza*\n\n" +
-                "📍 *Regional:* "      + (d.regional              || '---') + "\n" +
-                "📅 *Fecha:* "         + (d.fecha                 || '---') + "\n" +
-                "👤 *Coordinador:* "   + (d.coordinador_en_turno  || '---') + "\n" +
-                "🕒 *Hora De Salida:* "+ (d.hora_de_salida        || '---') + "\n" +
-                "🚗 *Placa:* "         + (d.placa                 || '---') + "\n" +
-                "❓ *Motivo:* "        + (d.motivo_de_salida      || '---') + "\n" +
-                "⚱️ *Fallecido:* "     + (d.nombre_del_fallecido  || '---') + "\n" +
-                "🏥 *Recogida:* "      + (d.clinica_hospital_o_rsd|| '---') + "\n" +
-                "🚩 *Origen:* "        + (d.origen                || '---') + "\n" +
-                "🏁 *Destino:* "       + (d.destino               || '---') + "\n" +
-                "📊 *KM Salida:* "     + (d.km__salida            || '---') + "\n" +
-                "📊 *KM Ingreso:* "    + (d.km__ingreso           || '---') + "\n" +
-                "👨🏻‍✈️ *Conductor:* "    + (d.conductor             || '---') + "\n" +
-                "📞 *Teléfono:* "      + (d.nnum_telefono         || '---') + "\n" +
-                "📝 *Observaciones:* " + (d.observaciones         || 'Sin novedades') + "\n\n" +
-                "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
-            window.open("https://wa.me/?text=" + encodeURIComponent(mensaje), '_blank');
+    async function cargarAverias() {
+        const { data } = await DB.obtenerTodasAverias();
+        const div = document.getElementById('lista-averias');
+        if (data && data.length > 0) {
+            div.innerHTML = data.map(av =>
+                '<div class="averia-item">' +
+                    '<b>' + (av.placa_vehiculo || '---') + '</b>' +
+                    '<small>' + (av.tipo_falla || '---') + '</small>' +
+                    '<span>' + (av.regional || '') + (av.regional && av.reportado_por ? ' · ' : '') + (av.reportado_por || '') + '</span>' +
+                '</div>'
+            ).join('');
+        } else {
+            div.innerHTML = "<p style='text-align:center; font-size:13px;'>Sin novedades 👍</p>";
         }
+    }
 
-        function cerrarSesion() {
-            localStorage.clear();
-            window.location.href = "index.html";
-        }
-    </script>
-    <script src="config-aplicar.js"></script>
+    function reenviarWhatsApp(btn) {
+        const d = JSON.parse(btn.getAttribute('data-json'));
+        const hora = new Date().getHours();
+        const saludo = hora < 12 ? "Buenos días ☀️" : hora < 18 ? "Buenas tardes 🌤️" : "Buenas noches 🌙";
+        const mensaje = saludo + "\n\n" +
+            "📢 *Reporte de Salida De Carroza*\n\n" +
+            "📍 *Regional:* "      + (d.regional              || '---') + "\n" +
+            "📅 *Fecha:* "         + (d.fecha                 || '---') + "\n" +
+            "👤 *Coordinador:* "   + (d.coordinador_en_turno  || '---') + "\n" +
+            "🕒 *Hora De Salida:* "+ (d.hora_de_salida        || '---') + "\n" +
+            "🚗 *Placa:* "         + (d.placa                 || '---') + "\n" +
+            "❓ *Motivo:* "        + (d.motivo_de_salida      || '---') + "\n" +
+            "⚱️ *Fallecido:* "     + (d.nombre_del_fallecido  || '---') + "\n" +
+            "🏥 *Recogida:* "      + (d.clinica_hospital_o_rsd|| '---') + "\n" +
+            "🚩 *Origen:* "        + (d.origen                || '---') + "\n" +
+            "🏁 *Destino:* "       + (d.destino               || '---') + "\n" +
+            "📊 *KM Salida:* "     + (d.km__salida            || '---') + "\n" +
+            "📊 *KM Ingreso:* "    + (d.km__ingreso           || '---') + "\n" +
+            "👨🏻‍✈️ *Conductor:* "    + (d.conductor             || '---') + "\n" +
+            "📞 *Teléfono:* "      + (d.nnum_telefono         || '---') + "\n" +
+            "📝 *Observaciones:* " + (d.observaciones         || 'Sin novedades') + "\n\n" +
+            "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
+        window.open("https://wa.me/?text=" + encodeURIComponent(mensaje), '_blank');
+    }
+
+    function cerrarSesion() {
+        localStorage.clear();
+        window.location.href = "index.html";
+    }
+</script>
+<script src="config-aplicar.js"></script>
 </body>
 </html>
