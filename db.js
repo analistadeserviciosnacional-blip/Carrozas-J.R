@@ -93,14 +93,13 @@ const DB = {
 
     async obtenerTrasladosRecientes() {
         try {
-            // ✅ Sin .order() para evitar fallos por columnas inexistentes
-            // Trae todos y los ordena en JS por id_salida
+            // ✅ Solo columnas necesarias — excluye imagen1/2/3/4 y firma
+            // que son base64 enormes y causan timeout en Supabase
             const { data, error } = await _supabase
                 .from('Traslado')
-                .select('*')
+                .select('id_salida, fecha, regional, conductor, placa, motivo_de_salida, nombre_del_fallecido, clinica_hospital_o_rsd, origen, destino, hora_de_salida, hora_de_ingreso, km__salida, km__ingreso, total_km, coordinador_en_turno, observaciones, nnum_telefono, numero_prestacion')
                 .limit(50);
             if (error) throw error;
-            // Ordenar en JS descendente por id_salida (JR-timestamp)
             const ordenado = (data || []).sort((a, b) => {
                 const ia = (a.id_salida || '').replace('JR-', '');
                 const ib = (b.id_salida || '').replace('JR-', '');
@@ -117,7 +116,7 @@ const DB = {
         try {
             const { data, error } = await _supabase
                 .from('Traslado')
-                .select('*')
+                .select('id_salida, fecha, regional, conductor, placa, motivo_de_salida, nombre_del_fallecido, clinica_hospital_o_rsd, origen, destino, hora_de_salida, hora_de_ingreso, km__salida, km__ingreso, total_km, coordinador_en_turno, observaciones, nnum_telefono')
                 .ilike('conductor', '%' + nombreConductor + '%')
                 .limit(10);
             if (error) throw error;
