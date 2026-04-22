@@ -93,31 +93,40 @@ const DB = {
 
     async obtenerTrasladosRecientes() {
         try {
-            // ✅ CORREGIDO: ordena por id_salida (texto) descendente
-            // ya que created_at puede no existir o estar vacío en registros antiguos
+            // ✅ Sin .order() para evitar fallos por columnas inexistentes
+            // Trae todos y los ordena en JS por id_salida
             const { data, error } = await _supabase
                 .from('Traslado')
                 .select('*')
-                .order('id_salida', { ascending: false })
                 .limit(50);
             if (error) throw error;
-            return { data: data || [], ok: true };
+            // Ordenar en JS descendente por id_salida (JR-timestamp)
+            const ordenado = (data || []).sort((a, b) => {
+                const ia = (a.id_salida || '').replace('JR-', '');
+                const ib = (b.id_salida || '').replace('JR-', '');
+                return Number(ib) - Number(ia);
+            });
+            return { data: ordenado, ok: true };
         } catch (err) {
+            console.error('obtenerTrasladosRecientes error:', err);
             return { data: [], ok: false };
         }
     },
 
     async obtenerMisSalidas(nombreConductor) {
         try {
-            // ✅ CORREGIDO: mismo fix — orden por id_salida
             const { data, error } = await _supabase
                 .from('Traslado')
                 .select('*')
                 .ilike('conductor', '%' + nombreConductor + '%')
-                .order('id_salida', { ascending: false })
                 .limit(10);
             if (error) throw error;
-            return { data: data || [], ok: true };
+            const ordenado = (data || []).sort((a, b) => {
+                const ia = (a.id_salida || '').replace('JR-', '');
+                const ib = (b.id_salida || '').replace('JR-', '');
+                return Number(ib) - Number(ia);
+            });
+            return { data: ordenado, ok: true };
         } catch (err) {
             return { data: [], ok: false };
         }
