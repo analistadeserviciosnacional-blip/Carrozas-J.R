@@ -238,7 +238,9 @@
 
         const user = JSON.parse(sesionData);
         document.getElementById('conductor').value = user.nombre;
-        document.getElementById('saludo').innerText = "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
+        document.getElementById('saludo').innerText =  "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
+        // ✅ Guardar teléfono del conductor desde la sesión
+        window._telefonoConductor = user.telefono || '';
 
         const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         const rol  = norm(user.rol);
@@ -492,6 +494,7 @@
         datosFinales = {
             regional:      document.getElementById('regional').value,
             conductor:     document.getElementById('conductor').value,
+            telefono:      window._telefonoConductor || '', // ✅ teléfono desde sesión
             placa:         document.getElementById('placa').value,
             motivo:        document.getElementById('motivo').value,
             fallecido:     document.getElementById('fallecido').value,
