@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --amarillo: #f59e0b; }
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --amarillo: #f59e0b; --rojo: #dc2626; --verde: #10b981; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 15px; color: #1e293b; }
         .container { max-width: 900px; margin: auto; }
@@ -18,54 +18,65 @@
         .card { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 5px solid var(--azul); }
         .card.edit-mode { border-top-color: var(--amarillo); background: #fffcf5; }
 
+        /* ── ÓRDENES POR AVERÍA ── */
+        .card-ordenes { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 5px solid var(--rojo); }
+        .ordenes-titulo { font-size: 15px; font-weight: 800; color: var(--rojo); text-transform: uppercase; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+        .badge-ordenes { background: #fef2f2; color: var(--rojo); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 8px; }
+
+        .orden-item {
+            background: #fffafa; border: 1.5px solid #fecaca;
+            border-radius: 16px; padding: 16px; margin-bottom: 12px;
+        }
+        .orden-item:last-child { margin-bottom: 0; }
+        .orden-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+        .orden-placa { font-size: 18px; font-weight: 800; color: var(--azul); }
+        .orden-falla { font-size: 11px; font-weight: 800; background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 8px; text-transform: uppercase; }
+        .orden-fecha { font-size: 11px; color: #94a3b8; }
+        .orden-desc { font-size: 13px; color: #475569; background: #f8fafc; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; line-height: 1.6; white-space: pre-line; }
+        .orden-reportado { font-size: 11px; color: #64748b; margin-bottom: 12px; }
+
+        /* Formulario de liberación dentro de cada orden */
+        .liberar-form { border-top: 1.5px dashed #fca5a5; padding-top: 14px; margin-top: 4px; }
+        .liberar-form label { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        .liberar-form textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 13px; margin-bottom: 10px; resize: vertical; }
+        .liberar-form textarea:focus { outline: none; border-color: var(--azul); }
+
+        .liberar-btns { display: flex; gap: 8px; }
+        .btn-liberar-ok {
+            flex: 1; padding: 13px; border: none; border-radius: 12px;
+            background: var(--verde); color: white; font-weight: 800;
+            font-size: 13px; cursor: pointer; transition: 0.2s; font-family: inherit;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-liberar-ok:active { transform: scale(0.97); }
+        .btn-liberar-ok:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-liberar-taller {
+            flex: 1; padding: 13px; border: none; border-radius: 12px;
+            background: #fee2e2; color: var(--rojo); font-weight: 800;
+            font-size: 13px; cursor: pointer; transition: 0.2s; font-family: inherit;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-liberar-taller:active { transform: scale(0.97); }
+        .btn-liberar-taller:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── FORMULARIO MANTENIMIENTO ── */
         h2 { color: var(--azul); text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; }
         label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; text-transform: uppercase; }
-        input, select, textarea {
-            width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px;
-            font-size: 14px; font-family: inherit; margin-bottom: 15px; background: #f8fafc;
-        }
+        input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 14px; font-family: inherit; margin-bottom: 15px; background: #f8fafc; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); background: white; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 
-        /* KM info */
-        .info-km {
-            background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px;
-            padding: 11px 14px; font-size: 12px; color: #166534; font-weight: 600;
-            margin-bottom: 15px; display: none; align-items: center; gap: 10px;
-        }
+        .info-km { background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 11px 14px; font-size: 12px; color: #166534; font-weight: 600; margin-bottom: 15px; display: none; align-items: center; gap: 10px; }
 
-        /* Bloque próximo cambio — solo visible para Cambio de Aceite */
-        .bloque-aceite {
-            background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 14px;
-            padding: 16px; margin-bottom: 15px; display: none;
-        }
-        .bloque-aceite .ba-titulo {
-            font-size: 12px; font-weight: 800; color: #92400e;
-            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .ba-resumen {
-            background: #fff; border-radius: 10px; padding: 12px 14px;
-            margin-top: 10px; font-size: 13px; color: #1e293b; line-height: 1.8;
-            border: 1px solid #fde68a;
-        }
+        .bloque-aceite { background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 14px; padding: 16px; margin-bottom: 15px; display: none; }
+        .bloque-aceite .ba-titulo { font-size: 12px; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .ba-resumen { background: #fff; border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-size: 13px; color: #1e293b; line-height: 1.8; border: 1px solid #fde68a; }
         .ba-resumen b { color: var(--azul); }
 
-        .btn-registrar {
-            background: var(--azul); color: white; border: none; width: 100%;
-            padding: 15px; border-radius: 14px; font-weight: 800; font-size: 15px;
-            cursor: pointer; transition: 0.2s;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            box-shadow: 0 4px 14px rgba(0,26,112,0.2); font-family: inherit;
-        }
+        .btn-registrar { background: var(--azul); color: white; border: none; width: 100%; padding: 15px; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,26,112,0.2); font-family: inherit; }
         .btn-registrar:active { transform: scale(0.98); }
         .btn-registrar:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-cancelar {
-            background: #fee2e2; color: #991b1b; border: none; padding: 12px;
-            border-radius: 12px; font-weight: 700; cursor: pointer; margin-top: 10px;
-            width: 100%; display: none; font-size: 14px; font-family: inherit;
-        }
+        .btn-cancelar { background: #fee2e2; color: #991b1b; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; margin-top: 10px; width: 100%; display: none; font-size: 14px; font-family: inherit; }
 
         /* HISTORIAL */
         .historial { background: var(--blanco); padding: 20px 25px; border-radius: 25px; overflow-x: auto; box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
@@ -79,20 +90,20 @@
         tr:last-child td { border-bottom: none; }
 
         .tipo-pill { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; text-transform: uppercase; white-space: nowrap; }
-        .tp-aceite { background: #fef3c7; color: #92400e; }
-        .tp-frenos { background: #fee2e2; color: #991b1b; }
+        .tp-aceite  { background: #fef3c7; color: #92400e; }
+        .tp-frenos  { background: #fee2e2; color: #991b1b; }
         .tp-llantas { background: #ede9fe; color: #5b21b6; }
         .tp-sinc    { background: #ecfdf5; color: #065f46; }
+        .tp-averia  { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
         .tp-otro    { background: #f1f5f9; color: #475569; }
 
-        .km-prox-badge {
-            font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px;
-            background: #fffbeb; color: #92400e; white-space: nowrap;
-        }
-
+        .km-prox-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #fffbeb; color: #92400e; white-space: nowrap; }
         .btn-edit { background: var(--celeste); color: var(--azul); border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 11px; transition: 0.15s; font-family: inherit; }
         .btn-edit:hover { background: var(--azul); color: white; }
         .empty { text-align: center; color: #94a3b8; padding: 30px; font-size: 13px; }
+
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+        .orden-item { animation: fadeIn 0.3s ease; }
     </style>
 </head>
 <body>
@@ -104,12 +115,22 @@
         <span style="font-size:13px; color:#64748b; font-weight:600;">🔧 Control de Taller</span>
     </div>
 
-    <!-- FORMULARIO -->
+    <!-- ── ÓRDENES PENDIENTES POR AVERÍA ── -->
+    <div class="card-ordenes" id="seccion-ordenes" style="display:none;">
+        <div class="ordenes-titulo">
+            🚨 Órdenes Pendientes por Avería
+            <span class="badge-ordenes" id="badge-ordenes">0</span>
+        </div>
+        <div id="lista-ordenes">
+            <p class="empty">Cargando órdenes...</p>
+        </div>
+    </div>
+
+    <!-- FORMULARIO MANTENIMIENTO -->
     <div class="card" id="contenedor-form">
         <h2 id="titulo-form">🛠️ Registro de Mantenimiento</h2>
 
         <form id="form-taller">
-
             <div class="grid-2">
                 <div>
                     <label>Placa del Vehículo *</label>
@@ -123,7 +144,6 @@
                 </div>
             </div>
 
-            <!-- KM actual al seleccionar placa -->
             <div class="info-km" id="info-km">
                 📊 KM actual registrado: <b id="km-actual-txt">---</b>
             </div>
@@ -148,7 +168,6 @@
                 </div>
             </div>
 
-            <!-- BLOQUE CAMBIO DE ACEITE — solo visible cuando tipo = Cambio de Aceite -->
             <div class="bloque-aceite" id="bloque-aceite">
                 <div class="ba-titulo">🛢️ Configuración del Próximo Cambio de Aceite</div>
                 <div class="grid-2">
@@ -167,9 +186,7 @@
                         <input type="number" id="custom-km" placeholder="Ej: 6000" min="1000" oninput="calcularProximoCambio()">
                     </div>
                 </div>
-                <div class="ba-resumen" id="ba-resumen">
-                    Ingresa el KM del servicio para ver el cálculo.
-                </div>
+                <div class="ba-resumen" id="ba-resumen">Ingresa el KM del servicio para ver el cálculo.</div>
             </div>
 
             <div class="grid-2">
@@ -195,7 +212,6 @@
             <button type="button" id="btn-cancelar" class="btn-cancelar" onclick="cancelarEdicion()">
                 ✕ CANCELAR EDICIÓN
             </button>
-
         </form>
     </div>
 
@@ -208,15 +224,9 @@
         <table>
             <thead>
                 <tr>
-                    <th>Fecha</th>
-                    <th>Placa</th>
-                    <th>Servicio</th>
-                    <th>KM Servicio</th>
-                    <th>Próximo KM</th>
-                    <th>Costo</th>
-                    <th>Taller</th>
-                    <th>Responsable</th>
-                    <th></th>
+                    <th>Fecha</th><th>Placa</th><th>Servicio</th>
+                    <th>KM Servicio</th><th>Próximo KM</th>
+                    <th>Costo</th><th>Taller</th><th>Responsable</th><th></th>
                 </tr>
             </thead>
             <tbody id="tbody-mant">
@@ -237,53 +247,40 @@
         document.getElementById('fecha').valueAsDate = new Date();
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (sesion.nombre) document.getElementById('responsable').value = sesion.nombre;
-        // Mostrar bloque aceite por defecto (primer tipo es Cambio de Aceite)
         document.getElementById('bloque-aceite').style.display = 'block';
         await cargarPlacas();
+        await cargarOrdenesPendientes();
         await cargarHistorial();
     };
 
     function irAtras() {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const rol = norm(sesion.rol);
-        const usr = norm(sesion.usuario);
-        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') {
-            window.location.href = 'dashboard.html';
-        } else if (rol === 'coordinador') {
-            window.location.href = 'panel_coordinador.html';
-        } else {
-            window.location.href = 'panel_conductor.html';
-        }
+        const rol = norm(sesion.rol), usr = norm(sesion.usuario);
+        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = 'dashboard.html';
+        else if (rol === 'coordinador') window.location.href = 'panel_coordinador.html';
+        else window.location.href = 'panel_conductor.html';
     }
 
     // ── CARGAR PLACAS ───────────────────────────────────
     async function cargarPlacas() {
-        const { data } = await DB.supabase
-            .from('carrozas')
-            .select('placa, modelo, kilometraje_actual')
-            .order('placa');
+        const { data } = await DB.supabase.from('carrozas').select('placa, modelo, kilometraje_actual').order('placa');
         flotaData = data || [];
         const sel = document.getElementById('placa');
         if (flotaData.length > 0) {
             sel.innerHTML = '<option value="">— Seleccione placa —</option>' +
-                flotaData.map(c =>
-                    '<option value="' + c.placa + '">' + c.placa +
-                    (c.modelo ? ' — ' + c.modelo : '') + '</option>'
-                ).join('');
+                flotaData.map(c => '<option value="' + c.placa + '">' + c.placa + (c.modelo ? ' — ' + c.modelo : '') + '</option>').join('');
         } else {
             sel.innerHTML = '<option value="">Sin vehículos registrados</option>';
         }
     }
 
-    // Al seleccionar placa → mostrar KM actual
     function alSeleccionarPlaca() {
-        const placa  = document.getElementById('placa').value;
-        const veh    = flotaData.find(c => c.placa === placa);
+        const placa = document.getElementById('placa').value;
+        const veh   = flotaData.find(c => c.placa === placa);
         const infoEl = document.getElementById('info-km');
         if (veh && placa) {
-            document.getElementById('km-actual-txt').textContent =
-                Number(veh.kilometraje_actual || 0).toLocaleString() + ' KM';
+            document.getElementById('km-actual-txt').textContent = Number(veh.kilometraje_actual || 0).toLocaleString() + ' KM';
             document.getElementById('km_servicio').value = veh.kilometraje_actual || '';
             infoEl.style.display = 'flex';
             calcularProximoCambio();
@@ -292,20 +289,12 @@
         }
     }
 
-    // Mostrar/ocultar bloque aceite según tipo de servicio
     function alCambiarTipo() {
         const tipo = document.getElementById('tipo_servicio').value;
-        const bloque = document.getElementById('bloque-aceite');
-        if (tipo === 'Cambio de Aceite') {
-            bloque.style.display = 'block';
-            calcularProximoCambio();
-        } else {
-            bloque.style.display = 'none';
-        }
+        document.getElementById('bloque-aceite').style.display = tipo === 'Cambio de Aceite' ? 'block' : 'none';
+        if (tipo === 'Cambio de Aceite') calcularProximoCambio();
     }
 
-    // Mostrar/ocultar campo personalizado
-    document.addEventListener('DOMContentLoaded', () => {});
     function getIntervalo() {
         const sel = document.getElementById('intervalo-km').value;
         if (sel === 'custom') {
@@ -317,17 +306,11 @@
         }
     }
 
-    // Calcular y mostrar resumen del próximo cambio
     function calcularProximoCambio() {
         const kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
         const intervalo  = getIntervalo();
         const resumen    = document.getElementById('ba-resumen');
-
-        if (!kmServicio || !intervalo) {
-            resumen.innerHTML = 'Ingresa el KM del servicio para ver el cálculo.';
-            return;
-        }
-
+        if (!kmServicio || !intervalo) { resumen.innerHTML = 'Ingresa el KM del servicio para ver el cálculo.'; return; }
         const kmProximo = kmServicio + intervalo;
         resumen.innerHTML =
             '🔧 KM del servicio actual: <b>' + kmServicio.toLocaleString() + ' KM</b><br>' +
@@ -335,13 +318,123 @@
             '🎯 Próximo cambio de aceite a los: <b style="color:#92400e; font-size:15px;">' + kmProximo.toLocaleString() + ' KM</b>';
     }
 
+    // ── ÓRDENES PENDIENTES POR AVERÍA ───────────────────
+    async function cargarOrdenesPendientes() {
+        try {
+            const { data } = await DB.supabase
+                .from('mantenimientos')
+                .select('*')
+                .eq('estado_orden', 'pendiente')
+                .order('fecha', { ascending: false });
+
+            const seccion = document.getElementById('seccion-ordenes');
+            const lista   = document.getElementById('lista-ordenes');
+            const badge   = document.getElementById('badge-ordenes');
+
+            if (!data || data.length === 0) {
+                seccion.style.display = 'none';
+                return;
+            }
+
+            seccion.style.display = 'block';
+            badge.textContent = data.length + ' pendiente' + (data.length > 1 ? 's' : '');
+
+            lista.innerHTML = data.map(o => {
+                const falla = (o.tipo_servicio || '').replace('Avería — ', '');
+                return '<div class="orden-item" id="orden-' + o.id + '">' +
+                    '<div class="orden-header">' +
+                        '<div class="orden-placa">🚗 ' + (o.placa || '---') + '</div>' +
+                        '<span class="orden-falla">⚠️ ' + falla + '</span>' +
+                        '<span class="orden-fecha">' + (o.fecha || '---') + '</span>' +
+                    '</div>' +
+                    '<div class="orden-reportado">👤 Reportado por: <b>' + (o.responsable || '---') + '</b></div>' +
+                    '<div class="orden-desc">' + (o.observaciones || '---') + '</div>' +
+                    '<div class="liberar-form">' +
+                        '<label>📋 Observaciones al recibir el vehículo</label>' +
+                        '<textarea id="obs-liberar-' + o.id + '" rows="2" placeholder="¿Cómo se recibe el vehículo? ¿Quedó bien reparado?"></textarea>' +
+                        '<div class="liberar-btns">' +
+                            '<button class="btn-liberar-ok" onclick="liberarVehiculo(' + o.id + ', \'' + o.placa + '\', true)">' +
+                                '✅ LISTO — Marcar Disponible' +
+                            '</button>' +
+                            '<button class="btn-liberar-taller" onclick="liberarVehiculo(' + o.id + ', \'' + o.placa + '\', false)">' +
+                                '🔧 Sigue en Taller' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        } catch(e) {
+            console.error('Error cargando órdenes:', e);
+        }
+    }
+
+    // ── LIBERAR VEHÍCULO ─────────────────────────────────
+    async function liberarVehiculo(ordenId, placa, disponible) {
+        const obs    = document.getElementById('obs-liberar-' + ordenId).value.trim();
+        const btnOk  = document.querySelector('#orden-' + ordenId + ' .btn-liberar-ok');
+        const btnTal = document.querySelector('#orden-' + ordenId + ' .btn-liberar-taller');
+
+        if (!obs) { alert('Por favor ingresa las observaciones de cómo se recibe el vehículo.'); return; }
+
+        btnOk.disabled = true; btnTal.disabled = true;
+        btnOk.textContent = '⏳ Procesando...';
+
+        const sesion       = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        const nuevoEstado  = disponible ? 'Disponible' : 'En Taller';
+        const estadoOrden  = disponible ? 'completada' : 'en_proceso';
+        const obsCompleta  = obs + '\n\n' +
+            '🔍 Revisado por: ' + (sesion.nombre || '---') + '\n' +
+            '📅 Fecha revisión: ' + new Date().toLocaleDateString('es-CO') + '\n' +
+            '🚦 Estado final: ' + nuevoEstado;
+
+        try {
+            // Actualizar la orden en mantenimientos
+            await DB.supabase.from('mantenimientos')
+                .update({
+                    estado_orden:  estadoOrden,
+                    observaciones: (document.querySelector('#orden-' + ordenId + ' .orden-desc').textContent || '') +
+                                   '\n\n--- REVISIÓN ---\n' + obsCompleta
+                })
+                .eq('id', ordenId);
+
+            // Actualizar estado del vehículo en carrozas
+            await DB.supabase.from('carrozas')
+                .update({ estado: nuevoEstado })
+                .eq('placa', placa);
+
+            // Mostrar resultado en la tarjeta
+            const ordenEl = document.getElementById('orden-' + ordenId);
+            if (disponible) {
+                ordenEl.style.background = '#f0fdf4';
+                ordenEl.style.borderColor = '#86efac';
+                ordenEl.querySelector('.liberar-form').innerHTML =
+                    '<div style="text-align:center; padding:12px; color:#065f46; font-weight:800; font-size:14px;">' +
+                    '✅ Vehículo ' + placa + ' marcado como DISPONIBLE<br>' +
+                    '<span style="font-size:12px; font-weight:400;">La orden quedó cerrada en el historial.</span></div>';
+            } else {
+                ordenEl.style.background = '#fffbeb';
+                ordenEl.style.borderColor = '#fcd34d';
+                ordenEl.querySelector('.liberar-form').innerHTML =
+                    '<div style="text-align:center; padding:12px; color:#92400e; font-weight:800; font-size:14px;">' +
+                    '🔧 Vehículo ' + placa + ' continúa EN TALLER<br>' +
+                    '<span style="font-size:12px; font-weight:400;">La novedad quedó registrada.</span></div>';
+            }
+
+            // Actualizar badge
+            await cargarOrdenesPendientes();
+
+        } catch(e) {
+            alert('Error: ' + e.message);
+            btnOk.disabled = false; btnTal.disabled = false;
+            btnOk.textContent = '✅ LISTO — Marcar Disponible';
+        }
+    }
+
     // ── HISTORIAL ───────────────────────────────────────
     async function cargarHistorial() {
         const { data } = await DB.supabase
-            .from('mantenimientos')
-            .select('*')
-            .order('fecha', { ascending: false })
-            .limit(30);
+            .from('mantenimientos').select('*')
+            .order('fecha', { ascending: false }).limit(30);
 
         const tbody = document.getElementById('tbody-mant');
         document.getElementById('badge-total').textContent = (data ? data.length : 0) + ' registros';
@@ -354,22 +447,27 @@
         tbody.innerHTML = data.map(m => {
             const tipo = m.tipo_servicio || '';
             let cls = 'tp-otro';
-            if (tipo.includes('Aceite'))      cls = 'tp-aceite';
+            if (tipo.includes('Aceite'))   cls = 'tp-aceite';
             else if (tipo.includes('Freno'))  cls = 'tp-frenos';
             else if (tipo.includes('Llanta')) cls = 'tp-llantas';
             else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
+            else if (tipo.includes('Avería')) cls = 'tp-averia';
 
             const safe = JSON.stringify(m).replace(/'/g, '&#39;');
-
-            // Mostrar próximo KM solo si es cambio de aceite y tiene el dato
             const kmProxCell = (m.km_proximo_cambio && m.km_proximo_cambio > 0)
                 ? '<span class="km-prox-badge">🎯 ' + Number(m.km_proximo_cambio).toLocaleString() + ' KM</span>'
                 : '<span style="color:#94a3b8; font-size:11px;">—</span>';
 
+            const estadoPill = m.estado_orden === 'pendiente'
+                ? '<span style="font-size:10px; background:#fef2f2; color:#991b1b; padding:2px 6px; border-radius:5px; font-weight:700;">PENDIENTE</span> '
+                : m.estado_orden === 'completada'
+                ? '<span style="font-size:10px; background:#ecfdf5; color:#065f46; padding:2px 6px; border-radius:5px; font-weight:700;">CERRADA</span> '
+                : '';
+
             return '<tr>' +
                 '<td>' + (m.fecha || '---') + '</td>' +
                 '<td><b>' + (m.placa || '---') + '</b></td>' +
-                '<td><span class="tipo-pill ' + cls + '">' + tipo + '</span></td>' +
+                '<td>' + estadoPill + '<span class="tipo-pill ' + cls + '">' + tipo + '</span></td>' +
                 '<td>' + Number(m.kilometraje_servicio || 0).toLocaleString() + ' KM</td>' +
                 '<td>' + kmProxCell + '</td>' +
                 '<td>$' + Number(m.costo || 0).toLocaleString() + '</td>' +
@@ -385,15 +483,10 @@
         e.preventDefault();
         const btn = document.getElementById('btn-submit');
         const txt = document.getElementById('btn-texto');
-        btn.disabled = true;
-        txt.textContent = 'GUARDANDO...';
+        btn.disabled = true; txt.textContent = 'GUARDANDO...';
 
         const placa = document.getElementById('placa').value;
-        if (!placa) {
-            alert("Selecciona una placa");
-            btn.disabled = false; txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
-            return;
-        }
+        if (!placa) { alert("Selecciona una placa"); btn.disabled = false; txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO'; return; }
 
         const tipo       = document.getElementById('tipo_servicio').value;
         const kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
@@ -410,7 +503,8 @@
             taller:               document.getElementById('taller').value.trim(),
             responsable:          document.getElementById('responsable').value.trim(),
             observaciones:        document.getElementById('observaciones').value.trim(),
-            km_proximo_cambio:    kmProximo   // ← nueva columna
+            km_proximo_cambio:    kmProximo,
+            estado_orden:         'completada'
         };
 
         let res;
@@ -420,28 +514,21 @@
             res = await DB.supabase.from('mantenimientos').insert([registro]);
         }
 
-        if (res.error) {
-            alert("Error al guardar: " + res.error.message);
-            btn.disabled = false;
-            txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
-            return;
-        }
+        if (res.error) { alert("Error al guardar: " + res.error.message); btn.disabled = false; txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO'; return; }
 
-        // Actualizar carrozas: km actual y fechas de mantenimiento
         const proxFecha = new Date(registro.fecha);
         proxFecha.setMonth(proxFecha.getMonth() + 3);
-        const proxFechaStr = proxFecha.toISOString().split('T')[0];
-
         await DB.supabase.from('carrozas').update({
             kilometraje_actual:    kmServicio,
             ultimo_mantenimiento:  registro.fecha,
-            proximo_mantenimiento: proxFechaStr,
+            proximo_mantenimiento: proxFecha.toISOString().split('T')[0],
             estado:                'Disponible'
         }).eq('placa', placa);
 
         alert(editandoID ? '✅ Registro actualizado' : '✅ Mantenimiento guardado');
         cancelarEdicion();
         await cargarHistorial();
+        await cargarOrdenesPendientes();
     };
 
     // ── EDITAR ──────────────────────────────────────────
@@ -451,7 +538,6 @@
         document.getElementById('titulo-form').innerText  = '📝 Editando Registro';
         document.getElementById('btn-texto').textContent  = 'ACTUALIZAR CAMBIOS';
         document.getElementById('btn-cancelar').style.display = 'block';
-
         document.getElementById('placa').value         = m.placa         || '';
         document.getElementById('fecha').value         = m.fecha         || '';
         document.getElementById('tipo_servicio').value = m.tipo_servicio || '';
@@ -460,10 +546,7 @@
         document.getElementById('taller').value        = m.taller        || '';
         document.getElementById('responsable').value   = m.responsable   || '';
         document.getElementById('observaciones').value = m.observaciones || '';
-
-        alSeleccionarPlaca();
-        alCambiarTipo();
-        calcularProximoCambio();
+        alSeleccionarPlaca(); alCambiarTipo(); calcularProximoCambio();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
