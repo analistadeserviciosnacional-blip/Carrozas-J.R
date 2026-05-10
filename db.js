@@ -1,23 +1,29 @@
-// ── CONFIGURACIÓN SUPABASE J.R. ────────────────────────
-const supabaseUrl = 'https://tgvgchjkdvnjfxqdkmdw.supabase.co';
-const supabaseKey = 'sb_publishable_PVXY35VXPucpHHYDhfleOw_26pNRCKM';
-
-const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+// ── CONFIGURACIÓN GOOGLE SHEETS J.R. ────────────────────────
+const URL_GAS = "https://script.google.com/macros/s/AKfycbzQXp_jVV84vyyPXDAKscC8NTdsCSDUjmaqbDcblFowhcJNYrLqH27GVpaVPPQHXzupCw/exec";
 
 const DB = {
-    supabase: _supabase,
+    // Función auxiliar para leer datos del Excel
+    async fetchRows(sheetName) {
+        try {
+            const res = await fetch(`${URL_GAS}?sheetName=${sheetName}`);
+            if (!res.ok) throw new Error('Error en la red');
+            return await res.json();
+        } catch (e) {
+            console.error("Error obteniendo datos de " + sheetName, e);
+            return [];
+        }
+    },
 
     // ── 1. SESIÓN Y REGISTRO ────────────────────────────
     async login(usuario, clave) {
         try {
-            const { data, error } = await _supabase
-                .from('usuarios')
-                .select('*')
-                .eq('usuario', usuario)
-                .eq('password', clave)
-                .single();
-            if (error) throw error;
-            return { data, ok: true };
+            const users = await this.fetchRows('usuarios_rows');
+            const user = users.find(u => u.usuario == usuario && u.password == clave);
+            if (user) {
+                return { data: user, ok: true };
+            } else {
+                return { data: null, ok: false, error: "Usuario o contraseña incorrectos" };
+            }
         } catch (err) {
             return { data: null, ok: false, error: err.message };
         }
@@ -25,17 +31,12 @@ const DB = {
 
     async registrarUsuario(datos) {
         try {
-            const { error } = await _supabase
-                .from('usuarios')
-                .insert([{
-                    nombre:   datos.nombre,
-                    usuario:  datos.usuario,
-                    password: datos.password,
-                    telefono: datos.telefono,
-                    rol:      datos.rol,
-                    regional: datos.regional
-                }]);
-            return { ok: !error, error };
+            await fetch(`${URL_GAS}?sheetName=usuarios_rows`, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(datos)
+            });
+            return { ok: true };
         } catch (err) {
             return { ok: false, error: err };
         }
@@ -43,21 +44,14 @@ const DB = {
 
     // ── 2. FLOTA ────────────────────────────────────────
     async obtenerFlota() {
-        try {
-            const { data, error } = await _supabase
-                .from('carrozas')
-                .select('*')
-                .order('placa', { ascending: true });
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
+        const data = await this.fetchRows('carrozas_rows');
+        return { data: data || [], ok: true };
     },
 
-    // ── 3. TRASLADOS ─────────────────────────────────────
+    // ── 3. TRASLADOS (Salida de Carrozas) ─────────────────
     async guardarTraslado(datos) {
         try {
+            // Mapeo exacto según las columnas de tu Excel (Imagen 2)
             const payload = {
                 id_salida:            'JR-' + Date.now(),
                 fecha:                new Date().toLocaleDateString('es-CO'),
@@ -67,107 +61,75 @@ const DB = {
                 placa:                datos.placa         || '',
                 motivo_de_salida:     datos.motivo        || '',
                 nombre_del_fallecido: datos.fallecido     || '',
+                clinica_hospital_o_rsd: datos.clinica     || '',
+                numero_prestacion:    datos.prestacion    || '',
                 origen:               datos.origen        || '',
                 destino:              datos.destino       || '',
                 hora_de_salida:       datos.hora_salida   || '',
                 hora_de_ingreso:      datos.hora_ingreso  || '',
-                km__salida:           datos.km_salida     || '',
-                km__ingreso:          datos.km_ingreso    || '',
+                km_salida:            datos.km_salida     || '',
+                km_ingreso:           datos.km_ingreso    || '',
                 total_km:             datos.total_km      || '',
                 coordinador_en_turno: datos.coordinador   || '',
                 observaciones:        datos.observaciones || '',
-                firma:                datos.firma         || '',
                 imagen1:              datos.imagen1       || '',
-                imagen2:              datos.imagen2       || '',
-                imagen3:              datos.imagen3       || '',
-                imagen4:              datos.imagen4       || ''
+                firma:                datos.firma         || ''
             };
-            payload['clinica_hospital_o_rsd'] = datos.clinica    || '';
-            payload['numero_prestacion']      = datos.prestacion || '';
-            const { error } = await _supabase.from('Traslado').insert([payload]);
-            return { ok: !error, error };
+
+            await fetch(`${URL_GAS}?sheetName=Traslado_rows`, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(payload)
+            });
+            return { ok: true };
         } catch (err) {
+            console.error("Error al guardar traslado:", err);
             return { ok: false, error: err };
         }
     },
 
     async obtenerTrasladosRecientes() {
-        try {
-            // ✅ Solo columnas necesarias — excluye imagen1/2/3/4 y firma
-            // que son base64 enormes y causan timeout en Supabase
-            const { data, error } = await _supabase
-                .from('Traslado')
-                .select('id_salida, fecha, regional, conductor, placa, motivo_de_salida, nombre_del_fallecido, clinica_hospital_o_rsd, origen, destino, hora_de_salida, hora_de_ingreso, km__salida, km__ingreso, total_km, coordinador_en_turno, observaciones, nnum_telefono, numero_prestacion')
-                .limit(50);
-            if (error) throw error;
-            const ordenado = (data || []).sort((a, b) => {
-                const ia = (a.id_salida || '').replace('JR-', '');
-                const ib = (b.id_salida || '').replace('JR-', '');
-                return Number(ib) - Number(ia);
-            });
-            return { data: ordenado, ok: true };
-        } catch (err) {
-            console.error('obtenerTrasladosRecientes error:', err);
-            return { data: [], ok: false };
-        }
+        const data = await this.fetchRows('Traslado_rows');
+        // Ordenar por ID de más nuevo a más viejo
+        const ordenado = (data || []).reverse();
+        return { data: ordenado.slice(0, 50), ok: true };
     },
 
     async obtenerMisSalidas(nombreConductor) {
-        try {
-            const { data, error } = await _supabase
-                .from('Traslado')
-                .select('id_salida, fecha, regional, conductor, placa, motivo_de_salida, nombre_del_fallecido, clinica_hospital_o_rsd, origen, destino, hora_de_salida, hora_de_ingreso, km__salida, km__ingreso, total_km, coordinador_en_turno, observaciones, nnum_telefono')
-                .ilike('conductor', '%' + nombreConductor + '%')
-                .limit(10);
-            if (error) throw error;
-            const ordenado = (data || []).sort((a, b) => {
-                const ia = (a.id_salida || '').replace('JR-', '');
-                const ib = (b.id_salida || '').replace('JR-', '');
-                return Number(ib) - Number(ia);
-            });
-            return { data: ordenado, ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
+        const data = await this.fetchRows('Traslado_rows');
+        const filtrados = data.filter(d => 
+            d.conductor && d.conductor.toLowerCase().includes(nombreConductor.toLowerCase())
+        );
+        return { data: filtrados.reverse().slice(0, 10), ok: true };
     },
 
     // ── 4. AVERÍAS ───────────────────────────────────────
     async guardarAveria(datos) {
         try {
-            const { error } = await _supabase.from('Averias').insert([datos]);
-            return { ok: !error, error };
+            await fetch(`${URL_GAS}?sheetName=Averias_rows`, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(datos)
+            });
+            return { ok: true };
         } catch (err) {
             return { ok: false, error: err };
         }
     },
 
     async obtenerTodasAverias() {
-        try {
-            const { data, error } = await _supabase
-                .from('Averias')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(20);
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
+        const data = await this.fetchRows('Averias_rows');
+        return { data: (data || []).reverse(), ok: true };
     },
 
     async obtenerMisAverias(nombreConductor) {
-        try {
-            const { data, error } = await _supabase
-                .from('Averias')
-                .select('*')
-                .ilike('reportado_por', '%' + nombreConductor + '%')
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            return { data: data || [], ok: true };
-        } catch (err) {
-            return { data: [], ok: false };
-        }
+        const data = await this.fetchRows('Averias_rows');
+        const filtrados = data.filter(d => 
+            d.reportado_por && d.reportado_por.toLowerCase().includes(nombreConductor.toLowerCase())
+        );
+        return { data: filtrados.reverse(), ok: true };
     }
 };
 
+// Exponer a nivel global para que tus otros archivos .html puedan usarlo
 window.DB = DB;
