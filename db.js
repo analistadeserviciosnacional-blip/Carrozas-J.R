@@ -1,15 +1,18 @@
-// ── CONFIGURACIÓN GOOGLE SHEETS J.R. ────────────────────────
+/**
+ * CONECTOR DE BASE DE DATOS - GOOGLE SHEETS
+ * Proyecto: Carrozas J.R
+ */
+
 const URL_GAS = "https://script.google.com/macros/s/AKfycbzQXp_jVV84vyyPXDAKscC8NTdsCSDUjmaqbDcblFowhcJNYrLqH27GVpaVPPQHXzupCw/exec";
 
 const DB = {
-    // Función auxiliar para leer datos del Excel
+    // Función interna para peticiones GET
     async fetchRows(sheetName) {
         try {
-            const res = await fetch(`${URL_GAS}?sheetName=${sheetName}`);
-            if (!res.ok) throw new Error('Error en la red');
-            return await res.json();
+            const response = await fetch(`${URL_GAS}?sheetName=${sheetName}`);
+            return await response.json();
         } catch (e) {
-            console.error("Error obteniendo datos de " + sheetName, e);
+            console.error("Error en fetchRows:", e);
             return [];
         }
     },
@@ -18,14 +21,20 @@ const DB = {
     async login(usuario, clave) {
         try {
             const users = await this.fetchRows('usuarios_rows');
-            const user = users.find(u => u.usuario == usuario && u.password == clave);
+            
+            // Convertimos todo a String antes de comparar para evitar el error de .toLowerCase()
+            const user = users.find(u => 
+                String(u.usuario || "").toLowerCase() === String(usuario || "").toLowerCase() && 
+                String(u.password || "") === String(clave || "")
+            );
+
             if (user) {
                 return { data: user, ok: true };
             } else {
                 return { data: null, ok: false, error: "Usuario o contraseña incorrectos" };
             }
         } catch (err) {
-            return { data: null, ok: false, error: err.message };
+            return { data: null, ok: false, error: "Error de conexión con el servidor" };
         }
     },
 
@@ -38,7 +47,7 @@ const DB = {
             });
             return { ok: true };
         } catch (err) {
-            return { ok: false, error: err };
+            return { ok: false, error: err.message };
         }
     },
 
@@ -48,10 +57,9 @@ const DB = {
         return { data: data || [], ok: true };
     },
 
-    // ── 3. TRASLADOS (Salida de Carrozas) ─────────────────
+    // ── 3. TRASLADOS ─────────────────────────────────────
     async guardarTraslado(datos) {
         try {
-            // Mapeo exacto según las columnas de tu Excel (Imagen 2)
             const payload = {
                 id_salida:            'JR-' + Date.now(),
                 fecha:                new Date().toLocaleDateString('es-CO'),
@@ -83,22 +91,19 @@ const DB = {
             });
             return { ok: true };
         } catch (err) {
-            console.error("Error al guardar traslado:", err);
-            return { ok: false, error: err };
+            return { ok: false, error: err.message };
         }
     },
 
     async obtenerTrasladosRecientes() {
         const data = await this.fetchRows('Traslado_rows');
-        // Ordenar por ID de más nuevo a más viejo
-        const ordenado = (data || []).reverse();
-        return { data: ordenado.slice(0, 50), ok: true };
+        return { data: data.reverse().slice(0, 50), ok: true };
     },
 
     async obtenerMisSalidas(nombreConductor) {
         const data = await this.fetchRows('Traslado_rows');
         const filtrados = data.filter(d => 
-            d.conductor && d.conductor.toLowerCase().includes(nombreConductor.toLowerCase())
+            String(d.conductor || "").toLowerCase().includes(String(nombreConductor).toLowerCase())
         );
         return { data: filtrados.reverse().slice(0, 10), ok: true };
     },
@@ -113,23 +118,14 @@ const DB = {
             });
             return { ok: true };
         } catch (err) {
-            return { ok: false, error: err };
+            return { ok: false, error: err.message };
         }
     },
 
     async obtenerTodasAverias() {
         const data = await this.fetchRows('Averias_rows');
-        return { data: (data || []).reverse(), ok: true };
-    },
-
-    async obtenerMisAverias(nombreConductor) {
-        const data = await this.fetchRows('Averias_rows');
-        const filtrados = data.filter(d => 
-            d.reportado_por && d.reportado_por.toLowerCase().includes(nombreConductor.toLowerCase())
-        );
-        return { data: filtrados.reverse(), ok: true };
+        return { data: data.reverse(), ok: true };
     }
 };
 
-// Exponer a nivel global para que tus otros archivos .html puedan usarlo
 window.DB = DB;
