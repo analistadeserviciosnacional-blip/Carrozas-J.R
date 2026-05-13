@@ -1,4 +1,4 @@
-const URL_GAS = "PEGA_AQUI_TU_URL_DE_IMPLEMENTACION"; // <--- AQUÍ PEGA LA URL
+const URL_GAS = "PEGA_AQUI_TU_URL_DE_IMPLEMENTACION"; //https://script.google.com/macros/s/AKfycbyL9ulGDwwh0kIYyxqFOmDYkmNu9EDnJTgbVrZq1ZnAhwRjAQq6CxCVu1PtTvZpfNFL2Q/exec
 
 const DB = {
     supabase: {
