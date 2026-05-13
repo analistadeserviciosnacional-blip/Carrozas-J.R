@@ -11,13 +11,16 @@ const URL_GAS = "https://script.google.com/macros/s/AKfycbyL9ulGDwwh0kIYyxqFOmDY
 // ── MAPEO: nombre lógico → nombre real de pestaña en Sheets ─
 // Ajusta si tus hojas tienen nombres distintos.
 const SHEET_MAP = {
+    // ── nombre usado en los HTML  →  pestaña real en Sheets ──
     'carrozas':             'carrozas_rows',
     'Traslado':             'Traslado_rows',
     'Averias':              'Averias_rows',
     'usuarios':             'usuarios_rows',
     'mantenimientos':       'mantenimientos_rows',
     'solicitud_apoyo':      'solicitud_apoyo_rows',
-    'notificaciones_apoyo': 'notificaciones_apoyo_rows'
+    'notificaciones_apoyo': 'notificaciones_apoyo_rows',
+    'Llegadas':             'Llegadas_rows'
+    // Si agregas más hojas en Sheets, ponlas aquí.
 };
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
 
