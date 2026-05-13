@@ -1,160 +1,83 @@
-/**
- * CONECTOR DE BASE DE DATOS - GOOGLE SHEETS
- * Proyecto: Carrozas J.R (Versión Final Corregida)
- */
-
+// db.js - CONECTOR UNIFICADO J.R. (GOOGLE SHEETS)
 const URL_GAS = "https://script.google.com/macros/s/AKfycbzQXp_jVV84vyyPXDAKscC8NTdsCSDUjmaqbDcblFowhcJNYrLqH27GVpaVPPQHXzupCw/exec";
 
 const DB = {
-    // Función interna para peticiones GET (Lectura)
-    async fetchRows(sheetName) {
-        try {
-            const response = await fetch(`${URL_GAS}?sheetName=${sheetName}`);
-            if (!response.ok) throw new Error("Error en respuesta de red");
-            const data = await response.json();
-            return Array.isArray(data) ? data : [];
-        } catch (e) {
-            console.error("Error en fetchRows (" + sheetName + "):", e);
-            return [];
-        }
+    // Simulación de Supabase para no tener que editar todos los HTML
+    supabase: {
+        from: (table) => ({
+            select: async (query) => {
+                const sheet = table === 'carrozas' ? 'carrozas_rows' : 
+                              table === 'Traslado' ? 'Traslado_rows' : 
+                              table === 'usuarios' ? 'usuarios_rows' : 
+                              table === 'Averias' ? 'Averias_rows' : 
+                              table === 'mantenimientos' ? 'mantenimientos_rows' : 
+                              table === 'solicitud_apoyo' ? 'solicitud_apoyo_rows' : table + '_rows';
+                
+                try {
+                    const res = await fetch(`${URL_GAS}?sheetName=${sheet}`);
+                    const data = await res.json();
+                    return { data, error: null };
+                } catch (e) { return { data: [], error: e }; }
+            },
+            insert: async (arrData) => {
+                const sheet = table + '_rows';
+                try {
+                    for (let row of arrData) {
+                        await fetch(`${URL_GAS}?sheetName=${sheet}`, {
+                            method: 'POST',
+                            body: JSON.stringify(row)
+                        });
+                    }
+                    return { error: null };
+                } catch (e) { return { error: e }; }
+            },
+            update: (updateData) => ({
+                eq: async (col, val) => {
+                    const sheet = table + '_rows';
+                    // El script de Google usará la primera columna como ID para el update
+                    try {
+                        await fetch(`${URL_GAS}?sheetName=${sheet}&action=update`, {
+                            method: 'POST',
+                            body: JSON.stringify(updateData)
+                        });
+                        return { error: null };
+                    } catch (e) { return { error: e }; }
+                }
+            }),
+            order: function() { return this; },
+            limit: function() { return this; },
+            ilike: function() { return this; },
+            eq: function() { return this; },
+            channel: () => ({ on: () => ({ subscribe: () => {} }) }) // Mock para Realtime
+        })
     },
 
-    // ── 1. SESIÓN Y REGISTRO ────────────────────────────
-    async login(usuario, clave) {
-        try {
-            // Obtenemos los usuarios del Excel
-            const users = await this.fetchRows('usuarios_rows');
-            
-            if (users.length === 0) {
-                return { data: null, ok: false, error: "No se pudo cargar la base de usuarios" };
-            }
+    // Funciones directas usadas en los formularios
+    async login(u, p) {
+        const res = await this.supabase.from('usuarios').select();
+        const user = res.data.find(row => row.usuario === u && row.password === p);
+        return user ? { ok: true, data: user } : { ok: false };
+    },
 
-            // Buscamos el usuario ignorando mayúsculas/minúsculas y quitando espacios
-            const user = users.find(u => 
-                String(u.usuario || "").trim().toLowerCase() === String(usuario || "").trim().toLowerCase() && 
-                String(u.password || "").trim() === String(clave || "").trim()
-            );
-
-            if (user) {
-                // Aseguramos que el objeto tenga las propiedades mínimas que espera el Dashboard
-                const userData = {
-                    ...user,
-                    nombre: user.nombre || user.usuario,
-                    rol: (user.rol || "conductor").toLowerCase().trim()
-                };
-                return { data: userData, ok: true };
-            } else {
-                return { data: null, ok: false, error: "Usuario o contraseña incorrectos" };
-            }
-        } catch (err) {
-            console.error("Error en Login:", err);
-            return { data: null, ok: false, error: "Error de conexión con el servidor" };
-        }
+    async obtenerFlota() {
+        return await this.supabase.from('carrozas').select();
     },
 
     async registrarUsuario(datos) {
-        try {
-            await fetch(`${URL_GAS}?sheetName=usuarios_rows`, {
-                method: 'POST',
-                mode: 'no-cors', // Google Apps Script requiere no-cors
-                cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(datos)
-            });
-            // Con no-cors no podemos leer la respuesta, pero si no hay catch, asumimos éxito
-            return { ok: true };
-        } catch (err) {
-            return { ok: false, error: err.message };
-        }
+        return await this.supabase.from('usuarios').insert([datos]);
     },
 
-    // ── 2. FLOTA ────────────────────────────────────────
-    async obtenerFlota() {
-        try {
-            const data = await this.fetchRows('carrozas_rows');
-            return { data: data || [], ok: true };
-        } catch (e) {
-            return { data: [], ok: false };
-        }
-    },
-
-    // ── 3. TRASLADOS (Salidas) ───────────────────────────
     async guardarTraslado(datos) {
-        try {
-            const payload = {
-                id_salida: 'JR-' + Date.now(),
-                fecha: new Date().toLocaleDateString('es-CO'),
-                regional: datos.regional || '',
-                conductor: datos.conductor || '',
-                nnum_telefono: datos.telefono || '',
-                placa: datos.placa || '',
-                motivo_de_salida: datos.motivo || '',
-                nombre_del_fallecido: datos.fallecido || '',
-                clinica_hospital_o_rsd: datos.clinica || '',
-                numero_prestacion: datos.prestacion || '',
-                origen: datos.origen || '',
-                destino: datos.destino || '',
-                hora_de_salida: datos.hora_salida || '',
-                hora_de_ingreso: datos.hora_ingreso || '',
-                km_salida: datos.km_salida || '',
-                km_ingreso: datos.km_ingreso || '',
-                total_km: datos.total_km || '',
-                coordinador_en_turno: datos.coordinador || '',
-                observaciones: datos.observaciones || '',
-                imagen1: datos.imagen1 || '', // Base64 de la imagen
-                firma: datos.firma || ''      // Base64 de la firma
-            };
-
-            await fetch(`${URL_GAS}?sheetName=Traslado_rows`, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(payload)
-            });
-            return { ok: true };
-        } catch (err) {
-            console.error("Error guardando traslado:", err);
-            return { ok: false, error: err.message };
-        }
+        return await this.supabase.from('Traslado').insert([datos]);
     },
 
     async obtenerTrasladosRecientes() {
-        const data = await this.fetchRows('Traslado_rows');
-        // Invertimos el array para ver lo más reciente primero y limitamos a 50
-        const sorted = [...data].reverse();
-        return { data: sorted.slice(0, 50), ok: true };
+        return await this.supabase.from('Traslado').select();
     },
 
-    async obtenerMisSalidas(nombreConductor) {
-        try {
-            const data = await this.fetchRows('Traslado_rows');
-            const filtrados = data.filter(d => 
-                String(d.conductor || "").toLowerCase().includes(String(nombreConductor || "").toLowerCase())
-            );
-            return { data: filtrados.reverse().slice(0, 10), ok: true };
-        } catch (e) {
-            return { data: [], ok: false };
-        }
-    },
-
-    // ── 4. AVERÍAS ───────────────────────────────────────
     async guardarAveria(datos) {
-        try {
-            await fetch(`${URL_GAS}?sheetName=Averias_rows`, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(datos)
-            });
-            return { ok: true };
-        } catch (err) {
-            return { ok: false, error: err.message };
-        }
-    },
-
-    async obtenerTodasAverias() {
-        const data = await this.fetchRows('Averias_rows');
-        return { data: [...data].reverse(), ok: true };
+        return await this.supabase.from('Averias').insert([datos]);
     }
 };
 
-// Exportamos para uso global en la App
 window.DB = DB;
