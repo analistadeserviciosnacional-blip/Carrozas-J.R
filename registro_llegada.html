@@ -140,7 +140,7 @@
         btn.innerText = "Procesando...";
         btn.disabled = true;
 
-        // CORRECCIÓN: tabla 'carrozas' (minúsculas), actualizar km y estado
+        // 1. Actualizar km y estado en carrozas
         const { error: errorCarroza } = await DB.supabase
             .from('carrozas')
             .update({ 
@@ -153,17 +153,30 @@
             alert("Error al actualizar: " + errorCarroza.message);
             btn.disabled = false;
             btn.innerText = "🏁 FINALIZAR SERVICIO";
-        } else {
-            enviarConfirmacionWA({
-                placa,
-                km_ingreso: kmIngreso,
-                hora_ingreso: document.getElementById('hora_ingreso').value,
-                estado_entrega: document.getElementById('estado_entrega').value,
-                observaciones: document.getElementById('observaciones').value
-            });
-            alert("✅ Llegada registrada. Carroza " + placa + " ahora está DISPONIBLE.");
-            irAtras();
+            return;
         }
+
+        // 2. Guardar registro en Llegadas_rows
+        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        await DB.guardarLlegada({
+            placa,
+            km_ingreso:     kmIngreso,
+            hora_ingreso:   document.getElementById('hora_ingreso').value,
+            estado_entrega: document.getElementById('estado_entrega').value,
+            observaciones:  document.getElementById('observaciones').value,
+            conductor:      sesion.nombre   || '',
+            regional:       sesion.regional || ''
+        });
+
+        enviarConfirmacionWA({
+            placa,
+            km_ingreso:     kmIngreso,
+            hora_ingreso:   document.getElementById('hora_ingreso').value,
+            estado_entrega: document.getElementById('estado_entrega').value,
+            observaciones:  document.getElementById('observaciones').value
+        });
+        alert("✅ Llegada registrada. Carroza " + placa + " ahora está DISPONIBLE.");
+        irAtras();
     };
 
     function enviarConfirmacionWA(d) {
