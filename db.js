@@ -6,7 +6,7 @@
  * ══════════════════════════════════════════════════════════
  */
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbyL9ulGDwwh0kIYyxqFOmDYkmNu9EDnJTgbVrZq1ZnAhwRjAQq6CxCVu1PtTvZpfNFL2Q/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbzQXp_jVV84vyyPXDAKscC8NTdsCSDUjmaqbDcblFowhcJNYrLqH27GVpaVPPQHXzupCw/exec";
 
 // ── MAPEO: nombre lógico → nombre real de pestaña en Sheets ─
 // Ajusta si tus hojas tienen nombres distintos.
@@ -350,7 +350,24 @@ const DB = {
         }
     },
 
-    // ── 4. AVERÍAS ────────────────────────────────────────
+    // ── 4. LLEGADAS ───────────────────────────────────────
+    async guardarLlegada(datos) {
+        const payload = {
+            id_llegada:      'LG-' + Date.now(),
+            fecha:           new Date().toLocaleDateString('es-CO'),
+            placa:           datos.placa            || '',
+            km_ingreso:      datos.km_ingreso       || '',
+            hora_ingreso:    datos.hora_ingreso     || '',
+            estado_entrega:  datos.estado_entrega   || '',
+            observaciones:   datos.observaciones    || '',
+            conductor:       datos.conductor        || '',
+            regional:        datos.regional         || '',
+            created_at:      new Date().toISOString()
+        };
+        return await this._post('Llegadas_rows', payload);
+    },
+
+    // ── 5. AVERÍAS ────────────────────────────────────────
     async guardarAveria(datos) {
         return await this._post('Averias_rows', {
             ...datos,
