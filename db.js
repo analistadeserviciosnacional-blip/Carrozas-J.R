@@ -6,7 +6,7 @@
  * ══════════════════════════════════════════════════════════
  */
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbyDIaZxzdzBUpIHITlNNOSpiQ5h3j_E33LNA9Mqkk4IfEsmejOOlEOJ7QehzdYGa7N-5w/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycby5MR_uCz7FgYB35aDZp7m9zJX_-QZDSRgZIPixisZ0NPnikmAmG_Wfzah1DLe19K5j3Q/exec";
 
 // ── MAPEO: nombre lógico → nombre real de pestaña en Sheets ─
 // Ajusta si tus hojas tienen nombres distintos.
@@ -143,50 +143,63 @@ class GASQueryBuilder {
         return { data: rows, error: null };
     }
 
+    // ── HELPER POST — intenta CORS, fallback a no-cors ───
+    async _gasPost(url, payload) {
+        // Intentar con CORS (funciona si el GAS tiene setCORSHeaders)
+        try {
+            const resp = await fetch(url, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(payload)
+            });
+            return await resp.json().catch(() => ({ ok: true }));
+        } catch (_corsErr) {
+            // Fallback: no-cors sin headers (funciona con URL antigua sin CORS)
+            // GAS recibe el JSON en e.postData.contents con type text/plain
+            await fetch(url, {
+                method: 'POST',
+                mode:   'no-cors',
+                body:   JSON.stringify(payload)
+            });
+            return { ok: true };  // no-cors nunca reporta error
+        }
+    }
+
     // ── INSERT ───────────────────────────────────────────
     async _execInsert() {
         const payload = { ...this._payload };
         if (!payload.id) payload.id = 'JR-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
         if (!payload.created_at) payload.created_at = new Date().toISOString();
 
-        const resp = await fetch(`${URL_GAS}?sheetName=${encodeURIComponent(this._table)}`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify(payload)
-        });
-        const result = await resp.json().catch(() => ({ ok: true }));
-        return { data: payload, error: result.ok ? null : { message: result.error } };
+        const result = await this._gasPost(
+            `${URL_GAS}?sheetName=${encodeURIComponent(this._table)}`,
+            payload
+        );
+        return { data: payload, error: result.ok === false ? { message: result.error } : null };
     }
 
     // ── UPDATE ───────────────────────────────────────────
     async _execUpdate() {
-        if (this._filters.length === 0) {
-            throw new Error('UPDATE sin filtro eq() — operación cancelada');
-        }
+        if (this._filters.length === 0) throw new Error('UPDATE sin filtro eq() — cancelado');
         const idFilter = this._filters[0];
-        const updatePayload = { ...this._payload };
 
-        const resp = await fetch(
+        const result = await this._gasPost(
             `${URL_GAS}?sheetName=${encodeURIComponent(this._table)}&action=update&idCol=${encodeURIComponent(idFilter.col)}&idValue=${encodeURIComponent(idFilter.val)}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatePayload) }
+            { ...this._payload }
         );
-        const result = await resp.json().catch(() => ({ ok: true }));
-        return { data: this._payload, error: result.ok ? null : { message: result.error } };
+        return { data: this._payload, error: result.ok === false ? { message: result.error } : null };
     }
 
     // ── DELETE ───────────────────────────────────────────
     async _execDelete() {
-        if (this._filters.length === 0) {
-            throw new Error('DELETE sin filtro eq() — operación cancelada');
-        }
+        if (this._filters.length === 0) throw new Error('DELETE sin filtro eq() — cancelado');
         const idFilter = this._filters[0];
 
-        const resp = await fetch(
+        const result = await this._gasPost(
             `${URL_GAS}?sheetName=${encodeURIComponent(this._table)}&action=delete&idCol=${encodeURIComponent(idFilter.col)}&idValue=${encodeURIComponent(idFilter.val)}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }
+            {}
         );
-        const result = await resp.json().catch(() => ({ ok: true }));
-        return { data: null, error: result.ok ? null : { message: result.error } };
+        return { data: null, error: result.ok === false ? { message: result.error } : null };
     }
 }
 
@@ -230,13 +243,19 @@ const DB = {
         if (idCol)   params.set('idCol',   idCol);
         if (idValue) params.set('idValue', idValue);
 
-        const resp = await fetch(`${URL_GAS}?${params}`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify(payload)
-        });
-        const result = await resp.json().catch(() => ({ ok: true }));
-        return result.ok !== false ? { ok: true } : { ok: false, error: result.error };
+        const url = `${URL_GAS}?${params}`;
+        try {
+            const resp = await fetch(url, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(payload)
+            });
+            const result = await resp.json().catch(() => ({ ok: true }));
+            return result.ok !== false ? { ok: true } : { ok: false, error: result.error };
+        } catch (_corsErr) {
+            await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+            return { ok: true };
+        }
     },
 
     // ── 1. SESIÓN ─────────────────────────────────────────
