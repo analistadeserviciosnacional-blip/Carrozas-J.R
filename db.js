@@ -6,7 +6,7 @@
  * ══════════════════════════════════════════════════════════
  */
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbzQXp_jVV84vyyPXDAKscC8NTdsCSDUjmaqbDcblFowhcJNYrLqH27GVpaVPPQHXzupCw/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbyDIaZxzdzBUpIHITlNNOSpiQ5h3j_E33LNA9Mqkk4IfEsmejOOlEOJ7QehzdYGa7N-5w/exec";
 
 // ── MAPEO: nombre lógico → nombre real de pestaña en Sheets ─
 // Ajusta si tus hojas tienen nombres distintos.
@@ -149,56 +149,44 @@ class GASQueryBuilder {
         if (!payload.id) payload.id = 'JR-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
         if (!payload.created_at) payload.created_at = new Date().toISOString();
 
-        // ✅ no-cors + sin headers personalizados = GAS recibe e.postData.contents correctamente
-        await fetch(`${URL_GAS}?sheetName=${encodeURIComponent(this._table)}`, {
-            method: 'POST',
-            mode:   'no-cors',
-            body:   JSON.stringify(payload)
+        const resp = await fetch(`${URL_GAS}?sheetName=${encodeURIComponent(this._table)}`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
         });
-        return { data: payload, error: null };
+        const result = await resp.json().catch(() => ({ ok: true }));
+        return { data: payload, error: result.ok ? null : { message: result.error } };
     }
 
     // ── UPDATE ───────────────────────────────────────────
     async _execUpdate() {
         if (this._filters.length === 0) {
-            throw new Error('UPDATE sin filtro eq() es peligroso — operación cancelada');
+            throw new Error('UPDATE sin filtro eq() — operación cancelada');
         }
+        const idFilter = this._filters[0];
+        const updatePayload = { ...this._payload };
 
-        // GAS necesita saber qué columna / valor identifican la fila
-        const idFilter = this._filters[0];   // primer .eq() = identificador
-        const updatePayload = {
-            ...this._payload,
-            _action:  'update',
-            _idCol:   idFilter.col,
-            _idValue: idFilter.val
-        };
-
-        await fetch(`${URL_GAS}?sheetName=${encodeURIComponent(this._table)}&action=update&idCol=${encodeURIComponent(idFilter.col)}&idValue=${encodeURIComponent(idFilter.val)}`, {
-            method: 'POST',
-            mode:   'no-cors',
-            body:   JSON.stringify(updatePayload)
-        });
-        return { data: this._payload, error: null };
+        const resp = await fetch(
+            `${URL_GAS}?sheetName=${encodeURIComponent(this._table)}&action=update&idCol=${encodeURIComponent(idFilter.col)}&idValue=${encodeURIComponent(idFilter.val)}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatePayload) }
+        );
+        const result = await resp.json().catch(() => ({ ok: true }));
+        return { data: this._payload, error: result.ok ? null : { message: result.error } };
     }
 
     // ── DELETE ───────────────────────────────────────────
     async _execDelete() {
         if (this._filters.length === 0) {
-            throw new Error('DELETE sin filtro eq() es peligroso — operación cancelada');
+            throw new Error('DELETE sin filtro eq() — operación cancelada');
         }
         const idFilter = this._filters[0];
-        const deletePayload = {
-            _action:  'delete',
-            _idCol:   idFilter.col,
-            _idValue: idFilter.val
-        };
 
-        await fetch(`${URL_GAS}?sheetName=${encodeURIComponent(this._table)}&action=delete&idCol=${encodeURIComponent(idFilter.col)}&idValue=${encodeURIComponent(idFilter.val)}`, {
-            method: 'POST',
-            mode:   'no-cors',
-            body:   JSON.stringify(deletePayload)
-        });
-        return { data: null, error: null };
+        const resp = await fetch(
+            `${URL_GAS}?sheetName=${encodeURIComponent(this._table)}&action=delete&idCol=${encodeURIComponent(idFilter.col)}&idValue=${encodeURIComponent(idFilter.val)}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }
+        );
+        const result = await resp.json().catch(() => ({ ok: true }));
+        return { data: null, error: result.ok ? null : { message: result.error } };
     }
 }
 
@@ -242,12 +230,13 @@ const DB = {
         if (idCol)   params.set('idCol',   idCol);
         if (idValue) params.set('idValue', idValue);
 
-        await fetch(`${URL_GAS}?${params}`, {
-            method: 'POST',
-            mode:   'no-cors',
-            body:   JSON.stringify(payload)
+        const resp = await fetch(`${URL_GAS}?${params}`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
         });
-        return { ok: true };
+        const result = await resp.json().catch(() => ({ ok: true }));
+        return result.ok !== false ? { ok: true } : { ok: false, error: result.error };
     },
 
     // ── 1. SESIÓN ─────────────────────────────────────────
@@ -298,8 +287,11 @@ const DB = {
     async guardarTraslado(datos) {
         const kmSalida  = parseInt(datos.km_salida)  || 0;
         const kmIngreso = parseInt(datos.km_ingreso) || 0;
-        const totalKm   = kmIngreso > kmSalida ? kmIngreso - kmSalida : (datos.total_km || 0);
+        const totalKm   = kmIngreso > kmSalida ? kmIngreso - kmSalida : (parseInt(datos.total_km) || 0);
 
+        // ⚠️ imagen1/firma son base64 y pueden pesar >500KB.
+        // Google Apps Script con no-cors rechaza payloads grandes silenciosamente.
+        // Se guardan solo los datos de texto; las fotos se comparten por WhatsApp.
         const payload = {
             id_salida:               'JR-' + Date.now(),
             fecha:                   new Date().toLocaleDateString('es-CO'),
@@ -320,8 +312,8 @@ const DB = {
             total_km:                totalKm,
             coordinador_en_turno:    datos.coordinador      || '',
             observaciones:           datos.observaciones    || '',
-            imagen1:                 datos.imagen1          || '',
-            firma:                   datos.firma            || ''
+            imagen1:                 '(ver WhatsApp)',
+            firma:                   '(digital)'
         };
         return await this._post('Traslado_rows', payload);
     },
