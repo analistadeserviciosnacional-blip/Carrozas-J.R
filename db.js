@@ -146,18 +146,15 @@ class GASQueryBuilder {
     // ── INSERT ───────────────────────────────────────────
     async _execInsert() {
         const payload = { ...this._payload };
-
-        // Auto-generar id si no existe (para tablas que lo necesitan)
         if (!payload.id) payload.id = 'JR-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
         if (!payload.created_at) payload.created_at = new Date().toISOString();
 
+        // ✅ no-cors + sin headers personalizados = GAS recibe e.postData.contents correctamente
         await fetch(`${URL_GAS}?sheetName=${encodeURIComponent(this._table)}`, {
             method: 'POST',
             mode:   'no-cors',
-            headers: { 'Content-Type': 'application/json' },
             body:   JSON.stringify(payload)
         });
-        // no-cors → no podemos leer la respuesta; asumimos éxito
         return { data: payload, error: null };
     }
 
@@ -179,7 +176,6 @@ class GASQueryBuilder {
         await fetch(`${URL_GAS}?sheetName=${encodeURIComponent(this._table)}&action=update&idCol=${encodeURIComponent(idFilter.col)}&idValue=${encodeURIComponent(idFilter.val)}`, {
             method: 'POST',
             mode:   'no-cors',
-            headers: { 'Content-Type': 'application/json' },
             body:   JSON.stringify(updatePayload)
         });
         return { data: this._payload, error: null };
@@ -200,7 +196,6 @@ class GASQueryBuilder {
         await fetch(`${URL_GAS}?sheetName=${encodeURIComponent(this._table)}&action=delete&idCol=${encodeURIComponent(idFilter.col)}&idValue=${encodeURIComponent(idFilter.val)}`, {
             method: 'POST',
             mode:   'no-cors',
-            headers: { 'Content-Type': 'application/json' },
             body:   JSON.stringify(deletePayload)
         });
         return { data: null, error: null };
@@ -250,7 +245,6 @@ const DB = {
         await fetch(`${URL_GAS}?${params}`, {
             method: 'POST',
             mode:   'no-cors',
-            headers: { 'Content-Type': 'application/json' },
             body:   JSON.stringify(payload)
         });
         return { ok: true };
@@ -302,6 +296,10 @@ const DB = {
 
     // ── 3. TRASLADOS ──────────────────────────────────────
     async guardarTraslado(datos) {
+        const kmSalida  = parseInt(datos.km_salida)  || 0;
+        const kmIngreso = parseInt(datos.km_ingreso) || 0;
+        const totalKm   = kmIngreso > kmSalida ? kmIngreso - kmSalida : (datos.total_km || 0);
+
         const payload = {
             id_salida:               'JR-' + Date.now(),
             fecha:                   new Date().toLocaleDateString('es-CO'),
@@ -317,9 +315,9 @@ const DB = {
             destino:                 datos.destino          || '',
             hora_de_salida:          datos.hora_salida      || '',
             hora_de_ingreso:         datos.hora_ingreso     || '',
-            km__salida:              datos.km_salida        || '',
-            km__ingreso:             datos.km_ingreso       || '',
-            total_km:                datos.total_km         || '',
+            km__salida:              kmSalida,
+            km__ingreso:             kmIngreso,
+            total_km:                totalKm,
             coordinador_en_turno:    datos.coordinador      || '',
             observaciones:           datos.observaciones    || '',
             imagen1:                 datos.imagen1          || '',
