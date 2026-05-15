@@ -6,7 +6,7 @@
  * ══════════════════════════════════════════════════════════
  */
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycby5MR_uCz7FgYB35aDZp7m9zJX_-QZDSRgZIPixisZ0NPnikmAmG_Wfzah1DLe19K5j3Q/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycby1ENB_FxLQOdKWJQBajQoTIc4bRcABpiyy0byThGST-wYMi6hMUjs1r7RbQ4JjEr2hIg/exec";
 
 // ── MAPEO: nombre lógico → nombre real de pestaña en Sheets ─
 // Ajusta si tus hojas tienen nombres distintos.
