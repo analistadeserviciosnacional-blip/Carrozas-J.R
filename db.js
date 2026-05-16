@@ -1,14 +1,12 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v7.0  ✅ CORREGIDO
- * ══════════════════════════════════════════════════════════
+ *  CONECTOR J.R. CARROZAS — db.js  v8.0 FINAL
  *
- *  FIXES v7.0:
- *  - mantenimientos → mantenimientos_rows (en SHEET_MAP)
- *  - gasGet() ya NO lanza error si la hoja no existe,
- *    devuelve [] silenciosamente para no romper otros flujos
- *  - gasWrite() con reintentos y timeout guard
- *  - guardarTraslado() robusto: no depende de mantenimientos
+ *  CAMBIO DEFINITIVO:
+ *  gasWrite() ahora usa POST con body JSON.
+ *  - Sin límite de URL → firma e imágenes funcionan
+ *  - Google Apps Script con doPost() recibe el body completo
+ *  - Compatible con el nuevo Code.gs v5
  * ══════════════════════════════════════════════════════════
  */
 
@@ -20,75 +18,67 @@ const SHEET_MAP = {
   'Averias':              'Averias_rows',
   'usuarios':             'usuarios_rows',
   'Llegadas':             'Llegadas_rows',
-  'mantenimientos':       'mantenimientos_rows',   // ← nombre correcto en el sheet
+  'mantenimientos':       'mantenimientos_rows',
   'solicitud_apoyo':      'solicitud_apoyo_rows',
   'notificaciones_apoyo': 'notificaciones_apoyo_rows',
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
 
-// ── GET LECTURA ─────────────────────────────────────────────
-// Devuelve [] si la hoja no existe (no lanza error)
+// ── LECTURA via GET ─────────────────────────────────────────
 async function gasGet(sheetName) {
   try {
     const url  = `${URL_GAS}?sheetName=${encodeURIComponent(resolveSheet(sheetName))}`;
     const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
-    if (!resp.ok) {
-      console.warn(`⚠️ gasGet ${sheetName}: HTTP ${resp.status}`);
-      return [];
-    }
+    if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
     const json = await resp.json();
-    // Si el servidor devuelve { ok: false, error: "Hoja no encontrada..." }
-    if (json && json.error) {
-      console.warn(`⚠️ gasGet ${sheetName}: ${json.error}`);
-      return [];   // ← retorna array vacío en vez de lanzar
-    }
+    if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
     return Array.isArray(json) ? json : [];
   } catch (err) {
-    console.warn(`⚠️ gasGet ${sheetName} falló silenciosamente:`, err.message);
+    console.warn(`gasGet ${sheetName} error:`, err.message);
     return [];
   }
 }
 
-// ── GET ESCRITURA ────────────────────────────────────────────
+// ── ESCRITURA via POST (body JSON, sin límite de tamaño) ────
 async function gasWrite(sheetName, payload, action = "insert", idCol = "", idValue = "") {
-  const camposGrandes = ['imagen1','imagen2','imagen3','imagen4','firma'];
-  const payloadSinImgs = {};
-  const payloadImgs    = {};
+  const urlParams = new URLSearchParams({ sheetName: resolveSheet(sheetName), action });
+  if (idCol)   urlParams.set('idCol',   idCol);
+  if (idValue) urlParams.set('idValue', idValue);
 
-  for (const [k, v] of Object.entries(payload)) {
-    if (camposGrandes.includes(k) && String(v).length > 200) {
-      payloadImgs[k] = String(v).substring(0, 50) + '...[foto]';
-    } else {
-      payloadSinImgs[k] = v;
-    }
-  }
-
-  const payloadFinal = { ...payloadSinImgs, ...payloadImgs };
-
-  const params = new URLSearchParams({
-    sheetName: resolveSheet(sheetName),
-    action,
-    data: JSON.stringify(payloadFinal),
-    ...(idCol   ? { idCol }   : {}),
-    ...(idValue ? { idValue } : {}),
-  });
+  const url = `${URL_GAS}?${urlParams}`;
 
   try {
-    const resp = await fetch(`${URL_GAS}?${params}`, {
-      method: 'GET',
+    const resp = await fetch(url, {
+      method:   'POST',
       redirect: 'follow',
+      headers:  { 'Content-Type': 'text/plain' },   // text/plain evita preflight CORS
+      body:     JSON.stringify(payload),
     });
-    if (!resp.ok) return { ok: false, error: `HTTP ${resp.status}` };
-    const json = await resp.json();
-    return { ok: json.ok !== false, data: json };
+
+    if (!resp.ok) {
+      console.error(`gasWrite HTTP ${resp.status} para ${sheetName}`);
+      return { ok: false, error: `HTTP ${resp.status}` };
+    }
+
+    const text = await resp.text();
+    let json;
+    try { json = JSON.parse(text); }
+    catch(e) { return { ok: false, error: 'Respuesta no JSON: ' + text.substring(0, 200) }; }
+
+    if (json.ok === false) {
+      console.error(`gasWrite error en hoja ${sheetName}:`, json.error);
+      return { ok: false, error: json.error || 'Error desconocido' };
+    }
+
+    return { ok: true, data: json };
   } catch(err) {
-    console.error("❌ gasWrite error:", err);
+    console.error('gasWrite excepción:', err);
     return { ok: false, error: err.message };
   }
 }
 
-// ── QUERY BUILDER ────────────────────────────────────────────
+// ── QUERY BUILDER ───────────────────────────────────────────
 class GASQueryBuilder {
   constructor(t) {
     this._table         = t;
@@ -113,8 +103,8 @@ class GASQueryBuilder {
       const f = this._filters[0];
       if (!f) { resolve({ data: null, error: { message: 'update requiere .eq()' } }); return; }
       gasWrite(this._table, this._updatePayload, 'update', f.col, f.val)
-        .then(res => resolve({ data: null, error: res.ok ? null : res.error }))
-        .catch(err => resolve({ data: null, error: err }));
+        .then(res => resolve({ data: null, error: res.ok ? null : { message: res.error } }))
+        .catch(err => resolve({ data: null, error: { message: err.message } }));
       return;
     }
 
@@ -126,7 +116,7 @@ class GASQueryBuilder {
           rows = rows.filter(r => String(r[f.col]||'').toLowerCase().includes(f.val));
         for (const o of this._orders)
           rows.sort((a,b) => {
-            const va=String(a[o.col]||''), vb=String(b[o.col]||'');
+            const va = String(a[o.col]||''), vb = String(b[o.col]||'');
             return o.asc ? va.localeCompare(vb) : vb.localeCompare(va);
           });
         if (this._limitN) rows = rows.slice(0, this._limitN);
@@ -134,17 +124,17 @@ class GASQueryBuilder {
           ? { data: rows[0]||null, error: rows.length ? null : { message: 'No rows' } }
           : { data: rows, error: null });
       })
-      .catch(err => { console.error("DB GET error:", err); resolve({ data: null, error: err }); });
+      .catch(err => resolve({ data: null, error: { message: err.message } }));
   }
 }
 
-// ── STUB REALTIME ─────────────────────────────────────────────
+// ── STUB REALTIME ────────────────────────────────────────────
 class ChannelStub {
   on()        { return this; }
-  subscribe() { console.info("ℹ️ Realtime no disponible con Google Sheets."); return this; }
+  subscribe() { return this; }
 }
 
-// ── OBJETO DB ─────────────────────────────────────────────────
+// ── OBJETO DB ────────────────────────────────────────────────
 const DB = {
 
   supabase: {
@@ -159,7 +149,9 @@ const DB = {
         String(r.usuario ||'').trim().toLowerCase() === usuario.trim().toLowerCase() &&
         String(r.password||'').trim()               === clave.trim()
       );
-      return match.length > 0 ? { ok: true, data: match[0] } : { ok: false, error: 'Credenciales incorrectas' };
+      return match.length > 0
+        ? { ok: true,  data: match[0] }
+        : { ok: false, error: 'Credenciales incorrectas' };
     } catch(e) { return { ok: false, error: e.message }; }
   },
 
@@ -168,7 +160,7 @@ const DB = {
   },
 
   async obtenerFlota() {
-    try { return { ok: true, data: await gasGet('carrozas') }; }
+    try { return { ok: true,  data: await gasGet('carrozas') }; }
     catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
@@ -184,6 +176,14 @@ const DB = {
     try {
       let data = await gasGet('Averias');
       data.sort((a,b) => String(b.created_at||b.fecha||'').localeCompare(String(a.created_at||a.fecha||'')));
+      return { ok: true, data: data.slice(0, limite) };
+    } catch(e) { return { ok: false, data: [], error: e.message }; }
+  },
+
+  async obtenerMantenimientos(limite = 50) {
+    try {
+      let data = await gasGet('mantenimientos');
+      data.sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
       return { ok: true, data: data.slice(0, limite) };
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
@@ -216,32 +216,19 @@ const DB = {
       imagen4:                d.imagen4               || '',
       firma:                  d.firma                 || '',
     };
-
-    const resultado = await gasWrite('Traslado', fila, 'insert');
-
-    // ── Actualizar km de la carroza si viene placa ──────────
-    if (resultado.ok && d.placa && d.km_ingreso) {
-      await gasWrite('carrozas', { km_actual: d.km_ingreso }, 'update', 'placa', d.placa)
-        .catch(err => console.warn('⚠️ No se actualizó km de carroza:', err));
-    }
-
-    return resultado;
+    return await gasWrite('Traslado', fila, 'insert');
   },
 
   async actualizarCarroza(placa, campos) {
     return await gasWrite('carrozas', campos, 'update', 'placa', placa);
   },
 
-  async insertar(hoja, datos)                   { return await gasWrite(hoja, datos, 'insert'); },
-  async actualizar(hoja, datos, idCol, idValue) { return await gasWrite(hoja, datos, 'update', idCol, idValue); },
+  async insertar(hoja, datos) {
+    return await gasWrite(hoja, datos, 'insert');
+  },
 
-  // ── MANTENIMIENTOS (con fallback si la hoja no tiene datos) ─
-  async obtenerMantenimientos(limite = 50) {
-    try {
-      let data = await gasGet('mantenimientos');   // gasGet nunca lanza, devuelve []
-      data.sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
-      return { ok: true, data: data.slice(0, limite) };
-    } catch(e) { return { ok: false, data: [], error: e.message }; }
+  async actualizar(hoja, datos, idCol, idValue) {
+    return await gasWrite(hoja, datos, 'update', idCol, idValue);
   },
 
   async testConexion() {
