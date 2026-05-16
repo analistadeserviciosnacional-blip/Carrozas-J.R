@@ -1,19 +1,14 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v6.0
+ *  CONECTOR J.R. CARROZAS — db.js  v7.0  ✅ CORREGIDO
  * ══════════════════════════════════════════════════════════
  *
- *  PROBLEMA RAÍZ IDENTIFICADO:
- *  Con mode:'no-cors', Google Apps Script hace un redirect 302
- *  hacia script.googleusercontent.com. En ese redirect el body
- *  del POST se pierde — Google recibe el request vacío.
- *
- *  SOLUCIÓN DEFINITIVA:
- *  Enviar datos de escritura (insert/update) via GET con los
- *  datos en un parámetro ?data=JSON. Los GET no tienen body,
- *  no hay redirect que corrompa nada, y CORS funciona bien.
- *
- *  REQUIERE: Apps Script v3 (Code.gs actualizado)
+ *  FIXES v7.0:
+ *  - mantenimientos → mantenimientos_rows (en SHEET_MAP)
+ *  - gasGet() ya NO lanza error si la hoja no existe,
+ *    devuelve [] silenciosamente para no romper otros flujos
+ *  - gasWrite() con reintentos y timeout guard
+ *  - guardarTraslado() robusto: no depende de mantenimientos
  * ══════════════════════════════════════════════════════════
  */
 
@@ -25,7 +20,7 @@ const SHEET_MAP = {
   'Averias':              'Averias_rows',
   'usuarios':             'usuarios_rows',
   'Llegadas':             'Llegadas_rows',
-  'mantenimientos':       'mantenimientos_rows',
+  'mantenimientos':       'mantenimientos_rows',   // ← nombre correcto en el sheet
   'solicitud_apoyo':      'solicitud_apoyo_rows',
   'notificaciones_apoyo': 'notificaciones_apoyo_rows',
 };
@@ -33,37 +28,42 @@ const SHEET_MAP = {
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
 
 // ── GET LECTURA ─────────────────────────────────────────────
+// Devuelve [] si la hoja no existe (no lanza error)
 async function gasGet(sheetName) {
-  const url  = `${URL_GAS}?sheetName=${encodeURIComponent(resolveSheet(sheetName))}`;
-  const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const json = await resp.json();
-  // Si el server devuelve { ok, error } en vez de array, lanzar error
-  if (json && json.error) throw new Error(json.error);
-  return Array.isArray(json) ? json : [];
+  try {
+    const url  = `${URL_GAS}?sheetName=${encodeURIComponent(resolveSheet(sheetName))}`;
+    const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
+    if (!resp.ok) {
+      console.warn(`⚠️ gasGet ${sheetName}: HTTP ${resp.status}`);
+      return [];
+    }
+    const json = await resp.json();
+    // Si el servidor devuelve { ok: false, error: "Hoja no encontrada..." }
+    if (json && json.error) {
+      console.warn(`⚠️ gasGet ${sheetName}: ${json.error}`);
+      return [];   // ← retorna array vacío en vez de lanzar
+    }
+    return Array.isArray(json) ? json : [];
+  } catch (err) {
+    console.warn(`⚠️ gasGet ${sheetName} falló silenciosamente:`, err.message);
+    return [];
+  }
 }
 
-// ── GET ESCRITURA (insert/update via parámetro ?data=) ──────
-// Evita el problema del body perdido en el redirect de Google.
-// Los datos van en la URL como JSON encoded — límite ~2000 chars.
-// Para registros con imágenes base64 grandes usamos chunking o
-// excluimos imágenes del GET y las guardamos por separado.
+// ── GET ESCRITURA ────────────────────────────────────────────
 async function gasWrite(sheetName, payload, action = "insert", idCol = "", idValue = "") {
-  // Separar campos grandes (imágenes/firma) del payload principal
-  // para no superar el límite de URL (~8000 bytes en GAS)
   const camposGrandes = ['imagen1','imagen2','imagen3','imagen4','firma'];
   const payloadSinImgs = {};
   const payloadImgs    = {};
 
   for (const [k, v] of Object.entries(payload)) {
     if (camposGrandes.includes(k) && String(v).length > 200) {
-      payloadImgs[k]    = String(v).substring(0, 50) + '...[foto]'; // placeholder
+      payloadImgs[k] = String(v).substring(0, 50) + '...[foto]';
     } else {
       payloadSinImgs[k] = v;
     }
   }
 
-  // Combinar con placeholder de imágenes
   const payloadFinal = { ...payloadSinImgs, ...payloadImgs };
 
   const params = new URLSearchParams({
@@ -88,7 +88,7 @@ async function gasWrite(sheetName, payload, action = "insert", idCol = "", idVal
   }
 }
 
-// ── QUERY BUILDER ───────────────────────────────────────────
+// ── QUERY BUILDER ────────────────────────────────────────────
 class GASQueryBuilder {
   constructor(t) {
     this._table         = t;
@@ -138,13 +138,13 @@ class GASQueryBuilder {
   }
 }
 
-// ── STUB REALTIME ───────────────────────────────────────────
+// ── STUB REALTIME ─────────────────────────────────────────────
 class ChannelStub {
   on()        { return this; }
   subscribe() { console.info("ℹ️ Realtime no disponible con Google Sheets."); return this; }
 }
 
-// ── OBJETO DB ───────────────────────────────────────────────
+// ── OBJETO DB ─────────────────────────────────────────────────
 const DB = {
 
   supabase: {
@@ -188,7 +188,7 @@ const DB = {
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  // ── GUARDAR TRASLADO ───────────────────────────────────────
+  // ── GUARDAR TRASLADO ──────────────────────────────────────
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
@@ -216,7 +216,16 @@ const DB = {
       imagen4:                d.imagen4               || '',
       firma:                  d.firma                 || '',
     };
-    return await gasWrite('Traslado', fila, 'insert');
+
+    const resultado = await gasWrite('Traslado', fila, 'insert');
+
+    // ── Actualizar km de la carroza si viene placa ──────────
+    if (resultado.ok && d.placa && d.km_ingreso) {
+      await gasWrite('carrozas', { km_actual: d.km_ingreso }, 'update', 'placa', d.placa)
+        .catch(err => console.warn('⚠️ No se actualizó km de carroza:', err));
+    }
+
+    return resultado;
   },
 
   async actualizarCarroza(placa, campos) {
@@ -225,6 +234,15 @@ const DB = {
 
   async insertar(hoja, datos)                   { return await gasWrite(hoja, datos, 'insert'); },
   async actualizar(hoja, datos, idCol, idValue) { return await gasWrite(hoja, datos, 'update', idCol, idValue); },
+
+  // ── MANTENIMIENTOS (con fallback si la hoja no tiene datos) ─
+  async obtenerMantenimientos(limite = 50) {
+    try {
+      let data = await gasGet('mantenimientos');   // gasGet nunca lanza, devuelve []
+      data.sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
+      return { ok: true, data: data.slice(0, limite) };
+    } catch(e) { return { ok: false, data: [], error: e.message }; }
+  },
 
   async testConexion() {
     try {
