@@ -1,7 +1,8 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v9.0 FINAL
+ *  CONECTOR J.R. CARROZAS — db.js  v9.1
  *  Columnas verificadas contra el Excel real
+ *  Fecha formateada: DD/MM/AAAA
  * ══════════════════════════════════════════════════════════
  */
 
@@ -19,6 +20,14 @@ const SHEET_MAP = {
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
+
+// Fecha limpia: 17/05/2026
+function fechaHoy() {
+  const h = new Date();
+  return h.getDate().toString().padStart(2,'0') + '/' +
+         (h.getMonth()+1).toString().padStart(2,'0') + '/' +
+         h.getFullYear();
+}
 
 async function gasGet(sheetName) {
   try {
@@ -41,10 +50,10 @@ async function gasWrite(sheetName, payload, action = "insert", idCol = "", idVal
   const url = `${URL_GAS}?${urlParams}`;
   try {
     const resp = await fetch(url, {
-      method:  'POST',
+      method:   'POST',
       redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify(payload),
+      headers:  { 'Content-Type': 'text/plain' },
+      body:     JSON.stringify(payload),
     });
     if (!resp.ok) { console.error(`gasWrite HTTP ${resp.status}`); return { ok: false, error: `HTTP ${resp.status}` }; }
     const text = await resp.text();
@@ -161,7 +170,7 @@ const DB = {
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
-      fecha:                  new Date().toLocaleDateString('es-CO'),
+      fecha:                  fechaHoy(),
       regional:               d.regional              || '',
       conductor:              d.conductor             || '',
       nnum_telefono:          d.telefono              || '',
@@ -194,7 +203,7 @@ const DB = {
   async guardarLlegada(d) {
     const fila = {
       id:             'L-' + Date.now(),
-      fecha:          new Date().toLocaleDateString('es-CO'),
+      fecha:          fechaHoy(),
       hora_ingreso:   d.hora_ingreso   || '',
       placa:          d.placa          || '',
       km_ingreso:     d.km_ingreso     || '',
