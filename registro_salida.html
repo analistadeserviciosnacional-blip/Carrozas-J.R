@@ -536,7 +536,7 @@
         const msg = saludo + "\n\n" +
             "📢 *Reporte de Salida De Carroza*\n\n" +
             "📍 *Regional:* "       + datosFinales.regional    + "\n" +
-            "📅 *Fecha:* "          + new Date().toLocaleDateString('es-CO') + "\n" +
+            "📅 *Fecha:* " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
             "👤 *Coordinador:* "    + datosFinales.coordinador + "\n" +
             "🕒 *Hora De Salida:* " + datosFinales.hora_salida + "\n" +
             "🚗 *Placa:* "          + datosFinales.placa       + "\n" +
