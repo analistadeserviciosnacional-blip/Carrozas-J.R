@@ -10,7 +10,7 @@
  * ══════════════════════════════════════════════════════════
  */
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycby2hl3NTkfOvjpnaeRS--c40o_9Df3ht_p9wvWB8TBFDG2tSwwobXcqemETb6daKaDm5g/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec";
 
 // Los nombres de hoja deben coincidir EXACTAMENTE con las pestañas del Google Sheet.
 // Si tus pestañas tienen sufijo _rows, agrégalos aquí. Si no, déjalos igual.
