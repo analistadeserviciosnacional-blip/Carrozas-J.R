@@ -1,27 +1,25 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v8.0 FINAL
- *
- *  CAMBIO DEFINITIVO:
- *  gasWrite() ahora usa POST con body JSON.
- *  - Sin límite de URL → firma e imágenes funcionan
- *  - Google Apps Script con doPost() recibe el body completo
- *  - Compatible con el nuevo Code.gs v5
+ *  CONECTOR J.R. CARROZAS — db.js  v9.0 FINAL
+ *  Columnas verificadas contra el Excel real
  * ══════════════════════════════════════════════════════════
  */
 
 const URL_GAS = "https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec";
 
-// Los nombres de hoja deben coincidir EXACTAMENTE con las pestañas del Google Sheet.
-// Si tus pestañas tienen sufijo _rows, agrégalos aquí. Si no, déjalos igual.
 const SHEET_MAP = {
-  // Mapeo vacío: el nombre que se usa en el código ES el nombre real de la pestaña.
-  // Ejemplo si quisieras renombrar: 'carrozas': 'Carrozas'
+  'carrozas':             'carrozas',
+  'Traslado':             'Traslado',
+  'Averias':              'Averias',
+  'usuarios':             'usuarios',
+  'Llegadas':             'Llegadas',
+  'mantenimientos':       'mantenimientos',
+  'solicitud_apoyo':      'solicitud_apoyo',
+  'notificaciones_apoyo': 'notificaciones_apoyo',
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
 
-// ── LECTURA via GET ─────────────────────────────────────────
 async function gasGet(sheetName) {
   try {
     const url  = `${URL_GAS}?sheetName=${encodeURIComponent(resolveSheet(sheetName))}`;
@@ -36,37 +34,24 @@ async function gasGet(sheetName) {
   }
 }
 
-// ── ESCRITURA via POST (body JSON, sin límite de tamaño) ────
 async function gasWrite(sheetName, payload, action = "insert", idCol = "", idValue = "") {
   const urlParams = new URLSearchParams({ sheetName: resolveSheet(sheetName), action });
   if (idCol)   urlParams.set('idCol',   idCol);
   if (idValue) urlParams.set('idValue', idValue);
-
   const url = `${URL_GAS}?${urlParams}`;
-
   try {
     const resp = await fetch(url, {
-      method:   'POST',
+      method:  'POST',
       redirect: 'follow',
-      headers:  { 'Content-Type': 'text/plain' },   // text/plain evita preflight CORS
-      body:     JSON.stringify(payload),
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(payload),
     });
-
-    if (!resp.ok) {
-      console.error(`gasWrite HTTP ${resp.status} para ${sheetName}`);
-      return { ok: false, error: `HTTP ${resp.status}` };
-    }
-
+    if (!resp.ok) { console.error(`gasWrite HTTP ${resp.status}`); return { ok: false, error: `HTTP ${resp.status}` }; }
     const text = await resp.text();
     let json;
     try { json = JSON.parse(text); }
     catch(e) { return { ok: false, error: 'Respuesta no JSON: ' + text.substring(0, 200) }; }
-
-    if (json.ok === false) {
-      console.error(`gasWrite error en hoja ${sheetName}:`, json.error);
-      return { ok: false, error: json.error || 'Error desconocido' };
-    }
-
+    if (json.ok === false) { console.error(`gasWrite error:`, json.error); return { ok: false, error: json.error || 'Error desconocido' }; }
     return { ok: true, data: json };
   } catch(err) {
     console.error('gasWrite excepción:', err);
@@ -74,18 +59,11 @@ async function gasWrite(sheetName, payload, action = "insert", idCol = "", idVal
   }
 }
 
-// ── QUERY BUILDER ───────────────────────────────────────────
 class GASQueryBuilder {
   constructor(t) {
-    this._table         = t;
-    this._filters       = [];
-    this._ilikes        = [];
-    this._orders        = [];
-    this._limitN        = null;
-    this._single        = false;
-    this._updatePayload = null;
+    this._table = t; this._filters = []; this._ilikes = [];
+    this._orders = []; this._limitN = null; this._single = false; this._updatePayload = null;
   }
-
   select()            { return this; }
   eq(col, val)        { this._filters.push({ col, val: String(val) }); return this; }
   ilike(col, pattern) { this._ilikes.push({ col, val: pattern.replace(/%/g,'').toLowerCase() }); return this; }
@@ -103,7 +81,6 @@ class GASQueryBuilder {
         .catch(err => resolve({ data: null, error: { message: err.message } }));
       return;
     }
-
     gasGet(this._table)
       .then(rows => {
         for (const f of this._filters)
@@ -111,10 +88,7 @@ class GASQueryBuilder {
         for (const f of this._ilikes)
           rows = rows.filter(r => String(r[f.col]||'').toLowerCase().includes(f.val));
         for (const o of this._orders)
-          rows.sort((a,b) => {
-            const va = String(a[o.col]||''), vb = String(b[o.col]||'');
-            return o.asc ? va.localeCompare(vb) : vb.localeCompare(va);
-          });
+          rows.sort((a,b) => { const va=String(a[o.col]||''), vb=String(b[o.col]||''); return o.asc ? va.localeCompare(vb) : vb.localeCompare(va); });
         if (this._limitN) rows = rows.slice(0, this._limitN);
         resolve(this._single
           ? { data: rows[0]||null, error: rows.length ? null : { message: 'No rows' } }
@@ -124,15 +98,9 @@ class GASQueryBuilder {
   }
 }
 
-// ── STUB REALTIME ────────────────────────────────────────────
-class ChannelStub {
-  on()        { return this; }
-  subscribe() { return this; }
-}
+class ChannelStub { on() { return this; } subscribe() { return this; } }
 
-// ── OBJETO DB ────────────────────────────────────────────────
 const DB = {
-
   supabase: {
     from(t)   { return new GASQueryBuilder(t); },
     channel() { return new ChannelStub(); },
@@ -156,7 +124,7 @@ const DB = {
   },
 
   async obtenerFlota() {
-    try { return { ok: true,  data: await gasGet('carrozas') }; }
+    try { return { ok: true, data: await gasGet('carrozas') }; }
     catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
@@ -185,6 +153,11 @@ const DB = {
   },
 
   // ── GUARDAR TRASLADO ──────────────────────────────────────
+  // Columnas: id_salida, fecha, regional, conductor, nnum_telefono, placa,
+  //           motivo_de_salida, nombre_del_fallecido, clinica_hospital_o_rsd,
+  //           numero_prestacion, origen, destino, hora_de_salida, hora_de_ingreso,
+  //           km__salida, km__ingreso, total_km, coordinador_en_turno,
+  //           observaciones, imagen1, firma, imagen2, imagen3, imagen4
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
@@ -207,12 +180,53 @@ const DB = {
       coordinador_en_turno:   d.coordinador           || '',
       observaciones:          d.observaciones         || '',
       imagen1:                d.imagen1               || '',
+      firma:                  d.firma                 || '',
       imagen2:                d.imagen2               || '',
       imagen3:                d.imagen3               || '',
       imagen4:                d.imagen4               || '',
-      firma:                  d.firma                 || '',
     };
     return await gasWrite('Traslado', fila, 'insert');
+  },
+
+  // ── GUARDAR LLEGADA ───────────────────────────────────────
+  // Columnas: id, fecha, hora_ingreso, placa, km_ingreso,
+  //           estado_entrega, observaciones, recibido_por, created_at
+  async guardarLlegada(d) {
+    const fila = {
+      id:             'L-' + Date.now(),
+      fecha:          new Date().toLocaleDateString('es-CO'),
+      hora_ingreso:   d.hora_ingreso   || '',
+      placa:          d.placa          || '',
+      km_ingreso:     d.km_ingreso     || '',
+      estado_entrega: d.estado_entrega || '',
+      observaciones:  d.observaciones  || '',
+      recibido_por:   d.conductor      || '',
+      created_at:     new Date().toISOString(),
+    };
+    return await gasWrite('Llegadas', fila, 'insert');
+  },
+
+  // ── GUARDAR AVERÍA ────────────────────────────────────────
+  // Columnas: id, reportado_por, regional, placa_vehiculo, tipo_vehiculo,
+  //           tipo_falla, descripcion_sintomas, observaciones,
+  //           imagen1, imagen2, imagen3, imagen4, created_at
+  async guardarAveria(d) {
+    const fila = {
+      id:                   'AV-' + Date.now(),
+      reportado_por:        d.reportado_por        || '',
+      regional:             d.regional             || '',
+      placa_vehiculo:       d.placa_vehiculo        || '',
+      tipo_vehiculo:        d.tipo_vehiculo         || '',
+      tipo_falla:           d.tipo_falla            || '',
+      descripcion_sintomas: d.descripcion_sintomas  || '',
+      observaciones:        d.observaciones         || '',
+      imagen1:              d.imagen1               || '',
+      imagen2:              d.imagen2               || '',
+      imagen3:              d.imagen3               || '',
+      imagen4:              d.imagen4               || '',
+      created_at:           new Date().toISOString(),
+    };
+    return await gasWrite('Averias', fila, 'insert');
   },
 
   async actualizarCarroza(placa, campos) {
