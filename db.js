@@ -12,15 +12,11 @@
 
 const URL_GAS = "https://script.google.com/macros/s/AKfycbyvv30_l4oVK3TekrZXqkJ0iOm6s9aJLGQQjlT1kiQnae_V3g0ktuvQBvdu1AlckJIbVw/exec";
 
+// Los nombres de hoja deben coincidir EXACTAMENTE con las pestañas del Google Sheet.
+// Si tus pestañas tienen sufijo _rows, agrégalos aquí. Si no, déjalos igual.
 const SHEET_MAP = {
-  'carrozas':             'carrozas_rows',
-  'Traslado':             'Traslado_rows',
-  'Averias':              'Averias_rows',
-  'usuarios':             'usuarios_rows',
-  'Llegadas':             'Llegadas_rows',
-  'mantenimientos':       'mantenimientos_rows',
-  'solicitud_apoyo':      'solicitud_apoyo_rows',
-  'notificaciones_apoyo': 'notificaciones_apoyo_rows',
+  // Mapeo vacío: el nombre que se usa en el código ES el nombre real de la pestaña.
+  // Ejemplo si quisieras renombrar: 'carrozas': 'Carrozas'
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
