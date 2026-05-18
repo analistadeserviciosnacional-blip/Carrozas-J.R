@@ -108,7 +108,6 @@
                 <label>Regional</label>
                 <!-- Se activa cargarPlacas() al cambiar regional para filtrar -->
                 <select id="regional" onchange="cargarPlacas()">
-                    <option value="Pereira">Pereira</option>
                     <option value="Risaralda">Risaralda</option>
                     <option value="Antioquia">Antioquia</option>
                     <option value="Caldas">Caldas</option>
@@ -118,7 +117,7 @@
                     <option value="Valle Sur">Valle Sur</option>
                     <option value="C/ Marca">Cundinamarca</option>
                     <option value="Tolima Norte">Tolima Norte</option>
-                    <option value="Palmira">Palmira</option>
+                    <option value="Valle Centro Palmira"> Valle Centro Palmira</option>
                 </select>
             </div>
         </div>
@@ -478,10 +477,11 @@
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
         document.getElementById('progreso-steps').style.display = 'block';
 
-        datosFinales = {
+       datosFinales = {
             regional:      document.getElementById('regional').value,
             conductor:     document.getElementById('conductor').value,
-            telefono:      window._telefonoConductor || '',
+            // Mapeamos 'telefono' de la sesión a 'nnum_telefono' de la base de datos
+            nnum_telefono: sesionUser.telefono || '', 
             placa:         document.getElementById('placa').value,
             motivo:        document.getElementById('motivo').value,
             fallecido:     document.getElementById('fallecido').value,
@@ -531,22 +531,22 @@
 
         const msg = saludo + "\n\n" +
             "*Reporte de Salida De Carroza*\n\n" +
-            "Regional: "        + datosFinales.regional    + "\n" +
-            "Fecha: "           + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
-            "Coordinador: "     + datosFinales.coordinador + "\n" +
-            "Hora De Salida: "  + datosFinales.hora_salida + "\n" +
-            "Placa: "           + datosFinales.placa       + "\n" +
-            "Motivo: "          + datosFinales.motivo      + "\n" +
-            "Fallecido: "       + (datosFinales.fallecido  || '---') + "\n" +
-            "Lugar Recogida: "  + (datosFinales.clinica    || '---') + "\n" +
-            "Origen: "          + (datosFinales.origen     || '---') + "\n" +
-            "Destino: "         + (datosFinales.destino    || '---') + "\n" +
-            "KM Salida: "       + datosFinales.km_salida   + "\n" +
-            "Kit Carretera: "   + datosFinales.kit_carretera + "\n" +
-            "Conductor: "       + datosFinales.conductor   + "\n" +
-            "Telefono: "        + (datosFinales.nnum_telefono || '---') + "\n\n" +
-            "Observaciones: "   + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
-            "La Carroza se Encuentra: " + estadoCarroza; // <--- Ahora es dinámico
+            "*Regional:* "        + datosFinales.regional    + "\n" +
+            "*Fecha:* "           + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
+            "*Coordinador:* "     + datosFinales.coordinador + "\n" +
+            "*Hora De Salida:* "  + datosFinales.hora_salida + "\n" +
+            "*Placa:* "           + datosFinales.placa       + "\n" +
+            "*Motivo:* "          + datosFinales.motivo      + "\n" +
+            "*Fallecido:* "       + (datosFinales.fallecido  || '---') + "\n" +
+            "*Lugar Recogida:* "  + (datosFinales.clinica    || '---') + "\n" +
+            "*Origen:* "          + (datosFinales.origen     || '---') + "\n" +
+            "*Destino:* "         + (datosFinales.destino    || '---') + "\n" +
+            "*KM Salida:* "       + datosFinales.km_salida   + "\n" +
+            "*Kit Carretera:* "   + datosFinales.kit_carretera + "\n" +
+            "*Conductor:* "       + datosFinales.conductor   + "\n" +
+            "*Telefono:* "        + (datosFinales.nnum_telefono || '---') + "\n\n" +
+            "*Observaciones:* "   + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
+            "*La Carroza se Encuentra:* " + estadoCarroza; // <--- Ahora es dinámico
             
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
