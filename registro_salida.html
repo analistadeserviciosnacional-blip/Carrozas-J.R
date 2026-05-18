@@ -106,8 +106,8 @@
             </div>
             <div>
                 <label>Regional</label>
-                <!-- Se activa cargarPlacas() al cambiar regional para filtrar -->
                 <select id="regional" onchange="cargarPlacas()">
+                    <option value="Pereira">Pereira</option>
                     <option value="Risaralda">Risaralda</option>
                     <option value="Antioquia">Antioquia</option>
                     <option value="Caldas">Caldas</option>
@@ -117,7 +117,7 @@
                     <option value="Valle Sur">Valle Sur</option>
                     <option value="C/ Marca">Cundinamarca</option>
                     <option value="Tolima Norte">Tolima Norte</option>
-                    <option value="Valle Centro Palmira"> Valle Centro Palmira</option>
+                    <option value="Palmira">Palmira</option>
                 </select>
             </div>
         </div>
@@ -157,7 +157,7 @@
                 <div class="kit-icono">✅</div>
                 <div class="kit-texto">
                     <div class="kit-titulo">Completo — Todo en orden</div>
-                    <div class="kit-desc">Extintor, botiquín, triángulos, linterna y cables en perfecto estado</div>
+                    <div class="kit-desc">Kit reglamentario y extintor vigentes</div>
                 </div>
                 <div class="kit-check" id="check-completo"></div>
             </label>
@@ -166,7 +166,7 @@
                 <div class="kit-icono">⚠️</div>
                 <div class="kit-texto">
                     <div class="kit-titulo">Incompleto — Faltan elementos</div>
-                    <div class="kit-desc">Uno o más elementos del kit están ausentes o vencidos</div>
+                    <div class="kit-desc">Faltan herramientas o botiquín</div>
                 </div>
                 <div class="kit-check" id="check-incompleto"></div>
             </label>
@@ -175,7 +175,7 @@
                 <div class="kit-icono">🚫</div>
                 <div class="kit-texto">
                     <div class="kit-titulo">Sin kit — No tiene</div>
-                    <div class="kit-desc">La carroza no cuenta con kit de carretera</div>
+                    <div class="kit-desc">Vehículo sin equipo de carretera</div>
                 </div>
                 <div class="kit-check" id="check-no-tiene"></div>
             </label>
@@ -188,7 +188,7 @@
         <input type="text" id="fallecido" placeholder="Nombre completo">
 
         <div class="grid-2">
-            <div><label>Lugar de Recogida</label><input type="text" id="clinica" placeholder="Clínica/Hosp/RSD"></div>
+            <div><label>Lugar de Recogida</label><input type="text" id="clinica" placeholder="Sitio"></div>
             <div><label>N° Prestación</label><input type="text" id="prestacion" placeholder="Código"></div>
         </div>
         <div class="grid-2">
@@ -210,7 +210,7 @@
         <div class="preview-gallery" id="galeria"></div>
 
         <label>Observaciones de Salida</label>
-        <textarea id="observaciones" rows="2" placeholder="Novedades del vehículo o servicio..."></textarea>
+        <textarea id="observaciones" rows="2" placeholder="Novedades..."></textarea>
 
         <div class="section-title">Firma de Responsable</div>
         <canvas id="canvas"></canvas>
@@ -237,7 +237,7 @@
                     <span>📸</span> COMPARTIR FOTOS
                 </button>
                 <div class="instruccion-fotos" id="instruccion-fotos">
-                    <b>📱 Descarga lista.</b> Abre WhatsApp → busca el coordinador → adjunta las fotos desde tu galería.
+                    <b>📱 Descarga lista.</b> Abre WhatsApp → adjunta las fotos desde tu galería.
                 </div>
             </div>
             <button class="btn-accion-volver" onclick="irAtras()">← Volver</button>
@@ -262,16 +262,14 @@
         select.innerHTML = '<option value="">Cargando flota...</option>';
 
         try {
-            // Traemos los campos nuevos de la tabla carrozas
             const { data, error } = await DB.supabase
                 .from('carrozas')
-                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento, tipo_vehiculo, sede_asignada, sede_intercambio')
+                .select('*')
                 .order('placa');
             
             if (error) throw error;
             flotaCompleta = data || [];
 
-            // FILTRO DE REGIONAL: Si hay sede_intercambio manda esa, si no, la asignada.
             const flotaFiltrada = flotaCompleta.filter(c => {
                 const ubicacion = c.sede_intercambio || c.sede_asignada;
                 return ubicacion === regionalActual;
@@ -281,7 +279,6 @@
                 select.innerHTML = '<option value="">Seleccione placa...</option>' +
                     flotaFiltrada.map(c => {
                         const enTaller = (c.estado || '').includes('Taller');
-                        // Guardamos el tipo_vehiculo en un data-attribute para las alertas
                         return `<option value="${c.placa}" data-tipo="${c.tipo_vehiculo || ''}" ${enTaller ? 'style="color:#ef4444;"' : ''}>` +
                             `${c.placa} — ${c.modelo || 'S/M'} (${c.tipo_vehiculo || 'S/T'})${enTaller ? ' 🔧 EN TALLER' : ''}` +
                         `</option>`;
@@ -294,60 +291,43 @@
         }
     }
 
-    // ── VALIDACIÓN DE COMPATIBILIDAD (ALERTAS) ──────────────
-   function validarCompatibilidad() {
-    const motivo = document.getElementById('motivo').value;
-    const placaSelect = document.getElementById('placa');
-    const optionSel = placaSelect.options[placaSelect.selectedIndex];
-    
-    if (!optionSel || !optionSel.value) return;
-
-    // Obtenemos el tipo del atributo data-tipo y lo pasamos a MAYÚSCULAS para que coincida con el Excel
-    const tipoVehiculo = (optionSel.getAttribute('data-tipo') || "").toUpperCase();
-    let mensajeAlerta = "";
-
-    // --- REGLA A: Carros de lujo (HHR, Stavic, Rodius) usados para recoger ---
-    // Si el tipo en el Excel dice "DESTINO FINAL"
-    if (tipoVehiculo.includes("DESTINO FINAL")) {
+    // ── VALIDACIÓN DE COMPATIBILIDAD ──────────────
+    function validarCompatibilidad() {
+        const motivo = document.getElementById('motivo').value;
+        const placaSelect = document.getElementById('placa');
+        const optionSel = placaSelect.options[placaSelect.selectedIndex];
         
-        // Y el motivo seleccionado en el HTML es alguna RECOGIDA o TRASLADO NACIONAL
-        if (motivo.includes("Recogida") || motivo === "Traslado Nacional") {
-            mensajeAlerta = `⚠️ <b>RIESGO DE DAÑO AL ACTIVO</b><br><br>` +
-                            `La carroza <b>${optionSel.value}</b> es de tipo <b>DESTINO FINAL</b> (Perfil Bajo).<br><br>` +
-                            `Usarla para <b>${motivo}</b> puede causar daños en el chasis, desajustes o daños por baches en rutas no urbanas.`;
-        }
-    }
+        if (!optionSel || !optionSel.value) return;
 
-    // --- REGLA B: Carros de Recolección o Comerciales usados para Sepelios ---
-    if (tipoVehiculo.includes("RECOLECCION") || tipoVehiculo.includes("COMERCIAL")) {
-        if (motivo === "Sepelio" || motivo === "Puesta En Velación") {
-            mensajeAlerta = `⚠️ <b>AVISO DE PRESENTACIÓN</b><br><br>` +
-                            `Estás asignando un vehículo de <b>RECOLECCIÓN / COMERCIAL</b> para un servicio de <b>${motivo}</b>.<br><br>` +
-                            `Verifique si la estética del vehículo es la adecuada para este servicio ceremonial.`;
-        }
-    }
+        const tipoVehiculo = (optionSel.getAttribute('data-tipo') || "").toUpperCase();
+        let mensajeAlerta = "";
 
-    // DISPARAR LA ALERTA CON SWEETALERT
-    if (mensajeAlerta !== "") {
-        Swal.fire({
-            title: '¿ESTÁ SEGURO?',
-            html: mensajeAlerta,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#004a99',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, continuar',
-            cancelButtonText: 'Cambiar vehículo'
-        }).then((result) => {
-            if (!result.isConfirmed) {
-                placaSelect.value = ""; // Resetea la placa si el usuario decide cambiar
-                if(document.getElementById('alerta-vehiculo')) {
-                    document.getElementById('alerta-vehiculo').style.display = 'none';
-                }
+        if (tipoVehiculo.includes("DESTINO FINAL")) {
+            if (motivo.includes("Recogida") || motivo === "Traslado Nacional") {
+                mensajeAlerta = `⚠️ <b>RIESGO DE DAÑO AL ACTIVO</b><br><br>` +
+                                `La carroza <b>${optionSel.value}</b> es de tipo <b>DESTINO FINAL</b> (Perfil Bajo).<br><br>` +
+                                `Usarla para <b>${motivo}</b> puede causar daños en el chasis o desajustes.`;
             }
-        });
+        }
+
+        if (mensajeAlerta !== "") {
+            Swal.fire({
+                title: '¿ESTÁ SEGURO?',
+                html: mensajeAlerta,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#004a99',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cambiar vehículo'
+            }).then((result) => {
+                if (!result.isConfirmed) {
+                    placaSelect.value = "";
+                }
+            });
+        }
     }
-}
+
     // ── ALERTA AL SELECCIONAR PLACA ──────────────────────
     async function alSeleccionarPlaca() {
         const placa    = document.getElementById('placa').value;
@@ -361,26 +341,19 @@
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
         document.getElementById('km_s').value = kmActual;
 
-        // Validamos la labor vs tipo de carroza primero
         validarCompatibilidad();
 
         if (estado === 'En Taller') {
             alertaEl.className = 'alerta-vehiculo en-taller';
             alertaEl.style.display = 'block';
-            alertaEl.innerHTML = `
-                <div style="text-align:center;">
-                    <div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div>
-                    <div class="av-msg">La carroza está en taller y <b>no debe ser usada</b>.</div>
-                    <div class="av-bloqueo">🚫 RESTRICCIÓN DE SALIDA</div>
-                </div>`;
+            alertaEl.innerHTML = `<div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div><div class="av-msg">No se autoriza salida.</div><div class="av-bloqueo">🚫 RESTRICCIÓN</div>`;
             return;
         }
 
-        // Lógica de Mantenimiento / Aceite (Existente en tu código)
         try {
             const { data: mants } = await DB.supabase
                 .from('mantenimientos')
-                .select('kilometraje_servicio, km_proximo_cambio, fecha')
+                .select('*')
                 .eq('placa', placa)
                 .eq('tipo_servicio', 'Cambio de Aceite')
                 .order('fecha', { ascending: false })
@@ -398,17 +371,22 @@
 
                 if (kmFaltante <= 0) {
                     alertaEl.className = 'alerta-vehiculo mant-vencido';
-                    alertaEl.innerHTML = `<div class="av-titulo">🚨 ACEITE VENCIDO</div><div class="av-msg">KM actual: ${kmActual}. Debió cambiarse a los ${kmProximo}.</div>`;
+                    alertaEl.innerHTML = `<div class="av-titulo">🚨 ACEITE VENCIDO</div><div class="av-msg">Debe cambiarse inmediatamente.</div>`;
                 } else if (kmFaltante <= 500) {
                     alertaEl.className = 'alerta-vehiculo mant-proximo';
                     alertaEl.innerHTML = `<div class="av-titulo">⚠️ ACEITE PRÓXIMO</div><div class="av-msg">Faltan ${kmFaltante} KM para el cambio.</div>`;
                 } else {
                     alertaEl.className = 'alerta-vehiculo al-dia';
-                    alertaEl.innerHTML = `<div class="av-titulo">✅ ACEITE AL DÍA</div><div class="av-msg">Faltan ${kmFaltante} KM. Próximo a los ${kmProximo} KM.</div>`;
+                    alertaEl.innerHTML = `<div class="av-titulo">✅ ACEITE AL DÍA</div><div class="av-msg">Faltan ${kmFaltante} KM.</div>`;
                 }
+
+                alertaEl.innerHTML += `
+                    <div class="km-badge">🚗 KM: ${kmActual.toLocaleString()}</div>
+                    <div class="km-progreso-wrap"><div class="km-progreso-bar" style="width: ${porcentaje}%; background: ${colorBarra};"></div></div>
+                `;
             } else {
-                alertaEl.className = 'alerta-vehiculo sin-dato';
-                alertaEl.innerHTML = `<div class="av-titulo">ℹ️ SIN REGISTRO RECIENTE</div><div class="av-msg">Verifique último cambio de aceite manualmente.</div>`;
+                alertaEl.className = 'alerta-vehiculo al-dia';
+                alertaEl.innerHTML = `<div class="av-titulo">ℹ️ SIN REGISTRO</div><div class="av-msg">No hay cambios registrados recientemente.</div>`;
             }
             alertaEl.style.display = 'block';
         } catch(e) {
@@ -416,7 +394,6 @@
         }
     }
 
-    // ── FUNCIONES DE UI Y GUARDADO (TODO TU CÓDIGO ORIGINAL) ────────
     function seleccionarKit(valor) {
         kitSeleccionado = valor;
         ['completo','incompleto','no-tiene'].forEach(v => {
@@ -464,9 +441,7 @@
 
     function setStep(id, estado, texto) {
         const el = document.getElementById(id);
-        if (!el) return;
-        el.className = estado;
-        el.innerText = texto;
+        if (el) { el.className = estado; el.innerText = texto; }
     }
 
     async function guardarTodo() {
@@ -474,10 +449,13 @@
         if (!document.getElementById('placa').value) { alert("Selecciona placa"); return; }
         if (!kitSeleccionado) { alert("Selecciona estado del kit"); return; }
 
+        // CORRECCIÓN: Definición de sesionUser
+        const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
+
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
         document.getElementById('progreso-steps').style.display = 'block';
 
-       datosFinales = {
+        datosFinales = {
             regional:      document.getElementById('regional').value,
             conductor:     document.getElementById('conductor').value,
             nnum_telefono: sesionUser.telefono || '', 
@@ -498,78 +476,68 @@
             firma:   canvas.toDataURL()
         };
 
-        setStep('step-carroza', 'act', '⏳ Actualizando estado de carroza...');
+        setStep('step-carroza', 'act', '⏳ Actualizando vehículo...');
         try {
-            await DB.supabase.from('carrozas').update({ estado: 'En Servicio', kilometraje_actual: parseInt(datosFinales.km_salida) }).eq('placa', datosFinales.placa);
-            setStep('step-carroza', 'ok', '✅ Carroza actualizada');
+            await DB.supabase.from('carrozas').update({ 
+                estado: 'En Servicio', 
+                kilometraje_actual: parseInt(datosFinales.km_salida) 
+            }).eq('placa', datosFinales.placa);
             
-            setStep('step-traslado', 'act', '⏳ Guardando traslado...');
+            setStep('step-carroza', 'ok', '✅ Vehículo actualizado');
+            
+            setStep('step-traslado', 'act', '⏳ Guardando salida...');
             const res = await DB.guardarTraslado(datosFinales);
             if (res.ok) {
-                setStep('step-traslado', 'ok', '✅ Traslado guardado');
+                setStep('step-traslado', 'ok', '✅ Registro guardado');
                 btn.innerText = "✓ GUARDADO EXITOSO"; btn.style.background = "#25D366";
                 document.getElementById('bloque-wa').style.display = 'flex';
-            } else { throw new Error(res.error); }
+            } else throw new Error(res.error);
         } catch(e) {
             setStep('step-traslado', 'err', '❌ Error: ' + e.message);
             btn.disabled = false; btn.innerText = "💾 REINTENTAR";
         }
     }
 
-  function enviarWA() {
+    function enviarWA() {
         const hora = new Date().getHours();
         const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
-        
-        // Creamos una variable para el estado final basada en el kit seleccionado
-        let estadoCarroza = "Todo En Orden"; // Por defecto
-        if (datosFinales.kit_carretera === 'incompleto') {
-            estadoCarroza = "Pendientes en Kit de Carretera";
-        } else if (datosFinales.kit_carretera === 'no-tiene') {
-            estadoCarroza = "Alerta: Sin Kit de Carretera";
-        }
+        let estadoCarroza = "Todo En Orden";
+        if (datosFinales.kit_carretera === 'incompleto') estadoCarroza = "Pendientes en Kit";
+        else if (datosFinales.kit_carretera === 'no-tiene') estadoCarroza = "Sin Kit de Carretera";
 
         const msg = saludo + "\n\n" +
             "*Reporte de Salida De Carroza*\n\n" +
-            "*Regional:* "        + datosFinales.regional    + "\n" +
-            "*Fecha:* "           + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
-            "*Coordinador:* "     + datosFinales.coordinador + "\n" +
-            "*Hora De Salida:* "  + datosFinales.hora_salida + "\n" +
-            "*Placa:* "           + datosFinales.placa       + "\n" +
-            "*Motivo:* "          + datosFinales.motivo      + "\n" +
-            "*Fallecido:* "       + (datosFinales.fallecido  || '---') + "\n" +
-            "*Lugar Recogida:* "  + (datosFinales.clinica    || '---') + "\n" +
-            "*Origen:* "          + (datosFinales.origen     || '---') + "\n" +
-            "*Destino:* "         + (datosFinales.destino    || '---') + "\n" +
-            "*KM Salida:* "       + datosFinales.km_salida   + "\n" +
-            "*Kit Carretera:* "   + datosFinales.kit_carretera + "\n" +
-            "*Conductor:* "       + datosFinales.conductor   + "\n" +
-            "*Telefono:* "        + (datosFinales.nnum_telefono || '---') + "\n\n" +
-            "*Observaciones:* "   + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
-            "*La Carroza se Encuentra:* " + estadoCarroza; // <--- Ahora es dinámico
+            "Regional: " + datosFinales.regional + "\n" +
+            "Coordinador: " + datosFinales.coordinador + "\n" +
+            "Hora Salida: " + datosFinales.hora_salida + "\n" +
+            "Placa: " + datosFinales.placa + "\n" +
+            "Motivo: " + datosFinales.motivo + "\n" +
+            "Fallecido: " + (datosFinales.fallecido || '---') + "\n" +
+            "Recogida: " + (datosFinales.clinica || '---') + "\n" +
+            "Origen: " + (datosFinales.origen || '---') + "\n" +
+            "Destino: " + (datosFinales.destino || '---') + "\n" +
+            "KM Salida: " + datosFinales.km_salida + "\n" +
+            "Kit: " + datosFinales.kit_carretera + "\n" +
+            "Conductor: " + datosFinales.conductor + "\n" +
+            "Telefono: " + (datosFinales.nnum_telefono || '---') + "\n\n" +
+            "Observaciones: " + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
+            "La Carroza se Encuentra: " + estadoCarroza;
             
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
 
     function compartirFotos() {
-        if (fotosArray.length === 0) { alert("No hay fotos para compartir."); return; }
-        if (navigator.share && navigator.canShare) {
-            Promise.all(fotosArray.map((dataUrl, i) =>
-                fetch(dataUrl).then(r => r.blob())
-                    .then(blob => new File([blob], 'evidencia_' + (i+1) + '_' + datosFinales.placa + '.jpg', { type: 'image/jpeg' }))
-            )).then(files => {
-                if (navigator.canShare({ files })) {
-                    navigator.share({ files, title: 'Evidencias J.R. - ' + datosFinales.placa }).catch(() => descargarFotos());
-                } else descargarFotos();
-            }).catch(() => descargarFotos());
-        } else descargarFotos();
+        if (fotosArray.length === 0) { alert("No hay fotos."); return; }
+        Promise.all(fotosArray.map((url, i) => fetch(url).then(r => r.blob()).then(b => new File([b], `img_${i}.jpg`, {type: 'image/jpeg'}))))
+        .then(files => {
+            if (navigator.share) navigator.share({files, title: 'Evidencias'}).catch(descargarFotos);
+            else descargarFotos();
+        }).catch(descargarFotos);
     }
 
     function descargarFotos() {
-        fotosArray.forEach((dataUrl, i) => {
-            const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = 'evidencia_' + (i+1) + '_' + (datosFinales.placa || 'JR') + '.jpg';
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        fotosArray.forEach((url, i) => {
+            const a = document.createElement('a'); a.href = url; a.download = `foto_${i}.jpg`; a.click();
         });
         document.getElementById('instruccion-fotos').style.display = 'block';
     }
