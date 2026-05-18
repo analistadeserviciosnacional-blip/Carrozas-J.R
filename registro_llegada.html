@@ -2,197 +2,413 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Registro de Llegada</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; }
-        body { background-color: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 15px; }
-        .container { background: var(--blanco); border-radius: 25px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 500px; margin: auto; }
-        h2 { color: var(--azul); text-align: center; font-size: 20px; margin-bottom: 25px; text-transform: uppercase; }
-        .form-group { margin-bottom: 18px; }
-        label { display: block; font-size: 13px; font-weight: 700; color: #64748b; margin-bottom: 8px; margin-left: 5px; }
-        input, select, textarea { 
-            width: 100%; padding: 14px; border: 1.5px solid #e2e8f0; border-radius: 15px; 
-            font-size: 15px; box-sizing: border-box; font-family: inherit; transition: 0.3s;
+        :root {
+            --verde: #15803d; --verde-claro: #f0fdf4; --verde-borde: #86efac;
+            --azul: #004a99; --azul-cielo: #e3f2fd;
+            --blanco: #ffffff; --gris: #546e7a;
         }
-        input:focus, select:focus { border-color: var(--azul); outline: none; background: #f8faff; }
-        .btn-finalizar { 
-            background: #10b981; color: white; border: none; width: 100%; 
-            padding: 16px; border-radius: 15px; font-weight: 700; font-size: 16px; 
-            cursor: pointer; margin-top: 10px; transition: 0.3s;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            box-shadow: 0 4px 14px rgba(16,185,129,0.3);
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--verde-claro); font-family: 'DM Sans', sans-serif; color: #14532d; padding: 10px; }
+        .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(21,128,61,0.12); overflow: hidden; }
+        .header { background: var(--verde); color: var(--blanco); padding: 20px; text-align: center; }
+        .header h2 { font-size: 18px; }
+        .header p  { font-size: 11px; opacity: 0.8; font-weight: bold; margin-top: 4px; }
+        .content { padding: 20px; }
+        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gris); margin: 20px 0 10px; padding-bottom: 5px; font-weight: 700; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #dcfce7; }
+        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--verde); text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 2px solid #dcfce7; border-radius: 10px; font-family: inherit; color: #14532d; background: #f9fef9; font-size: 14px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--verde); }
+        input[readonly] { background: #eefff4; font-weight: bold; color: var(--verde); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        /* ── TOTAL KM ────────────────────────────────────── */
+        .total-km-card {
+            background: #f0fdf4; border: 2px solid #86efac;
+            border-radius: 14px; padding: 14px 18px;
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 12px;
         }
-        .btn-finalizar:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
-        .btn-finalizar:active { transform: scale(0.98); }
-        .btn-regresar {
-            width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px;
-            font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 10px;
-            background: transparent; color: #94a3b8; text-decoration: none;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+        .total-km-card .km-icon { font-size: 28px; }
+        .total-km-card .km-info { flex: 1; }
+        .total-km-card .km-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--gris); letter-spacing: 1px; }
+        .total-km-card .km-valor { font-size: 28px; font-weight: 700; color: var(--verde); line-height: 1.2; }
+        .total-km-card .km-sub   { font-size: 11px; color: #4ade80; margin-top: 2px; }
+
+        /* ── ESTADO DE ENTREGA ───────────────────────────── */
+        .estado-selector { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .estado-opcion {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; border-radius: 12px;
+            border: 2px solid #dcfce7; cursor: pointer;
+            transition: all 0.2s ease; background: #f9fef9;
         }
-        .btn-regresar:active { background: #f1f5f9; }
-        .info-km { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 12px; margin-bottom: 15px; font-size: 13px; color: #15803d; display: none; }
+        .estado-opcion:hover { border-color: #86efac; background: #f0fdf4; }
+        .estado-opcion input[type="radio"] { display: none; }
+        .estado-opcion .est-icono { font-size: 22px; flex-shrink: 0; }
+        .estado-opcion .est-texto { flex: 1; }
+        .estado-opcion .est-titulo { font-size: 13px; font-weight: 700; color: #14532d; }
+        .estado-opcion .est-desc   { font-size: 11px; color: var(--gris); margin-top: 2px; }
+        .estado-opcion .est-check  { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #86efac; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+
+        .estado-opcion.sel-orden   { border-color: #16a34a; background: #f0fdf4; }
+        .estado-opcion.sel-orden   .est-check { background: #16a34a; border-color: #16a34a; }
+        .estado-opcion.sel-orden   .est-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 900; }
+        .estado-opcion.sel-novedad { border-color: #d97706; background: #fffbeb; }
+        .estado-opcion.sel-novedad .est-check { background: #d97706; border-color: #d97706; }
+        .estado-opcion.sel-novedad .est-check::after { content: '!'; color: white; font-size: 11px; font-weight: 900; }
+        .estado-opcion.sel-averia  { border-color: #dc2626; background: #fef2f2; }
+        .estado-opcion.sel-averia  .est-check { background: #dc2626; border-color: #dc2626; }
+        .estado-opcion.sel-averia  .est-check::after { content: '✗'; color: white; font-size: 11px; font-weight: 900; }
+
+        /* ── BOTONES ─────────────────────────────────────── */
+        .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .btn-finalizar { width: 100%; padding: 18px; border: none; border-radius: 14px; font-weight: 800; font-size: 16px; cursor: pointer; background: var(--verde); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 16px rgba(21,128,61,0.3); transition: 0.2s; font-family: inherit; }
+        .btn-finalizar:active   { transform: scale(0.98); }
+        .btn-finalizar:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+        .btn-wa    { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit; }
+        .btn-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; font-family: inherit; }
+
+        #progreso-steps { display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:12px; padding:12px 15px; margin-bottom:14px; font-size:12px; }
+        #progreso-steps div { padding: 3px 0; color: #546e7a; }
+        #progreso-steps div.ok  { color: #15803d; font-weight: 700; }
+        #progreso-steps div.err { color: #dc2626; font-weight: 700; }
+        #progreso-steps div.act { color: #004a99; font-weight: 700; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🏁 Registro de Llegada</h2>
-    
-    <form id="form-llegada">
-        <div class="form-group">
-            <label>Placa de la Carroza</label>
-            <!-- CORRECCIÓN: se carga toda la flota, no solo "En Servicio" con tabla incorrecta -->
-            <select id="placa" required onchange="mostrarKmActual()">
-                <option value="">Cargando flota...</option>
-            </select>
+    <div class="header">
+        <h2>🏁 REGISTRO DE LLEGADA</h2>
+        <p id="conductor-header">CARGANDO...</p>
+    </div>
+
+    <div class="content">
+
+        <!-- ── VEHÍCULO ────────────────────────────────── -->
+        <div class="section-title">Vehículo que Regresa</div>
+        <div class="grid-2">
+            <div>
+                <label>Placa de la Carroza</label>
+                <select id="placa" onchange="alSeleccionarPlaca()">
+                    <option value="">Elija placa...</option>
+                </select>
+            </div>
+            <div>
+                <label>Recibido Por</label>
+                <input type="text" id="recibido_por" readonly style="background:#eefff4; font-weight:bold;">
+            </div>
         </div>
 
-        <div class="info-km" id="info-km-actual"></div>
-
-        <div class="form-group">
-            <label>Kilometraje al Llegar</label>
-            <input type="number" id="km_ingreso" placeholder="Ej: 155280" required>
+        <!-- ── KILOMETRAJE Y HORA DE LLEGADA ─────────── -->
+        <div class="section-title">📍 Kilometraje y Hora de Llegada</div>
+        <div class="grid-2">
+            <div>
+                <label>Hora de Entrada</label>
+                <input type="time" id="hora_ingreso">
+            </div>
+            <div>
+                <label>KM al Llegar</label>
+                <input type="number" id="km_ingreso" placeholder="Ej: 155280" oninput="calcularTotal()">
+            </div>
         </div>
 
-        <div class="form-group">
-            <label>Hora de Entrada</label>
-            <input type="time" id="hora_ingreso" required>
+        <!-- ── TOTAL KM ────────────────────────────────── -->
+        <label>Total KM Recorridos</label>
+        <div class="total-km-card" id="total-km-card">
+            <div class="km-icon">🛣️</div>
+            <div class="km-info">
+                <div class="km-label">Kilómetros del servicio</div>
+                <div class="km-valor" id="total-km-display">— KM</div>
+                <div class="km-sub" id="km-sub-info">Ingresa KM de llegada para calcular</div>
+            </div>
+        </div>
+        <input type="number" id="total_km" readonly style="display:none;">
+
+        <!-- ── ESTADO DE ENTREGA ──────────────────────── -->
+        <div class="section-title">Estado de Entrega</div>
+        <div class="estado-selector">
+
+            <label class="estado-opcion" id="est-orden" onclick="seleccionarEstado('orden')">
+                <input type="radio" name="estado" value="Todo En Orden">
+                <div class="est-icono">✅</div>
+                <div class="est-texto">
+                    <div class="est-titulo">Todo en orden</div>
+                    <div class="est-desc">La carroza regresa en perfectas condiciones</div>
+                </div>
+                <div class="est-check" id="check-orden"></div>
+            </label>
+
+            <label class="estado-opcion" id="est-novedad" onclick="seleccionarEstado('novedad')">
+                <input type="radio" name="estado" value="Con Novedad">
+                <div class="est-icono">⚠️</div>
+                <div class="est-texto">
+                    <div class="est-titulo">Con novedad</div>
+                    <div class="est-desc">Algún detalle menor a reportar en observaciones</div>
+                </div>
+                <div class="est-check" id="check-novedad"></div>
+            </label>
+
+            <label class="estado-opcion" id="est-averia" onclick="seleccionarEstado('averia')">
+                <input type="radio" name="estado" value="Con Avería">
+                <div class="est-icono">🔧</div>
+                <div class="est-texto">
+                    <div class="est-titulo">Con avería</div>
+                    <div class="est-desc">Falla mecánica o daño — describe en observaciones</div>
+                </div>
+                <div class="est-check" id="check-averia"></div>
+            </label>
+
         </div>
 
-        <div class="form-group">
-            <label>Estado de Entrega</label>
-            <select id="estado_entrega">
-                <option value="Todo En Orden 👍🏻">Todo En Orden 👍🏻</option>
-                <option value="Requiere Lavado 🧼">Requiere Lavado 🧼</option>
-                <option value="Novedad Mecánica 🔧">Novedad Mecánica 🔧</option>
-                <option value="Pendiente Tanqueo ⛽">Pendiente Tanqueo ⛽</option>
-            </select>
+        <!-- ── OBSERVACIONES ──────────────────────────── -->
+        <label>Observaciones Finales</label>
+        <textarea id="observaciones" rows="3" placeholder="¿Alguna novedad en el servicio?"></textarea>
+
+        <!-- Progreso -->
+        <div id="progreso-steps">
+            <div id="step-carroza">⏳ Actualizando estado de carroza...</div>
+            <div id="step-llegada">⏳ Guardando registro de llegada...</div>
         </div>
 
-        <div class="form-group">
-            <label>Observaciones Finales</label>
-            <textarea id="observaciones" rows="3" placeholder="¿Alguna novedad en el servicio?"></textarea>
+        <div class="acciones">
+            <button class="btn-finalizar" id="btn-finalizar" onclick="finalizarServicio()">
+                🏁 FINALIZAR SERVICIO
+            </button>
+            <div id="bloque-wa" style="display:none;">
+                <button class="btn-wa" onclick="enviarWA()">💬 ENVIAR REPORTE POR WHATSAPP</button>
+            </div>
+            <button class="btn-volver" onclick="irAtras()">← Volver</button>
         </div>
 
-        <button type="submit" class="btn-finalizar" id="btn-submit"><span>🏁</span> FINALIZAR SERVICIO</button>
-    </form>
-
-    <!-- CORRECCIÓN: enlace al panel correcto según rol -->
-    <button onclick="irAtras()" class="btn-regresar">← Volver</button>
+    </div>
 </div>
 
 <script src="db.js"></script>
 <script>
-    let flotaData = [];
+    let flotaCompleta  = [];
+    let estadoSeleccionado = '';
+    let datosFinales   = {};
 
+    // ── INIT ───────────────────────────────────────────────
     window.onload = async () => {
-        const ahora = new Date();
-        document.getElementById('hora_ingreso').value = 
-            ahora.getHours().toString().padStart(2, '0') + ":" + 
-            ahora.getMinutes().toString().padStart(2, '0');
+        const sesionData = localStorage.getItem('usuario_sesion');
+        if (!sesionData) { window.location.href = "index.html"; return; }
+        const user = JSON.parse(sesionData);
+        document.getElementById('recibido_por').value  = user.nombre;
+        document.getElementById('conductor-header').innerText = 'BIENVENIDO, ' + user.nombre.split(' ')[0].toUpperCase();
 
-        // CORRECCIÓN: tabla 'carrozas' (minúsculas), cargamos toda la flota
-        const { data, error } = await DB.supabase
-            .from('carrozas')
-            .select('placa, kilometraje_actual, estado')
-            .order('placa', { ascending: true });
-        
-        flotaData = data || [];
-        const select = document.getElementById('placa');
-        if (data && data.length > 0) {
-            select.innerHTML = '<option value="">Elija placa...</option>' + 
-                data.map(c => `<option value="${c.placa}">${c.placa} — ${c.estado || 'S/E'}</option>`).join('');
-        } else {
-            select.innerHTML = '<option value="">No hay vehículos registrados</option>';
-        }
+        await cargarPlacas();
+
+        const now = new Date();
+        document.getElementById('hora_ingreso').value =
+            now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
     };
 
-    function mostrarKmActual() {
-        const placa = document.getElementById('placa').value;
-        const infoDiv = document.getElementById('info-km-actual');
-        const vehiculo = flotaData.find(c => c.placa === placa);
-        if (vehiculo && placa) {
-            infoDiv.style.display = 'block';
-            infoDiv.innerHTML = `📊 KM registrado al salir: <strong>${Number(vehiculo.kilometraje_actual || 0).toLocaleString()} KM</strong>`;
-        } else {
-            infoDiv.style.display = 'none';
+    // ── CARGAR PLACAS EN SERVICIO ─────────────────────────
+    async function cargarPlacas() {
+        const select = document.getElementById('placa');
+        try {
+            const { data, error } = await DB.supabase
+                .from('carrozas')
+                .select('placa, modelo, estado, kilometraje_actual')
+                .order('placa');
+            if (error) throw error;
+            flotaCompleta = data || [];
+
+            const enServicio = flotaCompleta.filter(c => (c.estado || '').includes('Servicio'));
+            if (enServicio.length > 0) {
+                select.innerHTML = '<option value="">Elija placa...</option>' +
+                    enServicio.map(c =>
+                        '<option value="' + c.placa + '">' + c.placa + ' — ' + (c.modelo || 'S/M') + '</option>'
+                    ).join('');
+            } else {
+                // Si ninguna está "En Servicio", mostrar todas igualmente
+                select.innerHTML = '<option value="">Elija placa...</option>' +
+                    flotaCompleta.map(c =>
+                        '<option value="' + c.placa + '">' + c.placa + ' — ' + (c.modelo || 'S/M') + ' (' + (c.estado || '?') + ')</option>'
+                    ).join('');
+            }
+        } catch(e) {
+            select.innerHTML = '<option>Error al cargar placas</option>';
         }
+    }
+
+    // ── AL ELEGIR PLACA: traer km salida para calcular delta ──
+    async function alSeleccionarPlaca() {
+        const placa = document.getElementById('placa').value;
+        if (!placa) return;
+
+        // Buscar el traslado activo (más reciente sin km_ingreso) para este placa
+        try {
+            const { data } = await DB.supabase
+                .from('Traslado')
+                .select('km__salida, hora_de_salida')
+                .eq('placa', placa)
+                .is('km__ingreso', null)
+                .order('fecha', { ascending: false })
+                .limit(1);
+
+            if (data && data.length > 0) {
+                window._kmSalidaActivo = parseInt(data[0].km__salida) || 0;
+                document.getElementById('km-sub-info').innerText =
+                    'KM salida: ' + window._kmSalidaActivo.toLocaleString('es-CO') + ' | Hora salida: ' + (data[0].hora_de_salida || '--');
+            } else {
+                window._kmSalidaActivo = 0;
+            }
+        } catch(e) {
+            window._kmSalidaActivo = 0;
+        }
+        calcularTotal();
+    }
+
+    // ── CÁLCULO TOTAL KM ──────────────────────────────────
+    function calcularTotal() {
+        const kmI = parseFloat(document.getElementById('km_ingreso').value) || 0;
+        const kmS = window._kmSalidaActivo || 0;
+        const total = kmI > 0 && kmS > 0 ? (kmI - kmS) : 0;
+        document.getElementById('total_km').value = total.toFixed(1);
+
+        const display  = document.getElementById('total-km-display');
+        const subInfo  = document.getElementById('km-sub-info');
+        const card     = document.getElementById('total-km-card');
+
+        if (kmI > 0 && kmS > 0 && total >= 0) {
+            display.innerText = total.toLocaleString('es-CO') + ' KM';
+            card.style.borderColor = '#16a34a';
+        } else if (kmI > 0) {
+            display.innerText = '— KM';
+            subInfo.innerText = 'Selecciona la placa para calcular automáticamente';
+        } else {
+            display.innerText = '— KM';
+            subInfo.innerText = 'Ingresa KM de llegada para calcular';
+        }
+    }
+
+    // ── ESTADO DE ENTREGA ─────────────────────────────────
+    function seleccionarEstado(valor) {
+        estadoSeleccionado = valor;
+        ['orden','novedad','averia'].forEach(v => {
+            document.getElementById('est-' + v).classList.remove('sel-orden','sel-novedad','sel-averia');
+            document.getElementById('check-' + v).innerHTML = '';
+        });
+        document.getElementById('est-' + valor).classList.add('sel-' + valor);
+    }
+
+    function setStep(id, estado, texto) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.className = estado;
+        el.innerText = texto;
+    }
+
+    // ── FINALIZAR SERVICIO ────────────────────────────────
+    async function finalizarServicio() {
+        const btn   = document.getElementById('btn-finalizar');
+        const placa = document.getElementById('placa').value;
+        const kmI   = document.getElementById('km_ingreso').value;
+        const hora  = document.getElementById('hora_ingreso').value;
+
+        if (!placa) { alert("Selecciona la placa"); return; }
+        if (!kmI)   { alert("Ingresa el KM de llegada"); return; }
+        if (!estadoSeleccionado) { alert("Selecciona el estado de entrega"); return; }
+
+        btn.disabled  = true;
+        btn.innerText = "⏳ GUARDANDO...";
+        document.getElementById('progreso-steps').style.display = 'block';
+
+        const etiquetaEstado = {
+            'orden':   'Todo En Orden ✅',
+            'novedad': 'Con Novedad ⚠️',
+            'averia':  'Con Avería 🔧'
+        }[estadoSeleccionado];
+
+        datosFinales = {
+            placa,
+            hora_ingreso:   hora,
+            km_ingreso:     kmI,
+            total_km:       document.getElementById('total_km').value,
+            estado_entrega: etiquetaEstado,
+            observaciones:  document.getElementById('observaciones').value,
+            recibido_por:   document.getElementById('recibido_por').value,
+        };
+
+        // ── Paso 1: actualizar carroza a Disponible ────────
+        setStep('step-carroza', 'act', '⏳ Actualizando estado de carroza...');
+        try {
+            await DB.supabase.from('carrozas')
+                .update({ estado: 'Disponible', kilometraje_actual: parseInt(kmI) || 0 })
+                .eq('placa', placa);
+            setStep('step-carroza', 'ok', '✅ Carroza marcada como Disponible');
+        } catch(e) {
+            setStep('step-carroza', 'ok', '⚠️ Carroza: se omitió (no crítico)');
+        }
+
+        // ── Paso 2: guardar en tabla Llegadas ─────────────
+        setStep('step-llegada', 'act', '⏳ Guardando registro de llegada...');
+        try {
+            const { error } = await DB.supabase.from('Llegadas').insert([{
+                placa:          datosFinales.placa,
+                hora_ingreso:   datosFinales.hora_ingreso,
+                km_ingreso:     parseInt(datosFinales.km_ingreso),
+                estado_entrega: datosFinales.estado_entrega,
+                observaciones:  datosFinales.observaciones,
+                recibido_por:   datosFinales.recibido_por,
+            }]);
+
+            if (error) throw error;
+
+            // También actualizar km_ingreso en el traslado activo de esa placa
+            await DB.supabase.from('Traslado')
+                .update({ km__ingreso: parseInt(kmI), hora_de_ingreso: hora })
+                .eq('placa', placa)
+                .is('km__ingreso', null);
+
+            setStep('step-llegada', 'ok', '✅ Llegada registrada correctamente');
+            btn.innerText = "✓ SERVICIO FINALIZADO";
+            btn.style.background = "#16a34a";
+            document.getElementById('bloque-wa').style.display = 'block';
+
+        } catch(e) {
+            setStep('step-llegada', 'err', '❌ Error: ' + e.message);
+            alert("❌ Error al guardar llegada:\n" + e.message);
+            btn.disabled  = false;
+            btn.innerText = "🏁 REINTENTAR";
+        }
+    }
+
+    // ── WHATSAPP ──────────────────────────────────────────
+    function enviarWA() {
+        const hora = new Date().getHours();
+        const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
+        const msg = saludo + "\n\n" +
+            "🏁 *Reporte de Llegada De Carroza*\n\n" +
+            "🚗 *Placa:* "          + datosFinales.placa          + "\n" +
+            "🕐 *Hora Llegada:* "   + datosFinales.hora_ingreso   + "\n" +
+            "📊 *KM Ingreso:* "     + parseInt(datosFinales.km_ingreso).toLocaleString('es-CO') + "\n" +
+            "🛣️ *Total KM:* "       + datosFinales.total_km       + " km\n" +
+            "🔍 *Estado Entrega:* " + datosFinales.estado_entrega + "\n" +
+            "👤 *Recibido Por:* "   + datosFinales.recibido_por   + "\n\n" +
+            "📝 *Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
+            "✅ *Servicio completado exitosamente* 🙏";
+        window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
 
     function irAtras() {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const esAdmin = (sesion.usuario || '').toLowerCase() === 'admin' || (sesion.rol || '').toLowerCase() === 'admin';
-        window.location.href = esAdmin ? "dashboard.html" : "panel_conductor.html";
-    }
-
-    document.getElementById('form-llegada').onsubmit = async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('btn-submit');
-        const placa = document.getElementById('placa').value;
-        const kmIngreso = parseInt(document.getElementById('km_ingreso').value);
-
-        if (!placa) { alert("Selecciona una placa"); return; }
-
-        btn.innerText = "Procesando...";
-        btn.disabled = true;
-
-        // 1. Actualizar km y estado en carrozas
-        const { error: errorCarroza } = await DB.supabase
-            .from('carrozas')
-            .update({ 
-                kilometraje_actual: kmIngreso,
-                estado: 'Disponible' 
-            })
-            .eq('placa', placa);
-
-        if (errorCarroza) {
-            alert("Error al actualizar: " + errorCarroza.message);
-            btn.disabled = false;
-            btn.innerText = "🏁 FINALIZAR SERVICIO";
-            return;
-        }
-
-        // 2. Guardar registro en Llegadas_rows
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        await DB.guardarLlegada({
-            placa,
-            km_ingreso:     kmIngreso,
-            hora_ingreso:   document.getElementById('hora_ingreso').value,
-            estado_entrega: document.getElementById('estado_entrega').value,
-            observaciones:  document.getElementById('observaciones').value,
-            conductor:      sesion.nombre   || '',
-            regional:       sesion.regional || ''
-        });
-
-        enviarConfirmacionWA({
-            placa,
-            km_ingreso:     kmIngreso,
-            hora_ingreso:   document.getElementById('hora_ingreso').value,
-            estado_entrega: document.getElementById('estado_entrega').value,
-            observaciones:  document.getElementById('observaciones').value
-        });
-        alert("✅ Llegada registrada. Carroza " + placa + " ahora está DISPONIBLE.");
-        irAtras();
-    };
-
-    function enviarConfirmacionWA(d) {
-        const hora = new Date().getHours();
-        const saludo = hora < 12 ? "Buenos días ☀️" : (hora < 18 ? "Buenas tardes 🌤️" : "Buenas noches 🌜");
-        const mensaje = `${saludo}\n\n` +
-            `🏁 *REPORTE DE LLEGADA J.R.*\n\n` +
-            `🚗 *Placa:* ${d.placa}\n` +
-            `🕒 *Hora Ingreso:* ${d.hora_ingreso}\n` +
-            `📊 *KM Final:* ${d.km_ingreso}\n` +
-            `✨ *Estado:* ${d.estado_entrega}\n` +
-            `📝 *Obs:* ${d.observaciones || 'Sin novedad'}\n\n` +
-            `✅ _Vehículo listo para nuevo servicio._`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
+        const user = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const rol  = norm(user.rol);
+        const usr  = norm(user.usuario);
+        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = "dashboard.html";
+        else if (rol === 'coordinador') window.location.href = "panel_coordinador.html";
+        else window.location.href = "panel_conductor.html";
     }
 </script>
-
+<script src="config-aplicar.js"></script>
 </body>
 </html>
