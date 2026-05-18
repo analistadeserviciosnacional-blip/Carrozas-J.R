@@ -1,8 +1,9 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v9.1
+ *  CONECTOR J.R. CARROZAS — db.js  v9.2
  *  Columnas verificadas contra el Excel real
  *  Fecha formateada: DD/MM/AAAA
+ *  FIX: GASQueryBuilder ahora soporta .insert() e .is()
  * ══════════════════════════════════════════════════════════
  */
 
@@ -70,18 +71,55 @@ async function gasWrite(sheetName, payload, action = "insert", idCol = "", idVal
 
 class GASQueryBuilder {
   constructor(t) {
-    this._table = t; this._filters = []; this._ilikes = [];
-    this._orders = []; this._limitN = null; this._single = false; this._updatePayload = null;
+    this._table         = t;
+    this._filters       = [];   // eq filters
+    this._isNullFilters = [];   // is(col, null) filters
+    this._ilikes        = [];
+    this._orders        = [];
+    this._limitN        = null;
+    this._single        = false;
+    this._updatePayload = null;
+    this._insertPayload = null;
   }
+
   select()            { return this; }
+
   eq(col, val)        { this._filters.push({ col, val: String(val) }); return this; }
+
+  // Soporta .is(col, null) — usado para buscar traslados sin km_ingreso
+  is(col, val) {
+    if (val === null || val === undefined || val === '') {
+      this._isNullFilters.push({ col });
+    }
+    return this;
+  }
+
   ilike(col, pattern) { this._ilikes.push({ col, val: pattern.replace(/%/g,'').toLowerCase() }); return this; }
+
   order(col, opts={}) { this._orders.push({ col, asc: opts.ascending !== false }); return this; }
+
   limit(n)            { this._limitN = n; return this; }
+
   single()            { this._single = true; return this; }
+
   update(payload)     { this._updatePayload = payload; return this; }
 
+  // NUEVO: soporta .insert([{...}]) o .insert({...})
+  insert(payload) {
+    this._insertPayload = Array.isArray(payload) ? payload[0] : payload;
+    return this;
+  }
+
   then(resolve, reject) {
+    // ── INSERT ───────────────────────────────────────────
+    if (this._insertPayload !== null) {
+      gasWrite(this._table, this._insertPayload, 'insert')
+        .then(res => resolve({ data: null, error: res.ok ? null : { message: res.error } }))
+        .catch(err => resolve({ data: null, error: { message: err.message } }));
+      return;
+    }
+
+    // ── UPDATE ───────────────────────────────────────────
     if (this._updatePayload !== null) {
       const f = this._filters[0];
       if (!f) { resolve({ data: null, error: { message: 'update requiere .eq()' } }); return; }
@@ -90,15 +128,25 @@ class GASQueryBuilder {
         .catch(err => resolve({ data: null, error: { message: err.message } }));
       return;
     }
+
+    // ── SELECT ───────────────────────────────────────────
     gasGet(this._table)
       .then(rows => {
+        // filtros eq
         for (const f of this._filters)
           rows = rows.filter(r => String(r[f.col]||'').trim().toLowerCase() === f.val.trim().toLowerCase());
+        // filtros is(col, null) — filas donde la columna está vacía o ausente
+        for (const f of this._isNullFilters)
+          rows = rows.filter(r => r[f.col] === null || r[f.col] === undefined || String(r[f.col]).trim() === '');
+        // ilike
         for (const f of this._ilikes)
           rows = rows.filter(r => String(r[f.col]||'').toLowerCase().includes(f.val));
+        // orden
         for (const o of this._orders)
           rows.sort((a,b) => { const va=String(a[o.col]||''), vb=String(b[o.col]||''); return o.asc ? va.localeCompare(vb) : vb.localeCompare(va); });
+        // límite
         if (this._limitN) rows = rows.slice(0, this._limitN);
+
         resolve(this._single
           ? { data: rows[0]||null, error: rows.length ? null : { message: 'No rows' } }
           : { data: rows, error: null });
@@ -162,12 +210,6 @@ const DB = {
   },
 
   // ── GUARDAR TRASLADO ──────────────────────────────────────
-  // Columnas: id_salida, fecha, regional, conductor, nnum_telefono, placa,
-  //           motivo_de_salida, nombre_del_fallecido, clinica_hospital_o_rsd,
-  //           numero_prestacion, origen, destino, hora_de_salida, hora_de_ingreso,
-  //           km__salida, km__ingreso, total_km, coordinador_en_turno,
-  //           observaciones, imagen1, firma, imagen2, imagen3, imagen4,
-  //           kit_carretera
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
@@ -194,14 +236,12 @@ const DB = {
       imagen2:                d.imagen2               || '',
       imagen3:                d.imagen3               || '',
       imagen4:                d.imagen4               || '',
-      kit_carretera:          d.kit_carretera         || '',  // ← NUEVO
+      kit_carretera:          d.kit_carretera         || '',
     };
     return await gasWrite('Traslado', fila, 'insert');
   },
 
   // ── GUARDAR LLEGADA ───────────────────────────────────────
-  // Columnas: id, fecha, hora_ingreso, placa, km_ingreso, total_km,
-  //           estado_entrega, observaciones, recibido_por, created_at
   async guardarLlegada(d) {
     const fila = {
       id:             'L-' + Date.now(),
@@ -209,19 +249,16 @@ const DB = {
       hora_ingreso:   d.hora_ingreso   || '',
       placa:          d.placa          || '',
       km_ingreso:     d.km_ingreso     || '',
-      total_km:       d.total_km       || '',  // ← NUEVO
+      total_km:       d.total_km       || '',
       estado_entrega: d.estado_entrega || '',
       observaciones:  d.observaciones  || '',
-      recibido_por:   d.recibido_por   || '',  // ← CORREGIDO (antes era d.conductor)
+      recibido_por:   d.recibido_por   || '',
       created_at:     new Date().toISOString(),
     };
     return await gasWrite('Llegadas', fila, 'insert');
   },
 
   // ── GUARDAR AVERÍA ────────────────────────────────────────
-  // Columnas: id, reportado_por, regional, placa_vehiculo, tipo_vehiculo,
-  //           tipo_falla, descripcion_sintomas, observaciones,
-  //           imagen1, imagen2, imagen3, imagen4, created_at
   async guardarAveria(d) {
     const fila = {
       id:                   'AV-' + Date.now(),
