@@ -24,6 +24,39 @@
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+        /* ── KIT DE CARRETERA ─────────────────────────────── */
+        .kit-selector { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .kit-opcion {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; border-radius: 12px;
+            border: 2px solid #e3f2fd; cursor: pointer;
+            transition: all 0.2s ease; background: #f8fbff;
+        }
+        .kit-opcion:hover { border-color: #90caf9; background: #e3f2fd; }
+        .kit-opcion input[type="radio"] { display: none; }
+        .kit-opcion .kit-icono { font-size: 22px; flex-shrink: 0; }
+        .kit-opcion .kit-texto { flex: 1; }
+        .kit-opcion .kit-titulo { font-size: 13px; font-weight: 700; color: var(--azul); }
+        .kit-opcion .kit-desc   { font-size: 11px; color: var(--gris); margin-top: 2px; }
+        .kit-opcion .kit-check  { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #90caf9; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        /* Estados seleccionados */
+        .kit-opcion.sel-completo { border-color: #16a34a; background: #f0fdf4; }
+        .kit-opcion.sel-completo .kit-check { background: #16a34a; border-color: #16a34a; }
+        .kit-opcion.sel-completo .kit-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 900; }
+        .kit-opcion.sel-incompleto { border-color: #d97706; background: #fffbeb; }
+        .kit-opcion.sel-incompleto .kit-check { background: #d97706; border-color: #d97706; }
+        .kit-opcion.sel-incompleto .kit-check::after { content: '!'; color: white; font-size: 11px; font-weight: 900; }
+        .kit-opcion.sel-no-tiene { border-color: #dc2626; background: #fef2f2; }
+        .kit-opcion.sel-no-tiene .kit-check { background: #dc2626; border-color: #dc2626; }
+        .kit-opcion.sel-no-tiene .kit-check::after { content: '✗'; color: white; font-size: 11px; font-weight: 900; }
+        .kit-alerta {
+            display: none; padding: 10px 14px; border-radius: 10px;
+            font-size: 12px; font-weight: 600; margin-bottom: 12px;
+        }
+        .kit-alerta.inc { background: #fffbeb; border: 1.5px solid #fcd34d; color: #92400e; display: block; }
+        .kit-alerta.no  { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; display: block; }
+
+        /* ── ALERTAS VEHÍCULO ────────────────────────────── */
         .alerta-vehiculo {
             display: none; border-radius: 16px; padding: 16px 18px;
             margin-bottom: 14px; font-size: 13px; line-height: 1.6;
@@ -51,13 +84,13 @@
         .km-progreso-wrap { margin-top: 12px; background: rgba(0,0,0,0.05); border-radius: 10px; overflow: hidden; height: 10px; }
         .km-progreso-bar  { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
 
+        /* ── FOTOS / FIRMA / BOTONES ─────────────────────── */
         .upload-container { border: 2px dashed var(--azul); border-radius: 15px; padding: 15px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 12px; }
         .preview-gallery  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid var(--azul-cielo); }
         .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         canvas { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 140px; background: #fff; touch-action: none; }
-
         .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
         .btn-accion-guardar { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: var(--azul); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,74,153,0.25); transition: 0.2s; font-family: inherit; }
         .btn-accion-guardar:active  { transform: scale(0.98); }
@@ -66,8 +99,6 @@
         .btn-accion-fotos { width: 100%; padding: 14px; border: none; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer; background: #128C7E; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit; }
         .btn-accion-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; font-family: inherit; }
         .instruccion-fotos { background: #fff9e6; border: 1px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; text-align: center; line-height: 1.6; display: none; }
-
-        /* Progress steps */
         #progreso-steps { display:none; background:#f0f7ff; border:1px solid #c7dff7; border-radius:12px; padding:12px 15px; margin-bottom:14px; font-size:12px; }
         #progreso-steps div { padding: 3px 0; color: #546e7a; }
         #progreso-steps div.ok   { color: #15803d; font-weight: 700; }
@@ -85,6 +116,7 @@
 
     <div class="content">
 
+        <!-- ── RESPONSABLE ─────────────────────────────── -->
         <div class="section-title">Datos de Responsable</div>
         <div class="grid-2">
             <div>
@@ -109,6 +141,7 @@
             </div>
         </div>
 
+        <!-- ── VEHÍCULO ────────────────────────────────── -->
         <div class="section-title">Información del Vehículo</div>
         <div class="grid-2">
             <div>
@@ -135,6 +168,44 @@
 
         <div class="alerta-vehiculo" id="alerta-vehiculo"></div>
 
+        <!-- ── KIT DE CARRETERA ────────────────────────── -->
+        <div class="section-title">🧰 Kit de Carretera</div>
+        <div class="kit-selector" id="kit-selector">
+
+            <label class="kit-opcion" id="kit-completo" onclick="seleccionarKit('completo')">
+                <input type="radio" name="kit" value="completo">
+                <div class="kit-icono">✅</div>
+                <div class="kit-texto">
+                    <div class="kit-titulo">Completo — Todo en orden</div>
+                    <div class="kit-desc">Extintor, botiquín, triángulos, linterna y cables en perfecto estado</div>
+                </div>
+                <div class="kit-check" id="check-completo"></div>
+            </label>
+
+            <label class="kit-opcion" id="kit-incompleto" onclick="seleccionarKit('incompleto')">
+                <input type="radio" name="kit" value="incompleto">
+                <div class="kit-icono">⚠️</div>
+                <div class="kit-texto">
+                    <div class="kit-titulo">Incompleto — Faltan elementos</div>
+                    <div class="kit-desc">Uno o más elementos del kit están ausentes o vencidos</div>
+                </div>
+                <div class="kit-check" id="check-incompleto"></div>
+            </label>
+
+            <label class="kit-opcion" id="kit-no-tiene" onclick="seleccionarKit('no-tiene')">
+                <input type="radio" name="kit" value="no-tiene">
+                <div class="kit-icono">🚫</div>
+                <div class="kit-texto">
+                    <div class="kit-titulo">Sin kit — No tiene</div>
+                    <div class="kit-desc">La carroza no cuenta con kit de carretera</div>
+                </div>
+                <div class="kit-check" id="check-no-tiene"></div>
+            </label>
+
+        </div>
+        <div class="kit-alerta" id="kit-alerta"></div>
+
+        <!-- ── SERVICIO ────────────────────────────────── -->
         <div class="section-title">Datos del Servicio</div>
         <label>Nombre del Fallecido</label>
         <input type="text" id="fallecido" placeholder="Nombre completo">
@@ -148,18 +219,15 @@
             <div><label>Destino (Ciudad)</label><input type="text" id="destino" placeholder="Para:"></div>
         </div>
 
+        <!-- ── KILOMETRAJE Y HORA — SOLO SALIDA ────────── -->
         <div class="section-title">Control de Kilometraje y Hora</div>
         <div class="grid-2">
             <div><label>Hora Salida</label><input type="time" id="hora_salida"></div>
-            <div><label>Hora Ingreso</label><input type="time" id="hora_ingreso"></div>
+            <div><label>KM Salida</label><input type="number" id="km_s"></div>
         </div>
-        <div class="grid-2">
-            <div><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
-            <div><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
-        </div>
-        <label>Total KM Recorridos</label>
-        <input type="number" id="total_km" readonly style="background:#eef5ff; font-weight:bold; font-size:16px;">
+        <!-- NOTA: hora_ingreso y km_ingreso se registran en el formulario de LLEGADA -->
 
+        <!-- ── EVIDENCIAS ──────────────────────────────── -->
         <div class="section-title">Evidencias Fotográficas</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
             <span id="upload-text">📸 Toca para subir fotos (Máximo 4)</span>
@@ -170,10 +238,12 @@
         <label>Observaciones de Salida</label>
         <textarea id="observaciones" rows="2" placeholder="Novedades del vehículo o servicio..."></textarea>
 
+        <!-- ── FIRMA ───────────────────────────────────── -->
         <div class="section-title">Firma de Responsable</div>
         <canvas id="canvas"></canvas>
         <p onclick="borrarFirma()" style="text-align:right; color:#ff4444; font-size:11px; cursor:pointer; margin-top:5px; font-weight:bold;">✖ BORRAR FIRMA</p>
 
+        <!-- ── NOTIFICACIÓN ───────────────────────────── -->
         <div class="section-title">Notificación</div>
         <label>Nombre del Coordinador (para el reporte)</label>
         <input type="text" id="nombre-coordinador" placeholder="Ej: Coordinador Pereira">
@@ -209,9 +279,36 @@
     let fotosArray    = [];
     let datosFinales  = {};
     let flotaCompleta = [];
+    let kitSeleccionado = ''; // 'completo' | 'incompleto' | 'no-tiene'
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
     let dibujando = false;
+
+    // ── KIT DE CARRETERA ──────────────────────────────────
+    function seleccionarKit(valor) {
+        kitSeleccionado = valor;
+        ['completo','incompleto','no-tiene'].forEach(v => {
+            const el  = document.getElementById('kit-' + v);
+            const chk = document.getElementById('check-' + v);
+            el.classList.remove('sel-completo','sel-incompleto','sel-no-tiene');
+            chk.innerHTML = '';
+        });
+        const el  = document.getElementById('kit-' + valor);
+        const chk = document.getElementById('check-' + valor);
+        el.classList.add('sel-' + valor);
+
+        const alerta = document.getElementById('kit-alerta');
+        alerta.className = 'kit-alerta';
+        alerta.innerText = '';
+
+        if (valor === 'incompleto') {
+            alerta.classList.add('inc');
+            alerta.innerText = '⚠️ Reporta al coordinador qué elementos faltan antes de salir.';
+        } else if (valor === 'no-tiene') {
+            alerta.classList.add('no');
+            alerta.innerText = '🚨 La carroza no debe salir sin kit de carretera. Informa al coordinador inmediatamente.';
+        }
+    }
 
     // ── INIT ──────────────────────────────────────────────
     window.onload = async () => {
@@ -307,7 +404,6 @@
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
 
         document.getElementById('km_s').value = kmActual;
-        calcularTotal();
 
         if (estado === 'En Taller') {
             alertaEl.className = 'alerta-vehiculo en-taller';
@@ -323,7 +419,6 @@
             return;
         }
 
-        // ── Consultar mantenimientos — SIN lanzar alert si falla ──
         try {
             const { data: mants } = await DB.supabase
                 .from('mantenimientos')
@@ -384,7 +479,6 @@
             }
             alertaEl.style.display = 'block';
         } catch(e) {
-            // Error de mantenimientos → mostrar sin dato pero NO alertar
             console.warn('mantenimientos no disponibles:', e.message);
             alertaEl.className = 'alerta-vehiculo sin-dato';
             alertaEl.style.display = 'block';
@@ -433,13 +527,6 @@
     canvas.addEventListener('touchmove',  mover);
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-    function calcularTotal() {
-        const s = parseFloat(document.getElementById('km_s').value) || 0;
-        const i = parseFloat(document.getElementById('km_i').value) || 0;
-        document.getElementById('total_km').value = (i - s).toFixed(1);
-    }
-
-    // ── Paso visual de progreso ────────────────────────────
     function setStep(id, estado, texto) {
         const el = document.getElementById(id);
         if (!el) return;
@@ -451,10 +538,17 @@
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
         if (!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
+        if (!kitSeleccionado) { alert("Selecciona el estado del kit de carretera"); return; }
 
         btn.innerText  = "⏳ GUARDANDO...";
         btn.disabled   = true;
         document.getElementById('progreso-steps').style.display = 'block';
+
+        const etiquetaKit = {
+            'completo':   '✅ Completo',
+            'incompleto': '⚠️ Incompleto',
+            'no-tiene':   '🚫 Sin kit'
+        }[kitSeleccionado] || kitSeleccionado;
 
         datosFinales = {
             regional:      document.getElementById('regional').value,
@@ -468,10 +562,8 @@
             origen:        document.getElementById('origen').value,
             destino:       document.getElementById('destino').value,
             hora_salida:   document.getElementById('hora_salida').value,
-            hora_ingreso:  document.getElementById('hora_ingreso').value,
             km_salida:     document.getElementById('km_s').value,
-            km_ingreso:    document.getElementById('km_i').value,
-            total_km:      document.getElementById('total_km').value,
+            kit_carretera: etiquetaKit,
             coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
             observaciones: document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || '', imagen2: fotosArray[1] || '',
@@ -485,15 +577,12 @@
             const resCarroza = await DB.supabase.from('carrozas')
                 .update({ estado: 'En Servicio', kilometraje_actual: parseInt(datosFinales.km_salida) || 0 })
                 .eq('placa', datosFinales.placa);
-            // GASQueryBuilder devuelve { data, error } — error null = ok
             if (resCarroza && resCarroza.error) {
-                console.warn('Carroza update warning:', resCarroza.error);
                 setStep('step-carroza', 'ok', '⚠️ Carroza: advertencia (continúa)');
             } else {
                 setStep('step-carroza', 'ok', '✅ Carroza actualizada');
             }
         } catch(e) {
-            console.warn('Carroza update error (no crítico):', e);
             setStep('step-carroza', 'ok', '⚠️ Carroza: se omitió (no crítico)');
         }
 
@@ -511,19 +600,16 @@
                 bloqueWA.style.flexDirection = 'column';
                 bloqueWA.style.gap           = '8px';
             } else {
-                // Mostrar error descriptivo sin "undefined"
                 const errMsg = (res && res.error)
                     ? (typeof res.error === 'object' ? JSON.stringify(res.error) : String(res.error))
                     : 'No se recibió respuesta del servidor';
                 setStep('step-traslado', 'err', '❌ Error: ' + errMsg);
-                console.error('guardarTraslado falló:', res);
                 alert("❌ Error al guardar:\n" + errMsg + "\n\nRevisa tu conexión e intenta de nuevo.");
                 btn.disabled  = false;
                 btn.innerText = "💾 REINTENTAR";
             }
         } catch(e) {
             setStep('step-traslado', 'err', '❌ Error inesperado: ' + e.message);
-            console.error('guardarTodo excepción:', e);
             alert("❌ Error inesperado:\n" + e.message);
             btn.disabled  = false;
             btn.innerText = "💾 REINTENTAR";
@@ -535,21 +621,21 @@
         const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
         const msg = saludo + "\n\n" +
             "📢 *Reporte de Salida De Carroza*\n\n" +
-            "📍 *Regional:* "       + datosFinales.regional    + "\n" +
+            "📍 *Regional:* "        + datosFinales.regional    + "\n" +
             "📅 *Fecha:* " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
-            "👤 *Coordinador:* "    + datosFinales.coordinador + "\n" +
-            "🕒 *Hora De Salida:* " + datosFinales.hora_salida + "\n" +
-            "🚗 *Placa:* "          + datosFinales.placa       + "\n" +
-            "❓ *Motivo:* "         + datosFinales.motivo      + "\n" +
-            "⚱️ *Fallecido:* "      + (datosFinales.fallecido  || '---') + "\n" +
-            "🏥 *Lugar Recogida:* " + (datosFinales.clinica    || '---') + "\n" +
-            "🚩 *Origen:* "         + (datosFinales.origen     || '---') + "\n" +
-            "🏁 *Destino:* "        + (datosFinales.destino    || '---') + "\n" +
-            "📊 *KM Salida:* "      + datosFinales.km_salida   + "\n" +
-            "📊 *KM Ingreso:* "     + datosFinales.km_ingreso  + "\n" +
-            "👨🏻‍✈️ *Conductor:* "      + datosFinales.conductor   + "\n\n" +
-            "📞 *Teléfono:* "       + (datosFinales.telefono   || '---') + "\n\n" +
-            "📝 *Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
+            "👤 *Coordinador:* "     + datosFinales.coordinador + "\n" +
+            "🕒 *Hora De Salida:* "  + datosFinales.hora_salida + "\n" +
+            "🚗 *Placa:* "           + datosFinales.placa       + "\n" +
+            "❓ *Motivo:* "          + datosFinales.motivo      + "\n" +
+            "ⱽ *Fallecido:* "        + (datosFinales.fallecido  || '---') + "\n" +
+            "🏥 *Lugar Recogida:* "  + (datosFinales.clinica    || '---') + "\n" +
+            "🚩 *Origen:* "          + (datosFinales.origen     || '---') + "\n" +
+            "🏁 *Destino:* "         + (datosFinales.destino    || '---') + "\n" +
+            "📊 *KM Salida:* "       + datosFinales.km_salida   + "\n" +
+            "🧰 *Kit Carretera:* "   + datosFinales.kit_carretera + "\n" +
+            "👨🏻‍✈️ *Conductor:* "       + datosFinales.conductor   + "\n\n" +
+            "📞 *Teléfono:* "        + (datosFinales.telefono   || '---') + "\n\n" +
+            "📝 *Observaciones:* "   + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
             "✅ *La Carroza se Encuentra:* Todo En Orden 👍🏻";
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
