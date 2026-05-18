@@ -296,49 +296,59 @@
     }
 
     // ── VALIDACIÓN DE COMPATIBILIDAD (ALERTAS) ──────────────
-    function validarCompatibilidad() {
-        const motivo = document.getElementById('motivo').value;
-        const placaSelect = document.getElementById('placa');
-        const optionSel = placaSelect.options[placaSelect.selectedIndex];
+   function validarCompatibilidad() {
+    const motivo = document.getElementById('motivo').value;
+    const placaSelect = document.getElementById('placa');
+    const optionSel = placaSelect.options[placaSelect.selectedIndex];
+    
+    if (!optionSel || !optionSel.value) return;
+
+    // Obtenemos el tipo del atributo data-tipo y lo pasamos a MAYÚSCULAS para que coincida con el Excel
+    const tipoVehiculo = (optionSel.getAttribute('data-tipo') || "").toUpperCase();
+    let mensajeAlerta = "";
+
+    // --- REGLA A: Carros de lujo (HHR, Stavic, Rodius) usados para recoger ---
+    // Si el tipo en el Excel dice "DESTINO FINAL"
+    if (tipoVehiculo.includes("DESTINO FINAL")) {
         
-        if (!optionSel || !optionSel.value) return;
-
-        const tipoVehiculo = optionSel.getAttribute('data-tipo');
-        let mensajeAlerta = "";
-
-        // REGLA: Carroza de Sepelio para Recogidas o Traslados Nacionales
-        if (tipoVehiculo === "Servicio Sepelio") {
-            if (motivo.includes("Recogida") || motivo === "Traslado Nacional" || motivo === "Recogida De Cofres") {
-                mensajeAlerta = "⚠️ ATENCIÓN: Estás asignando una CARROZA DE LUJO para una labor de RECOGIDA O TRASLADO. Estos vehículos son de perfil bajo y pueden sufrir daños en el chasis o desajustes por baches.";
-            }
-        }
-
-        // REGLA: Carro operativo para servicios de ceremonia
-        if (tipoVehiculo === "Servicio Recolección" || tipoVehiculo === "Comercial") {
-            if (motivo === "Sepelio" || motivo === "Puesta En Velación") {
-                mensajeAlerta = "⚠️ AVISO: Estás asignando un vehículo OPERATIVO para un servicio de CEREMONIA (Sepelio). Verifica si la imagen del vehículo es la adecuada.";
-            }
-        }
-
-        if (mensajeAlerta !== "") {
-            Swal.fire({
-                title: '¿Confirmar Asignación?',
-                text: mensajeAlerta,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#004a99',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Sí, continuar',
-                cancelButtonText: 'Cambiar Vehículo'
-            }).then((result) => {
-                if (!result.isConfirmed) {
-                    placaSelect.value = ""; // Resetea si el usuario quiere cambiar
-                    document.getElementById('alerta-vehiculo').style.display = 'none';
-                }
-            });
+        // Y el motivo seleccionado en el HTML es alguna RECOGIDA o TRASLADO NACIONAL
+        if (motivo.includes("Recogida") || motivo === "Traslado Nacional") {
+            mensajeAlerta = `⚠️ <b>RIESGO DE DAÑO AL ACTIVO</b><br><br>` +
+                            `La carroza <b>${optionSel.value}</b> es de tipo <b>DESTINO FINAL</b> (Perfil Bajo).<br><br>` +
+                            `Usarla para <b>${motivo}</b> puede causar daños en el chasis, desajustes o daños por baches en rutas no urbanas.`;
         }
     }
 
+    // --- REGLA B: Carros de Recolección o Comerciales usados para Sepelios ---
+    if (tipoVehiculo.includes("RECOLECCION") || tipoVehiculo.includes("COMERCIAL")) {
+        if (motivo === "Sepelio" || motivo === "Puesta En Velación") {
+            mensajeAlerta = `⚠️ <b>AVISO DE PRESENTACIÓN</b><br><br>` +
+                            `Estás asignando un vehículo de <b>RECOLECCIÓN / COMERCIAL</b> para un servicio de <b>${motivo}</b>.<br><br>` +
+                            `Verifique si la estética del vehículo es la adecuada para este servicio ceremonial.`;
+        }
+    }
+
+    // DISPARAR LA ALERTA CON SWEETALERT
+    if (mensajeAlerta !== "") {
+        Swal.fire({
+            title: '¿ESTÁ SEGURO?',
+            html: mensajeAlerta,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#004a99',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cambiar vehículo'
+        }).then((result) => {
+            if (!result.isConfirmed) {
+                placaSelect.value = ""; // Resetea la placa si el usuario decide cambiar
+                if(document.getElementById('alerta-vehiculo')) {
+                    document.getElementById('alerta-vehiculo').style.display = 'none';
+                }
+            }
+        });
+    }
+}
     // ── ALERTA AL SELECCIONAR PLACA ──────────────────────
     async function alSeleccionarPlaca() {
         const placa    = document.getElementById('placa').value;
