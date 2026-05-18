@@ -481,6 +481,7 @@
         datosFinales = {
             regional:      document.getElementById('regional').value,
             conductor:     document.getElementById('conductor').value,
+            telefono:      window._telefonoConductor || '',
             placa:         document.getElementById('placa').value,
             motivo:        document.getElementById('motivo').value,
             fallecido:     document.getElementById('fallecido').value,
@@ -516,9 +517,62 @@
         }
     }
 
-    function enviarWA() {
-        const msg = `📢 *Reporte de Salida*\n🚗 *Placa:* ${datosFinales.placa}\n🏁 *Destino:* ${datosFinales.destino}\n📊 *KM:* ${datosFinales.km_salida}\n👨🏻‍✈️ *Conductor:* ${datosFinales.conductor}`;
+  function enviarWA() {
+        const hora = new Date().getHours();
+        const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
+        
+        // Creamos una variable para el estado final basada en el kit seleccionado
+        let estadoCarroza = "Todo En Orden"; // Por defecto
+        if (datosFinales.kit_carretera === 'incompleto') {
+            estadoCarroza = "Pendientes en Kit de Carretera";
+        } else if (datosFinales.kit_carretera === 'no-tiene') {
+            estadoCarroza = "Alerta: Sin Kit de Carretera";
+        }
+
+        const msg = saludo + "\n\n" +
+            "*Reporte de Salida De Carroza*\n\n" +
+            "Regional: "        + datosFinales.regional    + "\n" +
+            "Fecha: "           + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
+            "Coordinador: "     + datosFinales.coordinador + "\n" +
+            "Hora De Salida: "  + datosFinales.hora_salida + "\n" +
+            "Placa: "           + datosFinales.placa       + "\n" +
+            "Motivo: "          + datosFinales.motivo      + "\n" +
+            "Fallecido: "       + (datosFinales.fallecido  || '---') + "\n" +
+            "Lugar Recogida: "  + (datosFinales.clinica    || '---') + "\n" +
+            "Origen: "          + (datosFinales.origen     || '---') + "\n" +
+            "Destino: "         + (datosFinales.destino    || '---') + "\n" +
+            "KM Salida: "       + datosFinales.km_salida   + "\n" +
+            "Kit Carretera: "   + datosFinales.kit_carretera + "\n" +
+            "Conductor: "       + datosFinales.conductor   + "\n" +
+            "Telefono: "        + (datosFinales.nnum_telefono || '---') + "\n\n" +
+            "Observaciones: "   + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
+            "La Carroza se Encuentra: " + estadoCarroza; // <--- Ahora es dinámico
+            
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
+    }
+
+    function compartirFotos() {
+        if (fotosArray.length === 0) { alert("No hay fotos para compartir."); return; }
+        if (navigator.share && navigator.canShare) {
+            Promise.all(fotosArray.map((dataUrl, i) =>
+                fetch(dataUrl).then(r => r.blob())
+                    .then(blob => new File([blob], 'evidencia_' + (i+1) + '_' + datosFinales.placa + '.jpg', { type: 'image/jpeg' }))
+            )).then(files => {
+                if (navigator.canShare({ files })) {
+                    navigator.share({ files, title: 'Evidencias J.R. - ' + datosFinales.placa }).catch(() => descargarFotos());
+                } else descargarFotos();
+            }).catch(() => descargarFotos());
+        } else descargarFotos();
+    }
+
+    function descargarFotos() {
+        fotosArray.forEach((dataUrl, i) => {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = 'evidencia_' + (i+1) + '_' + (datosFinales.placa || 'JR') + '.jpg';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        });
+        document.getElementById('instruccion-fotos').style.display = 'block';
     }
 
     function irAtras() { window.history.back(); }
