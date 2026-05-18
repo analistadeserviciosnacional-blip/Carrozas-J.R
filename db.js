@@ -166,7 +166,8 @@ const DB = {
   //           motivo_de_salida, nombre_del_fallecido, clinica_hospital_o_rsd,
   //           numero_prestacion, origen, destino, hora_de_salida, hora_de_ingreso,
   //           km__salida, km__ingreso, total_km, coordinador_en_turno,
-  //           observaciones, imagen1, firma, imagen2, imagen3, imagen4
+  //           observaciones, imagen1, firma, imagen2, imagen3, imagen4,
+  //           kit_carretera
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
@@ -182,10 +183,10 @@ const DB = {
       origen:                 d.origen                || '',
       destino:                d.destino               || '',
       hora_de_salida:         d.hora_salida           || '',
-      hora_de_ingreso:        d.hora_ingreso          || '',
+      hora_de_ingreso:        '',
       km__salida:             d.km_salida             || '',
-      km__ingreso:            d.km_ingreso            || '',
-      total_km:               d.total_km              || '',
+      km__ingreso:            '',
+      total_km:               '',
       coordinador_en_turno:   d.coordinador           || '',
       observaciones:          d.observaciones         || '',
       imagen1:                d.imagen1               || '',
@@ -193,12 +194,13 @@ const DB = {
       imagen2:                d.imagen2               || '',
       imagen3:                d.imagen3               || '',
       imagen4:                d.imagen4               || '',
+      kit_carretera:          d.kit_carretera         || '',  // ← NUEVO
     };
     return await gasWrite('Traslado', fila, 'insert');
   },
 
   // ── GUARDAR LLEGADA ───────────────────────────────────────
-  // Columnas: id, fecha, hora_ingreso, placa, km_ingreso,
+  // Columnas: id, fecha, hora_ingreso, placa, km_ingreso, total_km,
   //           estado_entrega, observaciones, recibido_por, created_at
   async guardarLlegada(d) {
     const fila = {
@@ -207,9 +209,10 @@ const DB = {
       hora_ingreso:   d.hora_ingreso   || '',
       placa:          d.placa          || '',
       km_ingreso:     d.km_ingreso     || '',
+      total_km:       d.total_km       || '',  // ← NUEVO
       estado_entrega: d.estado_entrega || '',
       observaciones:  d.observaciones  || '',
-      recibido_por:   d.conductor      || '',
+      recibido_por:   d.recibido_por   || '',  // ← CORREGIDO (antes era d.conductor)
       created_at:     new Date().toISOString(),
     };
     return await gasWrite('Llegadas', fila, 'insert');
