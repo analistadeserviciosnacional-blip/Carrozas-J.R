@@ -47,7 +47,7 @@
             50%      { transform: scale(1.18); box-shadow: 0 4px 20px rgba(220,38,38,0.8); }
         }
 
-        /* ── PUSH NOTIFICATION SYSTEM (IGUAL AL CONDUCTOR) ── */
+        /* ── PUSH NOTIFICATION SYSTEM ── */
         .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998; }
         .push-overlay.visible { display: block; }
 
@@ -104,7 +104,7 @@
         <p>Panel de Servicios y Reportes de Coordinación</p>
     </div>
 
-    <!-- ── ACCIÓN PRINCIPAL (ESPEJO "MI CARROZA") ── -->
+    <!-- ── ACCIÓN PRINCIPAL ── -->
     <div class="monitor-mini" style="margin-bottom:20px;">
         <h2>Gestión Regional</h2>
         <div id="main-status-box" style="text-align:center; padding:10px 0;">
@@ -176,8 +176,13 @@
             if (rol.includes('admin') || usr === 'admin') { window.location.href = "dashboard.html"; return; }
             if (!rol.includes('coordinador')) { window.location.href = "panel_conductor.html"; return; }
 
-            const nombre = (userSesion.nombre || "Coordinador").replace(/^coordinador\s+/i, '').split(' ')[0];
-            document.getElementById('txt-saludo').innerText = "Hola, " + nombre;
+            // ── CORRECCIÓN DEL SALUDO (NOMBRE COMPLETO) ──
+            // Quitamos el split para que no corte el nombre
+            const nombreCompleto = (userSesion.nombre || "Coordinador")
+                .replace(/^coordinador\s+/i, '')
+                .trim();
+            
+            document.getElementById('txt-saludo').innerText = "Hola, " + nombreCompleto;
             document.getElementById('txt-regional-desc').innerText = "📍 Regional: " + (userSesion.regional || "Sin asignar");
 
             await Promise.all([cargarMisSolicitudes(), cargarTrasladosReg(), cargarMonitorFlota(), verificarBadges()]);
@@ -190,7 +195,7 @@
     async function cargarMisSolicitudes() {
         const { data } = await DB.supabase.from('solicitud_apoyo').select('*').eq('coordinador', userSesion.nombre).order('created_at', {ascending: false}).limit(3);
         const tabla = document.getElementById('tabla-mis-apoyos');
-        if (!data || data.length === 0) { tabla.innerHTML = '<tr><td style="text-align:center; font-size:12px;">No has creado solicitudes.</td></tr>'; return; }
+        if (!data || data.length === 0) { tabla.innerHTML = '<tr><td style="text-align:center; font-size:12px;">Sin solicitudes creadas.</td></tr>'; return; }
         tabla.innerHTML = data.map(s => `<tr><td><b>${s.origen} ➔ ${s.destino}</b><br><small>${s.tipo_servicio}</small></td><td style="text-align:right;"><span class="status-pill pill-${s.estado}">${s.estado.toUpperCase()}</span></td></tr>`).join('');
     }
 
