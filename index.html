@@ -40,6 +40,22 @@ body {
 }
 .logo:hover .logo-hint { display: flex; }
 
+/* Estilos para el Saludo y Fecha/Hora */
+h2#saludo-dinamico { color: var(--texto); font-size: 24px; margin-bottom: 5px; font-weight: 700; line-height: 1.2; }
+.txt-bienvenida { color: #64748b; font-size: 14px; margin-bottom: 15px; font-weight: 500; display: block; }
+.reloj-interno {
+    background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 18px;
+    padding: 12px; margin-bottom: 25px;
+}
+.reloj-fecha { color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; display: block; letter-spacing: 0.5px; }
+.reloj-hora { color: var(--azul); font-size: 19px; font-weight: 800; display: block; margin-top: 3px; }
+
+/* Créditos Zaider */
+.creditos-footer {
+    margin-top: 25px; font-size: 11px; color: var(--azul); opacity: 0.7;
+    font-weight: 600; text-align: center; letter-spacing: 0.3px;
+}
+
 /* Modal genérico */
 .modal-logo-box {
     background: white; padding: 28px 24px; border-radius: 28px;
@@ -62,8 +78,6 @@ body {
 }
 .upload-logo-btn:hover { border-color: var(--azul); color: var(--azul); background: #f0f7ff; }
 
-h2 { color: var(--texto); font-size: 22px; margin-bottom: 5px; font-weight: 700; line-height: 1.2; }
-p  { color: #64748b; font-size: 14px; margin-bottom: 25px; }
 input, select {
     width: 100%; padding: 15px; margin-bottom: 12px;
     border: 1.5px solid #e2e8f0; border-radius: 14px;
@@ -82,16 +96,6 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
 .btn:disabled { background: #94a3b8; cursor: not-allowed; }
 .link-reg { color: var(--azul); font-weight: 700; cursor: pointer; display: block; margin-top: 20px; font-size: 14px; }
 #error-msg { color: #e11d48; font-size: 13px; margin-top: 12px; display: none; background: #fff1f2; padding: 10px; border-radius: 10px; }
-
-/* Créditos */
-.creditos {
-    margin-top: 20px;
-    font-size: 11px;
-    color: var(--azul);
-    opacity: 0.6;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-}
 
 .modal {
     display: none; position: fixed; inset: 0; z-index: 1000;
@@ -129,7 +133,6 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
 .tab-btn.activo   { border: 2px solid #004a99; background: #004a99; color: white; }
 .tab-btn.inactivo { border: 2px solid #e2e8f0; background: #f8fafc; color: #64748b; }
 
-/* Spinner de carga de logo */
 .logo-spinner {
     width: 70px; height: 70px; border-radius: 20px; margin: 0 auto 15px;
     background: #e2e8f0; display: flex; align-items: center; justify-content: center;
@@ -163,9 +166,7 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
         <div class="logo-preview-wrap" id="logo-preview-wrap">
             <span>JR</span>
         </div>
-        <!-- Estado de guardado -->
         <div id="logo-estado" style="font-size:13px;margin-bottom:10px;display:none;padding:8px 12px;border-radius:10px;"></div>
-
         <button class="upload-logo-btn" onclick="document.getElementById('input-logo').click()">
             📁 Seleccionar imagen
         </button>
@@ -184,8 +185,16 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
         <span id="logo-texto">JR</span>
         <div class="logo-hint">✏️ Cambiar<br>logo</div>
     </div>
+    
     <h2 id="saludo-dinamico">Bienvenido</h2>
-    <p>Inicia sesión para continuar</p>
+    <span class="txt-bienvenida">Bienvenido a la App Salida de carrozas</span>
+
+    <!-- RELOJ Y FECHA INTERNA -->
+    <div class="reloj-interno">
+        <span class="reloj-fecha" id="display-fecha">...</span>
+        <span class="reloj-hora" id="display-hora">00:00:00</span>
+    </div>
+
     <input type="text"     id="user" placeholder="Usuario o Cédula">
     <input type="password" id="pass" placeholder="Contraseña">
     <button class="btn btn-azul" id="btn-login" onclick="login()">INGRESAR AL SISTEMA</button>
@@ -193,7 +202,8 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
     <div id="error-msg"></div>
 </div>
 
-<div class="creditos">
+<!-- CREDITOS -->
+<div class="creditos-footer">
     Diseñado y creado por Zaider J Buitrago A
 </div>
 
@@ -290,22 +300,28 @@ function mostrarError(msg) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  SALUDO SEGÚN LA HORA
+//  RELOJ, FECHA Y SALUDO DINÁMICO
 // ══════════════════════════════════════════════════════════
-function establecerSaludo() {
-    const el = document.getElementById('saludo-dinamico');
-    const hora = new Date().getHours();
-    let saludo = "";
+function actualizarReloj() {
+    const ahora = new Date();
+    const horaNum = ahora.getHours();
+    const saludoEl = document.getElementById('saludo-dinamico');
 
-    if (hora >= 6 && hora < 12) {
-        saludo = "¡Buenos días!";
-    } else if (hora >= 12 && hora < 18) {
-        saludo = "¡Buenas tardes!";
+    // Saludo según hora
+    if (horaNum >= 6 && horaNum < 12) {
+        saludoEl.innerText = "¡Buenos días!";
+    } else if (horaNum >= 12 && horaNum < 18) {
+        saludoEl.innerText = "¡Buenas tardes!";
     } else {
-        saludo = "¡Buenas noches!";
+        saludoEl.innerText = "¡Buenas noches!";
     }
 
-    el.innerHTML = `${saludo}<br><span style="font-size:16px; font-weight:500;">Bienvenido a la App Salida de carrozas</span>`;
+    // Fecha (Ej: Martes, 19 de Mayo de 2026)
+    const opcionesFecha = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+    document.getElementById('display-fecha').innerText = ahora.toLocaleDateString('es-ES', opcionesFecha);
+
+    // Hora (Ej: 08:28:05 AM)
+    document.getElementById('display-hora').innerText = ahora.toLocaleTimeString('es-ES', { hour12: true });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -314,18 +330,17 @@ function establecerSaludo() {
 let logoNuevoBase64 = null;
 
 (async function iniciarApp() {
-    establecerSaludo(); // Iniciar saludo
-    
-    // 1. Mostrar logo local si existe
+    actualizarReloj();
+    setInterval(actualizarReloj, 1000);
+
     const logoLocal = localStorage.getItem('jr_logo_app');
     if (logoLocal) aplicarLogo(logoLocal);
 
-    // 2. Cargar desde servidor
     try {
         const res = await DB.obtenerLogo();
         if (res.ok && res.logo) {
             aplicarLogo(res.logo);
-            localStorage.setItem('jr_logo_app', res.logo);
+            localStorage.setItem('jr_logo_app', res.logo); 
         } else if (res.ok && !res.logo) {
             localStorage.removeItem('jr_logo_app');
             aplicarLogo(null);
@@ -366,12 +381,9 @@ function cerrarVerificarAdmin() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const passInput = document.getElementById('va-password');
-    if(passInput) {
-        passInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') verificarAdmin();
-        });
-    }
+    document.getElementById('va-password').addEventListener('keydown', e => {
+        if (e.key === 'Enter') verificarAdmin();
+    });
 });
 
 async function verificarAdmin() {
@@ -435,7 +447,6 @@ function abrirModalLogo() {
 function previsualizarLogo(input) {
     const file = input.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = e => {
         const imagen = new Image();
@@ -491,40 +502,32 @@ async function guardarLogo() {
         if (res.ok) {
             aplicarLogo(logoNuevoBase64);
             localStorage.setItem('jr_logo_app', logoNuevoBase64);
-            mostrarEstadoLogo('✅ Logo guardado. Se verá en todos los dispositivos.', 'ok');
+            mostrarEstadoLogo('✅ Logo guardado correctamente', 'ok');
             setTimeout(() => {
                 document.getElementById('modal-logo').classList.remove('open');
                 logoNuevoBase64 = null;
             }, 1800);
         } else {
-            mostrarEstadoLogo('❌ Error al guardar: ' + (res.error || 'intenta de nuevo'), 'error');
+            mostrarEstadoLogo('❌ Error al guardar', 'error');
         }
     } catch(e) {
-        mostrarEstadoLogo('❌ Error de conexión: ' + e.message, 'error');
+        mostrarEstadoLogo('❌ Error de conexión', 'error');
     } finally {
         btn.disabled = false; btn.innerText = '✅ GUARDAR';
     }
 }
 
 async function resetearLogo() {
-    if (!confirm('¿Quitar el logo personalizado y volver al texto JR?')) return;
+    if (!confirm('¿Quitar el logo personalizado?')) return;
     const btn = document.getElementById('btn-guardar-logo');
     btn.disabled = true;
-    mostrarEstadoLogo('Eliminando logo del servidor...', 'info');
-
     try {
         await DB.eliminarLogo();
         localStorage.removeItem('jr_logo_app');
         aplicarLogo(null);
-        document.getElementById('logo-preview-wrap').innerHTML =
-            '<span style="color:white;font-size:30px;font-weight:900;">JR</span>';
-        mostrarEstadoLogo('✅ Logo eliminado correctamente', 'ok');
-        setTimeout(() => {
-            document.getElementById('modal-logo').classList.remove('open');
-            logoNuevoBase64 = null;
-        }, 1500);
+        document.getElementById('modal-logo').classList.remove('open');
     } catch(e) {
-        mostrarEstadoLogo('❌ Error: ' + e.message, 'error');
+        alert('Error: ' + e.message);
     } finally {
         btn.disabled = false;
     }
