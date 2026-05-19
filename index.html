@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>J.R. — Control de Acceso Corporativo</title>
-<!-- Eliminado: Script de Supabase -->
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -28,7 +27,25 @@ body {
     margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;
     color: white; font-size: 26px; font-weight: 800; transform: rotate(-5deg);
     box-shadow: 0 10px 20px rgba(0,74,153,0.2);
+    overflow: hidden; cursor: pointer; position: relative;
 }
+.logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
+.logo-hint {
+    display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+    border-radius: 20px; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: white; text-align: center;
+    line-height: 1.3;
+}
+.logo:hover .logo-hint { display: flex; }
+/* Modal logo */
+.modal-logo-box { background: white; padding: 28px 24px; border-radius: 28px; width: 92%; max-width: 360px; text-align: center; }
+.modal-logo-box h2 { font-size: 18px; color: var(--texto); margin-bottom: 6px; }
+.modal-logo-box p  { font-size: 13px; color: #64748b; margin-bottom: 18px; }
+.logo-preview-wrap { width: 100px; height: 100px; border-radius: 20px; margin: 0 auto 16px; overflow: hidden; background: var(--azul); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,74,153,0.2); }
+.logo-preview-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.logo-preview-wrap span { color: white; font-size: 30px; font-weight: 900; }
+.upload-logo-btn { width: 100%; padding: 13px; border: 2px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; color: #64748b; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; transition: 0.2s; margin-bottom: 12px; }
+.upload-logo-btn:hover { border-color: var(--azul); color: var(--azul); background: #f0f7ff; }
 h2 { color: var(--texto); font-size: 24px; margin-bottom: 5px; font-weight: 700; }
 p  { color: #64748b; font-size: 14px; margin-bottom: 25px; }
 input, select {
@@ -70,16 +87,48 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
 .btn-carroza {
     width: 100%; padding: 13px; border: 2px dashed #cbd5e1; border-radius: 12px;
     background: #f8fafc; color: #64748b; font-weight: 700; font-size: 14px;
-    cursor: pointer; font-family: inherit;
+    cursor: pointer; font-family: inherit; transition: 0.2s;
 }
+.btn-carroza:hover { border-color: var(--azul); color: var(--azul); background: #f0f7ff; }
 .separador { border-top: 1.5px solid #e2e8f0; margin: 14px 0; }
+
+/* ── TABS CARROZA ── */
+.tab-btn {
+    padding: 11px; border-radius: 10px; font-weight: 700; font-size: 13px;
+    cursor: pointer; font-family: inherit; transition: 0.2s;
+}
+.tab-btn.activo  { border: 2px solid #004a99; background: #004a99; color: white; }
+.tab-btn.inactivo { border: 2px solid #e2e8f0; background: #f8fafc; color: #64748b; }
 </style>
 </head>
 <body>
 
+<!-- ── MODAL CAMBIAR LOGO (solo admin) ── -->
+<div class="modal" id="modal-logo">
+    <div class="modal-logo-box">
+        <h2>🖼️ Logo de la App</h2>
+        <p>Sube una imagen para reemplazar el logo. Se guardará en este dispositivo.</p>
+        <div class="logo-preview-wrap" id="logo-preview-wrap">
+            <span id="logo-preview-texto">JR</span>
+        </div>
+        <button class="upload-logo-btn" onclick="document.getElementById('input-logo').click()">
+            📁 Seleccionar imagen
+        </button>
+        <input type="file" id="input-logo" accept="image/*" hidden onchange="previsualizarLogo(this)">
+        <div style="display:flex; gap:10px; margin-top:4px;">
+            <button class="btn btn-gris" onclick="resetearLogo()" style="flex:1; margin-top:0; font-size:13px;">🗑️ Quitar logo</button>
+            <button class="btn btn-azul" onclick="guardarLogo()" id="btn-guardar-logo" style="flex:2; margin-top:0;">✅ GUARDAR</button>
+        </div>
+        <button class="btn btn-gris" onclick="document.getElementById('modal-logo').classList.remove('open')" style="margin-top:8px;">Cancelar</button>
+    </div>
+</div>
+
 <!-- ── LOGIN ── -->
 <div class="login-card">
-    <div class="logo">JR</div>
+    <div class="logo" id="logo-box" onclick="intentarCambiarLogo()" title="Admin: clic para cambiar logo">
+        <span id="logo-texto">JR</span>
+        <div class="logo-hint">✏️ Cambiar<br>logo</div>
+    </div>
     <h2>Bienvenido</h2>
     <p>Inicia sesión para continuar</p>
     <input type="text"     id="user" placeholder="Usuario o Cédula">
@@ -107,7 +156,7 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
             <option value="admin">Administrador</option>
         </select>
 
-        <select id="r-regional">
+        <select id="r-regional" onchange="onCambioRegional()">
             <option value="">— Selecciona tu Regional —</option>
             <option value="Tolima Sur">Tolima Sur</option>
             <option value="Valle Sur">Valle Sur</option>
@@ -119,6 +168,7 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
             <option value="Caldas">Caldas</option>
             <option value="Quindío">Quindío</option>
             <option value="Valle Norte">Valle Norte</option>
+            <option value="Pereira">Pereira</option>
         </select>
 
         <div class="separador"></div>
@@ -148,18 +198,20 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
         <p>Selecciona la tuya o registra una nueva</p>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px;">
-            <button id="tab-existente" onclick="switchTab('existente')" style="padding:11px; border-radius:10px; border:2px solid #e2e8f0; background:#f8fafc; color:#64748b; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit;">📋 Ya existe</button>
-            <button id="tab-nueva" onclick="switchTab('nueva')" style="padding:11px; border-radius:10px; border:2px solid #004a99; background:#004a99; color:white; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit;">➕ Es nueva</button>
+            <button id="tab-existente" class="tab-btn activo" onclick="switchTab('existente')">📋 Ya existe</button>
+            <button id="tab-nueva"     class="tab-btn inactivo" onclick="switchTab('nueva')">➕ Es nueva</button>
         </div>
 
-        <div id="panel-existente" style="display:none;">
+        <!-- Panel: Seleccionar existente -->
+        <div id="panel-existente">
             <label style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Selecciona tu placa</label>
             <select id="sel-placa-existente" style="margin-bottom:0;">
-                <option value="">Cargando...</option>
+                <option value="">Selecciona primero tu regional...</option>
             </select>
         </div>
 
-        <div id="panel-nueva">
+        <!-- Panel: Registrar nueva -->
+        <div id="panel-nueva" style="display:none;">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div>
                     <label style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:4px;">Placa *</label>
@@ -170,12 +222,14 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
                     <input type="text" id="n-modelo" placeholder="Sprinter" style="margin-bottom:0;">
                 </div>
             </div>
-            <!-- Otros campos de carroza simplificados para el registro inicial -->
+            <p style="font-size:11px; color:#94a3b8; margin-top:10px; margin-bottom:0;">
+                ⚠️ La carroza quedará registrada en el sistema con tu regional.
+            </p>
         </div>
 
         <div style="display:flex; gap:10px; margin-top:18px;">
             <button onclick="cerrarModalCarroza()" style="flex:1; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; color:#64748b; font-weight:700; cursor:pointer; font-family:inherit;">Cancelar</button>
-            <button onclick="confirmarCarroza()" style="flex:2; padding:12px; border:none; border-radius:10px; background:#004a99; color:white; font-weight:800; cursor:pointer; font-family:inherit;">CONFIRMAR</button>
+            <button id="btn-confirmar-carroza" onclick="confirmarCarroza()" style="flex:2; padding:12px; border:none; border-radius:10px; background:#004a99; color:white; font-weight:800; cursor:pointer; font-family:inherit;">CONFIRMAR</button>
         </div>
     </div>
 </div>
@@ -189,6 +243,7 @@ function mostrarError(msg) {
     d.innerText = msg; d.style.display = 'block';
 }
 
+// ── LOGIN ────────────────────────────────────────────────
 async function login() {
     const u   = document.getElementById('user').value.trim();
     const p   = document.getElementById('pass').value.trim();
@@ -216,18 +271,24 @@ async function login() {
             mostrarError("Usuario o contraseña incorrectos");
         }
     } catch(e) {
-        mostrarError("Error de conexión con el Excel");
+        mostrarError("Error de conexión con el servidor");
     } finally {
         btn.disabled = false; btn.innerText = "INGRESAR AL SISTEMA";
     }
 }
 
+// ── REGISTRO ─────────────────────────────────────────────
 function abrirRegistro() {
     document.getElementById('modal-registro').classList.add('open');
 }
-
 function cerrarRegistro() {
     document.getElementById('modal-registro').classList.remove('open');
+}
+
+// Al cambiar regional, recargar placas si el modal de carroza está abierto
+function onCambioRegional() {
+    const placaActual = document.getElementById('r-placa').value;
+    if (placaActual) limpiarCarroza(); // limpiar si cambia de regional
 }
 
 async function ejecutarRegistro() {
@@ -245,28 +306,32 @@ async function ejecutarRegistro() {
 
     const placaExistente = document.getElementById('r-placa').value;
     const placaNueva     = document.getElementById('r-placa-nueva').value.trim().toUpperCase();
+    const placaFinal     = placaExistente || placaNueva || 'Ninguna';
 
     btn.disabled = true; btn.innerText = "PROCESANDO...";
 
     try {
-        // Enviar datos al Excel usando la función del archivo db.js
         const res = await DB.registrarUsuario({
-            nombre: nombre,
-            usuario: usuario,
-            password: password,
-            telefono: telefono,
-            rol: rol,
-            regional: regional,
-            placa_asignada: placaExistente || placaNueva || 'Ninguna'
+            nombre,
+            usuario,
+            password,
+            telefono,
+            rol,
+            regional,
+            placa_asignada: placaFinal
         });
 
-        if(res.ok) {
-            alert("¡Registro enviado! Ya puedes intentar iniciar sesión.");
+        if (res.ok) {
+            // Si eligió carroza existente, actualizar conductor_asignado en carrozas
+            if (placaExistente) {
+                await DB.actualizar('carrozas', { conductor_asignado: nombre }, 'placa', placaExistente);
+            }
+            alert("¡Registro exitoso! Ya puedes iniciar sesión.");
             cerrarRegistro();
             document.getElementById('user').value = usuario;
             document.getElementById('pass').value = password;
         } else {
-            throw new Error("No se pudo conectar con el servidor de Excel");
+            throw new Error(res.error || "No se pudo conectar con el servidor");
         }
     } catch(e) {
         alert("Error en el registro: " + e.message);
@@ -275,44 +340,109 @@ async function ejecutarRegistro() {
     }
 }
 
-// ── LÓGICA DE CARROZAS ──
-function abrirModalCarroza() {
+// ── MODAL CARROZA ─────────────────────────────────────────
+async function abrirModalCarroza() {
     document.getElementById('modal-carroza').classList.add('open');
+    switchTab('existente'); // abrir siempre en "Ya existe"
+    await cargarPlacasEnModal();
+}
+
+async function cargarPlacasEnModal() {
     const sel = document.getElementById('sel-placa-existente');
+    const regionalSel = document.getElementById('r-regional').value;
+
+    if (!regionalSel) {
+        sel.innerHTML = '<option value="">⚠️ Selecciona primero tu regional</option>';
+        return;
+    }
+
     sel.innerHTML = '<option value="">Cargando flota...</option>';
 
-    // Consultar flota desde Excel a través de db.js
-    DB.obtenerFlota().then(res => {
+    try {
+        const res = await DB.obtenerFlota();
         if (res.ok && res.data.length > 0) {
-            sel.innerHTML = '<option value="">— Selecciona tu placa —</option>' +
-                res.data.map(c => `<option value="${c.placa}">${c.placa} — ${c.modelo || ''}</option>`).join('');
+            const flota = res.data.filter(c => {
+                const ubi = c.sede_intercambio || c.sede_asignada;
+                return ubi === regionalSel;
+            });
+
+            if (flota.length > 0) {
+                sel.innerHTML = '<option value="">— Selecciona tu placa —</option>' +
+                    flota.map(c => {
+                        const enTaller = (c.estado || '').includes('Taller');
+                        return `<option value="${c.placa}" data-modelo="${c.modelo||''}" ${enTaller ? 'disabled style="color:#ef4444;"' : ''}>
+                            ${c.placa} — ${c.modelo || 'S/M'} (${c.tipo_vehiculo || 'S/T'})${enTaller ? ' 🔧 EN TALLER' : ''}
+                        </option>`;
+                    }).join('');
+            } else {
+                sel.innerHTML = '<option value="">Sin carrozas en tu regional</option>';
+            }
         } else {
             sel.innerHTML = '<option value="">No hay carrozas disponibles</option>';
         }
-    }).catch(() => { sel.innerHTML = '<option value="">Error al conectar</option>'; });
+    } catch(e) {
+        sel.innerHTML = '<option value="">Error al cargar — intenta de nuevo</option>';
+    }
 }
 
-function cerrarModalCarroza() { document.getElementById('modal-carroza').classList.remove('open'); }
+function cerrarModalCarroza() {
+    document.getElementById('modal-carroza').classList.remove('open');
+}
 
 function switchTab(tab) {
     document.getElementById('panel-existente').style.display = tab === 'existente' ? 'block' : 'none';
     document.getElementById('panel-nueva').style.display     = tab === 'nueva'     ? 'block' : 'none';
+    document.getElementById('tab-existente').className = 'tab-btn ' + (tab === 'existente' ? 'activo' : 'inactivo');
+    document.getElementById('tab-nueva').className     = 'tab-btn ' + (tab === 'nueva'     ? 'activo' : 'inactivo');
 }
 
-function confirmarCarroza() {
+async function confirmarCarroza() {
+    const btn = document.getElementById('btn-confirmar-carroza');
     const sel = document.getElementById('sel-placa-existente');
-    const nPlaca = document.getElementById('n-placa').value.trim();
-    
-    if (document.getElementById('panel-existente').style.display === 'block') {
-        if (!sel.value) return alert("Selecciona una placa");
-        document.getElementById('r-placa').value = sel.value;
-        mostrarBadgeCarroza('🚗 ' + sel.options[sel.selectedIndex].text);
-    } else {
-        if (!nPlaca) return alert("Escribe la placa nueva");
-        document.getElementById('r-placa-nueva').value = nPlaca;
-        mostrarBadgeCarroza('🚗 ' + nPlaca + ' (Nueva)');
+    const nPlaca  = document.getElementById('n-placa').value.trim().toUpperCase();
+    const nModelo = document.getElementById('n-modelo').value.trim();
+    const nombre  = document.getElementById('r-nombre').value.trim();
+    const regional = document.getElementById('r-regional').value;
+
+    btn.disabled = true; btn.innerText = "GUARDANDO...";
+
+    try {
+        if (document.getElementById('panel-existente').style.display !== 'none') {
+            // ── EXISTENTE ──
+            if (!sel.value) { alert("Selecciona una placa"); return; }
+            document.getElementById('r-placa').value = sel.value;
+            mostrarBadgeCarroza('🚗 ' + sel.options[sel.selectedIndex].text.trim());
+            cerrarModalCarroza();
+
+        } else {
+            // ── NUEVA: registrar en Sheets ──
+            if (!nPlaca)  { alert("Escribe la placa"); return; }
+            if (!nModelo) { alert("Escribe el modelo"); return; }
+
+            const res = await DB.insertar('carrozas', {
+                placa:               nPlaca,
+                modelo:              nModelo,
+                estado:              'Disponible',
+                conductor_asignado:  nombre || '',
+                sede_asignada:       regional || '',
+                sede_intercambio:    '',
+                kilometraje_actual:  0,
+                kilometraje_inicial: 0,
+                tipo_vehiculo:       'RECOLECCION',
+                created_at:          new Date().toISOString(),
+            });
+
+            if (!res.ok) throw new Error(res.error || 'Error al registrar carroza');
+
+            document.getElementById('r-placa-nueva').value = nPlaca;
+            mostrarBadgeCarroza('🚗 ' + nPlaca + ' — ' + nModelo + ' ✅ Registrada');
+            cerrarModalCarroza();
+        }
+    } catch(e) {
+        alert("Error: " + e.message);
+    } finally {
+        btn.disabled = false; btn.innerText = "CONFIRMAR";
     }
-    cerrarModalCarroza();
 }
 
 function mostrarBadgeCarroza(texto) {
@@ -322,10 +452,101 @@ function mostrarBadgeCarroza(texto) {
 }
 
 function limpiarCarroza() {
-    document.getElementById('r-placa').value = '';
+    document.getElementById('r-placa').value       = '';
     document.getElementById('r-placa-nueva').value = '';
-    document.getElementById('carroza-badge').style.display = 'none';
+    document.getElementById('carroza-badge').style.display      = 'none';
     document.getElementById('btn-agregar-carroza').style.display = 'block';
+}
+
+// ── LOGO DINÁMICO ─────────────────────────────────────────
+let logoNuevoBase64 = null;
+
+// Cargar logo guardado al iniciar
+(function cargarLogoGuardado() {
+    const logoGuardado = localStorage.getItem('jr_logo_app');
+    if (logoGuardado) aplicarLogo(logoGuardado);
+})();
+
+function aplicarLogo(base64) {
+    const box    = document.getElementById('logo-box');
+    const texto  = document.getElementById('logo-texto');
+    // Eliminar img previa si existe
+    const imgVieja = box.querySelector('img');
+    if (imgVieja) imgVieja.remove();
+    if (base64) {
+        texto.style.display = 'none';
+        const img = document.createElement('img');
+        img.src = base64;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:20px;';
+        box.insertBefore(img, box.firstChild);
+    } else {
+        texto.style.display = 'block';
+    }
+}
+
+// Solo muestra el modal si el usuario ya ingresó como admin
+// o si el campo usuario contiene "admin"
+function intentarCambiarLogo() {
+    const sesionRaw = localStorage.getItem('usuario_sesion');
+    let esAdmin = false;
+    if (sesionRaw) {
+        try {
+            const s = JSON.parse(sesionRaw);
+            esAdmin = norm(s.rol) === 'admin' || norm(s.rol) === 'administrador' || norm(s.usuario) === 'admin';
+        } catch(e) {}
+    }
+    // También verificar si escribió "admin" en el campo usuario
+    const usuarioEscrito = norm(document.getElementById('user').value);
+    if (!esAdmin && usuarioEscrito !== 'admin') {
+        // No revelar que existe la función — simplemente no hacer nada
+        return;
+    }
+    // Sincronizar preview con logo actual
+    const logoActual = localStorage.getItem('jr_logo_app');
+    const previewWrap = document.getElementById('logo-preview-wrap');
+    previewWrap.innerHTML = '';
+    if (logoActual) {
+        const img = document.createElement('img');
+        img.src = logoActual;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        previewWrap.appendChild(img);
+    } else {
+        previewWrap.innerHTML = '<span id="logo-preview-texto" style="color:white;font-size:30px;font-weight:900;">JR</span>';
+    }
+    logoNuevoBase64 = null;
+    document.getElementById('modal-logo').classList.add('open');
+}
+
+function previsualizarLogo(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        logoNuevoBase64 = e.target.result;
+        const previewWrap = document.getElementById('logo-preview-wrap');
+        previewWrap.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = logoNuevoBase64;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        previewWrap.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+}
+
+function guardarLogo() {
+    if (!logoNuevoBase64) { alert("Primero selecciona una imagen"); return; }
+    localStorage.setItem('jr_logo_app', logoNuevoBase64);
+    aplicarLogo(logoNuevoBase64);
+    document.getElementById('modal-logo').classList.remove('open');
+    logoNuevoBase64 = null;
+}
+
+function resetearLogo() {
+    if (!confirm("¿Quitar el logo personalizado y volver al texto JR?")) return;
+    localStorage.removeItem('jr_logo_app');
+    aplicarLogo(null);
+    document.getElementById('modal-logo').classList.remove('open');
+    logoNuevoBase64 = null;
 }
 </script>
 </body>
