@@ -107,7 +107,6 @@
             <div>
                 <label>Regional</label>
                 <select id="regional" onchange="cargarPlacas()">
-                    <option value="Pereira">Pereira</option>
                     <option value="Risaralda">Risaralda</option>
                     <option value="Antioquia">Antioquia</option>
                     <option value="Caldas">Caldas</option>
@@ -117,7 +116,7 @@
                     <option value="Valle Sur">Valle Sur</option>
                     <option value="C/ Marca">Cundinamarca</option>
                     <option value="Tolima Norte">Tolima Norte</option>
-                    <option value="Palmira">Palmira</option>
+                    <option value="Valle Centro Palmira">Valle Centro Palmira</option>
                 </select>
             </div>
         </div>
@@ -524,22 +523,22 @@
 
         const msg = saludo + "\n\n" +
             "*Reporte de Salida De Carroza*\n\n" +
-            "Regional: " + datosFinales.regional + "\n" +
-            "Fecha: " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
-            "Coordinador: " + datosFinales.coordinador + "\n" +
-            "Hora Salida: " + datosFinales.hora_salida + "\n" +
-            "Placa: " + datosFinales.placa + "\n" +
-            "Motivo: " + datosFinales.motivo + "\n" +
-            "Fallecido: " + (datosFinales.fallecido || '---') + "\n" +
-            "Recogida: " + (datosFinales.clinica || '---') + "\n" +
-            "Origen: " + (datosFinales.origen || '---') + "\n" +
-            "Destino: " + (datosFinales.destino || '---') + "\n" +
-            "KM Salida: " + datosFinales.km_salida + "\n" +
-            "Kit: " + datosFinales.kit_carretera + "\n" +
-            "Conductor: " + datosFinales.conductor + "\n" +
-            "Telefono: " + (datosFinales.nnum_telefono || '---') + "\n\n" +
-            "Observaciones: " + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
-            "La Carroza se Encuentra: " + estadoCarroza;
+            "*Regional*: " + datosFinales.regional + "\n" +
+            "*Fecha:* " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
+            "*Coordinador:* " + datosFinales.coordinador + "\n" +
+            "*Hora Salida:* " + datosFinales.hora_salida + "\n" +
+            "*Placa:* " + datosFinales.placa + "\n" +
+            "*Motivo:* " + datosFinales.motivo + "\n" +
+            "*Fallecido:* " + (datosFinales.fallecido || '---') + "\n" +
+            "*Recogida:* " + (datosFinales.clinica || '---') + "\n" +
+            "*Origen:* " + (datosFinales.origen || '---') + "\n" +
+            "*Destino:* " + (datosFinales.destino || '---') + "\n" +
+            "*KM Salida:* " + datosFinales.km_salida + "\n" +
+            "*Kit:* " + datosFinales.kit_carretera + "\n" +
+            "*Conductor:* " + datosFinales.conductor + "\n" +
+            "*Telefono:* " + (datosFinales.nnum_telefono || '---') + "\n\n" +
+            "*Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
+            "*La Carroza se Encuentra:* " + estadoCarroza;
             
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
