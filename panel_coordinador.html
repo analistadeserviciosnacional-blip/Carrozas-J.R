@@ -4,301 +4,239 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Panel Coordinador</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Paleta de colores basada en el diseño del conductor */
-        :root { 
-            --azul: #001a70; 
-            --celeste: #e8f0fe; 
-            --blanco: #ffffff; 
-            --verde: #10b981; 
-            --naranja: #f59e0b; 
-            --rojo: #ef4444; 
-            --gris: #64748b; 
-            --fondo: #f0f7ff; /* Fondo azul muy claro */
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--fondo); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 15px; }
-
-        /* Header similar al de conductor */
-        .header-top {
-            background: var(--blanco);
-            border-radius: 15px;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-            margin-bottom: 25px;
-        }
-        .header-logo { font-size: 16px; font-weight: 800; color: var(--azul); text-transform: uppercase; }
-        .btn-salir { background: #fee2e2; border: none; color: var(--rojo); padding: 8px 18px; border-radius: 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
-
-        /* Saludo */
-        .welcome { text-align: center; margin-bottom: 30px; }
-        .welcome h1 { font-size: 26px; font-weight: 800; color: var(--azul); }
-        .welcome p { font-size: 13px; color: var(--gris); margin-top: 5px; font-weight: 500; }
-        .regional-tag { display: inline-block; background: var(--celeste); color: var(--azul); font-size: 11px; font-weight: 800; padding: 5px 15px; border-radius: 20px; margin-top: 10px; }
-
-        /* Tarjeta principal (Igual a "Mi carroza asignada") */
-        .main-card {
-            background: var(--blanco);
-            border-radius: 25px;
-            padding: 40px 20px;
-            text-align: center;
-            box-shadow: 0 8px 20px rgba(0,26,112,0.04);
-            margin-bottom: 20px;
-        }
-        .main-card i { font-size: 40px; display: block; margin-bottom: 15px; }
-        .main-card .label { font-size: 13px; color: var(--gris); margin-bottom: 15px; display: block; }
-        .btn-principal {
-            background: var(--azul);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: 700;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        /* Grid de iconos (Misma estructura que el panel conductor) */
-        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
-        .menu-item {
-            background: var(--blanco);
-            border-radius: 25px;
-            padding: 25px 15px;
-            text-align: center;
-            text-decoration: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            border: 2px solid transparent;
-            transition: 0.2s;
-        }
-        .menu-item:active { transform: scale(0.96); }
-        .menu-item i { font-size: 32px; margin-bottom: 10px; font-style: normal; }
-        .menu-item span { font-size: 11px; font-weight: 800; color: var(--azul); text-transform: uppercase; letter-spacing: 0.5px; }
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; --verde: #10b981; }
+        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         
-        /* Estilo especial para Solicitudes de Apoyo (Borde verde y Badge rojo como en la imagen) */
-        .item-apoyo { border-color: #10b98166; }
-        .badge-rojo {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: var(--rojo);
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 800;
-            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
-        }
-
-        /* Secciones de listas (Mis Salidas Recientes) */
-        .section-box { margin-bottom: 25px; }
-        .section-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 0 10px 12px;
-        }
-        .section-header h2 { font-size: 13px; font-weight: 800; color: var(--azul); text-transform: uppercase; }
-        .btn-ver-todo { background: var(--celeste); color: var(--azul); padding: 5px 12px; border-radius: 8px; font-size: 10px; font-weight: 700; text-decoration: none; }
-
-        .list-container { background: var(--blanco); border-radius: 0 0 20px 20px; overflow: hidden; }
+        /* ── HEADER ── */
+        header { width: 100%; max-width: 600px; background: var(--blanco); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); box-sizing: border-box; }
+        .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
+        .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
         
-        /* Filas de la lista */
-        .list-row {
-            padding: 15px;
-            border-bottom: 1px solid #f1f5f9;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .row-main { flex: 1; }
-        .row-title { font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 2px; }
-        .row-sub { font-size: 11px; color: var(--gris); }
-        .row-tag { 
-            background: #f1f5f9; 
-            padding: 4px 10px; 
-            border-radius: 6px; 
-            font-size: 10px; 
-            font-weight: 800; 
-            color: var(--azul);
-            text-transform: uppercase;
+        /* ── BIENVENIDA ── */
+        .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
+        .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
+        .welcome-box p { color: #64748b; font-size: 14px; margin-top: 4px; }
+
+        /* ── GRID DE MENÚ ── */
+        .menu-conductor { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 25px; }
+        .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .card-condu:active { transform: scale(0.95); background: #f0f7ff; border-color: var(--azul); }
+        .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
+        .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 11px; }
+
+        /* ── MONITOR CARDS ── */
+        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
+        .monitor-mini h2 { font-size: 15px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; }
+        .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
+
+        /* ── TABLAS ── */
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .status-pill { font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 8px; }
+        .pill-disponible { color: #10b981; background: #ecfdf5; }
+        .pill-ruta { color: #3b82f6; background: #eff6ff; }
+        .pill-taller { color: var(--rojo); background: #fef2f2; }
+        .pill-pendiente { color: #f59e0b; background: #fff7ed; }
+
+        /* ── ANIMACIÓN BADGE ── */
+        @keyframes badgePulse {
+            0%,100% { transform: scale(1); box-shadow: 0 3px 10px rgba(220,38,38,0.5); }
+            50%      { transform: scale(1.18); box-shadow: 0 4px 20px rgba(220,38,38,0.8); }
         }
 
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 12px 25px; border-radius: 12px; font-size: 13px; z-index: 1000; display: none; }
+        /* ── PUSH NOTIFICATION SYSTEM (IGUAL AL CONDUCTOR) ── */
+        .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998; }
+        .push-overlay.visible { display: block; }
+
+        @keyframes slideDown { from{opacity:0;transform:translateY(-30px) scale(0.95);} to{opacity:1;transform:none;} }
+        @keyframes pulseRing { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5);} 60%{box-shadow:0 0 0 14px rgba(16,185,129,0);} }
+
+        .push-notif {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: calc(100% - 32px); max-width: 460px; background: #0f172a; border-radius: 24px;
+            padding: 24px 20px 20px; z-index: 9999; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            border: 1.5px solid #1e3a5f; animation: slideDown 0.4s cubic-bezier(.22,1,.36,1);
+        }
+        .push-notif.visible { display: block; }
+        .push-barra-top { width: 40px; height: 4px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981); border-radius: 4px; margin: 0 auto 18px; }
+        .push-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .push-icono { width: 44px; height: 44px; border-radius: 14px; background: var(--azul); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; animation: pulseRing 1.8s ease infinite; }
+        .push-app-info { flex: 1; }
+        .push-app-name { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; }
+        .push-titulo { font-size: 18px; font-weight: 800; color: #f1f5f9; margin-bottom: 8px; line-height: 1.3; }
+        .push-body { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
+        .push-acciones { display: flex; gap: 10px; }
+        .push-btn-ver { flex: 1; padding: 15px; border: none; border-radius: 14px; background: var(--verde); color: white; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .push-btn-cerrar { padding: 15px 18px; border: 1.5px solid #334155; border-radius: 14px; background: transparent; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="header-top">
-    <div class="header-logo">J.R. Coordinación</div>
-    <button class="btn-salir" onclick="cerrarSesion()">SALIR</button>
-</div>
-
-<div class="welcome">
-    <h1 id="txt-nombre">Hola...</h1>
-    <p>Panel de Servicios y Reportes</p>
-    <div class="regional-tag" id="txt-regional">📍 Cargando...</div>
-</div>
-
-<!-- Acción Principal (Crear) -->
-<div class="main-card">
-    <i>📤</i>
-    <span class="label">Nueva solicitud de apoyo</span>
-    <a href="crear_apoyo.html" class="btn-principal">+ Crear Solicitud</a>
-</div>
-
-<!-- Menú de Iconos (Igual al de conductor) -->
-<div class="menu-grid">
-    <a href="solicitud_apoyo.html" class="menu-item item-apoyo" id="card-ver-apoyos">
-        <div class="badge-rojo" id="badge-apoyos" style="display:none;">0</div>
-        <i>🤝</i>
-        <span>Ver Apoyos</span>
-    </a>
-    <a href="registro_llegada.html" class="menu-item">
-        <i>🏁</i>
-        <span>Llegadas</span>
-    </a>
-    <a href="taller.html" class="menu-item">
-        <i>🔧</i>
-        <span>Taller</span>
-    </a>
-    <a href="flota.html" class="menu-item">
-        <i>🚗</i>
-        <span>Gestión Flota</span>
-    </a>
-    <a href="reporte_averia.html" class="menu-item" style="grid-column: span 2;">
-        <i>⚠️</i>
-        <span>Reportar Avería</span>
-    </a>
-</div>
-
-<!-- Listas Inferiores -->
-<div class="section-box">
-    <div class="section-header">
-        <h2>Mis Solicitudes</h2>
-        <a href="solicitud_apoyo.html" class="btn-ver-todo">VER TODO</a>
+    <!-- ── ESTRUCTURA NOTIFICACIÓN PUSH ── -->
+    <div class="push-overlay" id="push-overlay" onclick="cerrarPush()"></div>
+    <div class="push-notif" id="push-notif">
+        <div class="push-barra-top"></div>
+        <div class="push-header">
+            <div class="push-icono">🤝</div>
+            <div class="push-app-info">
+                <div class="push-app-name">J.R. Carrozas</div>
+                <div class="push-app-sub" style="font-size:10px; color:#475569;">Alerta de Coordinación</div>
+            </div>
+        </div>
+        <div class="push-titulo" id="push-titulo">Nueva Solicitud de Apoyo</div>
+        <div class="push-body" id="push-body">Se ha generado una solicitud que requiere tu atención.</div>
+        <div class="push-acciones">
+            <button class="push-btn-ver" onclick="window.location.href='solicitud_apoyo.html'">👀 VER APOYOS</button>
+            <button class="push-btn-cerrar" onclick="cerrarPush()">Ignorar</button>
+        </div>
     </div>
-    <div class="list-container" id="lista-apoyos">
-        <div style="padding:20px; text-align:center; color:#94a3b8; font-size:12px;">Cargando...</div>
-    </div>
-</div>
 
-<div class="section-box">
-    <div class="section-header">
-        <h2>Traslados Recientes</h2>
-        <a href="dashboard.html" class="btn-ver-todo">PANEL ADMIN</a>
-    </div>
-    <div class="list-container" id="lista-traslados">
-        <div style="padding:20px; text-align:center; color:#94a3b8; font-size:12px;">Cargando...</div>
-    </div>
-</div>
+    <header>
+        <div class="logo-small">J.R. COORDINACIÓN</div>
+        <button onclick="cerrarSesion()" class="btn-salir">SALIR</button>
+    </header>
 
-<div class="toast" id="toast"></div>
+    <div class="welcome-box">
+        <h1 id="txt-saludo">Hola...</h1>
+        <p>Panel de Servicios y Reportes de Coordinación</p>
+    </div>
+
+    <!-- ── ACCIÓN PRINCIPAL (ESPEJO "MI CARROZA") ── -->
+    <div class="monitor-mini" style="margin-bottom:20px;">
+        <h2>Gestión Regional</h2>
+        <div id="main-status-box" style="text-align:center; padding:10px 0;">
+            <div style="font-size:38px; margin-bottom:8px;">📤</div>
+            <div style="color:#64748b; font-size:13px; margin-bottom:14px;" id="txt-regional-desc">Cargando regional...</div>
+            <button onclick="window.location.href='crear_apoyo.html'" style="background:#001a70; color:white; border:none; border-radius:12px; padding:12px 22px; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit;">
+                + Crear Solicitud de Apoyo
+            </button>
+        </div>
+    </div>
+
+    <div class="menu-conductor">
+        <a href="solicitud_apoyo.html" class="card-condu" style="border: 2px solid #10b981; position:relative; background: linear-gradient(135deg, #f0fdf4, #ffffff);">
+            <div id="badge-apoyo" style="display:none; position:absolute; top:-10px; right:-10px; background: linear-gradient(135deg, #dc2626, #ef4444); color:white; font-size:14px; font-weight:900; min-width:30px; height:30px; border-radius:15px; align-items:center; justify-content:center; border: 2.5px solid white; animation: badgePulse 1.5s ease infinite; z-index:10;">0</div>
+            <i>🤝</i><span>Ver Apoyos</span>
+        </a>
+        <a href="registro_llegada.html" class="card-condu">
+            <i>🏁</i><span>Llegadas</span>
+        </a>
+        <a href="taller.html" class="card-condu">
+            <i>🔧</i><span>Taller</span>
+        </a>
+        <a href="flota.html" class="card-condu">
+            <i>🚗</i><span>Gestión Flota</span>
+        </a>
+    </div>
+
+    <!-- ── TABLAS DE MONITOREO ── -->
+    <div class="monitor-mini">
+        <h2>Mis Solicitudes Creadas <a href="solicitud_apoyo.html" class="btn-ver-todo">VER TODO</a></h2>
+        <table><tbody id="tabla-mis-apoyos"><tr><td colspan="2" style="text-align:center; color:#94a3b8;">Cargando...</td></tr></tbody></table>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>Traslados en la Regional <a href="dashboard.html" class="btn-ver-todo">ADMIN</a></h2>
+        <table><tbody id="tabla-traslados-reg"><tr><td colspan="2" style="text-align:center; color:#94a3b8;">Cargando...</td></tr></tbody></table>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>Estado de Flota General</h2>
+        <table><tbody id="tabla-flota-gen"><tr><td colspan="2" style="text-align:center; color:#94a3b8;">Cargando...</td></tr></tbody></table>
+    </div>
+
+    <!-- ── FOOTER SIGNATURE ── -->
+    <div class="monitor-mini" style="text-align:center; margin-bottom:30px;">
+        <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; margin-bottom:6px;">Diseñado & Desarrollado por</div>
+        <div style="font-size:15px; font-weight:800; color:#001a70;">Zaider J. Buitrago A.</div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:7px;">
+            <div style="height:1px; width:30px; background:linear-gradient(90deg,transparent,#c7d2fe);"></div>
+            <span style="font-size:10px; color:#a5b4fc; font-weight:700;">J.R. CARROZAS © 2026</span>
+            <div style="height:1px; width:30px; background:linear-gradient(90deg,#c7d2fe,transparent);"></div>
+        </div>
+    </div>
 
 <script src="db.js"></script>
 <script>
-    let sesion  = {};
-    let regional = 'Pereira';
-
-    const norm = s => (s||'').toLowerCase().trim()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    let userSesion = {};
+    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
     window.onload = async () => {
-        sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
-        if (!sesion) { window.location.href = 'index.html'; return; }
+        const sesionRaw = localStorage.getItem('usuario_sesion');
+        if (!sesionRaw) { window.location.href = "index.html"; return; }
 
-        const rol = norm(sesion.rol);
-        const usr = norm(sesion.usuario);
+        try {
+            userSesion = JSON.parse(sesionRaw);
+            const rol = norm(userSesion.rol);
+            const usr = norm(userSesion.usuario);
 
-        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') { 
-            window.location.href = 'dashboard.html'; return; 
-        }
-        if (rol !== 'coordinador') { 
-            window.location.href = 'panel_conductor.html'; return; 
-        }
+            if (rol.includes('admin') || usr === 'admin') { window.location.href = "dashboard.html"; return; }
+            if (!rol.includes('coordinador')) { window.location.href = "panel_conductor.html"; return; }
 
-        regional = sesion.regional || 'Pereira';
-        let nombreMostrar = (sesion.nombre || '').replace(/^coordinador\s+/i, '').split(' ')[0];
+            const nombre = (userSesion.nombre || "Coordinador").replace(/^coordinador\s+/i, '').split(' ')[0];
+            document.getElementById('txt-saludo').innerText = "Hola, " + nombre;
+            document.getElementById('txt-regional-desc').innerText = "📍 Regional: " + (userSesion.regional || "Sin asignar");
 
-        document.getElementById('txt-nombre').textContent   = 'Hola, ' + nombreMostrar;
-        document.getElementById('txt-regional').textContent = '📍 ' + regional;
+            await Promise.all([cargarMisSolicitudes(), cargarTrasladosReg(), cargarMonitorFlota(), verificarBadges()]);
+            activarRealtimePush();
 
-        await Promise.all([cargarMisApoyos(), cargarTraslados()]);
-        setInterval(cargarMisApoyos, 30000);
+        } catch(e) { console.error(e); window.location.href = "index.html"; }
     };
 
-    async function cargarMisApoyos() {
-        try {
-            const { data } = await DB.supabase
-                .from('solicitud_apoyo')
-                .select('*')
-                .eq('coordinador', sesion.nombre)
-                .order('created_at', { ascending: false }).limit(3);
-
-            const { data: pendientes } = await DB.supabase
-                .from('solicitud_apoyo').select('id').eq('estado', 'pendiente');
-
-            const badge = document.getElementById('badge-apoyos');
-            if (pendientes && pendientes.length > 0) {
-                badge.style.display = 'flex';
-                badge.textContent = pendientes.length;
-            }
-
-            const div = document.getElementById('lista-apoyos');
-            if (!data || data.length === 0) {
-                div.innerHTML = '<div style="padding:20px; text-align:center; font-size:12px; color:#94a3b8;">Sin solicitudes</div>';
-                return;
-            }
-            div.innerHTML = data.map(s => `
-                <div class="list-row">
-                    <div class="row-main">
-                        <div class="row-title">${s.origen} ➔ ${s.destino}</div>
-                        <div class="row-sub">${s.tipo_servicio}</div>
-                    </div>
-                    <div class="row-tag">${s.estado}</div>
-                </div>
-            `).join('');
-        } catch(e) { console.error(e); }
+    // ── CARGA DE DATOS ──
+    async function cargarMisSolicitudes() {
+        const { data } = await DB.supabase.from('solicitud_apoyo').select('*').eq('coordinador', userSesion.nombre).order('created_at', {ascending: false}).limit(3);
+        const tabla = document.getElementById('tabla-mis-apoyos');
+        if (!data || data.length === 0) { tabla.innerHTML = '<tr><td style="text-align:center; font-size:12px;">No has creado solicitudes.</td></tr>'; return; }
+        tabla.innerHTML = data.map(s => `<tr><td><b>${s.origen} ➔ ${s.destino}</b><br><small>${s.tipo_servicio}</small></td><td style="text-align:right;"><span class="status-pill pill-${s.estado}">${s.estado.toUpperCase()}</span></td></tr>`).join('');
     }
 
-    async function cargarTraslados() {
-        try {
-            const { data } = await DB.supabase
-                .from('Traslado').select('placa, conductor, origen, destino')
-                .eq('regional', regional).order('id_salida', { ascending: false }).limit(3);
-
-            const div = document.getElementById('lista-traslados');
-            if (!data || data.length === 0) {
-                div.innerHTML = '<div style="padding:20px; text-align:center; font-size:12px; color:#94a3b8;">Sin traslados hoy</div>';
-                return;
-            }
-            div.innerHTML = data.map(t => `
-                <div class="list-row">
-                    <div class="row-main">
-                        <div class="row-title">${t.placa} · ${t.conductor}</div>
-                        <div class="row-sub">${t.origen} a ${t.destino}</div>
-                    </div>
-                </div>
-            `).join('');
-        } catch(e) { console.error(e); }
+    async function cargarTrasladosReg() {
+        const { data } = await DB.supabase.from('Traslado').select('*').eq('regional', userSesion.regional).order('id_salida', {ascending: false}).limit(3);
+        const tabla = document.getElementById('tabla-traslados-reg');
+        if (!data || data.length === 0) { tabla.innerHTML = '<tr><td style="text-align:center; font-size:12px;">Sin movimientos en la regional.</td></tr>'; return; }
+        tabla.innerHTML = data.map(t => `<tr><td><b>${t.placa}</b><br><small>${t.conductor}</small></td><td style="text-align:right; font-size:11px;">${t.origen} ➔ ${t.destino}</td></tr>`).join('');
     }
 
-    function cerrarSesion() { localStorage.clear(); window.location.href = 'index.html'; }
+    async function cargarMonitorFlota() {
+        const { data } = await DB.supabase.from('carrozas').select('placa, estado').order('placa');
+        const tabla = document.getElementById('tabla-flota-gen');
+        if (!data) return;
+        tabla.innerHTML = data.map(c => {
+            let cls = 'pill-disponible';
+            if (c.estado.includes('Taller')) cls = 'pill-taller';
+            if (c.estado.includes('Ruta') || c.estado.includes('Servicio')) cls = 'pill-ruta';
+            return `<tr><td><b>${c.placa}</b></td><td style="text-align:right;"><span class="status-pill ${cls}">● ${c.estado.toUpperCase()}</span></td></tr>`;
+        }).join('');
+    }
+
+    // ── SISTEMA DE REALTIME Y BADGES ──
+    async function verificarBadges() {
+        const regional = norm(userSesion.regional || '');
+        const { data } = await DB.supabase.from('solicitud_apoyo').select('alcance, regional_solicitante').eq('estado', 'pendiente');
+        const visibles = (data || []).filter(s => norm(s.alcance) === 'nacional' || norm(s.regional_solicitante) === regional);
+        const badge = document.getElementById('badge-apoyo');
+        if (visibles.length > 0) { badge.style.display = 'flex'; badge.innerText = visibles.length; } else { badge.style.display = 'none'; }
+    }
+
+    function activarRealtimePush() {
+        DB.supabase.channel('canal-coord').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones_apoyo' }, payload => {
+            const n = payload.new;
+            if (norm(n.alcance) === 'nacional' || norm(n.regional) === norm(userSesion.regional)) {
+                document.getElementById('push-titulo').innerText = n.titulo;
+                document.getElementById('push-body').innerText = n.cuerpo;
+                document.getElementById('push-overlay').classList.add('visible');
+                document.getElementById('push-notif').classList.add('visible');
+                verificarBadges();
+            }
+        }).subscribe();
+    }
+
+    function cerrarPush() { document.getElementById('push-overlay').classList.remove('visible'); document.getElementById('push-notif').classList.remove('visible'); }
+    function cerrarSesion() { localStorage.clear(); window.location.href = "index.html"; }
 </script>
 </body>
 </html>
