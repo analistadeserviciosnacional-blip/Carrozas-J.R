@@ -166,7 +166,7 @@
                 <div class="kit-icono">⚠️</div>
                 <div class="kit-texto">
                     <div class="kit-titulo">Incompleto — Faltan elementos</div>
-                    <div class="kit-desc">Faltan herramientas o botiquín</div>
+                    <div class="kit-desc">Reporte faltantes al coordinador</div>
                 </div>
                 <div class="kit-check" id="check-incompleto"></div>
             </label>
@@ -175,7 +175,7 @@
                 <div class="kit-icono">🚫</div>
                 <div class="kit-texto">
                     <div class="kit-titulo">Sin kit — No tiene</div>
-                    <div class="kit-desc">Vehículo sin equipo de carretera</div>
+                    <div class="kit-desc">La carroza no cuenta con kit de carretera</div>
                 </div>
                 <div class="kit-check" id="check-no-tiene"></div>
             </label>
@@ -210,7 +210,7 @@
         <div class="preview-gallery" id="galeria"></div>
 
         <label>Observaciones de Salida</label>
-        <textarea id="observaciones" rows="2" placeholder="Novedades..."></textarea>
+        <textarea id="observaciones" rows="2" placeholder="Novedades del vehículo o servicio..."></textarea>
 
         <div class="section-title">Firma de Responsable</div>
         <canvas id="canvas"></canvas>
@@ -218,7 +218,7 @@
 
         <div class="section-title">Notificación</div>
         <label>Nombre del Coordinador (para el reporte)</label>
-        <input type="text" id="nombre-coordinador" placeholder="Ej: Coordinador Pereira">
+        <input type="text" id="nombre-coordinador" placeholder="Ej: Cesar Hincapie">
 
         <div id="progreso-steps">
             <div id="step-carroza">⏳ Actualizando estado de carroza...</div>
@@ -237,7 +237,7 @@
                     <span>📸</span> COMPARTIR FOTOS
                 </button>
                 <div class="instruccion-fotos" id="instruccion-fotos">
-                    <b>📱 Descarga lista.</b> Abre WhatsApp → adjunta las fotos desde tu galería.
+                    <b>📱 Descarga lista.</b> Adjunta las fotos desde tu galería en WhatsApp.
                 </div>
             </div>
             <button class="btn-accion-volver" onclick="irAtras()">← Volver</button>
@@ -264,7 +264,7 @@
         try {
             const { data, error } = await DB.supabase
                 .from('carrozas')
-                .select('*')
+                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento, tipo_vehiculo, sede_asignada, sede_intercambio')
                 .order('placa');
             
             if (error) throw error;
@@ -291,7 +291,7 @@
         }
     }
 
-    // ── VALIDACIÓN DE COMPATIBILIDAD ──────────────
+    // ── VALIDACIÓN DE COMPATIBILIDAD (ALERTAS) ──────────────
     function validarCompatibilidad() {
         const motivo = document.getElementById('motivo').value;
         const placaSelect = document.getElementById('placa');
@@ -306,7 +306,15 @@
             if (motivo.includes("Recogida") || motivo === "Traslado Nacional") {
                 mensajeAlerta = `⚠️ <b>RIESGO DE DAÑO AL ACTIVO</b><br><br>` +
                                 `La carroza <b>${optionSel.value}</b> es de tipo <b>DESTINO FINAL</b> (Perfil Bajo).<br><br>` +
-                                `Usarla para <b>${motivo}</b> puede causar daños en el chasis o desajustes.`;
+                                `Usarla para <b>${motivo}</b> puede causar daños en el chasis o desajustes por baches en rutas no urbanas.`;
+            }
+        }
+
+        if (tipoVehiculo.includes("RECOLECCION") || tipoVehiculo.includes("COMERCIAL")) {
+            if (motivo === "Sepelio" || motivo === "Puesta En Velación") {
+                mensajeAlerta = `⚠️ <b>AVISO DE PRESENTACIÓN</b><br><br>` +
+                                `Estás asignando un vehículo de <b>RECOLECCIÓN</b> para un servicio de <b>${motivo}</b>.<br><br>` +
+                                `Verifique si la estética del vehículo es la adecuada para este servicio ceremonial.`;
             }
         }
 
@@ -322,7 +330,10 @@
                 cancelButtonText: 'Cambiar vehículo'
             }).then((result) => {
                 if (!result.isConfirmed) {
-                    placaSelect.value = "";
+                    placaSelect.value = ""; 
+                    if(document.getElementById('alerta-vehiculo')) {
+                        document.getElementById('alerta-vehiculo').style.display = 'none';
+                    }
                 }
             });
         }
@@ -346,14 +357,19 @@
         if (estado === 'En Taller') {
             alertaEl.className = 'alerta-vehiculo en-taller';
             alertaEl.style.display = 'block';
-            alertaEl.innerHTML = `<div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div><div class="av-msg">No se autoriza salida.</div><div class="av-bloqueo">🚫 RESTRICCIÓN</div>`;
+            alertaEl.innerHTML = `
+                <div style="text-align:center;">
+                    <div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div>
+                    <div class="av-msg">La carroza está en taller y <b>no debe ser usada</b>.</div>
+                    <div class="av-bloqueo">🚫 RESTRICCIÓN DE SALIDA</div>
+                </div>`;
             return;
         }
 
         try {
             const { data: mants } = await DB.supabase
                 .from('mantenimientos')
-                .select('*')
+                .select('kilometraje_servicio, km_proximo_cambio, fecha')
                 .eq('placa', placa)
                 .eq('tipo_servicio', 'Cambio de Aceite')
                 .order('fecha', { ascending: false })
@@ -371,22 +387,21 @@
 
                 if (kmFaltante <= 0) {
                     alertaEl.className = 'alerta-vehiculo mant-vencido';
-                    alertaEl.innerHTML = `<div class="av-titulo">🚨 ACEITE VENCIDO</div><div class="av-msg">Debe cambiarse inmediatamente.</div>`;
+                    alertaEl.innerHTML = `<div class="av-titulo">🚨 ACEITE VENCIDO</div><div class="av-msg">KM actual: ${kmActual}. Debió cambiarse a los ${kmProximo}.</div>`;
                 } else if (kmFaltante <= 500) {
                     alertaEl.className = 'alerta-vehiculo mant-proximo';
                     alertaEl.innerHTML = `<div class="av-titulo">⚠️ ACEITE PRÓXIMO</div><div class="av-msg">Faltan ${kmFaltante} KM para el cambio.</div>`;
                 } else {
                     alertaEl.className = 'alerta-vehiculo al-dia';
-                    alertaEl.innerHTML = `<div class="av-titulo">✅ ACEITE AL DÍA</div><div class="av-msg">Faltan ${kmFaltante} KM.</div>`;
+                    alertaEl.innerHTML = `<div class="av-titulo">✅ ACEITE AL DÍA</div><div class="av-msg">Faltan ${kmFaltante} KM. Próximo a los ${kmProximo} KM.</div>`;
                 }
-
                 alertaEl.innerHTML += `
                     <div class="km-badge">🚗 KM: ${kmActual.toLocaleString()}</div>
                     <div class="km-progreso-wrap"><div class="km-progreso-bar" style="width: ${porcentaje}%; background: ${colorBarra};"></div></div>
                 `;
             } else {
                 alertaEl.className = 'alerta-vehiculo al-dia';
-                alertaEl.innerHTML = `<div class="av-titulo">ℹ️ SIN REGISTRO</div><div class="av-msg">No hay cambios registrados recientemente.</div>`;
+                alertaEl.innerHTML = `<div class="av-titulo">ℹ️ SIN REGISTRO RECIENTE</div><div class="av-msg">Verifique último cambio de aceite manualmente.</div>`;
             }
             alertaEl.style.display = 'block';
         } catch(e) {
@@ -444,13 +459,15 @@
         if (el) { el.className = estado; el.innerText = texto; }
     }
 
+    // ── GUARDAR TODO ──────────────────────────────────
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
         if (!document.getElementById('placa').value) { alert("Selecciona placa"); return; }
         if (!kitSeleccionado) { alert("Selecciona estado del kit"); return; }
 
-        // CORRECCIÓN: Definición de sesionUser
+        // AQUÍ CORREGIMOS EL ERROR DE sesionUser:
         const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
+        if (!sesionUser) { alert("Sesión expirada. Por favor ingresa de nuevo."); return; }
 
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
         document.getElementById('progreso-steps').style.display = 'block';
@@ -508,6 +525,7 @@
         const msg = saludo + "\n\n" +
             "*Reporte de Salida De Carroza*\n\n" +
             "Regional: " + datosFinales.regional + "\n" +
+            "Fecha: " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
             "Coordinador: " + datosFinales.coordinador + "\n" +
             "Hora Salida: " + datosFinales.hora_salida + "\n" +
             "Placa: " + datosFinales.placa + "\n" +
@@ -527,7 +545,7 @@
     }
 
     function compartirFotos() {
-        if (fotosArray.length === 0) { alert("No hay fotos."); return; }
+        if (fotosArray.length === 0) { alert("No hay fotos para compartir."); return; }
         Promise.all(fotosArray.map((url, i) => fetch(url).then(r => r.blob()).then(b => new File([b], `img_${i}.jpg`, {type: 'image/jpeg'}))))
         .then(files => {
             if (navigator.share) navigator.share({files, title: 'Evidencias'}).catch(descargarFotos);
