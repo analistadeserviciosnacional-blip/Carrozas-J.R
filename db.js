@@ -1,9 +1,7 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v9.2
- *  Columnas verificadas contra el Excel real
- *  Fecha formateada: DD/MM/AAAA
- *  FIX: GASQueryBuilder ahora soporta .insert() e .is()
+ *  CONECTOR J.R. CARROZAS — db.js  v9.3
+ *  + Logo persistente en hoja "config" de Google Sheets
  * ══════════════════════════════════════════════════════════
  */
 
@@ -18,6 +16,7 @@ const SHEET_MAP = {
   'mantenimientos':       'mantenimientos',
   'solicitud_apoyo':      'solicitud_apoyo',
   'notificaciones_apoyo': 'notificaciones_apoyo',
+  'config':               'config',   // ← NUEVO: hoja para logo y configuración
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
@@ -297,6 +296,41 @@ const DB = {
       return { ok: true, mensaje: json.mensaje || JSON.stringify(json) };
     } catch(e) { return { ok: false, error: e.message }; }
   },
+
+  // ══════════════════════════════════════════════════════════
+  //  LOGO — Lee y guarda en hoja "config" (columnas: clave | valor)
+  // ══════════════════════════════════════════════════════════
+
+  async obtenerLogo() {
+    try {
+      const rows = await gasGet('config');
+      const fila = rows.find(r => String(r.clave||'').trim() === 'logo_app');
+      return { ok: true, logo: (fila && fila.valor && fila.valor.length > 10) ? fila.valor : null };
+    } catch(e) {
+      return { ok: false, logo: null, error: e.message };
+    }
+  },
+
+  async guardarLogo(base64) {
+    try {
+      const rows  = await gasGet('config');
+      const existe = rows.find(r => String(r.clave||'').trim() === 'logo_app');
+      if (existe) {
+        // Ya existe la fila → actualizar
+        return await gasWrite('config', { valor: base64 }, 'update', 'clave', 'logo_app');
+      } else {
+        // No existe → insertar por primera vez
+        return await gasWrite('config', { clave: 'logo_app', valor: base64 }, 'insert');
+      }
+    } catch(e) {
+      return { ok: false, error: e.message };
+    }
+  },
+
+  async eliminarLogo() {
+    return await gasWrite('config', { valor: '' }, 'update', 'clave', 'logo_app');
+  },
+
 };
 
 window.DB = DB;
