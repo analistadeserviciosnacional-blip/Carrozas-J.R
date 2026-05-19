@@ -7,53 +7,152 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --rojo: #ef4444; --verde: #10b981; }
-        body { background: var(--celeste); font-family: 'DM Sans', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        
+        :root { 
+            --azul: #001a70; 
+            --celeste: #e3f2fd; 
+            --blanco: #ffffff; 
+            --rojo: #ef4444; 
+            --verde: #10b981; 
+            --naranja: #f59e0b; 
+            --gris: #64748b; 
+        }
+
+        body { 
+            background: var(--celeste); 
+            font-family: 'DM Sans', sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+
         /* ── HEADER ── */
-        header { width: 100%; max-width: 600px; background: var(--blanco); padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); box-sizing: border-box; }
+        header { 
+            width: 100%; 
+            max-width: 600px; 
+            background: var(--blanco); 
+            padding: 20px; 
+            border-radius: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03); 
+            box-sizing: border-box; 
+        }
+
         .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
-        .btn-salir { background: #fee2e2; color: var(--rojo); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: bold; border: none; cursor: pointer; }
-        
+        .btn-salir { 
+            background: #fee2e2; 
+            color: var(--rojo); 
+            padding: 8px 15px; 
+            border-radius: 10px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            border: none; 
+            cursor: pointer; 
+        }
+
         /* ── BIENVENIDA ── */
         .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
-        .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; }
-        .welcome-box p { color: #64748b; font-size: 14px; margin-top: 4px; }
+        .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; line-height: 1.2; }
+        .welcome-box p { color: var(--gris); font-size: 14px; margin-top: 5px; }
 
-        /* ── GRID DE MENÚ ── */
-        .menu-conductor { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-bottom: 25px; }
-        .card-condu { background: var(--blanco); padding: 25px 10px; border-radius: 25px; text-align: center; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: 0.3s; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        /* ── TARJETA PRINCIPAL (ESPEJO MI CARROZA) ── */
+        .monitor-mini { 
+            width: 100%; 
+            max-width: 600px; 
+            background: var(--blanco); 
+            border-radius: 25px; 
+            padding: 20px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03); 
+            box-sizing: border-box; 
+            margin-bottom: 20px; 
+        }
+
+        .monitor-mini h2 { 
+            font-size: 15px; 
+            color: var(--azul); 
+            margin-top: 0; 
+            margin-bottom: 15px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            text-transform: uppercase; 
+            font-weight: 700;
+        }
+
+        .btn-ver-todo { 
+            background: var(--celeste); 
+            color: var(--azul); 
+            font-size: 10px; 
+            padding: 5px 10px; 
+            border-radius: 8px; 
+            text-decoration: none; 
+            font-weight: bold; 
+        }
+
+        /* ── GRID DE MENÚ (6 BOTONES) ── */
+        .menu-conductor { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 15px; 
+            width: 100%; 
+            max-width: 600px; 
+            margin-bottom: 25px; 
+        }
+
+        .card-condu { 
+            background: var(--blanco); 
+            padding: 25px 10px; 
+            border-radius: 25px; 
+            text-align: center; 
+            text-decoration: none; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
+            transition: 0.3s; 
+            border: 1.5px solid transparent; 
+            cursor: pointer; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            position: relative;
+        }
+
         .card-condu:active { transform: scale(0.95); background: #f0f7ff; border-color: var(--azul); }
         .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
         .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 11px; }
 
-        /* ── MONITOR CARDS ── */
-        .monitor-mini { width: 100%; max-width: 600px; background: var(--blanco); border-radius: 25px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); box-sizing: border-box; margin-bottom: 20px; }
-        .monitor-mini h2 { font-size: 15px; color: var(--azul); margin-top: 0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; }
-        .btn-ver-todo { background: var(--celeste); color: var(--azul); font-size: 10px; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; }
-
-        /* ── TABLAS ── */
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
-        .status-pill { font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 8px; }
-        .pill-disponible { color: #10b981; background: #ecfdf5; }
-        .pill-ruta { color: #3b82f6; background: #eff6ff; }
-        .pill-taller { color: var(--rojo); background: #fef2f2; }
-        .pill-pendiente { color: #f59e0b; background: #fff7ed; }
-
-        /* ── ANIMACIÓN BADGE ── */
+        /* ── BADGE ROJO PULSANTE ── */
         @keyframes badgePulse {
             0%,100% { transform: scale(1); box-shadow: 0 3px 10px rgba(220,38,38,0.5); }
             50%      { transform: scale(1.18); box-shadow: 0 4px 20px rgba(220,38,38,0.8); }
         }
 
-        /* ── PUSH NOTIFICATION SYSTEM ── */
+        .badge-rojo {
+            display: none; position: absolute; top: -10px; right: -10px;
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white; font-size: 14px; font-weight: 900;
+            min-width: 30px; height: 30px; border-radius: 15px;
+            align-items: center; justify-content: center;
+            border: 2.5px solid white; animation: badgePulse 1.5s ease infinite; z-index: 10;
+        }
+
+        /* ── TABLAS Y PILLS ── */
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .status-pill { font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 8px; text-transform: uppercase; }
+        .pill-disponible { color: #10b981; background: #ecfdf5; }
+        .pill-ruta { color: #3b82f6; background: #eff6ff; }
+        .pill-taller { color: var(--rojo); background: #fef2f2; }
+        .pill-pendiente { color: #f59e0b; background: #fff7ed; }
+
+        /* ── NOTIFICACIÓN PUSH (OVERLAY) ── */
         .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998; }
         .push-overlay.visible { display: block; }
 
         @keyframes slideDown { from{opacity:0;transform:translateY(-30px) scale(0.95);} to{opacity:1;transform:none;} }
-        @keyframes pulseRing { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5);} 60%{box-shadow:0 0 0 14px rgba(16,185,129,0);} }
-
         .push-notif {
             display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: calc(100% - 32px); max-width: 460px; background: #0f172a; border-radius: 24px;
@@ -63,35 +162,28 @@
         .push-notif.visible { display: block; }
         .push-barra-top { width: 40px; height: 4px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981); border-radius: 4px; margin: 0 auto 18px; }
         .push-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-        .push-icono { width: 44px; height: 44px; border-radius: 14px; background: var(--azul); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; animation: pulseRing 1.8s ease infinite; }
-        .push-app-info { flex: 1; }
+        .push-icono { width: 44px; height: 44px; border-radius: 14px; background: var(--azul); display: flex; align-items: center; justify-content: center; font-size: 22px; }
         .push-app-name { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; }
-        .push-titulo { font-size: 18px; font-weight: 800; color: #f1f5f9; margin-bottom: 8px; line-height: 1.3; }
+        .push-titulo { font-size: 18px; font-weight: 800; color: #f1f5f9; margin-bottom: 8px; }
         .push-body { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
-        .push-acciones { display: flex; gap: 10px; }
-        .push-btn-ver { flex: 1; padding: 15px; border: none; border-radius: 14px; background: var(--verde); color: white; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .push-btn-cerrar { padding: 15px 18px; border: 1.5px solid #334155; border-radius: 14px; background: transparent; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer; }
+        .push-btn-ver { width: 100%; padding: 15px; border: none; border-radius: 14px; background: var(--verde); color: white; font-weight: 800; font-size: 15px; cursor: pointer; }
+
     </style>
 </head>
 <body>
 
-    <!-- ── ESTRUCTURA NOTIFICACIÓN PUSH ── -->
+    <!-- ── SISTEMA DE NOTIFICACIÓN PUSH ── -->
     <div class="push-overlay" id="push-overlay" onclick="cerrarPush()"></div>
     <div class="push-notif" id="push-notif">
         <div class="push-barra-top"></div>
         <div class="push-header">
             <div class="push-icono">🤝</div>
-            <div class="push-app-info">
-                <div class="push-app-name">J.R. Carrozas</div>
-                <div class="push-app-sub" style="font-size:10px; color:#475569;">Alerta de Coordinación</div>
-            </div>
+            <div class="push-app-info"><div class="push-app-name">J.R. Carrozas</div></div>
         </div>
-        <div class="push-titulo" id="push-titulo">Nueva Solicitud de Apoyo</div>
-        <div class="push-body" id="push-body">Se ha generado una solicitud que requiere tu atención.</div>
-        <div class="push-acciones">
-            <button class="push-btn-ver" onclick="window.location.href='solicitud_apoyo.html'">👀 VER APOYOS</button>
-            <button class="push-btn-cerrar" onclick="cerrarPush()">Ignorar</button>
-        </div>
+        <div class="push-titulo" id="push-titulo">Nueva Solicitud</div>
+        <div class="push-body" id="push-body">Se requiere apoyo en tu regional.</div>
+        <button class="push-btn-ver" onclick="window.location.href='solicitud_apoyo.html'">VER SOLICITUDES</button>
+        <button onclick="cerrarPush()" style="width:100%; margin-top:10px; background:transparent; border:none; color:#64748b; font-size:12px; cursor:pointer;">Cerrar</button>
     </div>
 
     <header>
@@ -100,63 +192,59 @@
     </header>
 
     <div class="welcome-box">
-        <h1 id="txt-saludo">Hola...</h1>
-        <p>Panel de Servicios y Reportes de Coordinación</p>
+        <h1 id="txt-nombre">Hola...</h1>
+        <p>Panel de Servicios y Reportes Regionales</p>
     </div>
 
-    <!-- ── ACCIÓN PRINCIPAL ── -->
-    <div class="monitor-mini" style="margin-bottom:20px;">
+    <!-- ACCIÓN PRINCIPAL (ESPEJO MI CARROZA) -->
+    <div class="monitor-mini">
         <h2>Gestión Regional</h2>
-        <div id="main-status-box" style="text-align:center; padding:10px 0;">
+        <div style="text-align:center; padding:10px 0;">
             <div style="font-size:38px; margin-bottom:8px;">📤</div>
-            <div style="color:#64748b; font-size:13px; margin-bottom:14px;" id="txt-regional-desc">Cargando regional...</div>
-            <button onclick="window.location.href='crear_apoyo.html'" style="background:#001a70; color:white; border:none; border-radius:12px; padding:12px 22px; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit;">
-                + Crear Solicitud de Apoyo
-            </button>
+            <div style="color:#64748b; font-size:13px; margin-bottom:15px;" id="txt-reg-desc">Cargando...</div>
+            <button onclick="window.location.href='crear_apoyo.html'" style="background:var(--azul); color:white; border:none; border-radius:12px; padding:12px 25px; font-weight:700; cursor:pointer;">+ Crear Solicitud de Apoyo</button>
         </div>
     </div>
 
+    <!-- GRID DE MENÚ -->
     <div class="menu-conductor">
-        <a href="solicitud_apoyo.html" class="card-condu" style="border: 2px solid #10b981; position:relative; background: linear-gradient(135deg, #f0fdf4, #ffffff);">
-            <div id="badge-apoyo" style="display:none; position:absolute; top:-10px; right:-10px; background: linear-gradient(135deg, #dc2626, #ef4444); color:white; font-size:14px; font-weight:900; min-width:30px; height:30px; border-radius:15px; align-items:center; justify-content:center; border: 2.5px solid white; animation: badgePulse 1.5s ease infinite; z-index:10;">0</div>
+        <a href="solicitud_apoyo.html" class="card-condu" style="border-color: var(--verde);">
+            <div id="badge-apoyo" class="badge-rojo">0</div>
             <i>🤝</i><span>Ver Apoyos</span>
         </a>
-        <a href="registro_llegada.html" class="card-condu">
-            <i>🏁</i><span>Llegadas</span>
-        </a>
-        <a href="taller.html" class="card-condu">
-            <i>🔧</i><span>Taller</span>
-        </a>
-        <a href="flota.html" class="card-condu">
-            <i>🚗</i><span>Gestión Flota</span>
-        </a>
+        <a href="registro_llegada.html" class="card-condu"><i>🏁</i><span>Llegadas</span></a>
+        <a href="taller.html" class="card-condu"><i>🔧</i><span>Taller</span></a>
+        <a href="flota.html" class="card-condu"><i>🚗</i><span>Gestión Flota</span></a>
+        <a href="reporte_averia.html" class="card-condu"><i>⚠️</i><span>Reportar Avería</span></a>
+        <a href="dashboard.html" class="card-condu"><i>📊</i><span>Admin</span></a>
     </div>
 
-    <!-- ── TABLAS DE MONITOREO ── -->
+    <!-- LISTAS DE MONITOREO -->
     <div class="monitor-mini">
-        <h2>Mis Solicitudes Creadas <a href="solicitud_apoyo.html" class="btn-ver-todo">VER TODO</a></h2>
-        <table><tbody id="tabla-mis-apoyos"><tr><td colspan="2" style="text-align:center; color:#94a3b8;">Cargando...</td></tr></tbody></table>
+        <h2>Solicitudes de Apoyo <a href="solicitud_apoyo.html" class="btn-ver-todo">VER TODO</a></h2>
+        <table><tbody id="tabla-apoyos"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
     </div>
 
     <div class="monitor-mini">
-        <h2>Traslados en la Regional <a href="dashboard.html" class="btn-ver-todo">ADMIN</a></h2>
-        <table><tbody id="tabla-traslados-reg"><tr><td colspan="2" style="text-align:center; color:#94a3b8;">Cargando...</td></tr></tbody></table>
+        <h2>Averías en Regional <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a></h2>
+        <table><tbody id="tabla-averias"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
+    </div>
+
+    <div class="monitor-mini">
+        <h2>Traslados Recientes <a href="dashboard.html" class="btn-ver-todo">ADMIN</a></h2>
+        <table><tbody id="tabla-traslados"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
     </div>
 
     <div class="monitor-mini">
         <h2>Estado de Flota General</h2>
-        <table><tbody id="tabla-flota-gen"><tr><td colspan="2" style="text-align:center; color:#94a3b8;">Cargando...</td></tr></tbody></table>
+        <table><tbody id="tabla-flota"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
     </div>
 
-    <!-- ── FOOTER SIGNATURE ── -->
+    <!-- FOOTER -->
     <div class="monitor-mini" style="text-align:center; margin-bottom:30px;">
-        <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; margin-bottom:6px;">Diseñado & Desarrollado por</div>
-        <div style="font-size:15px; font-weight:800; color:#001a70;">Zaider J. Buitrago A.</div>
-        <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:7px;">
-            <div style="height:1px; width:30px; background:linear-gradient(90deg,transparent,#c7d2fe);"></div>
-            <span style="font-size:10px; color:#a5b4fc; font-weight:700;">J.R. CARROZAS © 2026</span>
-            <div style="height:1px; width:30px; background:linear-gradient(90deg,#c7d2fe,transparent);"></div>
-        </div>
+        <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase;">Diseñado & Desarrollado por</div>
+        <div style="font-size:15px; font-weight:800; color:#001a70; margin-top:4px;">Zaider J. Buitrago A.</div>
+        <div style="font-size:10px; color:#a5b4fc; font-weight:700; margin-top:7px;">J.R. CARROZAS © 2026</div>
     </div>
 
 <script src="db.js"></script>
@@ -167,68 +255,59 @@
     window.onload = async () => {
         const sesionRaw = localStorage.getItem('usuario_sesion');
         if (!sesionRaw) { window.location.href = "index.html"; return; }
+        
+        userSesion = JSON.parse(sesionRaw);
+        const rol = norm(userSesion.rol);
+        if (!rol.includes('coordinador')) { window.location.href = "panel_conductor.html"; return; }
 
-        try {
-            userSesion = JSON.parse(sesionRaw);
-            const rol = norm(userSesion.rol);
-            const usr = norm(userSesion.usuario);
+        // SALUDO NOMBRE COMPLETO
+        document.getElementById('txt-nombre').innerText = "Hola, " + (userSesion.nombre || "Cesar Augusto Hincapie Prieto");
+        document.getElementById('txt-reg-desc').innerText = "📍 Regional: " + (userSesion.regional || "Quindío");
 
-            if (rol.includes('admin') || usr === 'admin') { window.location.href = "dashboard.html"; return; }
-            if (!rol.includes('coordinador')) { window.location.href = "panel_conductor.html"; return; }
-
-            // ── CORRECCIÓN DEL SALUDO (NOMBRE COMPLETO) ──
-            // Quitamos el split para que no corte el nombre
-            const nombreCompleto = (userSesion.nombre || "Coordinador")
-                .replace(/^coordinador\s+/i, '')
-                .trim();
-            
-            document.getElementById('txt-saludo').innerText = "Hola, " + nombreCompleto;
-            document.getElementById('txt-regional-desc').innerText = "📍 Regional: " + (userSesion.regional || "Sin asignar");
-
-            await Promise.all([cargarMisSolicitudes(), cargarTrasladosReg(), cargarMonitorFlota(), verificarBadges()]);
-            activarRealtimePush();
-
-        } catch(e) { console.error(e); window.location.href = "index.html"; }
+        await Promise.all([cargarApoyos(), cargarAverias(), cargarTraslados(), cargarFlota(), verificarBadges()]);
+        activarRealtime();
     };
 
-    // ── CARGA DE DATOS ──
-    async function cargarMisSolicitudes() {
-        const { data } = await DB.supabase.from('solicitud_apoyo').select('*').eq('coordinador', userSesion.nombre).order('created_at', {ascending: false}).limit(3);
-        const tabla = document.getElementById('tabla-mis-apoyos');
-        if (!data || data.length === 0) { tabla.innerHTML = '<tr><td style="text-align:center; font-size:12px;">Sin solicitudes creadas.</td></tr>'; return; }
-        tabla.innerHTML = data.map(s => `<tr><td><b>${s.origen} ➔ ${s.destino}</b><br><small>${s.tipo_servicio}</small></td><td style="text-align:right;"><span class="status-pill pill-${s.estado}">${s.estado.toUpperCase()}</span></td></tr>`).join('');
+    async function cargarApoyos() {
+        const { data } = await DB.supabase.from('solicitud_apoyo').select('*').eq('coordinador', userSesion.nombre).order('created_at',{ascending:false}).limit(3);
+        const t = document.getElementById('tabla-apoyos');
+        if(!data || data.length === 0) { t.innerHTML = '<tr><td>Sin solicitudes activas.</td></tr>'; return; }
+        t.innerHTML = data.map(s => `<tr><td><b>${s.origen} ➔ ${s.destino}</b></td><td style="text-align:right;"><span class="status-pill pill-${s.estado}">${s.estado}</span></td></tr>`).join('');
     }
 
-    async function cargarTrasladosReg() {
-        const { data } = await DB.supabase.from('Traslado').select('*').eq('regional', userSesion.regional).order('id_salida', {ascending: false}).limit(3);
-        const tabla = document.getElementById('tabla-traslados-reg');
-        if (!data || data.length === 0) { tabla.innerHTML = '<tr><td style="text-align:center; font-size:12px;">Sin movimientos en la regional.</td></tr>'; return; }
-        tabla.innerHTML = data.map(t => `<tr><td><b>${t.placa}</b><br><small>${t.conductor}</small></td><td style="text-align:right; font-size:11px;">${t.origen} ➔ ${t.destino}</td></tr>`).join('');
+    async function cargarAverias() {
+        const { data } = await DB.supabase.from('Averias').select('*').eq('regional', userSesion.regional).order('created_at',{ascending:false}).limit(3);
+        const t = document.getElementById('tabla-averias');
+        if(!data || data.length === 0) { t.innerHTML = '<tr><td>Sin averías reportadas.</td></tr>'; return; }
+        t.innerHTML = data.map(av => `<tr><td><b>${av.placa_vehiculo}</b><br><small>${av.tipo_falla}</small></td><td style="text-align:right; font-size:11px;">${new Date(av.created_at).toLocaleDateString()}</td></tr>`).join('');
     }
 
-    async function cargarMonitorFlota() {
-        const { data } = await DB.supabase.from('carrozas').select('placa, estado').order('placa');
-        const tabla = document.getElementById('tabla-flota-gen');
-        if (!data) return;
-        tabla.innerHTML = data.map(c => {
-            let cls = 'pill-disponible';
-            if (c.estado.includes('Taller')) cls = 'pill-taller';
-            if (c.estado.includes('Ruta') || c.estado.includes('Servicio')) cls = 'pill-ruta';
-            return `<tr><td><b>${c.placa}</b></td><td style="text-align:right;"><span class="status-pill ${cls}">● ${c.estado.toUpperCase()}</span></td></tr>`;
+    async function cargarTraslados() {
+        const { data } = await DB.supabase.from('Traslado').select('*').eq('regional', userSesion.regional).order('id_salida',{ascending:false}).limit(3);
+        const t = document.getElementById('tabla-traslados');
+        if(!data || data.length === 0) { t.innerHTML = '<tr><td>Sin traslados hoy.</td></tr>'; return; }
+        t.innerHTML = data.map(tr => `<tr><td><b>${tr.placa}</b></td><td style="text-align:right; font-size:11px;">${tr.origen} ➔ ${tr.destino}</td></tr>`).join('');
+    }
+
+    async function cargarFlota() {
+        const { data } = await DB.supabase.from('carrozas').select('*').order('placa');
+        const t = document.getElementById('tabla-flota');
+        t.innerHTML = data.map(c => {
+            let cls = c.estado.includes('Taller') ? 'pill-taller' : c.estado.includes('Disponible') ? 'pill-disponible' : 'pill-ruta';
+            return `<tr><td><b>${c.placa}</b></td><td style="text-align:right;"><span class="status-pill ${cls}">● ${c.estado}</span></td></tr>`;
         }).join('');
     }
 
-    // ── SISTEMA DE REALTIME Y BADGES ──
     async function verificarBadges() {
-        const regional = norm(userSesion.regional || '');
-        const { data } = await DB.supabase.from('solicitud_apoyo').select('alcance, regional_solicitante').eq('estado', 'pendiente');
-        const visibles = (data || []).filter(s => norm(s.alcance) === 'nacional' || norm(s.regional_solicitante) === regional);
-        const badge = document.getElementById('badge-apoyo');
-        if (visibles.length > 0) { badge.style.display = 'flex'; badge.innerText = visibles.length; } else { badge.style.display = 'none'; }
+        const reg = norm(userSesion.regional);
+        const { data } = await DB.supabase.from('solicitud_apoyo').select('*').eq('estado', 'pendiente');
+        const vis = (data || []).filter(s => norm(s.alcance) === 'nacional' || norm(s.regional_solicitante) === reg);
+        const b = document.getElementById('badge-apoyo');
+        if (vis.length > 0) { b.style.display = 'flex'; b.innerText = vis.length; } else { b.style.display = 'none'; }
     }
 
-    function activarRealtimePush() {
-        DB.supabase.channel('canal-coord').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones_apoyo' }, payload => {
+    function activarRealtime() {
+        DB.supabase.channel('coord-push').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones_apoyo' }, payload => {
             const n = payload.new;
             if (norm(n.alcance) === 'nacional' || norm(n.regional) === norm(userSesion.regional)) {
                 document.getElementById('push-titulo').innerText = n.titulo;
