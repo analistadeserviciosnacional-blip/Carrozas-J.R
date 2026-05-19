@@ -216,7 +216,7 @@ const DB = {
       fecha:                  fechaHoy(),
       regional:               d.regional              || '',
       conductor:              d.conductor             || '',
-      nnum_telefono:          d.telefono              || '',
+      nnum_telefono:          d.nnum_telefono         || '',
       placa:                  d.placa                 || '',
       motivo_de_salida:       d.motivo                || '',
       nombre_del_fallecido:   d.fallecido             || '',
