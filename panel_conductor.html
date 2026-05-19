@@ -36,13 +36,10 @@
         .falla-pill { color: var(--rojo); font-weight: bold; font-size: 10px; background: #fef2f2; padding: 4px 8px; border-radius: 8px; }
         .servicio-pill { color: var(--azul); font-weight: bold; font-size: 10px; background: #e0e7ff; padding: 4px 8px; border-radius: 8px; }
 
-        /* ── OVERLAY OSCURO detrás de la notificación ── */
+        /* ── OVERLAY OSCURO ── */
         .push-overlay {
-            display: none;
-            position: fixed; inset: 0;
-            background: rgba(0,0,0,0.55);
-            backdrop-filter: blur(3px);
-            z-index: 9998;
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998;
         }
         .push-overlay.visible { display: block; }
 
@@ -52,8 +49,7 @@
         @keyframes aceptada  { 0%{background:#0f172a;} 100%{background:#064e3b;} }
 
         .push-notif {
-            display: none;
-            position: fixed; top: 50%; left: 50%;
+            display: none; position: fixed; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             width: calc(100% - 32px); max-width: 460px;
             background: #0f172a; border-radius: 24px;
@@ -64,58 +60,40 @@
         }
         .push-notif.visible { display: block; }
         .push-notif.ya-aceptada { animation: aceptada 0.5s ease forwards; }
-
-        .push-barra-top {
-            width: 40px; height: 4px;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981);
-            border-radius: 4px; margin: 0 auto 18px;
-        }
-
+        .push-barra-top { width: 40px; height: 4px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981); border-radius: 4px; margin: 0 auto 18px; }
         .push-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-        .push-icono {
-            width: 44px; height: 44px; border-radius: 14px;
-            background: var(--azul); display: flex; align-items: center;
-            justify-content: center; font-size: 22px; flex-shrink: 0;
-            animation: pulseRing 1.8s ease infinite;
-        }
+        .push-icono { width: 44px; height: 44px; border-radius: 14px; background: var(--azul); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; animation: pulseRing 1.8s ease infinite; }
         .push-app-info { flex: 1; }
         .push-app-name { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
         .push-app-sub  { font-size: 10px; color: #475569; margin-top: 2px; }
-
         .push-titulo { font-size: 18px; font-weight: 800; color: #f1f5f9; margin-bottom: 8px; line-height: 1.3; }
         .push-body   { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
-
-        /* Estado cuando ya fue aceptada por otro */
-        .push-aceptada-banner {
-            display: none;
-            background: #065f46; border-radius: 12px;
-            padding: 12px 14px; margin-bottom: 16px;
-            font-size: 13px; font-weight: 700; color: #6ee7b7;
-            text-align: center;
-        }
+        .push-aceptada-banner { display: none; background: #065f46; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; font-weight: 700; color: #6ee7b7; text-align: center; }
         .push-aceptada-banner.visible { display: block; }
-
         .push-acciones { display: flex; gap: 10px; }
-        .push-btn-ver {
-            flex: 1; padding: 15px; border: none; border-radius: 14px;
-            background: var(--verde); color: white; font-weight: 800;
-            font-size: 15px; cursor: pointer; transition: 0.15s;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
+        .push-btn-ver { flex: 1; padding: 15px; border: none; border-radius: 14px; background: var(--verde); color: white; font-weight: 800; font-size: 15px; cursor: pointer; transition: 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .push-btn-ver:active { transform: scale(0.97); background: #059669; }
         .push-btn-ver:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
-
-        .push-btn-cerrar {
-            padding: 15px 18px; border: 1.5px solid #334155; border-radius: 14px;
-            background: transparent; color: #64748b; font-weight: 700;
-            font-size: 13px; cursor: pointer; transition: 0.15s;
-        }
+        .push-btn-cerrar { padding: 15px 18px; border: 1.5px solid #334155; border-radius: 14px; background: transparent; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer; transition: 0.15s; }
         .push-btn-cerrar:active { background: #1e293b; }
+
+        /* ── MODAL CARROZA ── */
+        .modal-carroza { display: none; position: fixed; inset: 0; background: rgba(0,74,153,0.3); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-carroza.open { display: flex; }
+        .modal-carroza-box { background: white; padding: 28px 24px; border-radius: 28px; width: 92%; max-width: 400px; text-align: center; }
+        .modal-carroza-box h2 { color: #001a70; margin-bottom: 6px; font-size: 18px; }
+        .modal-carroza-box p  { color: #64748b; font-size: 13px; margin-bottom: 16px; }
+        .modal-carroza-box select { width: 100%; padding: 12px; border: 2px solid #e3f2fd; border-radius: 12px; font-family: inherit; font-size: 14px; color: #001a70; margin-bottom: 16px; outline: none; }
+        .modal-carroza-box select:focus { border-color: #001a70; }
+        .modal-btns { display: flex; gap: 10px; }
+        .btn-cancelar-carroza { flex: 1; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: white; color: #94a3b8; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .btn-confirmar-carroza { flex: 2; padding: 13px; border: none; border-radius: 12px; background: #001a70; color: white; font-weight: 800; cursor: pointer; font-family: inherit; }
+        .btn-confirmar-carroza:disabled { background: #94a3b8; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-    <!-- ── OVERLAY ── -->
+    <!-- ── OVERLAY PUSH ── -->
     <div class="push-overlay" id="push-overlay" onclick="ignorarPush()"></div>
 
     <!-- ── NOTIFICACIÓN PUSH ── -->
@@ -130,15 +108,25 @@
         </div>
         <div class="push-titulo" id="push-titulo">🤝 Solicitud de Apoyo</div>
         <div class="push-body"   id="push-body">Tienes una nueva solicitud.</div>
-
-        <!-- Aparece si otro conductor la acepta primero -->
-        <div class="push-aceptada-banner" id="push-aceptada-banner">
-            ✅ Un compañero ya aceptó este servicio
-        </div>
-
+        <div class="push-aceptada-banner" id="push-aceptada-banner">✅ Un compañero ya aceptó este servicio</div>
         <div class="push-acciones">
             <button class="push-btn-ver"    id="push-btn-ver" onclick="verSolicitud()">👀 VER SOLICITUD</button>
             <button class="push-btn-cerrar" id="push-btn-cerrar" onclick="ignorarPush()">Ignorar</button>
+        </div>
+    </div>
+
+    <!-- ── MODAL CAMBIAR CARROZA ── -->
+    <div class="modal-carroza" id="modal-carroza">
+        <div class="modal-carroza-box">
+            <h2>🚗 Mi Carroza</h2>
+            <p>Selecciona tu carroza asignada</p>
+            <select id="sel-nueva-carroza">
+                <option value="">Cargando flota...</option>
+            </select>
+            <div class="modal-btns">
+                <button class="btn-cancelar-carroza" onclick="cerrarModalCarroza()">Cancelar</button>
+                <button class="btn-confirmar-carroza" id="btn-confirmar-carroza" onclick="confirmarCambioCarroza()">CONFIRMAR</button>
+            </div>
         </div>
     </div>
 
@@ -152,6 +140,12 @@
         <p style="color: #64748b; font-size: 14px;">Panel de Servicios y Reportes</p>
     </div>
 
+    <!-- ── MI CARROZA ASIGNADA ── -->
+    <div class="monitor-mini" style="margin-bottom:20px;">
+        <h2>Mi Carroza Asignada</h2>
+        <div id="mi-carroza-info" style="text-align:center; color:#94a3b8; font-size:13px; padding:10px 0;">Cargando...</div>
+    </div>
+
     <div class="menu-conductor">
         <a href="registro_salida.html" class="card-condu">
             <i>🚚</i><span>Nueva Salida</span>
@@ -163,20 +157,15 @@
             <i>⚠️</i><span>Reportar Avería</span>
         </a>
         <a href="solicitud_apoyo.html" class="card-condu" style="border: 2px solid #10b981; position:relative; background: linear-gradient(135deg, #f0fdf4, #ffffff);">
-            <!-- ✅ Badge esquina estilo WhatsApp — sin display duplicado -->
             <div id="badge-apoyo" style="
-                display:none;
-                position:absolute; top:-10px; right:-10px;
+                display:none; position:absolute; top:-10px; right:-10px;
                 background: linear-gradient(135deg, #dc2626, #ef4444);
                 color:white; font-size:14px; font-weight:900;
                 min-width:30px; height:30px; padding: 0 8px;
-                border-radius:15px;
-                align-items:center; justify-content:center;
+                border-radius:15px; align-items:center; justify-content:center;
                 box-shadow: 0 3px 12px rgba(220,38,38,0.55);
                 border: 2.5px solid white;
-                animation: badgePulse 1.5s ease infinite;
-                z-index:10;
-            ">0</div>
+                animation: badgePulse 1.5s ease infinite; z-index:10;">0</div>
             <i>🤝</i>
             <span>Solicitudes de Apoyo</span>
             <span id="badge-texto" style="display:none; font-size:10px; color:#10b981; font-weight:800; margin-top:4px;"></span>
@@ -202,8 +191,8 @@
 <script>
     const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-    let userSesion       = {};
-    let solicitudActivaId = null; // id de la solicitud en el push actual
+    let userSesion        = {};
+    let solicitudActivaId = null;
 
     window.onload = async () => {
         const sesionRaw = localStorage.getItem('usuario_sesion');
@@ -229,6 +218,7 @@
                 .trim();
             document.getElementById('txt-conductor').innerText = "Hola, " + nombreLimpio;
 
+            cargarMiCarroza(user);
             cargarSalidasRecientes(nombre);
             cargarResumenAverias(nombre);
             cargarMonitorFlota();
@@ -241,40 +231,154 @@
         }
     };
 
-    // ── REALTIME: 2 canales ──────────────────────────
+    // ── MI CARROZA ───────────────────────────────────────────
+    async function cargarMiCarroza(user) {
+        const infoEl = document.getElementById('mi-carroza-info');
+        const placaAsignada = user.placa_asignada || '';
+
+        if (!placaAsignada || placaAsignada === 'Ninguna' || placaAsignada === '') {
+            infoEl.innerHTML = `
+                <div style="padding:10px 0;">
+                    <div style="font-size:32px; margin-bottom:8px;">🚗</div>
+                    <div style="color:#94a3b8; font-size:13px; margin-bottom:14px;">Sin carroza asignada</div>
+                    <button onclick="abrirModalCarroza()" style="background:#001a70; color:white; border:none; border-radius:12px; padding:11px 22px; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit;">
+                        + Asignarme una carroza
+                    </button>
+                </div>`;
+            return;
+        }
+
+        try {
+            const { data } = await DB.supabase
+                .from('carrozas').select('*').eq('placa', placaAsignada);
+            const c = data && data[0];
+            if (!c) throw new Error('no encontrada');
+
+            let estadoColor = '#10b981'; let estadoBg = '#ecfdf5';
+            if ((c.estado||'').includes('Taller'))  { estadoColor = '#ef4444'; estadoBg = '#fef2f2'; }
+            if ((c.estado||'').includes('Servicio')) { estadoColor = '#3b82f6'; estadoBg = '#eff6ff'; }
+
+            infoEl.innerHTML = `
+                <div style="display:flex; align-items:center; gap:14px; text-align:left;">
+                    <div style="font-size:38px;">🚗</div>
+                    <div style="flex:1;">
+                        <div style="font-size:21px; font-weight:900; color:#001a70;">${c.placa}</div>
+                        <div style="font-size:13px; color:#64748b;">${c.modelo || 'S/M'} · ${c.tipo_vehiculo || 'S/T'}</div>
+                        <div style="font-size:12px; color:#94a3b8; margin-top:3px;">
+                            📍 ${c.sede_intercambio || c.sede_asignada || 'S/S'} &nbsp;·&nbsp;
+                            🛣️ ${Number(c.kilometraje_actual||0).toLocaleString()} KM
+                        </div>
+                    </div>
+                    <span style="background:${estadoBg}; color:${estadoColor}; font-size:10px; font-weight:800; padding:5px 10px; border-radius:8px; white-space:nowrap;">
+                        ${(c.estado||'S/E').toUpperCase()}
+                    </span>
+                </div>
+                <button onclick="abrirModalCarroza()" style="width:100%; margin-top:14px; padding:11px; background:#f0f7ff; color:#001a70; border:1.5px dashed #90caf9; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit;">
+                    🔄 Cambiar carroza
+                </button>`;
+        } catch(e) {
+            infoEl.innerHTML = `
+                <div style="color:#94a3b8; font-size:13px; padding:10px 0;">
+                    No se pudo cargar la carroza asignada.<br>
+                    <button onclick="abrirModalCarroza()" style="margin-top:12px; background:#001a70; color:white; border:none; border-radius:10px; padding:9px 18px; font-weight:700; cursor:pointer; font-family:inherit;">
+                        Seleccionar carroza
+                    </button>
+                </div>`;
+        }
+    }
+
+    async function abrirModalCarroza() {
+        document.getElementById('modal-carroza').classList.add('open');
+        const sel = document.getElementById('sel-nueva-carroza');
+        sel.innerHTML = '<option value="">Cargando flota...</option>';
+
+        const regionalUser = userSesion.regional || '';
+        const { data } = await DB.supabase
+            .from('carrozas')
+            .select('placa, modelo, tipo_vehiculo, estado, sede_asignada, sede_intercambio')
+            .order('placa');
+
+        const flota = (data || []).filter(c => {
+            const ubi = c.sede_intercambio || c.sede_asignada;
+            return ubi === regionalUser;
+        });
+
+        if (flota.length > 0) {
+            sel.innerHTML = '<option value="">— Selecciona tu placa —</option>' +
+                flota.map(c => {
+                    const enTaller = (c.estado || '').includes('Taller');
+                    return `<option value="${c.placa}" ${enTaller ? 'disabled' : ''}>
+                        ${c.placa} — ${c.modelo || 'S/M'} (${c.tipo_vehiculo || 'S/T'})${enTaller ? ' 🔧 EN TALLER' : ''}
+                    </option>`;
+                }).join('');
+        } else {
+            sel.innerHTML = '<option value="">Sin vehículos en tu regional</option>';
+        }
+    }
+
+    function cerrarModalCarroza() {
+        document.getElementById('modal-carroza').classList.remove('open');
+    }
+
+    async function confirmarCambioCarroza() {
+        const sel   = document.getElementById('sel-nueva-carroza');
+        const placa = sel.value;
+        if (!placa) { alert("Selecciona una placa"); return; }
+
+        const btn = document.getElementById('btn-confirmar-carroza');
+        btn.disabled = true; btn.innerText = "GUARDANDO...";
+
+        try {
+            // 1. Actualizar conductor_asignado en carrozas
+            await DB.supabase.from('carrozas')
+                .update({ conductor_asignado: userSesion.nombre })
+                .eq('placa', placa);
+
+            // 2. Actualizar placa_asignada en usuarios
+            await DB.supabase.from('usuarios')
+                .update({ placa_asignada: placa })
+                .eq('usuario', userSesion.usuario);
+
+            // 3. Actualizar sesión local
+            userSesion.placa_asignada = placa;
+            localStorage.setItem('usuario_sesion', JSON.stringify(userSesion));
+
+            cerrarModalCarroza();
+            cargarMiCarroza(userSesion);
+
+        } catch(e) {
+            alert("Error al guardar: " + e.message);
+        } finally {
+            btn.disabled = false; btn.innerText = "CONFIRMAR";
+        }
+    }
+
+    // ── REALTIME ─────────────────────────────────────────────
     function activarRealtimePush(user) {
         const miRegional = norm(user.regional || localStorage.getItem('jr_regional_usuario') || '');
 
-        // Canal 1: nuevas notificaciones de apoyo → mostrar push
         DB.supabase
             .channel('canal-notif-apoyo')
             .on('postgres_changes', {
-                event:  'INSERT',
-                schema: 'public',
-                table:  'notificaciones_apoyo'
+                event: 'INSERT', schema: 'public', table: 'notificaciones_apoyo'
             }, payload => {
                 const notif = payload.new;
-                const esNacional    = norm(notif.alcance)  === 'nacional';
-                const esMiRegional  = norm(notif.regional) === miRegional;
-                const esEspecifica  = norm(notif.alcance)  === miRegional;
+                const esNacional   = norm(notif.alcance) === 'nacional';
+                const esMiRegional = norm(notif.regional) === miRegional;
+                const esEspecifica = norm(notif.alcance) === miRegional;
                 if (!esNacional && !esMiRegional && !esEspecifica) return;
-
                 solicitudActivaId = notif.solicitud_id || null;
                 mostrarPush(notif);
                 actualizarBadge(user);
             })
             .subscribe();
 
-        // Canal 2: si la solicitud activa es aceptada por otro → avisar y deshabilitar botón
         DB.supabase
             .channel('canal-solicitud-aceptada')
             .on('postgres_changes', {
-                event:  'UPDATE',
-                schema: 'public',
-                table:  'solicitud_apoyo'
+                event: 'UPDATE', schema: 'public', table: 'solicitud_apoyo'
             }, payload => {
                 const updated = payload.new;
-                // Si es la solicitud que tenemos en pantalla y ya fue aceptada por otro
                 if (
                     solicitudActivaId &&
                     updated.id === solicitudActivaId &&
@@ -287,45 +391,27 @@
             .subscribe();
     }
 
-    // ── MOSTRAR PUSH (sin auto-cerrar) ───────────────
     function mostrarPush(notif) {
         document.getElementById('push-titulo').textContent = notif.titulo || '🤝 Nueva solicitud de apoyo';
         document.getElementById('push-body').textContent   = notif.cuerpo || 'Hay una nueva solicitud para tu regional.';
-
-        // Resetear estado
         document.getElementById('push-aceptada-banner').classList.remove('visible');
         document.getElementById('push-btn-ver').disabled    = false;
         document.getElementById('push-btn-ver').textContent = '👀 VER SOLICITUD';
         document.getElementById('push-notif').classList.remove('ya-aceptada');
-
-        // Mostrar con overlay
         document.getElementById('push-overlay').classList.add('visible');
         document.getElementById('push-notif').classList.add('visible');
-
-        // Vibrar en móvil
         if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 300]);
     }
 
-    // ── ACEPTADA POR OTRO: avisar sin cerrar ─────────
     function marcarComoAceptadaPorOtro(nombreConductor) {
-        // Mostrar banner informativo
         const banner = document.getElementById('push-aceptada-banner');
         banner.textContent = '✅ ' + (nombreConductor || 'Un compañero') + ' ya aceptó este servicio';
         banner.classList.add('visible');
-
-        // Deshabilitar botón de ver (ya no tiene sentido aceptar)
         const btnVer = document.getElementById('push-btn-ver');
         btnVer.disabled    = true;
         btnVer.textContent = '✅ Ya fue aceptada';
-
-        // Cambiar el botón cerrar a más prominente
         document.getElementById('push-btn-cerrar').textContent = 'Entendido ✓';
-
-        // Animación de fondo
         document.getElementById('push-notif').classList.add('ya-aceptada');
-
-        // En este caso sí se cierra sola después de 5 segundos
-        // porque el conductor ya fue informado y no hay acción que tomar
         setTimeout(() => cerrarPush(), 5000);
     }
 
@@ -334,43 +420,26 @@
         document.getElementById('push-notif').classList.remove('visible');
         solicitudActivaId = null;
     }
-
-    function ignorarPush() {
-        // El conductor vio la notificación y eligió ignorarla
-        cerrarPush();
-    }
-
-    function verSolicitud() {
-        cerrarPush();
-        window.location.href = 'solicitud_apoyo.html';
-    }
+    function ignorarPush() { cerrarPush(); }
+    function verSolicitud() { cerrarPush(); window.location.href = 'solicitud_apoyo.html'; }
 
     async function actualizarBadge(user) {
         try {
             const regional = norm(user.regional || '');
             const { data } = await DB.supabase
-                .from('solicitud_apoyo')
-                .select('id, alcance, regional_solicitante')
-                .eq('estado', 'pendiente');
-
+                .from('solicitud_apoyo').select('id, alcance, regional_solicitante').eq('estado', 'pendiente');
             const visibles = (data || []).filter(s => {
                 const alcance = norm(s.alcance);
                 const regSol  = norm(s.regional_solicitante);
                 return alcance === 'nacional' || alcance === regional || regSol === regional;
             });
-
             const badge      = document.getElementById('badge-apoyo');
             const badgeTexto = document.getElementById('badge-texto');
-
             if (visibles.length > 0) {
-                // Badge número
                 badge.style.display      = 'flex';
                 badge.textContent        = visibles.length;
-                // Texto debajo del ícono
                 badgeTexto.style.display = 'block';
-                badgeTexto.textContent   = visibles.length === 1
-                    ? '1 pendiente'
-                    : visibles.length + ' pendientes';
+                badgeTexto.textContent   = visibles.length === 1 ? '1 pendiente' : visibles.length + ' pendientes';
             } else {
                 badge.style.display      = 'none';
                 badgeTexto.style.display = 'none';
@@ -378,7 +447,7 @@
         } catch(e) {}
     }
 
-    // ── CARGA DE DATOS ───────────────────────────────
+    // ── CARGA DE DATOS ────────────────────────────────────────
     async function cargarSalidasRecientes(nombre) {
         const { data, error } = await DB.supabase
             .from('Traslado').select('*')
@@ -419,7 +488,7 @@
         tabla.innerHTML = data.map(c => {
             let cls = 'pill-disponible';
             const est = c.estado || 'S/E';
-            if (est.includes('Taller')) cls = 'pill-taller';
+            if (est.includes('Taller'))  cls = 'pill-taller';
             if (est.includes('Ruta') || est.includes('Servicio')) cls = 'pill-ruta';
             return '<tr><td><b>'+c.placa+'</b></td>' +
                 '<td style="font-size:11px; color:gray;">'+Number(c.kilometraje_actual||0).toLocaleString()+' KM</td>' +
@@ -431,19 +500,14 @@
         try {
             const regional = norm(user.regional || localStorage.getItem('jr_regional_usuario') || '');
             const { data } = await DB.supabase
-                .from('solicitud_apoyo')
-                .select('id, alcance, regional_solicitante')
-                .eq('estado', 'pendiente');
-
+                .from('solicitud_apoyo').select('id, alcance, regional_solicitante').eq('estado', 'pendiente');
             const visibles = (data || []).filter(s => {
                 const alcance = norm(s.alcance);
                 const regSol  = norm(s.regional_solicitante);
                 return alcance === 'nacional' || alcance === regional || regSol === regional;
             });
-
             const badge      = document.getElementById('badge-apoyo');
             const badgeTexto = document.getElementById('badge-texto');
-
             if (visibles.length > 0) {
                 badge.style.display      = 'flex';
                 badge.textContent        = visibles.length;
@@ -456,7 +520,7 @@
     function cerrarSesion() { localStorage.clear(); window.location.href = "index.html"; }
 </script>
 
-<!-- ── FOOTER DISEÑADOR ── -->
+<!-- ── FOOTER ── -->
 <div class="monitor-mini" style="text-align:center; margin-bottom:30px;">
     <div style="font-size:10px; color:#94a3b8; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px;">
         Diseñado &amp; Desarrollado por
