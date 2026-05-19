@@ -1,3 +1,5 @@
+--- START OF FILE Paste May 19, 2026 - 8:18AM ---
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -13,7 +15,7 @@
 body {
     background: linear-gradient(135deg, var(--azul-cielo) 0%, #bbdefb 100%);
     font-family: 'DM Sans', sans-serif;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
     min-height: 100vh; margin: 0;
 }
 .login-card {
@@ -60,7 +62,7 @@ body {
 }
 .upload-logo-btn:hover { border-color: var(--azul); color: var(--azul); background: #f0f7ff; }
 
-h2 { color: var(--texto); font-size: 24px; margin-bottom: 5px; font-weight: 700; }
+h2 { color: var(--texto); font-size: 22px; margin-bottom: 5px; font-weight: 700; line-height: 1.2; }
 p  { color: #64748b; font-size: 14px; margin-bottom: 25px; }
 input, select {
     width: 100%; padding: 15px; margin-bottom: 12px;
@@ -80,6 +82,16 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
 .btn:disabled { background: #94a3b8; cursor: not-allowed; }
 .link-reg { color: var(--azul); font-weight: 700; cursor: pointer; display: block; margin-top: 20px; font-size: 14px; }
 #error-msg { color: #e11d48; font-size: 13px; margin-top: 12px; display: none; background: #fff1f2; padding: 10px; border-radius: 10px; }
+
+/* Créditos */
+.creditos {
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--azul);
+    opacity: 0.6;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
 
 .modal {
     display: none; position: fixed; inset: 0; z-index: 1000;
@@ -172,13 +184,17 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
         <span id="logo-texto">JR</span>
         <div class="logo-hint">✏️ Cambiar<br>logo</div>
     </div>
-    <h2>Bienvenido</h2>
+    <h2 id="saludo-dinamico">Bienvenido</h2>
     <p>Inicia sesión para continuar</p>
     <input type="text"     id="user" placeholder="Usuario o Cédula">
     <input type="password" id="pass" placeholder="Contraseña">
     <button class="btn btn-azul" id="btn-login" onclick="login()">INGRESAR AL SISTEMA</button>
     <span class="link-reg" onclick="abrirRegistro()">¿No tienes cuenta? Regístrate aquí</span>
     <div id="error-msg"></div>
+</div>
+
+<div class="creditos">
+    Diseñado y creado por Zaider J Buitrago A
 </div>
 
 <!-- ── MODAL REGISTRO ── -->
@@ -274,25 +290,43 @@ function mostrarError(msg) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  SALUDO SEGÚN LA HORA
+// ══════════════════════════════════════════════════════════
+function establecerSaludo() {
+    const el = document.getElementById('saludo-dinamico');
+    const hora = new Date().getHours();
+    let saludo = "";
+
+    if (hora >= 6 && hora < 12) {
+        saludo = "¡Buenos días!";
+    } else if (hora >= 12 && hora < 18) {
+        saludo = "¡Buenas tardes!";
+    } else {
+        saludo = "¡Buenas noches!";
+    }
+
+    el.innerHTML = `${saludo}<br><span style="font-size:16px; font-weight:500;">Bienvenido a la App Salida de carrozas</span>`;
+}
+
+// ══════════════════════════════════════════════════════════
 //  LOGO — Carga desde servidor al iniciar
 // ══════════════════════════════════════════════════════════
 let logoNuevoBase64 = null;
 
-// Al cargar la página: primero intentar localStorage (instantáneo),
-// luego actualizar desde el servidor (persistente)
-(async function iniciarLogo() {
-    // 1. Mostrar logo local si existe (para que no se vea vacío)
+(async function iniciarApp() {
+    establecerSaludo(); // Iniciar saludo
+    
+    // 1. Mostrar logo local si existe
     const logoLocal = localStorage.getItem('jr_logo_app');
     if (logoLocal) aplicarLogo(logoLocal);
 
-    // 2. Cargar desde servidor (fuente de verdad)
+    // 2. Cargar desde servidor
     try {
         const res = await DB.obtenerLogo();
         if (res.ok && res.logo) {
             aplicarLogo(res.logo);
-            localStorage.setItem('jr_logo_app', res.logo); // cachear localmente
+            localStorage.setItem('jr_logo_app', res.logo);
         } else if (res.ok && !res.logo) {
-            // El servidor no tiene logo → limpiar el local también
             localStorage.removeItem('jr_logo_app');
             aplicarLogo(null);
         }
@@ -331,11 +365,13 @@ function cerrarVerificarAdmin() {
     document.getElementById('modal-verificar-admin').classList.remove('open');
 }
 
-// Enter en contraseña dispara verificación
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('va-password').addEventListener('keydown', e => {
-        if (e.key === 'Enter') verificarAdmin();
-    });
+    const passInput = document.getElementById('va-password');
+    if(passInput) {
+        passInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') verificarAdmin();
+        });
+    }
 });
 
 async function verificarAdmin() {
@@ -380,7 +416,6 @@ async function verificarAdmin() {
 }
 
 function abrirModalLogo() {
-    // Sincronizar preview con logo actual
     const logoActual = localStorage.getItem('jr_logo_app');
     const previewWrap = document.getElementById('logo-preview-wrap');
     previewWrap.innerHTML = '';
@@ -401,7 +436,6 @@ function previsualizarLogo(input) {
     const file = input.files[0];
     if (!file) return;
 
-    // Comprimir imagen antes de guardar (máx 300x300px, calidad 0.7)
     const reader = new FileReader();
     reader.onload = e => {
         const imagen = new Image();
@@ -430,7 +464,6 @@ function previsualizarLogo(input) {
 }
 
 function mostrarEstadoLogo(msg, tipo) {
-    // tipo: 'ok' | 'error' | 'info'
     const el = document.getElementById('logo-estado');
     const colores = {
         ok:    { bg: '#ecfdf5', color: '#065f46' },
@@ -456,7 +489,6 @@ async function guardarLogo() {
     try {
         const res = await DB.guardarLogo(logoNuevoBase64);
         if (res.ok) {
-            // Aplicar localmente y cachear
             aplicarLogo(logoNuevoBase64);
             localStorage.setItem('jr_logo_app', logoNuevoBase64);
             mostrarEstadoLogo('✅ Logo guardado. Se verá en todos los dispositivos.', 'ok');
@@ -484,8 +516,6 @@ async function resetearLogo() {
         await DB.eliminarLogo();
         localStorage.removeItem('jr_logo_app');
         aplicarLogo(null);
-
-        // Resetear preview
         document.getElementById('logo-preview-wrap').innerHTML =
             '<span style="color:white;font-size:30px;font-weight:900;">JR</span>';
         mostrarEstadoLogo('✅ Logo eliminado correctamente', 'ok');
