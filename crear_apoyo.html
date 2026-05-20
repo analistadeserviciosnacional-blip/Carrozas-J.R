@@ -50,8 +50,8 @@
         .alcance-desc { font-size: 12px; color: var(--gris); margin-top: 10px; line-height: 1.5; padding: 10px 12px; background: #f8faff; border-radius: 10px; border: 1px solid #e8efff; }
 
         .conductores-badge { display: none; align-items: center; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 12px; font-weight: 700; margin-top: 10px; }
-        .conductores-badge.ok   { background: #ecfdf5; border: 1.5px solid #6ee7b7; color: #065f46; }
-        .conductores-badge.cero { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; }
+        .conductores-badge.ok      { background: #ecfdf5; border: 1.5px solid #6ee7b7; color: #065f46; }
+        .conductores-badge.cero    { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; }
         .conductores-badge.loading { background: #f8faff; border: 1.5px solid #e2e8f0; color: #64748b; }
         .c-num { font-size: 24px; font-weight: 900; line-height: 1; }
 
@@ -205,32 +205,22 @@
     let alcance  = 'regional';
     let regionalEspecifica = '';
 
-    // ── REGIONALES EXACTAS como están en la columna "regional" de Supabase ──
-    // Confirmadas visualmente en la tabla: con tildes donde corresponde
     const REGIONALES = [
-        'Pereira',
-        'Risaralda',
-        'Quindío',       // ← CON tilde — así está en Supabase
-        'Caldas',
-        'Antioquia',
-        'Valle Centro',
-        'Valle Norte',
-        'Valle Sur',
-        'C/ Marca',
-        'Tolima Norte',
-        'Palmira'
+        'Pereira','Risaralda','Quindío','Caldas','Antioquia',
+        'Valle Centro','Valle Norte','Valle Sur','C/ Marca','Tolima Norte','Palmira'
     ];
 
+    // ── INIT ─────────────────────────────────────────────
     window.onload = () => {
         sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (!sesion.nombre) { window.location.href = 'index.html'; return; }
 
         const regional = sesion.regional || 'Pereira';
-        document.getElementById('c-coordinador').value          = sesion.nombre;
-        document.getElementById('c-regional').value             = regional;
+        document.getElementById('c-coordinador').value           = sesion.nombre;
+        document.getElementById('c-regional').value              = regional;
         document.getElementById('txt-regional-desc').textContent = regional;
-        document.getElementById('sub-info').textContent         = sesion.nombre + ' · ' + regional;
-        document.getElementById('c-fecha').valueAsDate          = new Date();
+        document.getElementById('sub-info').textContent          = sesion.nombre + ' · ' + regional;
+        document.getElementById('c-fecha').valueAsDate           = new Date();
 
         construirGridRegionales(regional);
         actualizarPreview();
@@ -240,15 +230,12 @@
         );
     };
 
-    // ── GRID REGIONALES ─────────────────────────────────
+    // ── GRID REGIONALES ──────────────────────────────────
     function construirGridRegionales(miRegional) {
         const grid = document.getElementById('regionales-grid');
-        // Mostrar todas excepto la propia del coordinador
         const opciones = REGIONALES.filter(r => r !== miRegional);
         grid.innerHTML = opciones.map(r => {
-            // ID seguro: reemplazar caracteres especiales
             const safeId = 'rbtn-' + r.replace(/[^a-zA-Z0-9]/g, '_');
-            // Escapar comillas para onclick
             const safeR  = r.replace(/'/g, "\\'");
             return '<button class="reg-btn" id="' + safeId + '" onclick="selRegional(\'' + safeR + '\')">' + r + '</button>';
         }).join('');
@@ -264,7 +251,7 @@
         actualizarPreview();
     }
 
-    // ── CONTAR CONDUCTORES ───────────────────────────────
+    // ── CONTAR CONDUCTORES — SUPABASE ─────────────────────
     async function contarConductores(regional) {
         const badge = document.getElementById('conductores-badge');
         badge.className = 'conductores-badge loading';
@@ -272,16 +259,14 @@
         badge.innerHTML = '<div class="spinner-sm"></div> Verificando conductores en <b style="margin-left:4px;">' + regional + '</b>...';
 
         try {
-            // Buscar conductores con la regional EXACTA (respeta tildes y mayúsculas)
             const { data, error } = await DB.supabase
                 .from('usuarios')
-                .select('*')
-                .eq('regional', regional)   // valor exacto como está en BD
+                .select('id, nombre, regional, rol')
+                .eq('regional', regional)
                 .eq('rol', 'conductor');
 
             if (error) throw error;
-
-            const count = data ? data.length : 0;
+            const count = (data || []).length;
 
             if (count > 0) {
                 badge.className = 'conductores-badge ok';
@@ -289,7 +274,7 @@
                     '<span class="c-num">' + count + '</span>' +
                     '<div>' +
                         '<div style="font-size:13px;">conductor' + (count > 1 ? 'es' : '') + ' en <b>' + regional + '</b></div>' +
-                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">✅ Recibirán la notificación de apoyo</div>' +
+                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">✅ Recibirán la notificación</div>' +
                     '</div>';
             } else {
                 badge.className = 'conductores-badge cero';
@@ -302,11 +287,11 @@
             }
         } catch(e) {
             badge.className = 'conductores-badge cero';
-            badge.innerHTML = '❌ Error al verificar: ' + e.message;
+            badge.innerHTML = '❌ Error: ' + e.message;
         }
     }
 
-    // ── ALCANCE ──────────────────────────────────────────
+    // ── ALCANCE ───────────────────────────────────────────
     function setAlcance(a) {
         alcance = a;
         ['regional','especifica','nacional'].forEach(x => {
@@ -341,7 +326,7 @@
         actualizarPreview();
     }
 
-    // ── URGENCIA ─────────────────────────────────────────
+    // ── URGENCIA ──────────────────────────────────────────
     function setUrgencia(u) {
         urgencia = u;
         ['normal','urgente','critica'].forEach(x => {
@@ -350,7 +335,7 @@
         actualizarPreview();
     }
 
-    // ── PREVIEW ──────────────────────────────────────────
+    // ── PREVIEW ───────────────────────────────────────────
     function actualizarPreview() {
         const regional = document.getElementById('c-regional').value;
         const origen   = document.getElementById('c-origen').value  || '—';
@@ -360,8 +345,7 @@
         const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '✅';
         const urgLabel = urgencia === 'critica' ? 'CRÍTICA' : urgencia === 'urgente' ? 'URGENTE' : 'Normal';
 
-        document.getElementById('push-titulo').textContent =
-            urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo;
+        document.getElementById('push-titulo').textContent = urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo;
         document.getElementById('push-body').textContent =
             '🚩 ' + origen + ' → 🏁 ' + destino +
             (obs ? '\n📝 ' + obs.substring(0,60) + (obs.length>60?'...':'') : '');
@@ -378,7 +362,7 @@
                 '🎯 La solicitud se enviará a conductores de <b>' + regionalEspecifica + '</b>.';
     }
 
-    // ── CREAR SOLICITUD ──────────────────────────────────
+    // ── CREAR SOLICITUD — SUPABASE ────────────────────────
     async function crearSolicitud() {
         const btn    = document.getElementById('btn-crear');
         const origen = document.getElementById('c-origen').value.trim();
@@ -398,9 +382,9 @@
             : alcance === 'especifica' ? regionalEspecifica : 'NACIONAL';
 
         const tipo     = document.getElementById('c-tipo').value;
+        const obs      = document.getElementById('c-obs').value.trim();
         const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '🤝';
         const urgLabel = urgencia.toUpperCase();
-        const obs      = document.getElementById('c-obs').value.trim();
 
         const datos = {
             regional_solicitante: document.getElementById('c-regional').value,
@@ -410,8 +394,8 @@
             clinica_hospital:     document.getElementById('c-clinica').value.trim(),
             origen,
             destino,
-            fecha_servicio:       document.getElementById('c-fecha').value,
-            hora_requerida:       document.getElementById('c-hora').value,
+            fecha_servicio:       document.getElementById('c-fecha').value || null,
+            hora_requerida:       document.getElementById('c-hora').value  || null,
             observaciones:        obs,
             urgencia,
             alcance:              alcanceGuardar,
@@ -419,14 +403,16 @@
         };
 
         try {
+            // 1. Guardar en Supabase
             const { data, error } = await DB.supabase
                 .from('solicitud_apoyo')
                 .insert([datos])
                 .select()
                 .single();
+
             if (error) throw error;
 
-            // Notificación Realtime (no crítico si falla)
+            // 2. Notificación in-app Realtime (no crítico)
             try {
                 await DB.supabase.from('notificaciones_apoyo').insert([{
                     tipo:         'apoyo',
