@@ -22,7 +22,7 @@
         .header-left { display: flex; align-items: center; gap: 10px; }
         .header h1 { font-size: 16px; font-weight: 800; }
         .header small { font-size: 10px; opacity: 0.7; display: block; }
-        .btn-back { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 13px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; }
+        .btn-back { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 13px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
 
         .filtros-bar {
             display: flex; gap: 8px; padding: 14px 16px 10px;
@@ -34,6 +34,7 @@
             padding: 7px 14px; border-radius: 20px; border: 1.5px solid #e2e8f0;
             background: var(--fondo); font-size: 12px; font-weight: 700;
             color: var(--gris); cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: 0.15s;
+            font-family: inherit;
         }
         .filtro.on { background: var(--azul); color: white; border-color: var(--azul); }
 
@@ -101,6 +102,7 @@
             font-family: inherit;
         }
         .btn-aceptar:active { transform: scale(0.98); }
+        .btn-aceptar:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
         .sol-aceptada-info {
             background: #ecfdf5; border-radius: 12px; padding: 12px 14px;
@@ -144,11 +146,20 @@
             text-align: center; margin-bottom: 20px;
         }
         .modal-btns { display: flex; flex-direction: column; gap: 10px; }
-        .btn-confirmar { width: 100%; padding: 16px; border: none; border-radius: 13px; background: var(--verde); color: white; font-weight: 800; font-size: 16px; cursor: pointer; font-family: inherit; }
-        .btn-cancelar-m { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 13px; background: white; color: var(--gris); font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
+        .btn-confirmar {
+            width: 100%; padding: 16px; border: none; border-radius: 13px;
+            background: var(--verde); color: white; font-weight: 800; font-size: 16px;
+            cursor: pointer; font-family: inherit; transition: 0.2s;
+        }
+        .btn-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-cancelar-m {
+            width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 13px;
+            background: white; color: var(--gris); font-weight: 700; font-size: 14px;
+            cursor: pointer; font-family: inherit;
+        }
 
         .refresh-bar { text-align: center; padding: 10px; }
-        .btn-refresh { background: none; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: var(--gris); cursor: pointer; }
+        .btn-refresh { background: none; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: var(--gris); cursor: pointer; font-family: inherit; }
     </style>
 </head>
 <body>
@@ -197,11 +208,7 @@
 
 <script src="db.js"></script>
 <script>
-// ══════════════════════════════════════════════════════
-//  CONFIGURA ESTA URL con la de tu Apps Script desplegado
-// ══════════════════════════════════════════════════════
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec';
-// ══════════════════════════════════════════════════════
 
 let sesion = {};
 let filtroActual = 'disponibles';
@@ -233,7 +240,6 @@ async function cargar() {
         const data = await resp.json();
         if (data.error) throw new Error(data.error);
 
-        // Ordenar por id descendente (más reciente primero)
         todasSolicitudes = (Array.isArray(data) ? data : []).sort(
             (a, b) => Number(b.id || 0) - Number(a.id || 0)
         );
@@ -248,8 +254,8 @@ async function cargar() {
 
 // ── VISIBILIDAD PARA MI REGIONAL ──────────────────────
 function solicitudEsParaMiRegional(s, miRegional) {
-    const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const alc = norm(s.alcance);
+    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const alc = norm(s.alcance || '');
     const reg = norm(miRegional);
     return (alc === 'nacional' || alc === reg || norm(s.regional_solicitante) === reg);
 }
@@ -257,7 +263,7 @@ function solicitudEsParaMiRegional(s, miRegional) {
 function actualizarBadge() {
     const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
     const pendientes = todasSolicitudes.filter(s =>
-        (s.estado || '').toLowerCase() === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
+        (s.estado||'').toLowerCase() === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
     ).length;
     const badge = document.getElementById('badge-pendientes');
     if (pendientes > 0) {
@@ -294,7 +300,6 @@ function renderLista() {
     } else if (filtroActual === 'nacional') {
         lista = lista.filter(s => norm(s.alcance) === 'nacional');
     } else if (filtroActual === 'mis_aceptadas') {
-        // Buscar por nombre del conductor en la columna conductor_aceptó
         lista = lista.filter(s => {
             const ca = (s['conductor_aceptó'] || s['conductor_acepto'] || '').toLowerCase().trim();
             return ca === (sesion.nombre||'').toLowerCase().trim();
@@ -314,10 +319,10 @@ function renderLista() {
 
 function renderCard(s, miRegional) {
     const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    const yaAceptada = (s.estado||'').toLowerCase() !== 'pendiente';
-    const conductorAcepto = s['conductor_aceptó'] || s['conductor_acepto'] || '';
-    const esLaMia = norm(conductorAcepto) === norm(sesion.nombre||'');
-    const tiempo  = tiempoAtras(s.created_at);
+    const yaAceptada     = (s.estado||'').toLowerCase() !== 'pendiente';
+    const conductorAcepto= s['conductor_aceptó'] || s['conductor_acepto'] || '';
+    const esLaMia        = norm(conductorAcepto) === norm(sesion.nombre||'');
+    const tiempo         = tiempoAtras(s.created_at);
 
     const urgencia = (s.urgencia||'normal').toLowerCase();
     const barClass = urgencia === 'critica' ? 'bar-critica' : urgencia === 'urgente' ? 'bar-urgente' : 'bar-normal';
@@ -330,13 +335,12 @@ function renderCard(s, miRegional) {
     } else if (norm(s.alcance) === norm(miRegional)) {
         alcanceTag = '<span class="alcance-tag tag-especifica">🎯 Para ' + miRegional + '</span>';
     } else {
-        alcanceTag = '<span class="alcance-tag tag-regional">📍 ' + (s.alcance || 'Regional') + '</span>';
+        alcanceTag = '<span class="alcance-tag tag-regional">📍 ' + (s.alcance||'Regional') + '</span>';
     }
 
-    // ── Fechas y horas limpias ──
     const fechaLimpia = formatFecha(s.fecha_servicio);
     const horaLimpia  = formatHora(s.hora_requerida);
-    const idSol = String(s.id || '');
+    const idSol       = String(s.id || '');
 
     return '<div class="sol-card ' + cardClass + '">' +
         '<div class="sol-urgencia-bar ' + barClass + '">' + barIcon + alcanceTag + '</div>' +
@@ -361,60 +365,46 @@ function renderCard(s, miRegional) {
                 (horaLimpia         ? '<div class="detalle-item"><div class="d-label">Hora</div><div class="d-val">🕒 ' + horaLimpia + '</div></div>' : '') +
             '</div>' +
             (s.observaciones ? '<div class="sol-obs">📝 ' + s.observaciones + '</div>' : '') +
-            (!yaAceptada ?
-                '<button class="btn-aceptar" onclick="pedirConfirmar(\'' + idSol + '\')">' +
-                    '<span>🤝</span> ACEPTAR ESTE SERVICIO' +
-                '</button>'
-            : esLaMia ?
-                '<div class="sol-aceptada-info">✅ Aceptada por ti · Estado: ' + estadoLabel(s.estado) + '</div>'
-            :
-                '<div class="sol-aceptada-info" style="background:#f1f5f9;color:var(--gris);">Aceptada por ' + (conductorAcepto||'otro conductor') + '</div>'
+            (!yaAceptada
+                ? '<button class="btn-aceptar" id="btn-ac-' + idSol + '" onclick="pedirConfirmar(\'' + idSol + '\')">' +
+                      '<span>🤝</span> ACEPTAR ESTE SERVICIO' +
+                  '</button>'
+                : esLaMia
+                    ? '<div class="sol-aceptada-info">✅ Aceptada por ti · Estado: ' + estadoLabel(s.estado) + '</div>'
+                    : '<div class="sol-aceptada-info" style="background:#f1f5f9;color:var(--gris);">Aceptada por ' + (conductorAcepto||'otro conductor') + '</div>'
             ) +
         '</div>' +
     '</div>';
 }
 
 // ── FORMATEAR FECHA ───────────────────────────────────
-// Sheets puede devolver "Mon Apr 20 2026 02:00:00 GMT..." — extraer YYYY-MM-DD
 function formatFecha(val) {
     if (!val || String(val).trim() === '') return '';
     const s = String(val).trim();
-    // Formato limpio YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
-    // Fecha larga → parsear
     try {
         const d = new Date(s);
         if (!isNaN(d.getTime()) && d.getFullYear() > 1970 && d.getFullYear() < 2100) {
-            const y = d.getFullYear();
-            const m = String(d.getMonth()+1).padStart(2,'0');
-            const day = String(d.getDate()).padStart(2,'0');
-            return y + '-' + m + '-' + day;
+            return d.getFullYear() + '-' +
+                   String(d.getMonth()+1).padStart(2,'0') + '-' +
+                   String(d.getDate()).padStart(2,'0');
         }
     } catch(e) {}
     return s;
 }
 
 // ── FORMATEAR HORA ────────────────────────────────────
-// Sheets guarda horas como número serial → "Sat Dec 30 1899 17:41:44..."
-// Solución: usar getUTCHours/getUTCMinutes en ese caso
 function formatHora(val) {
     if (!val || String(val).trim() === '') return '';
     const s = String(val).trim();
-    // Ya es HH:MM
     if (/^\d{1,2}:\d{2}/.test(s)) return s.substring(0, 5);
     try {
         const d = new Date(s);
         if (!isNaN(d.getTime())) {
-            // Si el año es 1899/1900 es número serial de Excel → usar UTC
             if (d.getFullYear() <= 1900) {
-                const h = String(d.getUTCHours()).padStart(2,'0');
-                const m = String(d.getUTCMinutes()).padStart(2,'0');
-                return h + ':' + m;
+                return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
             }
-            // Fecha normal → hora local
-            const h = String(d.getHours()).padStart(2,'0');
-            const m = String(d.getMinutes()).padStart(2,'0');
-            return h + ':' + m;
+            return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
         }
     } catch(e) {}
     return s;
@@ -424,53 +414,76 @@ function formatHora(val) {
 function pedirConfirmar(id) {
     solPendiente = todasSolicitudes.find(s => String(s.id) === String(id));
     if (!solPendiente) { toast('⚠️ No se encontró la solicitud', '#f59e0b'); return; }
+
+    // Deshabilitar el botón de la card para evitar doble click
+    const btnCard = document.getElementById('btn-ac-' + id);
+    if (btnCard) btnCard.disabled = true;
+
     document.getElementById('modal-ruta-info').innerHTML =
         '🚩 ' + (solPendiente.origen||'---') + '  ➔  🏁 ' + (solPendiente.destino||'---') +
-        (solPendiente.nombre_fallecido ? '<br><small style="font-weight:500;color:#64748b;">⚱️ ' + solPendiente.nombre_fallecido + '</small>' : '');
+        (solPendiente.nombre_fallecido
+            ? '<br><small style="font-weight:500;color:#64748b;">⚱️ ' + solPendiente.nombre_fallecido + '</small>'
+            : '');
+
+    document.getElementById('btn-confirmar-final').disabled = false;
+    document.getElementById('btn-confirmar-final').textContent = '✅ ACEPTAR Y LLENAR SALIDA';
     document.getElementById('modal-bg').classList.add('open');
 }
 
 function cerrarModal() {
     document.getElementById('modal-bg').classList.remove('open');
+    // Rehabilitar botón si se cancela
+    if (solPendiente) {
+        const btnCard = document.getElementById('btn-ac-' + solPendiente.id);
+        if (btnCard) btnCard.disabled = false;
+    }
     solPendiente = null;
 }
 
-// ── ACEPTAR → ACTUALIZAR SHEETS → PRELLENAR → IR A SALIDA ──
+// ── ACEPTAR — CORRECCIÓN DEL BUG ─────────────────────
+// El Apps Script espera idCol e idValue DENTRO del body POST,
+// no como query params en la URL.
 async function confirmarAceptar() {
     if (!solPendiente) return;
+
     const btn = document.getElementById('btn-confirmar-final');
     btn.disabled = true;
     btn.textContent = '⏳ Procesando...';
 
     try {
-        // 1. Actualizar estado en Google Sheets
+        if (!solPendiente.id) throw new Error('La solicitud no tiene ID válido');
+
+        // ✅ FIX: idCol e idValue van dentro del body, no en la URL
         const payload = {
-            estado: 'aceptada',
+            idCol:            'id',
+            idValue:          String(solPendiente.id),
+            estado:           'aceptada',
             'conductor_aceptó': sesion.nombre
         };
+
         const resp = await fetch(
-            APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=update&idCol=id&idValue=' + encodeURIComponent(solPendiente.id),
+            APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=update',
             { method: 'POST', body: JSON.stringify(payload) }
         );
         const res = await resp.json();
         if (res.ok === false || res.error) throw new Error(res.error || 'Error al actualizar en Sheets');
 
-        // 2. Guardar datos en localStorage para prellenar registro_salida.html
+        // Guardar datos en localStorage para prellenar registro_salida.html
         localStorage.setItem('apoyo_prellenado', JSON.stringify({
             solicitud_id:  String(solPendiente.id),
             fallecido:     solPendiente.nombre_fallecido || '',
             clinica:       solPendiente.clinica_hospital || '',
-            origen:        solPendiente.origen || '',
+            origen:        solPendiente.origen  || '',
             destino:       solPendiente.destino || '',
             motivo:        solPendiente.tipo_servicio || 'Servicio Funerario',
-            coordinador:   solPendiente.coordinador || '',
+            coordinador:   solPendiente.coordinador   || '',
             observaciones: solPendiente.observaciones || '',
-            fecha:         formatFecha(solPendiente.fecha_servicio) || '',
-            hora:          formatHora(solPendiente.hora_requerida) || ''
+            fecha:         formatFecha(solPendiente.fecha_servicio),
+            hora:          formatHora(solPendiente.hora_requerida)
         }));
         localStorage.setItem('apoyo_id_activo', String(solPendiente.id));
 
-        // 3. Notificación in-app Supabase (no crítico si falla)
+        // Notificación in-app Supabase (no crítico)
         try {
             await DB.supabase.from('notificaciones_apoyo').insert([{
                 tipo:      'apoyo_aceptado',
@@ -496,7 +509,8 @@ async function confirmarAceptar() {
 
 // ── HELPERS ───────────────────────────────────────────
 function estadoLabel(e) {
-    return { pendiente:'Pendiente', aceptada:'Aceptada', en_curso:'En Curso', completada:'Completada' }[(e||'').toLowerCase()] || e;
+    const m = { pendiente:'Pendiente', aceptada:'Aceptada', en_curso:'En Curso', completada:'Completada' };
+    return m[(e||'').toLowerCase()] || e;
 }
 
 function tiempoAtras(ts) {
