@@ -3,417 +3,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.R. — Registro de Salida Oficial PRO</title>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <title>J.R. — Crear Solicitud de Apoyo</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { 
-            --azul: #004a99; --azul-cielo: #e3f2fd; 
-            --blanco: #ffffff; --gris: #546e7a; --verde-wa: #25D366;
-            --naranja: #f59e0b; --rojo: #ef4444;
-        }
+        :root { --azul: #001a70; --celeste: #e8f0fe; --blanco: #ffffff; --verde: #10b981; --naranja: #f59e0b; --rojo: #dc2626; --gris: #64748b; --fondo: #f0f4ff; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--azul-cielo); font-family: 'DM Sans', sans-serif; color: var(--azul); padding: 10px; }
-        .container { max-width: 650px; margin: 0 auto; background: var(--blanco); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,74,153,0.1); overflow: hidden; }
+        body { background: var(--fondo); font-family: 'DM Sans', sans-serif; padding-bottom: 30px; }
+
+        .header { background: var(--azul); color: white; padding: 16px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top:0; z-index:50; }
+        .header h1 { font-size: 16px; font-weight: 800; }
+        .header p { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+        .btn-back { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 13px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; flex-shrink:0; font-family:inherit; }
+
+        .content { padding: 16px; max-width: 600px; margin: 0 auto; }
+        .card { background: var(--blanco); border-radius: 16px; padding: 18px; margin-bottom: 14px; border: 1.5px solid #e8efff; }
+        .card-title { font-size: 11px; font-weight: 800; color: var(--azul); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1.5px solid var(--fondo); }
+
+        label { display: block; font-size: 11px; font-weight: 700; color: var(--gris); margin-bottom: 4px; text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 11px 13px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 14px; color: #1e293b; background: var(--fondo); transition: 0.15s; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); background: white; }
+        .form-group { margin-bottom: 12px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .pills { display: flex; gap: 8px; }
+        .pill { flex:1; padding: 11px 6px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; font-family:inherit; }
+        .pill.sel-normal  { border-color: var(--verde);   background: #ecfdf5; color: #065f46; }
+        .pill.sel-urgente { border-color: var(--naranja); background: #fffbeb; color: #92400e; }
+        .pill.sel-critica { border-color: var(--rojo);    background: #fef2f2; color: #991b1b; }
+
+        .alcance-pills { display: flex; gap: 8px; margin-bottom: 12px; }
+        .a-pill { flex:1; padding: 13px 6px; border-radius: 12px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; font-family:inherit; }
+        .a-pill.sel-regional   { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
+        .a-pill.sel-especifica { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
+        .a-pill.sel-nacional   { border-color: var(--azul); background: var(--celeste); color: var(--azul); }
+
+        .regional-selector { display: none; }
+        .regional-selector.visible { display: block; animation: slideDown 0.25s ease; }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+
+        .regionales-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .reg-btn { padding: 12px 8px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; color: #1e293b; font-family:inherit; }
+        .reg-btn.sel { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
+
+        .conductores-badge { display: none; align-items: center; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 12px; font-weight: 700; margin-top: 10px; }
+        .conductores-badge.ok   { background: #ecfdf5; border: 1.5px solid #6ee7b7; color: #065f46; }
+        .conductores-badge.loading { background: #f8faff; border: 1.5px solid #e2e8f0; color: #64748b; }
+        .c-num { font-size: 24px; font-weight: 900; line-height: 1; }
+
+        .push-preview { background: #1e293b; border-radius: 14px; padding: 14px; margin-top: 12px; position: relative; overflow: hidden; }
+        .push-preview::before { content: ''; position: absolute; top:0; left:0; right:0; height: 3px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981); }
+        .push-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .push-app-icon { width: 28px; height: 28px; border-radius: 8px; background: var(--azul); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .push-app-name { font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+        .push-titulo { font-size: 14px; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; }
+        .push-body   { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+        .push-destinatarios { margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
+
+        .btn-enviar { width: 100%; padding: 16px; border: none; border-radius: 14px; background: var(--azul); color: white; font-weight: 800; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,26,112,0.2); transition: 0.2s; font-family:inherit; }
+
+        /* MODAL WHATSAPP */
+        .modal-wa-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); z-index: 300; align-items: flex-end; justify-content: center; }
+        .modal-wa-bg.open { display: flex; }
+        .modal-wa-sheet { background: white; border-radius: 24px 24px 0 0; padding: 0; width: 100%; max-width: 560px; max-height: 90vh; display: flex; flex-direction: column; animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .modal-wa-header { background: #25D366; border-radius: 24px 24px 0 0; padding: 20px 22px 16px; color: white; }
+        .modal-wa-header h3 { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+        .modal-wa-msg-box { background: rgba(0,0,0,0.15); border-radius: 10px; padding: 10px 12px; margin-top: 12px; font-size: 12px; font-weight: 600; white-space: pre-wrap; }
+        .modal-wa-body { padding: 16px 22px; overflow-y: auto; flex: 1; }
+        .wa-conductor-item { display: flex; align-items: center; gap: 12px; background: #f0f4ff; border-radius: 14px; padding: 12px 14px; border: 1.5px solid #e8efff; margin-bottom: 10px; }
+        .wa-conductor-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--azul); color: white; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; }
+        .btn-wa-enviar { background: #25D366; border: none; border-radius: 10px; color: white; font-weight: 800; font-size: 13px; padding: 10px 14px; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+        .btn-wa-enviado { background: #94a3b8 !important; cursor: default !important; }
+        .modal-wa-footer { padding: 14px 22px 28px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px; }
+        .btn-wa-todos { width: 100%; padding: 14px; border: none; border-radius: 12px; background: #25D366; color: white; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-wa-cerrar { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: white; color: var(--gris); font-weight: 700; cursor: pointer; }
         
-        /* HEADER */
-        .header { background: var(--azul); color: var(--blanco); padding: 20px; text-align: center; }
-        .header h2 { font-size: 18px; font-weight: 800; letter-spacing: 1px; }
-        .header p  { font-size: 11px; opacity: 0.8; font-weight: bold; margin-top: 4px; text-transform: uppercase; }
-        
-        .content { padding: 20px; }
-        .section-title { 
-            font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gris); 
-            margin: 20px 0 10px; padding-bottom: 5px; font-weight: 700; 
-            display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--azul-cielo); 
-        }
-
-        /* FORMULARIO */
-        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: var(--azul); text-transform: uppercase; }
-        input, select, textarea { 
-            width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--azul-cielo); 
-            border-radius: 12px; font-family: inherit; color: var(--azul); background: #f8fbff; font-size: 14px; 
-        }
-        input:focus, select:focus { outline: none; border-color: var(--azul); background: #fff; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-        /* ALERTAS DE MANTENIMIENTO */
-        .alerta-vehiculo { display: none; border-radius: 16px; padding: 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.6; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:none; } }
-        .alerta-vehiculo.en-taller { background: #fef2f2; border: 2px solid var(--rojo); color: #991b1b; }
-        .alerta-vehiculo.al-dia { background: #f0fdf4; border: 2px solid #22c55e; color: #166534; }
-        .alerta-vehiculo.mant-vencido { background: #fef2f2; border: 2px solid var(--rojo); color: #991b1b; }
-        .alerta-vehiculo.mant-proximo { background: #fffbeb; border: 2px solid var(--naranja); color: #92400e; }
-        
-        .av-titulo { font-weight: 800; font-size: 15px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-        .km-badge { display: inline-block; background: rgba(0,0,0,0.1); padding: 4px 8px; border-radius: 6px; font-weight: 800; margin-top: 8px; }
-        
-        /* BARRA DE PROGRESO ACEITE */
-        .km-progreso-wrap { margin-top: 12px; background: rgba(0,0,0,0.05); border-radius: 10px; height: 12px; overflow: hidden; position: relative; }
-        .km-progreso-bar  { height: 100%; border-radius: 10px; transition: width 1s ease-in-out; }
-
-        /* KIT DE CARRETERA */
-        .kit-selector { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
-        .kit-opcion {
-            display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 15px;
-            border: 2px solid #e3f2fd; cursor: pointer; transition: 0.2s; background: #f8fbff;
-        }
-        .kit-opcion:hover { border-color: #90caf9; }
-        .kit-opcion input { display: none; }
-        .kit-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #90caf9; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .kit-opcion.active { border-color: var(--azul); background: #eef5ff; }
-        .kit-opcion.active .kit-check { background: var(--azul); border-color: var(--azul); }
-        .kit-opcion.active .kit-check::after { content: '✓'; color: white; font-weight: 900; }
-
-        /* FOTOS */
-        .upload-container { border: 2px dashed var(--azul); border-radius: 15px; padding: 25px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 12px; transition: 0.2s; }
-        .upload-container:hover { background: #e1efff; }
-        .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-        .thumb-wrap { position: relative; aspect-ratio: 1/1; border-radius: 10px; overflow: hidden; border: 2px solid var(--azul-cielo); }
-        .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
-        .btn-del { position: absolute; top: 2px; right: 2px; background: var(--rojo); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; font-weight: bold; cursor: pointer; }
-
-        /* FIRMA */
-        canvas { border: 2px dashed var(--azul-cielo); border-radius: 15px; width: 100%; height: 160px; background: #fff; touch-action: none; cursor: crosshair; }
-
-        /* BOTONES */
-        .acciones { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
-        .btn-guardar { 
-            background: var(--azul); color: white; padding: 20px; border: none; 
-            border-radius: 16px; font-weight: 800; font-size: 16px; cursor: pointer; 
-            box-shadow: 0 6px 20px rgba(0,74,153,0.3); transition: 0.3s;
-        }
-        .btn-guardar:active { transform: scale(0.98); }
-        .btn-wa { 
-            background: var(--verde-wa); color: white; padding: 18px; border: none; 
-            border-radius: 16px; font-weight: 800; font-size: 16px; cursor: pointer; 
-            display: none; align-items: center; justify-content: center; gap: 10px; animation: slideUp 0.4s ease;
-        }
-        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
-
-        #progreso-log { display: none; background: #f0f7ff; border: 1px solid #c7dff7; padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }
-        .log-line { margin-bottom: 5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-        .log-ok { color: #16a34a; }
-        
-        .banner-apoyo { display: none; background: #fff9db; border: 2px dashed #fab005; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 12px; color: #856404; font-weight: 800; text-align: center; }
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: #1e293b; color: white; padding: 13px 22px; border-radius: 14px; font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: 0.3s; }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.1); border-top-color: #001a70; border-radius: 50%; animation: spin 0.6s linear infinite; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h2 id="saludo">¡HOLA!</h2>
-        <p>Registro de Salida Oficial v6.0</p>
+<div class="header">
+    <button class="btn-back" onclick="window.location.href='panel_coordinador.html'">←</button>
+    <div>
+        <h1>📤 Nueva Solicitud de Apoyo</h1>
+        <p id="sub-info">Cargando...</p>
+    </div>
+</div>
+
+<div class="content">
+    <div class="card">
+        <div class="card-title">👤 Responsable</div>
+        <div class="grid-2">
+            <div class="form-group"><label>Coordinador</label><input type="text" id="c-coordinador" readonly style="background:#eef5ff; font-weight:700;"></div>
+            <div class="form-group"><label>Regional</label><input type="text" id="c-regional" readonly style="background:#eef5ff; font-weight:700;"></div>
+        </div>
+        <div class="form-group">
+            <label>Tipo de Servicio</label>
+            <select id="c-tipo">
+                <option value="Servicio Funerario">Servicio Funerario</option>
+                <option value="Traslado Nacional">Traslado Nacional</option>
+                <option value="Recogida Clínica">Recogida Clínica</option>
+                <option value="Traslado de Emergencia">Traslado de Emergencia</option>
+            </select>
+        </div>
     </div>
 
-    <div class="content">
-        <div id="banner-apoyo" class="banner-apoyo">🤝 VINCULADO A SOLICITUD DE APOYO</div>
-
-        <div class="section-title">Datos de Responsable</div>
+    <div class="card">
+        <div class="card-title">⚱️ Datos del Servicio</div>
+        <div class="form-group"><label>Nombre del Fallecido</label><input type="text" id="c-fallecido" placeholder="Nombre completo"></div>
+        <div class="form-group"><label>Clínica / Hospital / RSD</label><input type="text" id="c-clinica" placeholder="Lugar de recogida"></div>
         <div class="grid-2">
-            <div><label>Conductor</label><input type="text" id="conductor" readonly style="background:#eef5ff;"></div>
-            <div><label>Regional</label><input type="text" id="regional" readonly style="background:#eef5ff;"></div>
+            <div><label>Origen *</label><input type="text" id="c-origen" placeholder="Ciudad"></div>
+            <div><label>Destino *</label><input type="text" id="c-destino" placeholder="Ciudad"></div>
         </div>
-
-        <div class="section-title">Información del Vehículo</div>
         <div class="grid-2">
-            <div><label>Placa Vehículo</label><select id="placa" onchange="actualizarEstadoVehiculo()"></select></div>
-            <div><label>Motivo Salida</label>
-                <select id="motivo">
-                    <option value="Sepelio">Sepelio</option>
-                    <option value="Traslado Nacional">Traslado Nacional</option>
-                    <option value="Recogida De Cuerpo">Recogida De Cuerpo</option>
-                    <option value="Recogida Clínica">Recogida Clínica</option>
-                    <option value="Taller">Taller</option>
-                </select>
-            </div>
+            <div><label>Fecha</label><input type="date" id="c-fecha"></div>
+            <div><label>Hora Requerida</label><input type="time" id="c-hora"></div>
         </div>
+        <div class="form-group"><label>Observaciones</label><textarea id="c-obs" rows="2" placeholder="Detalles..."></textarea></div>
+    </div>
 
-        <!-- ALERTA DINÁMICA DE ACEITE/TALLER -->
-        <div id="alerta-vehiculo" class="alerta-vehiculo"></div>
-
-        <div class="section-title">🧰 Kit de Carretera</div>
-        <div class="kit-selector">
-            <div class="kit-opcion" id="kit-completo" onclick="seleccionarKit('completo')">
-                <div class="kit-check"></div>
-                <div><b>KIT COMPLETO</b><br><small>Extintor y herramientas al día</small></div>
-            </div>
-            <div class="kit-opcion" id="kit-incompleto" onclick="seleccionarKit('incompleto')">
-                <div class="kit-check"></div>
-                <div><b>KIT INCOMPLETO</b><br><small>Faltan elementos (Notificar coordinador)</small></div>
-            </div>
+    <div class="card">
+        <div class="card-title">🚨 Urgencia</div>
+        <div class="pills">
+            <button class="pill sel-normal" id="u-normal" onclick="setUrgencia('normal')">✅ Normal</button>
+            <button class="pill" id="u-urgente" onclick="setUrgencia('urgente')">⚡ Urgente</button>
+            <button class="pill" id="u-critica" onclick="setUrgencia('critica')">🚨 Crítica</button>
         </div>
+    </div>
 
-        <div class="section-title">Datos del Servicio</div>
-        <label>Nombre del Fallecido</label>
-        <input type="text" id="fallecido" placeholder="Nombre completo">
-        
-        <div class="grid-2">
-            <div><label>Origen (Ciudad)</label><input type="text" id="origen"></div>
-            <div><label>Destino (Ciudad)</label><input type="text" id="destino"></div>
+    <div class="card">
+        <div class="card-title">🌎 Alcance de Notificación</div>
+        <div class="alcance-pills">
+            <button class="a-pill sel-regional" id="a-regional" onclick="setAlcance('regional')">📍 Mi Regional</button>
+            <button class="a-pill" id="a-especifica" onclick="setAlcance('especifica')">🎯 Otra Regional</button>
+            <button class="a-pill" id="a-nacional" onclick="setAlcance('nacional')">🌎 Nacional</button>
         </div>
-
-        <div class="grid-2">
-            <div><label>KM Salida</label><input type="number" id="km_s"></div>
-            <div><label>Hora Salida</label><input type="time" id="hora_s"></div>
+        <div class="regional-selector" id="regional-selector">
+            <div class="regionales-grid" id="regionales-grid"></div>
+            <div class="conductores-badge" id="conductores-badge"></div>
         </div>
+        <div class="alcance-desc" id="alcance-desc">📍 Se notificará a conductores de tu regional.</div>
+    </div>
 
-        <div class="section-title">Evidencias Fotográficas</div>
-        <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
-            <span id="txt-fotos">📸 Toca para subir fotos (Máximo 4)</span>
-            <input type="file" id="fotos-input" accept="image/*" multiple hidden onchange="procesarFotos(this)">
+    <div class="card">
+        <div class="card-title">🔔 Vista Previa</div>
+        <div class="push-preview">
+            <div class="push-header"><div class="push-app-icon">🚗</div><div class="push-app-name">J.R. Carrozas</div></div>
+            <div class="push-titulo" id="push-titulo">🤝 Apoyo Normal</div>
+            <div class="push-body" id="push-body">🚩 ? → 🏁 ?</div>
+            <div class="push-destinatarios">📲 Destino: <b id="push-dest-txt">Mi Regional</b></div>
         </div>
-        <div class="preview-gallery" id="galeria"></div>
+    </div>
 
-        <label style="margin-top:15px;">Observaciones de Salida</label>
-        <textarea id="obs" rows="2" placeholder="Novedades del vehículo..."></textarea>
+    <button class="btn-enviar" id="btn-crear" onclick="crearSolicitud()"><span>📤</span> ENVIAR Y NOTIFICAR</button>
+</div>
 
-        <div class="section-title">Firma de Responsable</div>
-        <canvas id="canvas"></canvas>
-        <div style="text-align: right; margin-top: 5px;">
-            <span onclick="borrarFirma()" style="color:red; font-size:11px; font-weight:800; cursor:pointer;">✖ BORRAR FIRMA</span>
+<!-- MODAL WHATSAPP -->
+<div class="modal-wa-bg" id="modal-wa-bg">
+    <div class="modal-wa-sheet">
+        <div class="modal-wa-header">
+            <h3>📲 Notificar por WhatsApp</h3>
+            <p>Solicitud guardada ✅ — Envía a la regional <b id="wa-regional-nombre">...</b></p>
+            <div class="modal-wa-msg-box" id="wa-msg-preview"></div>
         </div>
-
-        <div id="progreso-log"></div>
-
-        <div class="acciones">
-            <button class="btn-guardar" id="btn-save" onclick="guardarTodo()">💾 GUARDAR EN SISTEMA</button>
-            <button class="btn-wa" id="btn-wa" onclick="enviarWhatsApp()">💬 ENVIAR REPORTE POR WHATSAPP</button>
-            <button style="background:none; border:none; color:var(--gris); font-weight:bold; cursor:pointer; margin-top:10px;" onclick="window.history.back()">← Volver atrás</button>
+        <div class="modal-wa-body" id="wa-conductor-list"></div>
+        <div class="modal-wa-footer">
+            <button class="btn-wa-todos" id="btn-wa-todos" onclick="abrirTodos()">📲 Abrir todos los WhatsApp</button>
+            <button class="btn-wa-cerrar" onclick="cerrarModalWA()">Listo — Volver al panel</button>
         </div>
     </div>
 </div>
 
-<script src="db.js"></script>
+<div class="toast" id="toast"></div>
+
 <script>
-    let fotosArray = [];
-    let kitSeleccionado = '';
-    let idApoyoURL = null; // Captura el ID para evitar error "update requiere idCol"
-    let vehiculoActual = null;
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec';
+    
+    let sesion = {}, urgencia = 'normal', alcance = 'regional', regionalEspecifica = '', conductoresWA = [], mensajeWA = '', enviados = new Set();
+    const REGIONALES = ['Pereira','Risaralda','Quindío','Caldas','Antioquia','Valle Centro','Valle Norte','Valle Sur','C/ Marca','Tolima Norte','Palmira'];
 
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    let dibujando = false;
-
-    window.onload = async () => {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
-        if(!sesion) { window.location.href = 'index.html'; return; }
-
-        document.getElementById('conductor').value = sesion.nombre;
-        document.getElementById('regional').value = sesion.regional;
-        document.getElementById('saludo').innerText = "¡HOLA, " + sesion.nombre.split(' ')[0].toUpperCase() + "!";
-
-        // 1. Detectar si viene de Apoyo
-        const params = new URLSearchParams(window.location.search);
-        idApoyoURL = params.get('id');
-        if(idApoyoURL) {
-            document.getElementById('banner-apoyo').style.display = 'block';
-            document.getElementById('fallecido').value = params.get('fallecido') || '';
-            document.getElementById('origen').value = params.get('origen') || '';
-            document.getElementById('destino').value = params.get('destino') || '';
-            document.getElementById('motivo').value = 'Traslado Nacional';
-        }
-
-        // 2. Cargar Flota
-        await cargarFlota();
-        initCanvas();
-        
-        // Hora actual
-        const now = new Date();
-        document.getElementById('hora_s').value = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
+    window.onload = () => {
+        sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        if (!sesion.nombre) { window.location.href = 'index.html'; return; }
+        document.getElementById('c-coordinador').value = sesion.nombre;
+        document.getElementById('c-regional').value = sesion.regional;
+        document.getElementById('sub-info').textContent = sesion.nombre + ' · ' + sesion.regional;
+        document.getElementById('c-fecha').valueAsDate = new Date();
+        construirGridRegionales(sesion.regional);
+        actualizarPreview();
+        ['c-origen','c-destino','c-tipo','c-obs'].forEach(id => document.getElementById(id).addEventListener('input', actualizarPreview));
     };
 
-    async function cargarFlota() {
-        const sel = document.getElementById('placa');
-        sel.innerHTML = '<option value="">Cargando flota...</option>';
+    function construirGridRegionales(miReg) {
+        document.getElementById('regionales-grid').innerHTML = REGIONALES.filter(r => r !== miReg).map(r => 
+            `<button class="reg-btn" id="rbtn-${r}" onclick="selRegional('${r}')">${r}</button>`
+        ).join('');
+    }
+
+    function selRegional(r) {
+        regionalEspecifica = r;
+        document.querySelectorAll('.reg-btn').forEach(b => b.classList.remove('sel'));
+        document.getElementById('rbtn-'+r).classList.add('sel');
+        actualizarPreview();
+    }
+
+    function setAlcance(a) {
+        alcance = a;
+        ['regional','especifica','nacional'].forEach(x => document.getElementById('a-'+x).className = 'a-pill' + (x===a ? ' sel-'+x : ''));
+        document.getElementById('regional-selector').className = 'regional-selector' + (a === 'especifica' ? ' visible' : '');
+        actualizarPreview();
+    }
+
+    function setUrgencia(u) {
+        urgencia = u;
+        ['normal','urgente','critica'].forEach(x => document.getElementById('u-'+x).className = 'pill' + (x===u ? ' sel-'+x : ''));
+        actualizarPreview();
+    }
+
+    function actualizarPreview() {
+        const o = document.getElementById('c-origen').value || '?', d = document.getElementById('c-destino').value || '?';
+        const emoji = urgencia==='critica' ? '🚨' : urgencia==='urgente' ? '⚡' : '🤝';
+        document.getElementById('push-titulo').textContent = `${emoji} Apoyo ${urgencia.toUpperCase()}`;
+        document.getElementById('push-body').textContent = `🚩 ${o} → 🏁 ${d}`;
+        let dest = alcance === 'regional' ? sesion.regional : (alcance === 'especifica' ? regionalEspecifica : 'NACIONAL');
+        document.getElementById('push-dest-txt').textContent = dest;
+    }
+
+    // ── FUNCIÓN CRÍTICA: ID AUTO Y GUARDADO ──
+    async function crearSolicitud() {
+        const btn = document.getElementById('btn-crear');
+        const origen = document.getElementById('c-origen').value.trim(), destino = document.getElementById('c-destino').value.trim();
+        if (!origen || !destino) { toast('⚠️ Origen y Destino obligatorios', '#f59e0b'); return; }
+
+        btn.disabled = true; btn.innerHTML = '⏳ GENERANDO ID Y GUARDANDO...';
+
         try {
-            const carrozas = await DB.fetch('carrozas');
-            const miReg = document.getElementById('regional').value;
-            const filtradas = carrozas.filter(c => c.sede_asignada === miReg || c.sede_intercambio === miReg);
+            const respList = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo');
+            const dataActual = await respList.json();
+            const nuevoId = dataActual.length > 0 ? (parseInt(dataActual[dataActual.length - 1].id) || 0) + 1 : 1;
             
-            sel.innerHTML = '<option value="">Seleccione placa...</option>' + 
-                filtradas.map(c => `<option value="${c.placa}">${c.placa} - ${c.modelo}</option>`).join('');
-        } catch(e) { sel.innerHTML = '<option>Error al cargar</option>'; }
+            const now = new Date();
+            const created_at = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+            const datos = {
+                id: nuevoId,
+                created_at: created_at,
+                regional_solicitante: sesion.regional,
+                coordinador: sesion.nombre,
+                tipo_servicio: document.getElementById('c-tipo').value,
+                nombre_fallecido: document.getElementById('c-fallecido').value.trim(),
+                clinica_hospital: document.getElementById('c-clinica').value.trim(),
+                origen: origen,
+                destino: destino,
+                fecha_servicio: document.getElementById('c-fecha').value,
+                hora_requerida: document.getElementById('c-hora').value,
+                alcance: alcance === 'especifica' ? regionalEspecifica : alcance,
+                estado: 'pendiente',
+                observaciones: document.getElementById('c-obs').value.trim(),
+                urgencia: urgencia
+            };
+
+            await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', { method: 'POST', mode: 'no-cors', body: JSON.stringify(datos) });
+
+            setTimeout(() => {
+                mensajeWA = `*SOLICITUD DE APOYO J.R.*\n🏢 *Regional:* ${datos.regional_solicitante}\n🚩 *De:* ${origen}\n🏁 *A:* ${destino}\n👤 *Coord:* ${sesion.nombre}`;
+                toast('✅ Guardado con ID: ' + nuevoId, '#10b981');
+                abrirModalWA(datos.alcance === 'regional' ? sesion.regional : datos.alcance);
+            }, 1000);
+
+        } catch(e) { toast('❌ Error', '#dc2626'); btn.disabled = false; btn.innerHTML = '📤 REINTENTAR'; }
     }
 
-    async function actualizarEstadoVehiculo() {
-        const placa = document.getElementById('placa').value;
-        const alerta = document.getElementById('alerta-vehiculo');
-        if(!placa) { alerta.style.display = 'none'; return; }
-
-        const carrozas = await DB.fetch('carrozas');
-        vehiculoActual = carrozas.find(c => c.placa === placa);
-        
-        if(!vehiculoActual) return;
-        
-        document.getElementById('km_s').value = vehiculoActual.kilometraje_actual;
-        alerta.style.display = 'block';
-
-        if(vehiculoActual.estado === 'En Taller') {
-            alerta.className = 'alerta-vehiculo en-taller';
-            alerta.innerHTML = `<div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div>Bloqueado para servicios.`;
-            return;
-        }
-
-        // Lógica de Aceite
-        const mantenimientos = await DB.fetch('mantenimientos');
-        const ultimoAceite = mantenimientos.filter(m => m.placa === placa && m.tipo_servicio === 'Cambio de Aceite')
-                             .sort((a,b) => new Date(b.fecha) - new Date(a.fecha))[0];
-
-        if(ultimoAceite) {
-            const kmActual = parseInt(vehiculoActual.kilometraje_actual);
-            const kmProx = parseInt(ultimoAceite.km_proximo_cambio);
-            const kmUlt = parseInt(ultimoAceite.kilometraje_servicio);
-            const faltante = kmProx - kmActual;
-            
-            const porcentaje = Math.min(100, Math.round(((kmActual - kmUlt) / (kmProx - kmUlt)) * 100));
-            const colorBarra = porcentaje > 90 ? '#ef4444' : porcentaje > 75 ? '#f59e0b' : '#22c55e';
-            
-            alerta.className = 'alerta-vehiculo ' + (faltante <= 0 ? 'mant-vencido' : faltante < 500 ? 'mant-proximo' : 'al-dia');
-            alerta.innerHTML = `
-                <div class="av-titulo">${faltante <= 0 ? '🚨 ACEITE VENCIDO' : '✅ ACEITE AL DÍA'}</div>
-                KM Actual: ${kmActual.toLocaleString()} | Próximo cambio: ${kmProx.toLocaleString()}
-                <div class="km-progreso-wrap">
-                    <div class="km-progreso-bar" style="width: ${porcentaje}%; background: ${colorBarra};"></div>
-                </div>
-                <div style="font-size:10px; margin-top:5px; text-align:right;">Faltan <b>${faltante} KM</b></div>
-            `;
-        } else {
-            alerta.className = 'alerta-vehiculo al-dia';
-            alerta.innerHTML = `<div class="av-titulo">ℹ️ SIN REGISTROS DE ACEITE</div>Verifique el sticker de mantenimiento.`;
-        }
+    async function abrirModalWA(reg) {
+        document.getElementById('modal-wa-bg').classList.add('open');
+        document.getElementById('wa-msg-preview').textContent = mensajeWA;
+        document.getElementById('wa-regional-nombre').textContent = reg;
+        const list = document.getElementById('wa-conductor-list');
+        list.innerHTML = '⏳ Cargando...';
+        try {
+            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=usuarios');
+            const users = await resp.json();
+            conductoresWA = users.filter(u => (reg==='nacional' || u.regional === reg) && u.rol === 'conductor' && u.telefono);
+            list.innerHTML = conductoresWA.map((c, i) => `
+                <div class="wa-conductor-item">
+                    <div class="wa-conductor-avatar">${c.nombre[0]}</div>
+                    <div style="flex:1;"><b>${c.nombre}</b><br><small>${c.telefono}</small></div>
+                    <a class="btn-wa-enviar" id="wa-btn-${i}" href="https://api.whatsapp.com/send?phone=57${c.telefono}&text=${encodeURIComponent(mensajeWA)}" target="_blank" onclick="marcar(${i})">📲 Enviar</a>
+                </div>`).join('');
+        } catch(e) { list.innerHTML = 'Error.'; }
     }
 
-    function seleccionarKit(v) {
-        kitSeleccionado = v;
-        document.getElementById('kit-completo').classList.remove('active');
-        document.getElementById('kit-incompleto').classList.remove('active');
-        document.getElementById('kit-' + v).classList.add('active');
-    }
-
-    function procesarFotos(input) {
-        Array.from(input.files).forEach(f => {
-            if(fotosArray.length < 4) {
-                const reader = new FileReader();
-                reader.onload = e => { fotosArray.push(e.target.result); renderGaleria(); };
-                reader.readAsDataURL(f);
+    function marcar(i) { document.getElementById('wa-btn-'+i).textContent = '✅ Enviado'; enviados.add(i); }
+    
+    function abrirTodos() {
+        conductoresWA.forEach((c, i) => {
+            if (!enviados.has(i)) {
+                setTimeout(() => {
+                    window.open(`https://api.whatsapp.com/send?phone=57${c.telefono}&text=${encodeURIComponent(mensajeWA)}`, '_blank');
+                    marcar(i);
+                }, i * 1000); // 1 segundo entre chats para evitar bloqueo
             }
         });
     }
-    function renderGaleria() {
-        document.getElementById('galeria').innerHTML = fotosArray.map((img, i) => 
-            `<div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`
-        ).join('');
-        document.getElementById('txt-fotos').innerText = `📸 ${fotosArray.length} de 4 fotos`;
-    }
-    function eliminarFoto(i) { fotosArray.splice(i,1); renderGaleria(); }
 
-    async function guardarTodo() {
-        const btn = document.getElementById('btn-save');
-        const log = document.getElementById('progreso-log');
-        
-        if(!document.getElementById('placa').value) { Swal.fire("Error", "Selecciona placa", "error"); return; }
-        if(!kitSeleccionado) { Swal.fire("Error", "Selecciona estado del kit", "error"); return; }
-
-        btn.disabled = true; btn.innerText = "⏳ PROCESANDO...";
-        log.style.display = 'block';
-        log.innerHTML = `<div class="log-line">⏳ Iniciando registro...</div>`;
-
-        // ID CON FORMATO S-TIMESTAMP
-        const idGenerado = "S-" + Date.now();
-
-        const datos = {
-            id_salida: idGenerado,
-            created_at: new Date().toLocaleString(),
-            conductor: document.getElementById('conductor').value,
-            regional: document.getElementById('regional').value,
-            placa: document.getElementById('placa').value,
-            motivo: document.getElementById('motivo').value,
-            fallecido: document.getElementById('fallecido').value,
-            origen: document.getElementById('origen').value,
-            destino: document.getElementById('destino').value,
-            km_salida: document.getElementById('km_s').value,
-            hora_salida: document.getElementById('hora_s').value,
-            kit: kitSeleccionado,
-            observaciones: document.getElementById('obs').value,
-            firma: canvas.toDataURL()
-        };
-
-        try {
-            // 1. Guardar Salida
-            log.innerHTML += `<div class="log-line">⏳ Guardando salida en Excel...</div>`;
-            await DB.insert('salidas', datos);
-            log.innerHTML += `<div class="log-line log-ok">✅ Salida guardada con ID: ${idGenerado}</div>`;
-
-            // 2. Actualizar Carroza
-            log.innerHTML += `<div class="log-line">⏳ Actualizando estado del vehículo...</div>`;
-            await DB.update('carrozas', 'placa', datos.placa, { 
-                estado: 'En Servicio', 
-                kilometraje_actual: datos.km_salida 
-            });
-            log.innerHTML += `<div class="log-line log-ok">✅ Carroza actualizada.</div>`;
-
-            // 3. Vincular Apoyo (SI EXISTE EL ID)
-            if(idApoyoURL && idApoyoURL !== 'null') {
-                log.innerHTML += `<div class="log-line">⏳ Vinculando con solicitud de apoyo #${idApoyoURL}...</div>`;
-                await DB.update('solicitud_apoyo', 'id', idApoyoURL, {
-                    estado: 'aceptada',
-                    conductor_aceptó: datos.conductor,
-                    placa_asignada: datos.placa
-                });
-                log.innerHTML += `<div class="log-line log-ok">✅ Solicitud de apoyo cerrada con éxito.</div>`;
-            }
-
-            Swal.fire("¡Perfecto!", "Registro guardado correctamente", "success");
-            btn.innerText = "✓ REGISTRO EXITOSO";
-            document.getElementById('btn-wa').style.display = 'flex';
-
-        } catch(e) {
-            Swal.fire("Error", "Fallo al guardar: " + e.message, "error");
-            btn.disabled = false; btn.innerText = "💾 REINTENTAR GUARDADO";
-        }
-    }
-
-    function enviarWhatsApp() {
-        const placa = document.getElementById('placa').value;
-        const cond = document.getElementById('conductor').value;
-        const fal = document.getElementById('fallecido').value || "---";
-        const kit = kitSeleccionado === 'completo' ? "✅ COMPLETO" : "⚠️ INCOMPLETO";
-
-        const msg = `*REPORTE DE SALIDA OFICIAL* 🚗💨%0A` +
-                    `━━━━━━━━━━━━━━━━━━━━%0A` +
-                    `*📍 Regional:* ${document.getElementById('regional').value}%0A` +
-                    `*🆔 Placa:* ${placa}%0A` +
-                    `*👨🏻‍✈️ Conductor:* ${cond}%0A` +
-                    `━━━━━━━━━━━━━━━━━━━━%0A` +
-                    `*⚱️ Fallecido:* ${fal}%0A` +
-                    `*🚩 Origen:* ${document.getElementById('origen').value}%0A` +
-                    `*🏁 Destino:* ${document.getElementById('destino').value}%0A` +
-                    `━━━━━━━━━━━━━━━━━━━━%0A` +
-                    `*📟 KM Salida:* ${document.getElementById('km_s').value}%0A` +
-                    `*⏰ Hora:* ${document.getElementById('hora_s').value}%0A` +
-                    `*🧰 Kit:* ${kit}%0A` +
-                    `━━━━━━━━━━━━━━━━━━━━%0A` +
-                    `_Enviado desde J.R. App v6_`;
-
-        window.open(`https://wa.me/?text=${msg}`, '_blank');
-    }
-
-    // SOPORTE FIRMA
-    function initCanvas() {
-        canvas.width = canvas.offsetWidth;
-        ctx.strokeStyle = "#004a99"; ctx.lineWidth = 3;
-        canvas.addEventListener('touchstart', e => { dibujando = true; ctx.beginPath(); });
-        canvas.addEventListener('touchmove', e => { 
-            if(!dibujando) return; 
-            const r = canvas.getBoundingClientRect();
-            ctx.lineTo(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
-            ctx.stroke();
-            e.preventDefault();
-        }, {passive: false});
-        window.addEventListener('touchend', () => dibujando = false);
-    }
-    function borrarFirma() { ctx.clearRect(0,0,canvas.width, canvas.height); }
+    function cerrarModalWA() { window.location.href = 'panel_coordinador.html'; }
+    function toast(m, c) { const t = document.getElementById('toast'); t.textContent = m; t.style.background = c; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3500); }
 </script>
 </body>
 </html>
