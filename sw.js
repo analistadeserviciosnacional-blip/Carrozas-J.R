@@ -1,57 +1,57 @@
-const CACHE_NAME = 'carrozas-jr-v1';
-const ASSETS_TO_CACHE = [
+// sw.js - Service Worker Oficial J.R. v6.0
+const CACHE_NAME = 'jr-carrozas-v6';
+
+// Lista de archivos para funcionar offline
+// He quitado el icon-192.png temporalmente para que no te dé el error 404
+const urlsToCache = [
   './',
   './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+  './panel_coordinador.html',
+  './solicitud_apoyo.html',
+  './crear_apoyo.html',
+  './db.js',
+  'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://cdn.jsdelivr.net/npm/sweetalert2@11'
 ];
 
-// Instalar el Service Worker y almacenar en caché recursos estáticos
-self.addEventListener('install', (event) => {
+// Instalación: Guarda los archivos en caché
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('📦 Registrando caché...');
+        // Usamos un bucle para que si un archivo falla (404), los demás sí se guarden
+        return Promise.all(
+          urlsToCache.map(url => {
+            return cache.add(url).catch(err => console.warn(`⚠️ No se pudo cachear: ${url}`));
+          })
+        );
+      })
   );
 });
 
-// Activar el Service Worker y limpiar cachés antiguas
-self.addEventListener('activate', (event) => {
+// Activación: Limpia cachés antiguos
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('🧹 Borrando caché antigua:', cacheName);
+            return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim())
+    })
   );
 });
 
-// Estrategia de Red Primero con Respaldo en Caché para Acceso Corporativo en línea
-self.addEventListener('fetch', (event) => {
-  // Solo interceptar peticiones de nuestro mismo origen o URL principal
-  if (event.request.mode === 'navigate' || event.request.url.startsWith(self.location.origin)) {
-    event.respondWith(
-      fetch(event.request)
-        .catch(() => {
-          return caches.match(event.request).then((response) => {
-            return response || caches.match('./index.html');
-          });
-        })
-    );
-  } else {
-    // Para recursos como imágenes y estilos, Caché primero con actualización
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(event.request);
-      })
-    );
-  }
+// Estrategia: Primero Red, si falla, busca en Caché
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
+    })
+  );
 });
