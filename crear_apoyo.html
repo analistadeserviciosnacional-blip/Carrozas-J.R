@@ -5,59 +5,135 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Crear Solicitud de Apoyo</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --azul: #001a70; --celeste: #e8f0fe; --blanco: #ffffff; --verde: #10b981; --naranja: #f59e0b; --rojo: #dc2626; --gris: #64748b; --fondo: #f0f4ff; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--fondo); font-family: 'DM Sans', sans-serif; padding-bottom: 30px; }
+        :root { 
+            --azul: #001a70; 
+            --celeste: #e8f0fe; 
+            --blanco: #ffffff; 
+            --verde: #10b981; 
+            --naranja: #f59e0b; 
+            --rojo: #dc2626; 
+            --gris: #64748b; 
+            --fondo: #f0f4ff; 
+        }
 
-        .header { background: var(--azul); color: white; padding: 16px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top:0; z-index:50; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--fondo); font-family: 'DM Sans', sans-serif; padding-bottom: 30px; color: #1e293b; }
+
+        /* ── HEADER PRO ── */
+        .header { 
+            background: var(--azul); 
+            color: white; 
+            padding: 16px 20px; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            position: sticky; 
+            top:0; 
+            z-index: 50; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
         .header h1 { font-size: 16px; font-weight: 800; }
         .header p { font-size: 11px; opacity: 0.7; margin-top: 2px; }
-        .btn-back { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 13px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; flex-shrink:0; font-family:inherit; }
+        .btn-back { 
+            background: rgba(255,255,255,0.15); 
+            border: none; 
+            color: white; 
+            padding: 8px 13px; 
+            border-radius: 10px; 
+            font-weight: 700; 
+            font-size: 13px; 
+            cursor: pointer; 
+            flex-shrink:0; 
+            font-family:inherit; 
+        }
 
+        /* ── CARDS Y CONTENIDO ── */
         .content { padding: 16px; max-width: 600px; margin: 0 auto; }
-        .card { background: var(--blanco); border-radius: 16px; padding: 18px; margin-bottom: 14px; border: 1.5px solid #e8efff; }
-        .card-title { font-size: 11px; font-weight: 800; color: var(--azul); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1.5px solid var(--fondo); }
+        .card { 
+            background: var(--blanco); 
+            border-radius: 16px; 
+            padding: 18px; 
+            margin-bottom: 14px; 
+            border: 1.5px solid #e8efff; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+        .card-title { 
+            font-size: 11px; 
+            font-weight: 800; 
+            color: var(--azul); 
+            text-transform: uppercase; 
+            letter-spacing: 0.8px; 
+            margin-bottom: 14px; 
+            padding-bottom: 10px; 
+            border-bottom: 1.5px solid var(--fondo); 
+            display: flex; 
+            align-items: center; 
+            gap: 8px;
+        }
 
+        /* ── FORMULARIO ── */
         label { display: block; font-size: 11px; font-weight: 700; color: var(--gris); margin-bottom: 4px; text-transform: uppercase; }
-        input, select, textarea { width: 100%; padding: 11px 13px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 14px; color: #1e293b; background: var(--fondo); transition: 0.15s; }
-        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); background: white; }
+        input, select, textarea { 
+            width: 100%; 
+            padding: 11px 13px; 
+            border: 1.5px solid #e2e8f0; 
+            border-radius: 10px; 
+            font-family: inherit; 
+            font-size: 14px; 
+            color: #1e293b; 
+            background: var(--fondo); 
+            transition: 0.15s; 
+        }
+        input:focus, select:focus, textarea:focus { 
+            outline: none; 
+            border-color: var(--azul); 
+            background: white; 
+            box-shadow: 0 0 0 4px rgba(0,26,112,0.05);
+        }
         .form-group { margin-bottom: 12px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+        /* ── PILLS DE ESTILO ── */
         .pills { display: flex; gap: 8px; }
-        .pill { flex:1; padding: 11px 6px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; font-family:inherit; }
+        .pill { 
+            flex:1; padding: 11px 6px; border-radius: 10px; border: 2px solid #e2e8f0; 
+            background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; 
+            text-align: center; transition: 0.15s; font-family:inherit; 
+        }
         .pill.sel-normal  { border-color: var(--verde);   background: #ecfdf5; color: #065f46; }
         .pill.sel-urgente { border-color: var(--naranja); background: #fffbeb; color: #92400e; }
         .pill.sel-critica { border-color: var(--rojo);    background: #fef2f2; color: #991b1b; }
 
         .alcance-pills { display: flex; gap: 8px; margin-bottom: 12px; }
-        .a-pill { flex:1; padding: 13px 6px; border-radius: 12px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; font-family:inherit; }
+        .a-pill { 
+            flex:1; padding: 13px 6px; border-radius: 12px; border: 2px solid #e2e8f0; 
+            background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; 
+            text-align: center; transition: 0.15s; font-family:inherit; 
+        }
         .a-pill.sel-regional   { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
         .a-pill.sel-especifica { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
         .a-pill.sel-nacional   { border-color: var(--azul); background: var(--celeste); color: var(--azul); }
 
-        @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+        /* ── SELECTOR REGIONAL ── */
         .regional-selector { display: none; }
         .regional-selector.visible { display: block; animation: slideDown 0.25s ease; }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
 
         .regionales-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-        .reg-btn { padding: 12px 8px; border-radius: 10px; border: 2px solid #e2e8f0; background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: 0.15s; color: #1e293b; font-family:inherit; }
+        .reg-btn { 
+            padding: 12px 8px; border-radius: 10px; border: 2px solid #e2e8f0; 
+            background: var(--fondo); font-weight: 700; font-size: 12px; cursor: pointer; 
+            text-align: center; transition: 0.15s; color: #1e293b; font-family:inherit; 
+        }
         .reg-btn.sel { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
-        .reg-btn:hover { border-color: #8b5cf6; background: #faf5ff; }
 
-        .alcance-desc { font-size: 12px; color: var(--gris); margin-top: 10px; line-height: 1.5; padding: 10px 12px; background: #f8faff; border-radius: 10px; border: 1px solid #e8efff; }
+        .alcance-desc { 
+            font-size: 12px; color: var(--gris); margin-top: 10px; line-height: 1.5; 
+            padding: 10px 12px; background: #f8faff; border-radius: 10px; border: 1px solid #e8efff; 
+        }
 
-        .conductores-badge { display: none; align-items: center; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 12px; font-weight: 700; margin-top: 10px; }
-        .conductores-badge.ok   { background: #ecfdf5; border: 1.5px solid #6ee7b7; color: #065f46; }
-        .conductores-badge.cero { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; }
-        .conductores-badge.loading { background: #f8faff; border: 1.5px solid #e2e8f0; color: #64748b; }
-        .c-num { font-size: 24px; font-weight: 900; line-height: 1; }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.15); border-top-color: currentColor; border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
-
+        /* ── PUSH PREVIEW ── */
         .push-preview { background: #1e293b; border-radius: 14px; padding: 14px; margin-top: 12px; position: relative; overflow: hidden; }
         .push-preview::before { content: ''; position: absolute; top:0; left:0; right:0; height: 3px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981); }
         .push-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -67,104 +143,65 @@
         .push-titulo { font-size: 14px; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; }
         .push-body   { font-size: 12px; color: #94a3b8; line-height: 1.5; }
         .push-destinatarios { margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
-        .push-destinatarios b { color: #38bdf8; }
 
-        .btn-enviar { width: 100%; padding: 16px; border: none; border-radius: 14px; background: var(--azul); color: white; font-weight: 800; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,26,112,0.2); transition: 0.2s; font-family:inherit; }
+        /* ── BOTONES ── */
+        .btn-enviar { 
+            width: 100%; padding: 16px; border: none; border-radius: 14px; 
+            background: var(--azul); color: white; font-weight: 800; font-size: 16px; 
+            cursor: pointer; display: flex; align-items: center; justify-content: center; 
+            gap: 10px; box-shadow: 0 4px 14px rgba(0,26,112,0.2); transition: 0.2s; font-family:inherit; 
+        }
         .btn-enviar:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: #1e293b; color: white; padding: 13px 22px; border-radius: 14px; font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: 0.3s; white-space: nowrap; }
-        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-
-        /* ══════════════════════════════════════
-           MODAL WHATSAPP
-        ══════════════════════════════════════ */
-        .modal-wa-bg {
-            display: none; position: fixed; inset: 0;
-            background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
-            z-index: 300; align-items: flex-end; justify-content: center;
+        /* ── MODAL WHATSAPP PRO ── */
+        .modal-wa-bg { 
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); 
+            backdrop-filter: blur(6px); z-index: 300; align-items: flex-end; justify-content: center; 
         }
         .modal-wa-bg.open { display: flex; }
-
-        .modal-wa-sheet {
-            background: white; border-radius: 24px 24px 0 0;
-            padding: 0; width: 100%; max-width: 560px;
-            max-height: 90vh; display: flex; flex-direction: column;
-            animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        .modal-wa-sheet { 
+            background: white; border-radius: 24px 24px 0 0; padding: 0; width: 100%; 
+            max-width: 560px; max-height: 90vh; display: flex; flex-direction: column; 
+            animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
         }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-
-        .modal-wa-header {
-            background: #25D366; border-radius: 24px 24px 0 0;
-            padding: 20px 22px 16px; flex-shrink: 0;
+        
+        .modal-wa-header { background: #25D366; border-radius: 24px 24px 0 0; padding: 20px 22px 16px; flex-shrink: 0; color: white; }
+        .modal-wa-header h3 { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+        .modal-wa-msg-box { 
+            background: rgba(0,0,0,0.15); border-radius: 10px; padding: 10px 12px; 
+            margin-top: 12px; font-size: 12px; line-height: 1.6; font-weight: 600; white-space: pre-wrap; 
         }
-        .modal-wa-header h3 { font-size: 18px; font-weight: 800; color: white; margin-bottom: 4px; }
-        .modal-wa-header p  { font-size: 12px; color: rgba(255,255,255,0.85); }
-
-        .modal-wa-msg-box {
-            background: rgba(0,0,0,0.15); border-radius: 10px;
-            padding: 10px 12px; margin-top: 12px;
-            font-size: 12px; color: white; line-height: 1.6;
-            font-weight: 600; white-space: pre-wrap;
-        }
-
+        
         .modal-wa-body { padding: 16px 22px; overflow-y: auto; flex: 1; }
-
-        .wa-conductor-list { display: flex; flex-direction: column; gap: 10px; }
-
-        .wa-conductor-item {
-            display: flex; align-items: center; gap: 12px;
-            background: #f0f4ff; border-radius: 14px; padding: 12px 14px;
-            border: 1.5px solid #e8efff;
+        .wa-conductor-item { 
+            display: flex; align-items: center; gap: 12px; background: #f0f4ff; 
+            border-radius: 14px; padding: 12px 14px; border: 1.5px solid #e8efff; margin-bottom: 10px; 
         }
-        .wa-conductor-avatar {
-            width: 40px; height: 40px; border-radius: 50%;
-            background: var(--azul); color: white;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 16px; font-weight: 800; flex-shrink: 0;
+        .wa-conductor-avatar { 
+            width: 40px; height: 40px; border-radius: 50%; background: var(--azul); 
+            color: white; display: flex; align-items: center; justify-content: center; 
+            font-size: 16px; font-weight: 800; 
         }
-        .wa-conductor-info { flex: 1; min-width: 0; }
-        .wa-conductor-nombre { font-size: 14px; font-weight: 800; color: #1e293b; }
-        .wa-conductor-tel    { font-size: 11px; color: var(--gris); margin-top: 1px; }
+        .wa-conductor-info { flex: 1; }
+        .btn-wa-enviar { 
+            background: #25D366; border: none; border-radius: 10px; color: white; 
+            font-weight: 800; font-size: 13px; padding: 10px 14px; cursor: pointer; text-decoration: none; 
+        }
+        
+        .modal-wa-footer { padding: 14px 22px 28px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px; }
+        .btn-wa-todos { 
+            width: 100%; padding: 14px; border: none; border-radius: 12px; background: #25D366; 
+            color: white; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; 
+            align-items: center; justify-content: center; gap: 8px; 
+        }
+        .btn-wa-cerrar { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: white; color: var(--gris); font-weight: 700; cursor: pointer; }
 
-        .btn-wa-enviar {
-            background: #25D366; border: none; border-radius: 10px;
-            color: white; font-weight: 800; font-size: 13px;
-            padding: 10px 14px; cursor: pointer; flex-shrink: 0;
-            display: flex; align-items: center; gap: 6px;
-            transition: 0.15s; font-family: inherit;
-            text-decoration: none;
-        }
-        .btn-wa-enviar:hover { background: #1db954; transform: scale(1.03); }
-        .btn-wa-enviado { background: #94a3b8 !important; cursor: default !important; transform: none !important; }
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: #1e293b; color: white; padding: 13px 22px; border-radius: 14px; font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: 0.3s; }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-        .wa-loading { text-align: center; padding: 30px; color: var(--gris); display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .wa-spinner { width: 20px; height: 20px; border: 2px solid #e2e8f0; border-top-color: #25D366; border-radius: 50%; animation: spin 0.7s linear infinite; }
-
-        .wa-empty { text-align: center; padding: 30px; color: var(--gris); }
-        .wa-empty .icon { font-size: 36px; margin-bottom: 8px; }
-
-        .modal-wa-footer {
-            padding: 14px 22px 28px; flex-shrink: 0;
-            border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px;
-        }
-        .btn-wa-todos {
-            width: 100%; padding: 14px; border: none; border-radius: 12px;
-            background: #25D366; color: white; font-weight: 800; font-size: 15px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            gap: 8px; font-family: inherit; transition: 0.2s;
-        }
-        .btn-wa-todos:hover { background: #1db954; }
-        .btn-wa-cerrar {
-            width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px;
-            background: white; color: var(--gris); font-weight: 700; font-size: 14px;
-            cursor: pointer; font-family: inherit;
-        }
-
-        .wa-counter {
-            font-size: 11px; color: var(--gris); text-align: center;
-            padding: 6px 0; font-weight: 600;
-        }
-        .wa-counter b { color: #25D366; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.1); border-top-color: #001a70; border-radius: 50%; animation: spin 0.6s linear infinite; }
     </style>
 </head>
 <body>
@@ -206,7 +243,7 @@
         <div class="card-title">⚱️ Datos del Servicio</div>
         <div class="form-group">
             <label>Nombre del Fallecido</label>
-            <input type="text" id="c-fallecido" placeholder="Nombre completo (opcional)">
+            <input type="text" id="c-fallecido" placeholder="Nombre completo">
         </div>
         <div class="form-group">
             <label>Clínica / Hospital / RSD</label>
@@ -241,44 +278,36 @@
     <div class="card">
         <div class="card-title">🚨 Urgencia</div>
         <div class="pills">
-            <button class="pill sel-normal" id="u-normal"  onclick="setUrgencia('normal')">✅ Normal</button>
-            <button class="pill"            id="u-urgente" onclick="setUrgencia('urgente')">⚡ Urgente</button>
-            <button class="pill"            id="u-critica" onclick="setUrgencia('critica')">🚨 Crítica</button>
+            <button class="pill sel-normal" id="u-normal" onclick="setUrgencia('normal')">✅ Normal</button>
+            <button class="pill" id="u-urgente" onclick="setUrgencia('urgente')">⚡ Urgente</button>
+            <button class="pill" id="u-critica" onclick="setUrgencia('critica')">🚨 Crítica</button>
         </div>
     </div>
 
     <div class="card">
-        <div class="card-title">🌎 Alcance y Destino de la Notificación</div>
+        <div class="card-title">🌎 Alcance de Notificación</div>
         <div class="alcance-pills">
-            <button class="a-pill sel-regional" id="a-regional"   onclick="setAlcance('regional')">📍 Mi Regional</button>
-            <button class="a-pill"              id="a-especifica" onclick="setAlcance('especifica')">🎯 Regional Específica</button>
-            <button class="a-pill"              id="a-nacional"   onclick="setAlcance('nacional')">🌎 Nacional</button>
+            <button class="a-pill sel-regional" id="a-regional" onclick="setAlcance('regional')">📍 Mi Regional</button>
+            <button class="a-pill" id="a-especifica" onclick="setAlcance('especifica')">🎯 Otra Regional</button>
+            <button class="a-pill" id="a-nacional" onclick="setAlcance('nacional')">🌎 Nacional</button>
         </div>
-
         <div class="regional-selector" id="regional-selector">
-            <label style="margin-bottom:8px; display:block;">Selecciona la regional que te apoyará:</label>
             <div class="regionales-grid" id="regionales-grid"></div>
-            <div class="conductores-badge" id="conductores-badge"></div>
         </div>
-
-        <div class="alcance-desc" id="alcance-desc">
-            📍 Solo conductores de <b id="txt-regional-desc">tu regional</b> recibirán la notificación.
-        </div>
+        <div class="alcance-desc" id="alcance-desc">📍 Se notificará a conductores de tu regional.</div>
     </div>
 
     <div class="card">
-        <div class="card-title">🔔 Notificación Push — Vista Previa</div>
+        <div class="card-title">🔔 Vista Previa Notificación</div>
         <div class="push-preview">
             <div class="push-header">
                 <div class="push-app-icon">🚗</div>
-                <div><div class="push-app-name">J.R. Carrozas</div></div>
+                <div class="push-app-name">J.R. Carrozas</div>
                 <div class="push-time">ahora</div>
             </div>
-            <div class="push-titulo" id="push-titulo">🤝 Solicitud de Apoyo</div>
-            <div class="push-body"   id="push-body">Completa el formulario para ver la vista previa</div>
-            <div class="push-destinatarios">
-                📲 Se enviará a: <b id="push-destinatarios">conductores de tu regional</b>
-            </div>
+            <div class="push-titulo" id="push-titulo">🤝 Apoyo Normal</div>
+            <div class="push-body" id="push-body">Cargando datos...</div>
+            <div class="push-destinatarios">📲 Destino: <b id="push-dest-txt">Mi Regional</b></div>
         </div>
     </div>
 
@@ -287,470 +316,205 @@
     </button>
 </div>
 
-<!-- ══════════════════════════════════════
-     MODAL WHATSAPP
-══════════════════════════════════════ -->
+<!-- MODAL WHATSAPP PRO -->
 <div class="modal-wa-bg" id="modal-wa-bg">
     <div class="modal-wa-sheet">
-
         <div class="modal-wa-header">
-            <h3>📲 Notificar por WhatsApp</h3>
-            <p>Solicitud guardada ✅ — Ahora notifica a los conductores de <b id="wa-regional-nombre">la regional</b></p>
+            <h3>📲 WhatsApp de Notificación</h3>
+            <p>Solicitud Creada ✅ — Ahora envía a los conductores:</p>
             <div class="modal-wa-msg-box" id="wa-msg-preview"></div>
         </div>
-
-        <div class="modal-wa-body">
-            <div class="wa-loading" id="wa-loading">
-                <div class="wa-spinner"></div> Cargando conductores...
-            </div>
-            <div class="wa-conductor-list" id="wa-conductor-list" style="display:none;"></div>
-            <div class="wa-empty" id="wa-empty" style="display:none;">
-                <div class="icon">😕</div>
-                <p style="font-weight:700; color:#1e293b;">Sin conductores en esta regional</p>
-                <small>No hay conductores con teléfono registrado</small>
-            </div>
-            <div class="wa-counter" id="wa-counter" style="display:none;"></div>
-        </div>
-
+        <div class="modal-wa-body" id="wa-list"></div>
         <div class="modal-wa-footer">
-            <button class="btn-wa-todos" id="btn-wa-todos" onclick="abrirTodos()" style="display:none;">
-                📲 Abrir todos los WhatsApp de una vez
-            </button>
-            <button class="btn-wa-cerrar" onclick="cerrarModalWA()">
-                Listo — Ir al panel
-            </button>
+            <button class="btn-wa-todos" id="btn-wa-todos" onclick="abrirTodos()">📲 Abrir todos los Chats</button>
+            <button class="btn-wa-cerrar" onclick="cerrarModalWA()">Listo — Volver al Panel</button>
         </div>
     </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<script src="db.js"></script>
 <script>
-    // ══════════════════════════════════════════════════════
-    //  CONFIGURACIÓN — SOLO CAMBIA ESTA URL
-    // ══════════════════════════════════════════════════════
+    // ── CONFIGURACIÓN GOOGLE SHEETS ──
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec';
-    // ══════════════════════════════════════════════════════
+    
+    let sesion = {}, urgencia = 'normal', alcance = 'regional', regionalEspecifica = '', conductoresWA = [], mensajeWA = '', enviados = new Set();
+    const REGIONALES = ['Pereira','Risaralda','Quindío','Caldas','Antioquia','Valle Centro','Valle Norte','Valle Sur','C/ Marca','Tolima Norte','Palmira'];
 
-    let sesion   = {};
-    let urgencia = 'normal';
-    let alcance  = 'regional';
-    let regionalEspecifica = '';
-    let conductoresWA = [];   // conductores cargados para el modal WA
-    let enviados = new Set(); // IDs ya enviados (para marcar botones)
-    let mensajeWA = '';       // mensaje que se enviará
-
-    const REGIONALES = [
-        'Pereira','Risaralda','Quindío','Caldas','Antioquia',
-        'Valle Centro','Valle Norte','Valle Sur','C/ Marca','Tolima Norte','Palmira'
-    ];
-
-    // ── INIT ─────────────────────────────────────────────
     window.onload = () => {
         sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (!sesion.nombre) { window.location.href = 'index.html'; return; }
+        
+        document.getElementById('c-coordinador').value = sesion.nombre;
+        document.getElementById('c-regional').value = sesion.regional;
+        document.getElementById('sub-info').textContent = sesion.nombre + ' · ' + sesion.regional;
+        document.getElementById('c-fecha').valueAsDate = new Date();
 
-        const regional = sesion.regional || 'Pereira';
-        document.getElementById('c-coordinador').value           = sesion.nombre;
-        document.getElementById('c-regional').value              = regional;
-        document.getElementById('txt-regional-desc').textContent = regional;
-        document.getElementById('sub-info').textContent          = sesion.nombre + ' · ' + regional;
-        document.getElementById('c-fecha').valueAsDate           = new Date();
-
-        construirGridRegionales(regional);
+        construirGridRegionales(sesion.regional);
         actualizarPreview();
-
-        ['c-origen','c-destino','c-tipo','c-obs'].forEach(id =>
-            document.getElementById(id).addEventListener('input', actualizarPreview)
-        );
+        ['c-origen','c-destino','c-tipo','c-obs'].forEach(id => document.getElementById(id).addEventListener('input', actualizarPreview));
     };
 
-    // ── GRID REGIONALES ──────────────────────────────────
-    function construirGridRegionales(miRegional) {
-        const grid = document.getElementById('regionales-grid');
-        const opciones = REGIONALES.filter(r => r !== miRegional);
-        grid.innerHTML = opciones.map(r => {
-            const safeId = 'rbtn-' + r.replace(/[^a-zA-Z0-9]/g, '_');
-            const safeR  = r.replace(/'/g, "\\'");
-            return '<button class="reg-btn" id="' + safeId + '" onclick="selRegional(\'' + safeR + '\')">' + r + '</button>';
-        }).join('');
+    function construirGridRegionales(miReg) {
+        document.getElementById('regionales-grid').innerHTML = REGIONALES.filter(r => r !== miReg).map(r => 
+            `<button class="reg-btn" id="rbtn-${r}" onclick="selRegional('${r}')">${r}</button>`
+        ).join('');
     }
 
     function selRegional(r) {
         regionalEspecifica = r;
         document.querySelectorAll('.reg-btn').forEach(b => b.classList.remove('sel'));
-        const safeId = 'rbtn-' + r.replace(/[^a-zA-Z0-9]/g, '_');
-        const el = document.getElementById(safeId);
-        if (el) el.classList.add('sel');
-        contarConductores(r);
+        document.getElementById('rbtn-'+r).classList.add('sel');
         actualizarPreview();
     }
 
-    // ── CONTAR CONDUCTORES (desde Sheets) ────────────────
-    async function contarConductores(regional) {
-        const badge = document.getElementById('conductores-badge');
-        badge.className = 'conductores-badge loading';
-        badge.style.display = 'flex';
-        badge.innerHTML = '<div class="spinner-sm"></div> Verificando conductores en <b style="margin-left:4px;">' + regional + '</b>...';
-
-        try {
-            const conductores = await getConductoresPorRegional(regional);
-            const count = conductores.length;
-
-            if (count > 0) {
-                badge.className = 'conductores-badge ok';
-                badge.innerHTML =
-                    '<span class="c-num">' + count + '</span>' +
-                    '<div>' +
-                        '<div style="font-size:13px;">conductor' + (count > 1 ? 'es' : '') + ' en <b>' + regional + '</b></div>' +
-                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">✅ Recibirán notificación WhatsApp</div>' +
-                    '</div>';
-            } else {
-                badge.className = 'conductores-badge cero';
-                badge.innerHTML =
-                    '<span style="font-size:22px;">⚠️</span>' +
-                    '<div>' +
-                        '<div>Sin conductores en <b>' + regional + '</b></div>' +
-                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">La solicitud se guardará pero no habrá WhatsApp</div>' +
-                    '</div>';
-            }
-        } catch(e) {
-            badge.className = 'conductores-badge cero';
-            badge.innerHTML = '❌ Error: ' + e.message;
-        }
-    }
-
-    // ── OBTENER CONDUCTORES DESDE GOOGLE SHEETS ──────────
-    async function getConductoresPorRegional(regional) {
-        const url = APPS_SCRIPT_URL + '?sheetName=usuarios';
-        const resp = await fetch(url);
-        const todos = await resp.json();
-
-        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-
-        // Filtrar por regional y rol conductor, que tengan teléfono
-        return todos.filter(u =>
-            norm(u.regional) === norm(regional) &&
-            norm(u.rol) === 'conductor' &&
-            u.telefono && String(u.telefono).trim().length > 5
-        );
-    }
-
-    // ── ALCANCE ───────────────────────────────────────────
     function setAlcance(a) {
         alcance = a;
-        ['regional','especifica','nacional'].forEach(x => {
-            document.getElementById('a-' + x).className = 'a-pill' + (x === a ? ' sel-' + x : '');
-        });
-
-        const selector   = document.getElementById('regional-selector');
-        const miRegional = document.getElementById('c-regional').value;
-        const badge      = document.getElementById('conductores-badge');
-
-        if (a === 'especifica') {
-            selector.classList.add('visible');
-            if (!regionalEspecifica) {
-                badge.style.display = 'none';
-                document.getElementById('alcance-desc').innerHTML =
-                    '🎯 Selecciona arriba la regional que necesitas que te apoye.';
-            }
-        } else {
-            selector.classList.remove('visible');
-            regionalEspecifica = '';
-            badge.style.display = 'none';
-            document.querySelectorAll('.reg-btn').forEach(b => b.classList.remove('sel'));
-        }
-
-        if (a === 'regional')
-            document.getElementById('alcance-desc').innerHTML =
-                '📍 Solo conductores de <b>' + miRegional + '</b> recibirán la notificación.';
-        else if (a === 'nacional')
-            document.getElementById('alcance-desc').innerHTML =
-                '🌎 <b>Todos los conductores del país</b> recibirán la notificación.';
-
+        ['regional','especifica','nacional'].forEach(x => document.getElementById('a-'+x).className = 'a-pill' + (x===a ? ' sel-'+x : ''));
+        document.getElementById('regional-selector').className = 'regional-selector' + (a === 'especifica' ? ' visible' : '');
         actualizarPreview();
     }
 
-    // ── URGENCIA ──────────────────────────────────────────
     function setUrgencia(u) {
         urgencia = u;
-        ['normal','urgente','critica'].forEach(x => {
-            document.getElementById('u-'+x).className = 'pill' + (x===u ? ' sel-'+x : '');
-        });
+        ['normal','urgente','critica'].forEach(x => document.getElementById('u-'+x).className = 'pill' + (x===u ? ' sel-'+x : ''));
         actualizarPreview();
     }
 
-    // ── PREVIEW ───────────────────────────────────────────
     function actualizarPreview() {
-        const regional = document.getElementById('c-regional').value;
-        const origen   = document.getElementById('c-origen').value  || '—';
-        const destino  = document.getElementById('c-destino').value || '—';
-        const tipo     = document.getElementById('c-tipo').value;
-        const obs      = document.getElementById('c-obs').value;
-        const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '✅';
-        const urgLabel = urgencia === 'critica' ? 'CRÍTICA' : urgencia === 'urgente' ? 'URGENTE' : 'Normal';
-
-        document.getElementById('push-titulo').textContent = urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo;
-        document.getElementById('push-body').textContent =
-            '🚩 ' + origen + ' → 🏁 ' + destino +
-            (obs ? '\n📝 ' + obs.substring(0,60) + (obs.length>60?'...':'') : '');
-
-        let dest = '';
-        if      (alcance === 'regional')                              dest = 'conductores de ' + regional;
-        else if (alcance === 'nacional')                              dest = 'todos los conductores del país';
-        else if (alcance === 'especifica' && regionalEspecifica)      dest = 'conductores de ' + regionalEspecifica;
-        else                                                          dest = 'regional específica (elige arriba)';
-        document.getElementById('push-destinatarios').textContent = dest;
-
-        if (alcance === 'especifica' && regionalEspecifica)
-            document.getElementById('alcance-desc').innerHTML =
-                '🎯 La solicitud se enviará a conductores de <b>' + regionalEspecifica + '</b>.';
+        const o = document.getElementById('c-origen').value || '...', d = document.getElementById('c-destino').value || '...';
+        const emoji = urgencia==='critica' ? '🚨' : urgencia==='urgente' ? '⚡' : '🤝';
+        document.getElementById('push-titulo').textContent = `${emoji} Apoyo ${urgencia.toUpperCase()}`;
+        document.getElementById('push-body').textContent = `🚩 ${o} → 🏁 ${d}`;
+        let t = alcance === 'regional' ? sesion.regional : (alcance === 'especifica' ? regionalEspecifica : 'NACIONAL');
+        document.getElementById('push-dest-txt').textContent = t;
     }
 
-    // ── CONSTRUIR MENSAJE WHATSAPP ────────────────────────
-    function construirMensajeWA(datos) {
-        const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '✅';
-        const urgLabel = urgencia === 'critica' ? 'CRÍTICA' : urgencia === 'urgente' ? 'URGENTE' : 'Normal';
-        let msg = urgEmoji + ' *SOLICITUD DE APOYO ' + urgLabel + '*\n';
-        msg += '━━━━━━━━━━━━━━━━━━━━\n';
-        msg += '🏢 *Regional:* ' + datos.regional_solicitante + '\n';
-        msg += '👤 *Coordinador:* ' + datos.coordinador + '\n';
-        msg += '🚗 *Servicio:* ' + datos.tipo_servicio + '\n';
-        msg += '🚩 *Origen:* ' + datos.origen + '\n';
-        msg += '🏁 *Destino:* ' + datos.destino + '\n';
-        if (datos.nombre_fallecido) msg += '⚱️ *Fallecido:* ' + datos.nombre_fallecido + '\n';
-        if (datos.clinica_hospital) msg += '🏥 *Lugar:* ' + datos.clinica_hospital + '\n';
-        if (datos.fecha_servicio)   msg += '📅 *Fecha:* ' + datos.fecha_servicio + '\n';
-        if (datos.hora_requerida)   msg += '🕒 *Hora:* ' + datos.hora_requerida + '\n';
-        if (datos.observaciones)    msg += '📝 *Obs:* ' + datos.observaciones + '\n';
-        msg += '━━━━━━━━━━━━━━━━━━━━\n';
-        msg += '👉 Entra a la app J.R. para aceptar este servicio.';
-        return msg;
-    }
-
-    // ── CREAR SOLICITUD ───────────────────────────────────
+    // ── FUNCIÓN CRÍTICA: GENERAR ID Y GUARDAR EN GOOGLE SHEET ──
     async function crearSolicitud() {
-        const btn    = document.getElementById('btn-crear');
+        const btn = document.getElementById('btn-crear');
         const origen = document.getElementById('c-origen').value.trim();
-        const destino= document.getElementById('c-destino').value.trim();
+        const destino = document.getElementById('c-destino').value.trim();
 
         if (!origen || !destino) { toast('⚠️ Origen y Destino obligatorios', '#f59e0b'); return; }
-        if (alcance === 'especifica' && !regionalEspecifica) {
-            toast('⚠️ Elige la regional específica', '#f59e0b'); return;
-        }
 
-        btn.disabled  = true;
-        btn.innerHTML = '<span>⏳</span> GUARDANDO...';
-
-        const alcanceGuardar       = alcance === 'especifica' ? regionalEspecifica : alcance;
-        const regionalNotificacion = alcance === 'regional'
-            ? document.getElementById('c-regional').value
-            : alcance === 'especifica' ? regionalEspecifica : 'NACIONAL';
-
-        const tipo = document.getElementById('c-tipo').value;
-        const obs  = document.getElementById('c-obs').value.trim();
-
-        const datos = {
-            regional_solicitante: document.getElementById('c-regional').value,
-            coordinador:          sesion.nombre,
-            tipo_servicio:        tipo,
-            nombre_fallecido:     document.getElementById('c-fallecido').value.trim(),
-            clinica_hospital:     document.getElementById('c-clinica').value.trim(),
-            origen,
-            destino,
-            fecha_servicio:       document.getElementById('c-fecha').value,
-            hora_requerida:       document.getElementById('c-hora').value,
-            observaciones:        obs,
-            urgencia,
-            alcance:              alcanceGuardar,
-            estado:               'pendiente'
-        };
+        btn.disabled = true; btn.innerHTML = '⏳ CALCULANDO ID Y GUARDANDO...';
 
         try {
-            // ── 1. GUARDAR EN GOOGLE SHEETS ──────────────
-            const respSheet = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', {
+            // 1. OBTENER LISTA ACTUAL PARA CALCULAR EL SIGUIENTE ID
+            const respList = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo');
+            const dataActual = await respList.json();
+            
+            // Calculamos el ID: Si no hay nada empezamos en 1, si hay sumamos 1 al último ID numérico
+            let nuevoId = 1;
+            if (dataActual && dataActual.length > 0) {
+                const ultimoId = parseInt(dataActual[dataActual.length - 1].id);
+                nuevoId = isNaN(ultimoId) ? dataActual.length + 1 : ultimoId + 1;
+            }
+
+            // 2. GENERAR FECHA created_at
+            const now = new Date();
+            const created_at = now.getFullYear() + "-" + 
+                              String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+                              String(now.getDate()).padStart(2, '0') + " " + 
+                              String(now.getHours()).padStart(2, '0') + ":" + 
+                              String(now.getMinutes()).padStart(2, '0') + ":" + 
+                              String(now.getSeconds()).padStart(2, '0');
+
+            // 3. PREPARAR OBJETO
+            const datos = {
+                id: nuevoId,
+                created_at: created_at,
+                regional_solicitante: sesion.regional,
+                coordinador: sesion.nombre,
+                tipo_servicio: document.getElementById('c-tipo').value,
+                nombre_fallecido: document.getElementById('c-fallecido').value.trim(),
+                clinica_hospital: document.getElementById('c-clinica').value.trim(),
+                origen: origen,
+                destino: destino,
+                fecha_servicio: document.getElementById('c-fecha').value,
+                hora_requerida: document.getElementById('c-hora').value,
+                alcance: alcance === 'especifica' ? regionalEspecifica : alcance,
+                estado: 'pendiente',
+                observaciones: document.getElementById('c-obs').value.trim(),
+                urgencia: urgencia
+            };
+
+            // 4. INSERTAR EN GOOGLE SHEETS
+            await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', {
                 method: 'POST',
+                mode: 'no-cors', // Importante para evitar problemas de CORS con Apps Script en POST
                 body: JSON.stringify(datos)
             });
-            const resSheet = await respSheet.json();
-            if (resSheet.error) throw new Error(resSheet.error);
 
-            // ── 2. NOTIFICACIÓN IN-APP (Supabase Realtime — no crítico) ──
-            try {
-                const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '🤝';
-                const urgLabel = urgencia.toUpperCase();
-                await DB.supabase.from('notificaciones_apoyo').insert([{
-                    tipo:      'apoyo',
-                    titulo:    urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo,
-                    cuerpo:    '🚩 ' + origen + ' → 🏁 ' + destino + (obs ? ' | ' + obs : ''),
-                    regional:  regionalNotificacion,
-                    alcance:   alcanceGuardar,
-                    leido:     false,
-                    remitente: sesion.nombre
-                }]);
-            } catch(eN) { console.warn('Notif in-app:', eN.message); }
-
-            // ── 3. ABRIR MODAL WHATSAPP ───────────────────
-            btn.innerHTML = '<span>✅</span> GUARDADA — Notificando WhatsApp...';
-            mensajeWA = construirMensajeWA(datos);
-            await abrirModalWA(regionalNotificacion, datos);
+            // Pequeña pausa para asegurar que el registro se procese antes de cerrar
+            setTimeout(() => {
+                mensajeWA = `*SOLICITUD DE APOYO J.R.*\n🏢 *Regional:* ${datos.regional_solicitante}\n🚩 *De:* ${origen}\n🏁 *A:* ${destino}\n👤 *Coord:* ${sesion.nombre}`;
+                toast('✅ Guardado con ID: ' + nuevoId, '#10b981');
+                abrirModalWA(datos.alcance === 'regional' ? sesion.regional : datos.alcance);
+            }, 1000);
 
         } catch(e) {
-            toast('❌ Error: ' + e.message, '#dc2626');
-            btn.disabled  = false;
-            btn.innerHTML = '<span>📤</span> ENVIAR SOLICITUD Y NOTIFICAR';
+            console.error(e);
+            toast('❌ Error al conectar con Google Sheets', '#dc2626');
+            btn.disabled = false; btn.innerHTML = '📤 REINTENTAR';
         }
     }
 
-    // ── MODAL WHATSAPP ────────────────────────────────────
-    async function abrirModalWA(regionalDestino, datos) {
-        enviados.clear();
-        conductoresWA = [];
-
-        // Mostrar modal
+    async function abrirModalWA(reg) {
         document.getElementById('modal-wa-bg').classList.add('open');
-        document.getElementById('wa-regional-nombre').textContent = regionalDestino === 'NACIONAL' ? 'todo el país' : regionalDestino;
         document.getElementById('wa-msg-preview').textContent = mensajeWA;
-
-        // Estado loading
-        document.getElementById('wa-loading').style.display = 'flex';
-        document.getElementById('wa-conductor-list').style.display = 'none';
-        document.getElementById('wa-empty').style.display = 'none';
-        document.getElementById('wa-counter').style.display = 'none';
-        document.getElementById('btn-wa-todos').style.display = 'none';
-
+        document.getElementById('wa-regional-nombre').textContent = reg === 'nacional' ? 'TODO EL PAÍS' : reg;
+        const list = document.getElementById('wa-list');
+        list.innerHTML = '⏳ Buscando conductores...';
+        
         try {
-            // Obtener todos los usuarios desde Sheets
-            const url = APPS_SCRIPT_URL + '?sheetName=usuarios';
-            const resp = await fetch(url);
-            const todos = await resp.json();
-
-            const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-
-            // Filtrar según alcance
-            if (regionalDestino === 'NACIONAL') {
-                conductoresWA = todos.filter(u =>
-                    norm(u.rol) === 'conductor' &&
-                    u.telefono && String(u.telefono).trim().length > 5
-                );
-            } else {
-                conductoresWA = todos.filter(u =>
-                    norm(u.regional) === norm(regionalDestino) &&
-                    norm(u.rol) === 'conductor' &&
-                    u.telefono && String(u.telefono).trim().length > 5
-                );
-            }
-
-            document.getElementById('wa-loading').style.display = 'none';
-
-            if (!conductoresWA.length) {
-                document.getElementById('wa-empty').style.display = 'block';
+            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=usuarios');
+            const users = await resp.json();
+            
+            // Filtramos por regional (si no es nacional) y que tengan teléfono
+            conductoresWA = users.filter(u => 
+                (reg === 'nacional' || u.regional === reg) && 
+                u.rol === 'conductor' && 
+                u.telefono && u.telefono.length > 5
+            );
+            
+            if (conductoresWA.length === 0) {
+                list.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">No hay conductores con teléfono en esta regional.</p>';
                 return;
             }
 
-            // Renderizar lista
-            const list = document.getElementById('wa-conductor-list');
-            list.style.display = 'flex';
-            list.innerHTML = conductoresWA.map((c, i) => {
-                const inicial = (c.nombre || '?').charAt(0).toUpperCase();
-                const tel = formatTelefono(c.telefono);
-                return '<div class="wa-conductor-item" id="wai-' + i + '">' +
-                    '<div class="wa-conductor-avatar">' + inicial + '</div>' +
-                    '<div class="wa-conductor-info">' +
-                        '<div class="wa-conductor-nombre">' + (c.nombre || 'Sin nombre') + '</div>' +
-                        '<div class="wa-conductor-tel">📱 ' + c.telefono + '</div>' +
-                    '</div>' +
-                    '<a class="btn-wa-enviar" id="wabtn-' + i + '" ' +
-                       'href="' + buildWALink(tel, mensajeWA) + '" ' +
-                       'target="_blank" onclick="marcarEnviado(' + i + ')">' +
-                        '📲 Enviar' +
-                    '</a>' +
-                '</div>';
-            }).join('');
-
-            // Contador
-            const ctr = document.getElementById('wa-counter');
-            ctr.style.display = 'block';
-            ctr.innerHTML = 'Toca <b>Enviar</b> en cada conductor para abrir WhatsApp';
-
-            // Botón "todos a la vez" si hay más de 1
-            if (conductoresWA.length > 1) {
-                document.getElementById('btn-wa-todos').style.display = 'flex';
-            }
-
-        } catch(e) {
-            document.getElementById('wa-loading').style.display = 'none';
-            document.getElementById('wa-empty').style.display = 'block';
-            document.getElementById('wa-empty').innerHTML =
-                '<div class="icon">❌</div><p>Error al cargar conductores</p><small>' + e.message + '</small>';
-        }
+            list.innerHTML = conductoresWA.map((c, i) => `
+                <div class="wa-conductor-item">
+                    <div class="wa-conductor-avatar">${c.nombre[0]}</div>
+                    <div class="wa-conductor-info">
+                        <div class="wa-conductor-nombre">${c.nombre}</div>
+                        <div style="font-size:11px; color:#64748b;">${c.telefono}</div>
+                    </div>
+                    <a class="btn-wa-enviar" id="wa-btn-${i}" href="https://api.whatsapp.com/send?phone=57${c.telefono}&text=${encodeURIComponent(mensajeWA)}" target="_blank" onclick="marcar(${i})">📲 Enviar</a>
+                </div>`).join('');
+        } catch(e) { list.innerHTML = 'Error al cargar conductores.'; }
     }
 
-    function marcarEnviado(i) {
-        enviados.add(i);
-        const btn = document.getElementById('wabtn-' + i);
-        if (btn) {
-            btn.textContent = '✅ Enviado';
-            btn.classList.add('btn-wa-enviado');
-            btn.onclick = null;
-        }
-        actualizarContador();
-    }
-
-    function actualizarContador() {
-        const total = conductoresWA.length;
-        const enviados2 = enviados.size;
-        const ctr = document.getElementById('wa-counter');
-        if (enviados2 === total && total > 0) {
-            ctr.innerHTML = '🎉 <b>' + total + '/' + total + '</b> conductores notificados por WhatsApp';
-            ctr.style.color = '#10b981';
-        } else {
-            ctr.innerHTML = '<b>' + enviados2 + '/' + total + '</b> enviados — toca los botones restantes';
-        }
-    }
-
-    // Abrir todos en secuencia con pequeño delay
+    function marcar(i) { document.getElementById('wa-btn-'+i).textContent = '✅ Enviado'; enviados.add(i); }
+    
     function abrirTodos() {
         conductoresWA.forEach((c, i) => {
-            if (enviados.has(i)) return;
-            setTimeout(() => {
-                const tel = formatTelefono(c.telefono);
-                window.open(buildWALink(tel, mensajeWA), '_blank');
-                marcarEnviado(i);
-            }, i * 600); // 600ms entre cada uno para no saturar
+            if (!enviados.has(i)) {
+                setTimeout(() => {
+                    window.open(`https://api.whatsapp.com/send?phone=57${c.telefono}&text=${encodeURIComponent(mensajeWA)}`, '_blank');
+                    marcar(i);
+                }, i * 800);
+            }
         });
     }
 
-    function cerrarModalWA() {
-        document.getElementById('modal-wa-bg').classList.remove('open');
-        window.location.href = 'panel_coordinador.html';
-    }
-
-    // ── HELPERS ───────────────────────────────────────────
-
-    // Normaliza teléfono a formato internacional Colombia (+57)
-    function formatTelefono(tel) {
-        let t = String(tel).replace(/\D/g, ''); // solo dígitos
-        // Si empieza con 57 y tiene 12 dígitos → ya tiene código país
-        if (t.startsWith('57') && t.length === 12) return t;
-        // Si empieza con 3 y tiene 10 dígitos → número colombiano local
-        if (t.startsWith('3') && t.length === 10) return '57' + t;
-        // Si tiene código de país diferente, devolver tal cual
-        return t;
-    }
-
-    function buildWALink(telNormalizado, mensaje) {
-        return 'https://api.whatsapp.com/send?phone=' + telNormalizado + '&text=' + encodeURIComponent(mensaje);
-    }
-
+    function cerrarModalWA() { window.location.href = 'panel_coordinador.html'; }
     function irAtras() { window.location.href = 'panel_coordinador.html'; }
-
-    function toast(msg, color) {
-        const t = document.getElementById('toast');
-        t.textContent = msg; t.style.background = color;
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 3500);
+    function toast(m, c) { 
+        const t = document.getElementById('toast'); 
+        t.textContent = m; t.style.background = c; t.classList.add('show'); 
+        setTimeout(()=>t.classList.remove('show'), 3500); 
     }
 </script>
 </body>
