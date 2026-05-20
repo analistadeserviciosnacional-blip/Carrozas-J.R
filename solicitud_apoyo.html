@@ -50,8 +50,8 @@
         .alcance-desc { font-size: 12px; color: var(--gris); margin-top: 10px; line-height: 1.5; padding: 10px 12px; background: #f8faff; border-radius: 10px; border: 1px solid #e8efff; }
 
         .conductores-badge { display: none; align-items: center; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 12px; font-weight: 700; margin-top: 10px; }
-        .conductores-badge.ok      { background: #ecfdf5; border: 1.5px solid #6ee7b7; color: #065f46; }
-        .conductores-badge.cero    { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; }
+        .conductores-badge.ok   { background: #ecfdf5; border: 1.5px solid #6ee7b7; color: #065f46; }
+        .conductores-badge.cero { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; }
         .conductores-badge.loading { background: #f8faff; border: 1.5px solid #e2e8f0; color: #64748b; }
         .c-num { font-size: 24px; font-weight: 900; line-height: 1; }
 
@@ -74,6 +74,97 @@
 
         .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: #1e293b; color: white; padding: 13px 22px; border-radius: 14px; font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: 0.3s; white-space: nowrap; }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* ══════════════════════════════════════
+           MODAL WHATSAPP
+        ══════════════════════════════════════ */
+        .modal-wa-bg {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+            z-index: 300; align-items: flex-end; justify-content: center;
+        }
+        .modal-wa-bg.open { display: flex; }
+
+        .modal-wa-sheet {
+            background: white; border-radius: 24px 24px 0 0;
+            padding: 0; width: 100%; max-width: 560px;
+            max-height: 90vh; display: flex; flex-direction: column;
+            animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .modal-wa-header {
+            background: #25D366; border-radius: 24px 24px 0 0;
+            padding: 20px 22px 16px; flex-shrink: 0;
+        }
+        .modal-wa-header h3 { font-size: 18px; font-weight: 800; color: white; margin-bottom: 4px; }
+        .modal-wa-header p  { font-size: 12px; color: rgba(255,255,255,0.85); }
+
+        .modal-wa-msg-box {
+            background: rgba(0,0,0,0.15); border-radius: 10px;
+            padding: 10px 12px; margin-top: 12px;
+            font-size: 12px; color: white; line-height: 1.6;
+            font-weight: 600; white-space: pre-wrap;
+        }
+
+        .modal-wa-body { padding: 16px 22px; overflow-y: auto; flex: 1; }
+
+        .wa-conductor-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .wa-conductor-item {
+            display: flex; align-items: center; gap: 12px;
+            background: #f0f4ff; border-radius: 14px; padding: 12px 14px;
+            border: 1.5px solid #e8efff;
+        }
+        .wa-conductor-avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: var(--azul); color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: 800; flex-shrink: 0;
+        }
+        .wa-conductor-info { flex: 1; min-width: 0; }
+        .wa-conductor-nombre { font-size: 14px; font-weight: 800; color: #1e293b; }
+        .wa-conductor-tel    { font-size: 11px; color: var(--gris); margin-top: 1px; }
+
+        .btn-wa-enviar {
+            background: #25D366; border: none; border-radius: 10px;
+            color: white; font-weight: 800; font-size: 13px;
+            padding: 10px 14px; cursor: pointer; flex-shrink: 0;
+            display: flex; align-items: center; gap: 6px;
+            transition: 0.15s; font-family: inherit;
+            text-decoration: none;
+        }
+        .btn-wa-enviar:hover { background: #1db954; transform: scale(1.03); }
+        .btn-wa-enviado { background: #94a3b8 !important; cursor: default !important; transform: none !important; }
+
+        .wa-loading { text-align: center; padding: 30px; color: var(--gris); display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .wa-spinner { width: 20px; height: 20px; border: 2px solid #e2e8f0; border-top-color: #25D366; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+        .wa-empty { text-align: center; padding: 30px; color: var(--gris); }
+        .wa-empty .icon { font-size: 36px; margin-bottom: 8px; }
+
+        .modal-wa-footer {
+            padding: 14px 22px 28px; flex-shrink: 0;
+            border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px;
+        }
+        .btn-wa-todos {
+            width: 100%; padding: 14px; border: none; border-radius: 12px;
+            background: #25D366; color: white; font-weight: 800; font-size: 15px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            gap: 8px; font-family: inherit; transition: 0.2s;
+        }
+        .btn-wa-todos:hover { background: #1db954; }
+        .btn-wa-cerrar {
+            width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px;
+            background: white; color: var(--gris); font-weight: 700; font-size: 14px;
+            cursor: pointer; font-family: inherit;
+        }
+
+        .wa-counter {
+            font-size: 11px; color: var(--gris); text-align: center;
+            padding: 6px 0; font-weight: 600;
+        }
+        .wa-counter b { color: #25D366; }
     </style>
 </head>
 <body>
@@ -196,14 +287,59 @@
     </button>
 </div>
 
+<!-- ══════════════════════════════════════
+     MODAL WHATSAPP
+══════════════════════════════════════ -->
+<div class="modal-wa-bg" id="modal-wa-bg">
+    <div class="modal-wa-sheet">
+
+        <div class="modal-wa-header">
+            <h3>📲 Notificar por WhatsApp</h3>
+            <p>Solicitud guardada ✅ — Ahora notifica a los conductores de <b id="wa-regional-nombre">la regional</b></p>
+            <div class="modal-wa-msg-box" id="wa-msg-preview"></div>
+        </div>
+
+        <div class="modal-wa-body">
+            <div class="wa-loading" id="wa-loading">
+                <div class="wa-spinner"></div> Cargando conductores...
+            </div>
+            <div class="wa-conductor-list" id="wa-conductor-list" style="display:none;"></div>
+            <div class="wa-empty" id="wa-empty" style="display:none;">
+                <div class="icon">😕</div>
+                <p style="font-weight:700; color:#1e293b;">Sin conductores en esta regional</p>
+                <small>No hay conductores con teléfono registrado</small>
+            </div>
+            <div class="wa-counter" id="wa-counter" style="display:none;"></div>
+        </div>
+
+        <div class="modal-wa-footer">
+            <button class="btn-wa-todos" id="btn-wa-todos" onclick="abrirTodos()" style="display:none;">
+                📲 Abrir todos los WhatsApp de una vez
+            </button>
+            <button class="btn-wa-cerrar" onclick="cerrarModalWA()">
+                Listo — Ir al panel
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="db.js"></script>
 <script>
+    // ══════════════════════════════════════════════════════
+    //  CONFIGURACIÓN — SOLO CAMBIA ESTA URL
+    // ══════════════════════════════════════════════════════
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec';
+    // ══════════════════════════════════════════════════════
+
     let sesion   = {};
     let urgencia = 'normal';
     let alcance  = 'regional';
     let regionalEspecifica = '';
+    let conductoresWA = [];   // conductores cargados para el modal WA
+    let enviados = new Set(); // IDs ya enviados (para marcar botones)
+    let mensajeWA = '';       // mensaje que se enviará
 
     const REGIONALES = [
         'Pereira','Risaralda','Quindío','Caldas','Antioquia',
@@ -251,7 +387,7 @@
         actualizarPreview();
     }
 
-    // ── CONTAR CONDUCTORES — SUPABASE ─────────────────────
+    // ── CONTAR CONDUCTORES (desde Sheets) ────────────────
     async function contarConductores(regional) {
         const badge = document.getElementById('conductores-badge');
         badge.className = 'conductores-badge loading';
@@ -259,14 +395,8 @@
         badge.innerHTML = '<div class="spinner-sm"></div> Verificando conductores en <b style="margin-left:4px;">' + regional + '</b>...';
 
         try {
-            const { data, error } = await DB.supabase
-                .from('usuarios')
-                .select('id, nombre, regional, rol')
-                .eq('regional', regional)
-                .eq('rol', 'conductor');
-
-            if (error) throw error;
-            const count = (data || []).length;
+            const conductores = await getConductoresPorRegional(regional);
+            const count = conductores.length;
 
             if (count > 0) {
                 badge.className = 'conductores-badge ok';
@@ -274,7 +404,7 @@
                     '<span class="c-num">' + count + '</span>' +
                     '<div>' +
                         '<div style="font-size:13px;">conductor' + (count > 1 ? 'es' : '') + ' en <b>' + regional + '</b></div>' +
-                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">✅ Recibirán la notificación</div>' +
+                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">✅ Recibirán notificación WhatsApp</div>' +
                     '</div>';
             } else {
                 badge.className = 'conductores-badge cero';
@@ -282,13 +412,29 @@
                     '<span style="font-size:22px;">⚠️</span>' +
                     '<div>' +
                         '<div>Sin conductores en <b>' + regional + '</b></div>' +
-                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">La solicitud se guardará pero nadie será notificado</div>' +
+                        '<div style="font-size:11px; font-weight:400; margin-top:2px; opacity:0.8;">La solicitud se guardará pero no habrá WhatsApp</div>' +
                     '</div>';
             }
         } catch(e) {
             badge.className = 'conductores-badge cero';
             badge.innerHTML = '❌ Error: ' + e.message;
         }
+    }
+
+    // ── OBTENER CONDUCTORES DESDE GOOGLE SHEETS ──────────
+    async function getConductoresPorRegional(regional) {
+        const url = APPS_SCRIPT_URL + '?sheetName=usuarios';
+        const resp = await fetch(url);
+        const todos = await resp.json();
+
+        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+        // Filtrar por regional y rol conductor, que tengan teléfono
+        return todos.filter(u =>
+            norm(u.regional) === norm(regional) &&
+            norm(u.rol) === 'conductor' &&
+            u.telefono && String(u.telefono).trim().length > 5
+        );
     }
 
     // ── ALCANCE ───────────────────────────────────────────
@@ -362,7 +508,28 @@
                 '🎯 La solicitud se enviará a conductores de <b>' + regionalEspecifica + '</b>.';
     }
 
-    // ── CREAR SOLICITUD — SUPABASE ────────────────────────
+    // ── CONSTRUIR MENSAJE WHATSAPP ────────────────────────
+    function construirMensajeWA(datos) {
+        const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '✅';
+        const urgLabel = urgencia === 'critica' ? 'CRÍTICA' : urgencia === 'urgente' ? 'URGENTE' : 'Normal';
+        let msg = urgEmoji + ' *SOLICITUD DE APOYO ' + urgLabel + '*\n';
+        msg += '━━━━━━━━━━━━━━━━━━━━\n';
+        msg += '🏢 *Regional:* ' + datos.regional_solicitante + '\n';
+        msg += '👤 *Coordinador:* ' + datos.coordinador + '\n';
+        msg += '🚗 *Servicio:* ' + datos.tipo_servicio + '\n';
+        msg += '🚩 *Origen:* ' + datos.origen + '\n';
+        msg += '🏁 *Destino:* ' + datos.destino + '\n';
+        if (datos.nombre_fallecido) msg += '⚱️ *Fallecido:* ' + datos.nombre_fallecido + '\n';
+        if (datos.clinica_hospital) msg += '🏥 *Lugar:* ' + datos.clinica_hospital + '\n';
+        if (datos.fecha_servicio)   msg += '📅 *Fecha:* ' + datos.fecha_servicio + '\n';
+        if (datos.hora_requerida)   msg += '🕒 *Hora:* ' + datos.hora_requerida + '\n';
+        if (datos.observaciones)    msg += '📝 *Obs:* ' + datos.observaciones + '\n';
+        msg += '━━━━━━━━━━━━━━━━━━━━\n';
+        msg += '👉 Entra a la app J.R. para aceptar este servicio.';
+        return msg;
+    }
+
+    // ── CREAR SOLICITUD ───────────────────────────────────
     async function crearSolicitud() {
         const btn    = document.getElementById('btn-crear');
         const origen = document.getElementById('c-origen').value.trim();
@@ -374,17 +541,15 @@
         }
 
         btn.disabled  = true;
-        btn.innerHTML = '<span>⏳</span> ENVIANDO...';
+        btn.innerHTML = '<span>⏳</span> GUARDANDO...';
 
         const alcanceGuardar       = alcance === 'especifica' ? regionalEspecifica : alcance;
         const regionalNotificacion = alcance === 'regional'
             ? document.getElementById('c-regional').value
             : alcance === 'especifica' ? regionalEspecifica : 'NACIONAL';
 
-        const tipo     = document.getElementById('c-tipo').value;
-        const obs      = document.getElementById('c-obs').value.trim();
-        const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '🤝';
-        const urgLabel = urgencia.toUpperCase();
+        const tipo = document.getElementById('c-tipo').value;
+        const obs  = document.getElementById('c-obs').value.trim();
 
         const datos = {
             regional_solicitante: document.getElementById('c-regional').value,
@@ -394,8 +559,8 @@
             clinica_hospital:     document.getElementById('c-clinica').value.trim(),
             origen,
             destino,
-            fecha_servicio:       document.getElementById('c-fecha').value || null,
-            hora_requerida:       document.getElementById('c-hora').value  || null,
+            fecha_servicio:       document.getElementById('c-fecha').value,
+            hora_requerida:       document.getElementById('c-hora').value,
             observaciones:        obs,
             urgencia,
             alcance:              alcanceGuardar,
@@ -403,38 +568,180 @@
         };
 
         try {
-            // 1. Guardar en Supabase
-            const { data, error } = await DB.supabase
-                .from('solicitud_apoyo')
-                .insert([datos])
-                .select()
-                .single();
+            // ── 1. GUARDAR EN GOOGLE SHEETS ──────────────
+            const respSheet = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', {
+                method: 'POST',
+                body: JSON.stringify(datos)
+            });
+            const resSheet = await respSheet.json();
+            if (resSheet.error) throw new Error(resSheet.error);
 
-            if (error) throw error;
-
-            // 2. Notificación in-app Realtime (no crítico)
+            // ── 2. NOTIFICACIÓN IN-APP (Supabase Realtime — no crítico) ──
             try {
+                const urgEmoji = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '🤝';
+                const urgLabel = urgencia.toUpperCase();
                 await DB.supabase.from('notificaciones_apoyo').insert([{
-                    tipo:         'apoyo',
-                    titulo:       urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo,
-                    cuerpo:       '🚩 ' + origen + ' → 🏁 ' + destino + (obs ? ' | ' + obs : ''),
-                    regional:     regionalNotificacion,
-                    alcance:      alcanceGuardar,
-                    leido:        false,
-                    solicitud_id: data?.id || null,
-                    remitente:    sesion.nombre
+                    tipo:      'apoyo',
+                    titulo:    urgEmoji + ' Apoyo ' + urgLabel + ' — ' + tipo,
+                    cuerpo:    '🚩 ' + origen + ' → 🏁 ' + destino + (obs ? ' | ' + obs : ''),
+                    regional:  regionalNotificacion,
+                    alcance:   alcanceGuardar,
+                    leido:     false,
+                    remitente: sesion.nombre
                 }]);
-            } catch(eN) { console.warn('Notif:', eN.message); }
+            } catch(eN) { console.warn('Notif in-app:', eN.message); }
 
-            btn.innerHTML = '<span>✅</span> ENVIADA Y NOTIFICADA';
-            toast('✅ Solicitud enviada · Conductores notificados', '#10b981');
-            setTimeout(() => { window.location.href = 'panel_coordinador.html'; }, 1800);
+            // ── 3. ABRIR MODAL WHATSAPP ───────────────────
+            btn.innerHTML = '<span>✅</span> GUARDADA — Notificando WhatsApp...';
+            mensajeWA = construirMensajeWA(datos);
+            await abrirModalWA(regionalNotificacion, datos);
 
         } catch(e) {
             toast('❌ Error: ' + e.message, '#dc2626');
             btn.disabled  = false;
             btn.innerHTML = '<span>📤</span> ENVIAR SOLICITUD Y NOTIFICAR';
         }
+    }
+
+    // ── MODAL WHATSAPP ────────────────────────────────────
+    async function abrirModalWA(regionalDestino, datos) {
+        enviados.clear();
+        conductoresWA = [];
+
+        // Mostrar modal
+        document.getElementById('modal-wa-bg').classList.add('open');
+        document.getElementById('wa-regional-nombre').textContent = regionalDestino === 'NACIONAL' ? 'todo el país' : regionalDestino;
+        document.getElementById('wa-msg-preview').textContent = mensajeWA;
+
+        // Estado loading
+        document.getElementById('wa-loading').style.display = 'flex';
+        document.getElementById('wa-conductor-list').style.display = 'none';
+        document.getElementById('wa-empty').style.display = 'none';
+        document.getElementById('wa-counter').style.display = 'none';
+        document.getElementById('btn-wa-todos').style.display = 'none';
+
+        try {
+            // Obtener todos los usuarios desde Sheets
+            const url = APPS_SCRIPT_URL + '?sheetName=usuarios';
+            const resp = await fetch(url);
+            const todos = await resp.json();
+
+            const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+            // Filtrar según alcance
+            if (regionalDestino === 'NACIONAL') {
+                conductoresWA = todos.filter(u =>
+                    norm(u.rol) === 'conductor' &&
+                    u.telefono && String(u.telefono).trim().length > 5
+                );
+            } else {
+                conductoresWA = todos.filter(u =>
+                    norm(u.regional) === norm(regionalDestino) &&
+                    norm(u.rol) === 'conductor' &&
+                    u.telefono && String(u.telefono).trim().length > 5
+                );
+            }
+
+            document.getElementById('wa-loading').style.display = 'none';
+
+            if (!conductoresWA.length) {
+                document.getElementById('wa-empty').style.display = 'block';
+                return;
+            }
+
+            // Renderizar lista
+            const list = document.getElementById('wa-conductor-list');
+            list.style.display = 'flex';
+            list.innerHTML = conductoresWA.map((c, i) => {
+                const inicial = (c.nombre || '?').charAt(0).toUpperCase();
+                const tel = formatTelefono(c.telefono);
+                return '<div class="wa-conductor-item" id="wai-' + i + '">' +
+                    '<div class="wa-conductor-avatar">' + inicial + '</div>' +
+                    '<div class="wa-conductor-info">' +
+                        '<div class="wa-conductor-nombre">' + (c.nombre || 'Sin nombre') + '</div>' +
+                        '<div class="wa-conductor-tel">📱 ' + c.telefono + '</div>' +
+                    '</div>' +
+                    '<a class="btn-wa-enviar" id="wabtn-' + i + '" ' +
+                       'href="' + buildWALink(tel, mensajeWA) + '" ' +
+                       'target="_blank" onclick="marcarEnviado(' + i + ')">' +
+                        '📲 Enviar' +
+                    '</a>' +
+                '</div>';
+            }).join('');
+
+            // Contador
+            const ctr = document.getElementById('wa-counter');
+            ctr.style.display = 'block';
+            ctr.innerHTML = 'Toca <b>Enviar</b> en cada conductor para abrir WhatsApp';
+
+            // Botón "todos a la vez" si hay más de 1
+            if (conductoresWA.length > 1) {
+                document.getElementById('btn-wa-todos').style.display = 'flex';
+            }
+
+        } catch(e) {
+            document.getElementById('wa-loading').style.display = 'none';
+            document.getElementById('wa-empty').style.display = 'block';
+            document.getElementById('wa-empty').innerHTML =
+                '<div class="icon">❌</div><p>Error al cargar conductores</p><small>' + e.message + '</small>';
+        }
+    }
+
+    function marcarEnviado(i) {
+        enviados.add(i);
+        const btn = document.getElementById('wabtn-' + i);
+        if (btn) {
+            btn.textContent = '✅ Enviado';
+            btn.classList.add('btn-wa-enviado');
+            btn.onclick = null;
+        }
+        actualizarContador();
+    }
+
+    function actualizarContador() {
+        const total = conductoresWA.length;
+        const enviados2 = enviados.size;
+        const ctr = document.getElementById('wa-counter');
+        if (enviados2 === total && total > 0) {
+            ctr.innerHTML = '🎉 <b>' + total + '/' + total + '</b> conductores notificados por WhatsApp';
+            ctr.style.color = '#10b981';
+        } else {
+            ctr.innerHTML = '<b>' + enviados2 + '/' + total + '</b> enviados — toca los botones restantes';
+        }
+    }
+
+    // Abrir todos en secuencia con pequeño delay
+    function abrirTodos() {
+        conductoresWA.forEach((c, i) => {
+            if (enviados.has(i)) return;
+            setTimeout(() => {
+                const tel = formatTelefono(c.telefono);
+                window.open(buildWALink(tel, mensajeWA), '_blank');
+                marcarEnviado(i);
+            }, i * 600); // 600ms entre cada uno para no saturar
+        });
+    }
+
+    function cerrarModalWA() {
+        document.getElementById('modal-wa-bg').classList.remove('open');
+        window.location.href = 'panel_coordinador.html';
+    }
+
+    // ── HELPERS ───────────────────────────────────────────
+
+    // Normaliza teléfono a formato internacional Colombia (+57)
+    function formatTelefono(tel) {
+        let t = String(tel).replace(/\D/g, ''); // solo dígitos
+        // Si empieza con 57 y tiene 12 dígitos → ya tiene código país
+        if (t.startsWith('57') && t.length === 12) return t;
+        // Si empieza con 3 y tiene 10 dígitos → número colombiano local
+        if (t.startsWith('3') && t.length === 10) return '57' + t;
+        // Si tiene código de país diferente, devolver tal cual
+        return t;
+    }
+
+    function buildWALink(telNormalizado, mensaje) {
+        return 'https://api.whatsapp.com/send?phone=' + telNormalizado + '&text=' + encodeURIComponent(mensaje);
     }
 
     function irAtras() { window.location.href = 'panel_coordinador.html'; }
