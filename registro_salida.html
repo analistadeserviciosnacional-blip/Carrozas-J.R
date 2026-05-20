@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Registro de Salida Oficial</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SweetAlert2 para las alertas de cuidado del vehículo -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root { 
@@ -24,78 +26,65 @@
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-        /* ── ALERTA VEHÍCULO ── */
-        .alerta-vehiculo {
-            display: none;
-            border-radius: 16px;
-            padding: 16px 18px;
-            margin-bottom: 14px;
-            font-size: 13px;
-            line-height: 1.6;
-            animation: fadeIn 0.3s ease;
+        /* ── KIT DE CARRETERA ─────────────────────────────── */
+        .kit-selector { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .kit-opcion {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; border-radius: 12px;
+            border: 2px solid #e3f2fd; cursor: pointer;
+            transition: all 0.2s ease; background: #f8fbff;
         }
+        .kit-opcion:hover { border-color: #90caf9; background: #e3f2fd; }
+        .kit-opcion input[type="radio"] { display: none; }
+        .kit-opcion .kit-icono { font-size: 22px; flex-shrink: 0; }
+        .kit-opcion .kit-texto { flex: 1; }
+        .kit-opcion .kit-titulo { font-size: 13px; font-weight: 700; color: var(--azul); }
+        .kit-opcion .kit-desc   { font-size: 11px; color: var(--gris); margin-top: 2px; }
+        .kit-opcion .kit-check  { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #90caf9; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .kit-opcion.sel-completo { border-color: #16a34a; background: #f0fdf4; }
+        .kit-opcion.sel-completo .kit-check { background: #16a34a; border-color: #16a34a; }
+        .kit-opcion.sel-completo .kit-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 900; }
+        .kit-opcion.sel-incompleto { border-color: #d97706; background: #fffbeb; }
+        .kit-opcion.sel-incompleto .kit-check { background: #d97706; border-color: #d97706; }
+        .kit-opcion.sel-incompleto .kit-check::after { content: '!'; color: white; font-size: 11px; font-weight: 900; }
+        .kit-opcion.sel-no-tiene { border-color: #dc2626; background: #fef2f2; }
+        .kit-opcion.sel-no-tiene .kit-check { background: #dc2626; border-color: #dc2626; }
+        .kit-opcion.sel-no-tiene .kit-check::after { content: '✗'; color: white; font-size: 11px; font-weight: 900; }
+        .kit-alerta { display: none; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+        .kit-alerta.inc { background: #fffbeb; border: 1.5px solid #fcd34d; color: #92400e; display: block; }
+        .kit-alerta.no  { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; display: block; }
+
+        /* ── ALERTAS VEHÍCULO ────────────────────────────── */
+        .alerta-vehiculo { display: none; border-radius: 16px; padding: 16px 18px; margin-bottom: 14px; font-size: 13px; line-height: 1.6; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
-
-        .alerta-vehiculo.en-taller {
-            background: #fef2f2; border: 2px solid #ef4444;
-        }
-        .alerta-vehiculo.en-taller .av-icono { font-size: 36px; }
+        .alerta-vehiculo.en-taller    { background: #fef2f2; border: 2px solid #ef4444; }
         .alerta-vehiculo.en-taller .av-titulo { font-size: 17px; font-weight: 900; color: #991b1b; margin: 6px 0 4px; }
-        .alerta-vehiculo.en-taller .av-msg { color: #7f1d1d; font-weight: 600; }
-        .av-bloqueo {
-            background: #ef4444; color: white; border-radius: 10px;
-            padding: 10px 14px; margin-top: 12px; font-size: 12px;
-            font-weight: 800; text-align: center; letter-spacing: 0.5px;
-        }
-
+        .av-bloqueo { background: #ef4444; color: white; border-radius: 10px; padding: 10px 14px; margin-top: 12px; font-size: 12px; font-weight: 800; text-align: center; }
         .alerta-vehiculo.mant-vencido { background: #fef2f2; border: 2px solid #fca5a5; }
-        .alerta-vehiculo.mant-vencido .av-titulo { font-size: 15px; font-weight: 800; color: #991b1b; margin-bottom: 4px; }
-        .alerta-vehiculo.mant-vencido .av-msg { color: #7f1d1d; }
-
         .alerta-vehiculo.mant-proximo { background: #fffbeb; border: 2px solid #fcd34d; }
-        .alerta-vehiculo.mant-proximo .av-titulo { font-size: 15px; font-weight: 800; color: #92400e; margin-bottom: 4px; }
-        .alerta-vehiculo.mant-proximo .av-msg { color: #78350f; }
-
         .alerta-vehiculo.al-dia { background: #f0fdf4; border: 2px solid #86efac; }
-        .alerta-vehiculo.al-dia .av-titulo { font-size: 15px; font-weight: 800; color: #166534; margin-bottom: 4px; }
-        .alerta-vehiculo.al-dia .av-msg { color: #14532d; }
+        .km-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.06); border-radius: 8px; padding: 5px 10px; font-size: 13px; font-weight: 800; margin-top: 8px; }
+        .km-progreso-wrap { margin-top: 12px; background: rgba(0,0,0,0.05); border-radius: 10px; overflow: hidden; height: 10px; }
+        .km-progreso-bar  { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
 
-        .alerta-vehiculo.sin-dato { background: #f8faff; border: 2px solid #e2e8f0; }
-        .alerta-vehiculo.sin-dato .av-titulo { font-size: 15px; font-weight: 800; color: #475569; margin-bottom: 4px; }
-        .alerta-vehiculo.sin-dato .av-msg { color: #64748b; }
-
-        .km-badge {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: rgba(0,0,0,0.06); border-radius: 8px;
-            padding: 5px 10px; font-size: 13px; font-weight: 800; margin-top: 8px;
-        }
-
-        /* Barra de progreso KM */
-        .km-progreso-wrap {
-            margin-top: 12px; background: rgba(0,0,0,0.05);
-            border-radius: 10px; overflow: hidden; height: 10px;
-        }
-        .km-progreso-bar {
-            height: 100%; border-radius: 10px; transition: width 0.5s ease;
-        }
-
-        /* FOTOS */
+        /* ── FOTOS / FIRMA / BOTONES ─────────────────────── */
         .upload-container { border: 2px dashed var(--azul); border-radius: 15px; padding: 15px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 12px; }
-        .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+        .preview-gallery  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
         .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid var(--azul-cielo); }
         .btn-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         canvas { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 140px; background: #fff; touch-action: none; }
-
-        /* BOTONES */
         .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
         .btn-accion-guardar { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: var(--azul); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,74,153,0.25); transition: 0.2s; font-family: inherit; }
-        .btn-accion-guardar:active { transform: scale(0.98); }
-        .btn-accion-guardar:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
-        .btn-accion-wa { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(37,211,102,0.3); transition: 0.2s; font-family: inherit; }
-        .btn-accion-fotos { width: 100%; padding: 14px; border: none; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer; background: #128C7E; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit; }
-        .btn-accion-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; font-family: inherit; }
-        .instruccion-fotos { background: #fff9e6; border: 1px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; text-align: center; line-height: 1.6; display: none; }
+        .btn-accion-wa    { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-accion-fotos { width: 100%; padding: 14px; border: none; border-radius: 14px; font-weight: 700; background: #128C7E; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-accion-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .instruccion-fotos { background: #fff9e6; border: 1px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; text-align: center; display: none; }
+        #progreso-steps { display:none; background:#f0f7ff; border:1px solid #c7dff7; border-radius:12px; padding:12px 15px; margin-bottom:14px; font-size:12px; }
+        #progreso-steps div { padding: 3px 0; color: #546e7a; }
+        #progreso-steps div.ok   { color: #15803d; font-weight: 700; }
+        #progreso-steps div.err  { color: #dc2626; font-weight: 700; }
+        #progreso-steps div.act  { color: #004a99; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -108,6 +97,7 @@
 
     <div class="content">
 
+        <!-- ── RESPONSABLE ─────────────────────────────── -->
         <div class="section-title">Datos de Responsable</div>
         <div class="grid-2">
             <div>
@@ -116,8 +106,7 @@
             </div>
             <div>
                 <label>Regional</label>
-                <select id="regional">
-                    <option value="Pereira">Pereira</option>
+                <select id="regional" onchange="cargarPlacas()">
                     <option value="Risaralda">Risaralda</option>
                     <option value="Antioquia">Antioquia</option>
                     <option value="Caldas">Caldas</option>
@@ -127,11 +116,12 @@
                     <option value="Valle Sur">Valle Sur</option>
                     <option value="C/ Marca">Cundinamarca</option>
                     <option value="Tolima Norte">Tolima Norte</option>
-                    <option value="Palmira">Palmira</option>
+                    <option value="Valle Centro Palmira">Valle Centro Palmira</option>
                 </select>
             </div>
         </div>
 
+        <!-- ── VEHÍCULO ────────────────────────────────── -->
         <div class="section-title">Información del Vehículo</div>
         <div class="grid-2">
             <div>
@@ -142,7 +132,7 @@
             </div>
             <div>
                 <label>Motivo Salida</label>
-                <select id="motivo">
+                <select id="motivo" onchange="validarCompatibilidad()">
                     <option value="Sepelio">Sepelio</option>
                     <option value="Traslado Nacional">Traslado Nacional</option>
                     <option value="Recogida De Cuerpo">Recogida De Cuerpo</option>
@@ -156,15 +146,48 @@
             </div>
         </div>
 
-        <!-- ── ALERTA DE VEHÍCULO ── -->
         <div class="alerta-vehiculo" id="alerta-vehiculo"></div>
 
+        <!-- ── KIT DE CARRETERA ────────────────────────── -->
+        <div class="section-title">🧰 Kit de Carretera</div>
+        <div class="kit-selector" id="kit-selector">
+            <label class="kit-opcion" id="kit-completo" onclick="seleccionarKit('completo')">
+                <input type="radio" name="kit" value="completo">
+                <div class="kit-icono">✅</div>
+                <div class="kit-texto">
+                    <div class="kit-titulo">Completo — Todo en orden</div>
+                    <div class="kit-desc">Kit reglamentario y extintor vigentes</div>
+                </div>
+                <div class="kit-check" id="check-completo"></div>
+            </label>
+            <label class="kit-opcion" id="kit-incompleto" onclick="seleccionarKit('incompleto')">
+                <input type="radio" name="kit" value="incompleto">
+                <div class="kit-icono">⚠️</div>
+                <div class="kit-texto">
+                    <div class="kit-titulo">Incompleto — Faltan elementos</div>
+                    <div class="kit-desc">Reporte faltantes al coordinador</div>
+                </div>
+                <div class="kit-check" id="check-incompleto"></div>
+            </label>
+            <label class="kit-opcion" id="kit-no-tiene" onclick="seleccionarKit('no-tiene')">
+                <input type="radio" name="kit" value="no-tiene">
+                <div class="kit-icono">🚫</div>
+                <div class="kit-texto">
+                    <div class="kit-titulo">Sin kit — No tiene</div>
+                    <div class="kit-desc">La carroza no cuenta con kit de carretera</div>
+                </div>
+                <div class="kit-check" id="check-no-tiene"></div>
+            </label>
+        </div>
+        <div class="kit-alerta" id="kit-alerta"></div>
+
+        <!-- ── SERVICIO ────────────────────────────────── -->
         <div class="section-title">Datos del Servicio</div>
         <label>Nombre del Fallecido</label>
         <input type="text" id="fallecido" placeholder="Nombre completo">
 
         <div class="grid-2">
-            <div><label>Lugar de Recogida</label><input type="text" id="clinica" placeholder="Clínica/Hosp/RSD"></div>
+            <div><label>Lugar de Recogida</label><input type="text" id="clinica" placeholder="Sitio"></div>
             <div><label>N° Prestación</label><input type="text" id="prestacion" placeholder="Código"></div>
         </div>
         <div class="grid-2">
@@ -175,14 +198,8 @@
         <div class="section-title">Control de Kilometraje y Hora</div>
         <div class="grid-2">
             <div><label>Hora Salida</label><input type="time" id="hora_salida"></div>
-            <div><label>Hora Ingreso</label><input type="time" id="hora_ingreso"></div>
+            <div><label>KM Salida</label><input type="number" id="km_s"></div>
         </div>
-        <div class="grid-2">
-            <div><label>KM Salida</label><input type="number" id="km_s" oninput="calcularTotal()"></div>
-            <div><label>KM Ingreso</label><input type="number" id="km_i" oninput="calcularTotal()"></div>
-        </div>
-        <label>Total KM Recorridos</label>
-        <input type="number" id="total_km" readonly style="background:#eef5ff; font-weight:bold; font-size:16px;">
 
         <div class="section-title">Evidencias Fotográficas</div>
         <div class="upload-container" onclick="document.getElementById('fotos-input').click()">
@@ -200,7 +217,12 @@
 
         <div class="section-title">Notificación</div>
         <label>Nombre del Coordinador (para el reporte)</label>
-        <input type="text" id="nombre-coordinador" placeholder="Ej: Coordinador Pereira">
+        <input type="text" id="nombre-coordinador" placeholder="Ej: Cesar Hincapie">
+
+        <div id="progreso-steps">
+            <div id="step-carroza">⏳ Actualizando estado de carroza...</div>
+            <div id="step-traslado">⏳ Guardando traslado...</div>
+        </div>
 
         <div class="acciones">
             <button class="btn-accion-guardar" id="btn-envio" onclick="guardarTodo()">
@@ -214,7 +236,7 @@
                     <span>📸</span> COMPARTIR FOTOS
                 </button>
                 <div class="instruccion-fotos" id="instruccion-fotos">
-                    <b>📱 Descarga lista.</b> Abre WhatsApp → busca el coordinador → adjunta las fotos desde tu galería.
+                    <b>📱 Descarga lista.</b> Adjunta las fotos desde tu galería en WhatsApp.
                 </div>
             </div>
             <button class="btn-accion-volver" onclick="irAtras()">← Volver</button>
@@ -227,88 +249,92 @@
     let fotosArray    = [];
     let datosFinales  = {};
     let flotaCompleta = [];
+    let kitSeleccionado = ''; 
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
     let dibujando = false;
 
-    // ── INIT ─────────────────────────────────────────────
-    window.onload = async () => {
-        const sesionData = localStorage.getItem('usuario_sesion');
-        if (!sesionData) { window.location.href = "index.html"; return; }
-
-        const user = JSON.parse(sesionData);
-        document.getElementById('conductor').value = user.nombre;
-        document.getElementById('saludo').innerText =  "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
-        // ✅ Guardar teléfono del conductor desde la sesión
-        window._telefonoConductor = user.telefono || '';
-
-        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const rol  = norm(user.rol);
-        const usr  = norm(user.usuario);
-        const esAdmin = rol === 'admin' || rol === 'administracion' || usr === 'admin';
-        document.getElementById('rol-info').innerText = "SESIÓN ACTIVA: " + (esAdmin ? "ADMINISTRADOR" : rol.toUpperCase());
-
-        if (user.regional) {
-            const sel = document.getElementById('regional');
-            for (let o of sel.options) { if (o.value === user.regional) { sel.value = o.value; break; } }
-        }
-
-        await cargarPlacas();
-
-        // Pre-llenar desde apoyo
-        const apoyo = localStorage.getItem('apoyo_prellenado');
-        if (apoyo) {
-            try {
-                const d = JSON.parse(apoyo);
-                if (d.fallecido)     document.getElementById('fallecido').value    = d.fallecido;
-                if (d.clinica)       document.getElementById('clinica').value       = d.clinica;
-                if (d.origen)        document.getElementById('origen').value        = d.origen;
-                if (d.destino)       document.getElementById('destino').value       = d.destino;
-                if (d.observaciones) document.getElementById('observaciones').value = '🤝 APOYO REGIONAL\n' + d.observaciones;
-                if (d.motivo) {
-                    const sel = document.getElementById('motivo');
-                    for (let o of sel.options) { if (o.value === d.motivo) { sel.value = d.motivo; break; } }
-                }
-                const banner = document.createElement('div');
-                banner.style.cssText = 'background:#ecfdf5;border:2px solid #6ee7b7;border-radius:12px;padding:12px 15px;margin-bottom:15px;font-size:13px;color:#065f46;font-weight:600;display:flex;align-items:center;gap:10px;';
-                banner.innerHTML = '<span style="font-size:20px;">🤝</span><div><b>Formulario pre-llenado desde solicitud de apoyo</b><br><span style="font-weight:400;font-size:12px;">Revisa los datos y completa los campos que faltan</span></div>';
-                document.querySelector('.content').insertBefore(banner, document.querySelector('.content').firstChild);
-                localStorage.removeItem('apoyo_prellenado');
-            } catch(e) {}
-        }
-
-        const now = new Date();
-        document.getElementById('hora_salida').value =
-            now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-
-        canvas.width  = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-    };
-
-    // ── CARGAR PLACAS ─────────────────────────────────────
+    // ── CARGAR PLACAS FILTRADAS POR REGIONAL ────────────────
     async function cargarPlacas() {
         const select = document.getElementById('placa');
+        const regionalActual = document.getElementById('regional').value;
+        select.innerHTML = '<option value="">Cargando flota...</option>';
+
         try {
             const { data, error } = await DB.supabase
                 .from('carrozas')
-                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento')
+                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento, tipo_vehiculo, sede_asignada, sede_intercambio')
                 .order('placa');
+            
             if (error) throw error;
             flotaCompleta = data || [];
 
-            if (flotaCompleta.length > 0) {
+            const flotaFiltrada = flotaCompleta.filter(c => {
+                const ubicacion = c.sede_intercambio || c.sede_asignada;
+                return ubicacion === regionalActual;
+            });
+
+            if (flotaFiltrada.length > 0) {
                 select.innerHTML = '<option value="">Seleccione placa...</option>' +
-                    flotaCompleta.map(c => {
+                    flotaFiltrada.map(c => {
                         const enTaller = (c.estado || '').includes('Taller');
-                        return '<option value="' + c.placa + '"' + (enTaller ? ' style="color:#ef4444;"' : '') + '>' +
-                            c.placa + ' — ' + (c.modelo || 'S/M') + (enTaller ? ' 🔧 EN TALLER' : '') +
-                        '</option>';
+                        return `<option value="${c.placa}" data-tipo="${c.tipo_vehiculo || ''}" ${enTaller ? 'style="color:#ef4444;"' : ''}>` +
+                            `${c.placa} — ${c.modelo || 'S/M'} (${c.tipo_vehiculo || 'S/T'})${enTaller ? ' 🔧 EN TALLER' : ''}` +
+                        `</option>`;
                     }).join('');
             } else {
-                select.innerHTML = '<option value="">Sin flota registrada</option>';
+                select.innerHTML = '<option value="">Sin vehículos en esta regional</option>';
             }
         } catch(e) {
             select.innerHTML = '<option>Error al cargar placas</option>';
+        }
+    }
+
+    // ── VALIDACIÓN DE COMPATIBILIDAD (ALERTAS) ──────────────
+    function validarCompatibilidad() {
+        const motivo = document.getElementById('motivo').value;
+        const placaSelect = document.getElementById('placa');
+        const optionSel = placaSelect.options[placaSelect.selectedIndex];
+        
+        if (!optionSel || !optionSel.value) return;
+
+        const tipoVehiculo = (optionSel.getAttribute('data-tipo') || "").toUpperCase();
+        let mensajeAlerta = "";
+
+        if (tipoVehiculo.includes("DESTINO FINAL")) {
+            if (motivo.includes("Recogida") || motivo === "Traslado Nacional") {
+                mensajeAlerta = `⚠️ <b>RIESGO DE DAÑO AL ACTIVO</b><br><br>` +
+                                `La carroza <b>${optionSel.value}</b> es de tipo <b>DESTINO FINAL</b> (Perfil Bajo).<br><br>` +
+                                `Usarla para <b>${motivo}</b> puede causar daños en el chasis o desajustes por baches en rutas no urbanas.`;
+            }
+        }
+
+        if (tipoVehiculo.includes("RECOLECCION") || tipoVehiculo.includes("COMERCIAL")) {
+            if (motivo === "Sepelio" || motivo === "Puesta En Velación") {
+                mensajeAlerta = `⚠️ <b>AVISO DE PRESENTACIÓN</b><br><br>` +
+                                `Estás asignando un vehículo de <b>RECOLECCIÓN</b> para un servicio de <b>${motivo}</b>.<br><br>` +
+                                `Verifique si la estética del vehículo es la adecuada para este servicio ceremonial.`;
+            }
+        }
+
+        if (mensajeAlerta !== "") {
+            Swal.fire({
+                title: '¿ESTÁ SEGURO?',
+                html: mensajeAlerta,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#004a99',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cambiar vehículo'
+            }).then((result) => {
+                if (!result.isConfirmed) {
+                    placaSelect.value = ""; 
+                    if(document.getElementById('alerta-vehiculo')) {
+                        document.getElementById('alerta-vehiculo').style.display = 'none';
+                    }
+                }
+            });
         }
     }
 
@@ -316,7 +342,6 @@
     async function alSeleccionarPlaca() {
         const placa    = document.getElementById('placa').value;
         const alertaEl = document.getElementById('alerta-vehiculo');
-
         if (!placa) { alertaEl.style.display = 'none'; return; }
 
         const veh = flotaCompleta.find(c => c.placa === placa);
@@ -324,27 +349,22 @@
 
         const estado   = (veh.estado || '').trim();
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
-
-        // Pre-llenar KM salida
         document.getElementById('km_s').value = kmActual;
-        calcularTotal();
 
-        // ── 1. EN TALLER → alerta máxima prioridad ──
+        validarCompatibilidad();
+
         if (estado === 'En Taller') {
             alertaEl.className = 'alerta-vehiculo en-taller';
             alertaEl.style.display = 'block';
-            alertaEl.innerHTML =
-                '<div style="text-align:center;">' +
-                    '<div class="av-icono">🔧</div>' +
-                    '<div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div>' +
-                    '<div class="av-msg">La carroza <b>' + placa + '</b> está en taller y <b>no está disponible para servicios</b>.</div>' +
-                    '<div class="av-bloqueo">🚫 SE RECOMIENDA NO USAR ESTE VEHÍCULO — Consulta con el coordinador</div>' +
-                    '<div class="km-badge">📊 ' + kmActual.toLocaleString() + ' KM &nbsp;|&nbsp; 🔴 ' + estado + '</div>' +
-                '</div>';
+            alertaEl.innerHTML = `
+                <div style="text-align:center;">
+                    <div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div>
+                    <div class="av-msg">La carroza está en taller y <b>no debe ser usada</b>.</div>
+                    <div class="av-bloqueo">🚫 RESTRICCIÓN DE SALIDA</div>
+                </div>`;
             return;
         }
 
-        // ── 2. CONSULTAR ÚLTIMO CAMBIO DE ACEITE en mantenimientos ──
         try {
             const { data: mants } = await DB.supabase
                 .from('mantenimientos')
@@ -354,100 +374,55 @@
                 .order('fecha', { ascending: false })
                 .limit(1);
 
-            const ultimoCambio = mants && mants.length > 0 ? mants[0] : null;
+            const ultimoCambio = (mants && mants.length > 0) ? mants[0] : null;
 
             if (ultimoCambio && ultimoCambio.km_proximo_cambio > 0) {
-                // Tenemos datos de KM para comparar
-                const kmProximo  = ultimoCambio.km_proximo_cambio;
+                const kmProximo  = parseInt(ultimoCambio.km_proximo_cambio);
                 const kmFaltante = kmProximo - kmActual;
-                const kmRealizdo = kmActual - (ultimoCambio.kilometraje_servicio || 0);
-                const intervalo  = kmProximo - (ultimoCambio.kilometraje_servicio || 0);
-                const porcentaje = Math.min(100, Math.round((kmRealizdo / intervalo) * 100));
+                const kmRealizdo = kmActual - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
+                const intervalo  = kmProximo - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
+                const porcentaje = Math.min(100, Math.round((kmRealizdo / Math.max(intervalo,1)) * 100));
                 const colorBarra = porcentaje >= 90 ? '#ef4444' : porcentaje >= 70 ? '#f59e0b' : '#10b981';
 
                 if (kmFaltante <= 0) {
-                    // VENCIDO POR KM
                     alertaEl.className = 'alerta-vehiculo mant-vencido';
-                    alertaEl.style.display = 'block';
-                    alertaEl.innerHTML =
-                        '<div class="av-titulo">🚨 CAMBIO DE ACEITE VENCIDO POR KILOMETRAJE</div>' +
-                        '<div class="av-msg">El cambio de aceite de <b>' + placa + '</b> debió hacerse a los <b>' + kmProximo.toLocaleString() + ' KM</b>.</div>' +
-                        '<div class="av-msg" style="margin-top:6px;">📊 KM actual: <b>' + kmActual.toLocaleString() + ' KM</b> — Excedido por <b>' + Math.abs(kmFaltante).toLocaleString() + ' KM</b></div>' +
-                        '<div class="av-msg" style="margin-top:6px;">⚠️ Informa al coordinador antes de salir.</div>' +
-                        '<div class="km-progreso-wrap"><div class="km-progreso-bar" style="width:100%; background:#ef4444;"></div></div>';
+                    alertaEl.innerHTML = `<div class="av-titulo">🚨 ACEITE VENCIDO</div><div class="av-msg">KM actual: ${kmActual}. Debió cambiarse a los ${kmProximo}.</div>`;
                 } else if (kmFaltante <= 500) {
-                    // MUY PRÓXIMO
                     alertaEl.className = 'alerta-vehiculo mant-proximo';
-                    alertaEl.style.display = 'block';
-                    alertaEl.innerHTML =
-                        '<div class="av-titulo">⚠️ CAMBIO DE ACEITE MUY PRÓXIMO</div>' +
-                        '<div class="av-msg">Solo faltan <b>' + kmFaltante.toLocaleString() + ' KM</b> para el próximo cambio de aceite.</div>' +
-                        '<div class="av-msg" style="margin-top:6px;">🎯 Próximo cambio a los: <b>' + kmProximo.toLocaleString() + ' KM</b></div>' +
-                        '<div class="av-msg" style="margin-top:6px;">📊 KM actual: <b>' + kmActual.toLocaleString() + ' KM</b></div>' +
-                        '<div class="km-progreso-wrap"><div class="km-progreso-bar" style="width:' + porcentaje + '%; background:' + colorBarra + ';"></div></div>' +
-                        '<div style="font-size:11px; color:#92400e; margin-top:4px; text-align:right;">' + porcentaje + '% del intervalo recorrido</div>';
+                    alertaEl.innerHTML = `<div class="av-titulo">⚠️ ACEITE PRÓXIMO</div><div class="av-msg">Faltan ${kmFaltante} KM para el cambio.</div>`;
                 } else {
-                    // AL DÍA
                     alertaEl.className = 'alerta-vehiculo al-dia';
-                    alertaEl.style.display = 'block';
-                    alertaEl.innerHTML =
-                        '<div class="av-titulo">✅ ACEITE AL DÍA</div>' +
-                        '<div class="av-msg">Próximo cambio de aceite a los <b>' + kmProximo.toLocaleString() + ' KM</b> — faltan <b>' + kmFaltante.toLocaleString() + ' KM</b>.</div>' +
-                        '<div class="av-msg" style="margin-top:4px;">📊 KM actual: <b>' + kmActual.toLocaleString() + ' KM</b></div>' +
-                        '<div class="km-progreso-wrap"><div class="km-progreso-bar" style="width:' + porcentaje + '%; background:' + colorBarra + ';"></div></div>' +
-                        '<div style="font-size:11px; color:#166534; margin-top:4px; text-align:right;">' + porcentaje + '% del intervalo recorrido</div>';
+                    alertaEl.innerHTML = `<div class="av-titulo">✅ ACEITE AL DÍA</div><div class="av-msg">Faltan ${kmFaltante} KM. Próximo a los ${kmProximo} KM.</div>`;
                 }
+                alertaEl.innerHTML += `
+                    <div class="km-badge">🚗 KM: ${kmActual.toLocaleString()}</div>
+                    <div class="km-progreso-wrap"><div class="km-progreso-bar" style="width: ${porcentaje}%; background: ${colorBarra};"></div></div>
+                `;
             } else {
-                // Sin registro de KM próximo → usar fecha si existe
-                const hoy      = new Date();
-                const proxMant = veh.proximo_mantenimiento ? new Date(veh.proximo_mantenimiento) : null;
-
-                if (proxMant) {
-                    const dias = Math.ceil((proxMant - hoy) / (1000 * 60 * 60 * 24));
-                    if (dias <= 0) {
-                        alertaEl.className = 'alerta-vehiculo mant-vencido';
-                        alertaEl.innerHTML =
-                            '<div class="av-titulo">🚨 MANTENIMIENTO VENCIDO</div>' +
-                            '<div class="av-msg">La fecha de mantenimiento venció hace <b>' + Math.abs(dias) + ' día(s)</b>.</div>' +
-                            '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
-                    } else if (dias <= 15) {
-                        alertaEl.className = 'alerta-vehiculo mant-proximo';
-                        alertaEl.innerHTML =
-                            '<div class="av-titulo">⚠️ MANTENIMIENTO PRÓXIMO</div>' +
-                            '<div class="av-msg">El mantenimiento vence en <b>' + dias + ' día(s)</b> ('+proxMant.toLocaleDateString('es-CO')+').</div>' +
-                            '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
-                    } else {
-                        alertaEl.className = 'alerta-vehiculo al-dia';
-                        alertaEl.innerHTML =
-                            '<div class="av-titulo">✅ VEHÍCULO AL DÍA</div>' +
-                            '<div class="av-msg">Próximo mantenimiento: <b>' + proxMant.toLocaleDateString('es-CO') + '</b> (faltan <b>' + dias + ' días</b>).</div>' +
-                            '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM &nbsp;|&nbsp; 🟢 ' + estado + '</div>';
-                    }
-                } else {
-                    alertaEl.className = 'alerta-vehiculo sin-dato';
-                    alertaEl.innerHTML =
-                        '<div class="av-titulo">ℹ️ SIN REGISTRO DE MANTENIMIENTO</div>' +
-                        '<div class="av-msg">Esta carroza no tiene historial de cambio de aceite registrado en el sistema.</div>' +
-                        '<div class="km-badge">📊 KM actual: ' + kmActual.toLocaleString() + ' KM</div>';
-                }
-                alertaEl.style.display = 'block';
+                alertaEl.className = 'alerta-vehiculo al-dia';
+                alertaEl.innerHTML = `<div class="av-titulo">ℹ️ SIN REGISTRO RECIENTE</div><div class="av-msg">Verifique último cambio de aceite manualmente.</div>`;
             }
-        } catch(e) {
-            alertaEl.className = 'alerta-vehiculo sin-dato';
             alertaEl.style.display = 'block';
-            alertaEl.innerHTML = '<div class="av-titulo">ℹ️ Sin datos de mantenimiento</div><div class="av-msg">' + e.message + '</div>';
+        } catch(e) {
+            alertaEl.style.display = 'none';
         }
     }
 
-    // ── RESTO ────────────────────────────────────────────
-    function irAtras() {
-        const user = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const rol  = norm(user.rol);
-        const usr  = norm(user.usuario);
-        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = "dashboard.html";
-        else if (rol === 'coordinador') window.location.href = "panel_coordinador.html";
-        else window.location.href = "panel_conductor.html";
+    function seleccionarKit(valor) {
+        kitSeleccionado = valor;
+        ['completo','incompleto','no-tiene'].forEach(v => {
+            const el = document.getElementById('kit-' + v);
+            const chk = document.getElementById('check-' + v);
+            el.classList.remove('sel-completo','sel-incompleto','sel-no-tiene');
+            chk.innerHTML = '';
+        });
+        const el = document.getElementById('kit-' + valor);
+        const chk = document.getElementById('check-' + valor);
+        el.classList.add('sel-' + valor);
+
+        const alerta = document.getElementById('kit-alerta');
+        alerta.className = 'kit-alerta ' + (valor === 'incompleto' ? 'inc' : valor === 'no-tiene' ? 'no' : '');
+        alerta.innerText = valor === 'incompleto' ? '⚠️ Reporta faltantes al coordinador.' : valor === 'no-tiene' ? '🚨 Prohibido salir sin kit.' : '';
     }
 
     function procesarFotos(input) {
@@ -461,7 +436,7 @@
     }
     function renderGaleria() {
         document.getElementById('galeria').innerHTML = fotosArray.map((img, i) =>
-            '<div class="thumb-wrap"><img src="' + img + '"><button class="btn-del" onclick="eliminarFoto(' + i + ')">×</button></div>'
+            `<div class="thumb-wrap"><img src="${img}"><button class="btn-del" onclick="eliminarFoto(${i})">×</button></div>`
         ).join('');
         document.getElementById('upload-text').innerText = '📸 ' + fotosArray.length + ' de 4 fotos';
     }
@@ -473,28 +448,33 @@
     };
     const iniciar = e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); };
     const mover   = e => { if (!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
-    canvas.addEventListener('mousedown', iniciar);
-    canvas.addEventListener('mousemove', mover);
+    canvas.addEventListener('mousedown', iniciar); canvas.addEventListener('mousemove', mover);
     window.addEventListener('mouseup', () => dibujando = false);
-    canvas.addEventListener('touchstart', iniciar);
-    canvas.addEventListener('touchmove', mover);
+    canvas.addEventListener('touchstart', iniciar); canvas.addEventListener('touchmove', mover);
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-    function calcularTotal() {
-        const s = parseFloat(document.getElementById('km_s').value) || 0;
-        const i = parseFloat(document.getElementById('km_i').value) || 0;
-        document.getElementById('total_km').value = (i - s).toFixed(1);
+    function setStep(id, estado, texto) {
+        const el = document.getElementById(id);
+        if (el) { el.className = estado; el.innerText = texto; }
     }
 
+    // ── GUARDAR TODO ──────────────────────────────────
     async function guardarTodo() {
         const btn = document.getElementById('btn-envio');
-        if (!document.getElementById('placa').value) { alert("Selecciona una placa"); return; }
+        if (!document.getElementById('placa').value) { alert("Selecciona placa"); return; }
+        if (!kitSeleccionado) { alert("Selecciona estado del kit"); return; }
+
+        // AQUÍ CORREGIMOS EL ERROR DE sesionUser:
+        const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
+        if (!sesionUser) { alert("Sesión expirada. Por favor ingresa de nuevo."); return; }
+
         btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
+        document.getElementById('progreso-steps').style.display = 'block';
 
         datosFinales = {
             regional:      document.getElementById('regional').value,
             conductor:     document.getElementById('conductor').value,
-            telefono:      window._telefonoConductor || '', // ✅ teléfono desde sesión
+            nnum_telefono: sesionUser.telefono || '', 
             placa:         document.getElementById('placa').value,
             motivo:        document.getElementById('motivo').value,
             fallecido:     document.getElementById('fallecido').value,
@@ -503,10 +483,8 @@
             origen:        document.getElementById('origen').value,
             destino:       document.getElementById('destino').value,
             hora_salida:   document.getElementById('hora_salida').value,
-            hora_ingreso:  document.getElementById('hora_ingreso').value,
             km_salida:     document.getElementById('km_s').value,
-            km_ingreso:    document.getElementById('km_i').value,
-            total_km:      document.getElementById('total_km').value,
+            kit_carretera: kitSeleccionado,
             coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
             observaciones: document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || '', imagen2: fotosArray[1] || '',
@@ -514,73 +492,89 @@
             firma:   canvas.toDataURL()
         };
 
-        await DB.supabase.from('carrozas')
-            .update({ estado: 'En Servicio', kilometraje_actual: parseInt(datosFinales.km_salida) || 0 })
-            .eq('placa', datosFinales.placa);
-
-        const res = await DB.guardarTraslado(datosFinales);
-        if (res.ok) {
-            btn.innerText = "✓ GUARDADO EXITOSO";
-            btn.style.background = "#25D366";
-            const bloqueWA = document.getElementById('bloque-wa');
-            bloqueWA.style.display = 'flex';
-            bloqueWA.style.flexDirection = 'column';
-            bloqueWA.style.gap = '8px';
-        } else {
-            alert("Error: " + (res.error?.message || res.error));
-            btn.disabled = false;
-            btn.innerText = "💾 GUARDAR EN SISTEMA";
+        setStep('step-carroza', 'act', '⏳ Actualizando vehículo...');
+        try {
+            await DB.supabase.from('carrozas').update({ 
+                estado: 'En Servicio', 
+                kilometraje_actual: parseInt(datosFinales.km_salida) 
+            }).eq('placa', datosFinales.placa);
+            
+            setStep('step-carroza', 'ok', '✅ Vehículo actualizado');
+            
+            setStep('step-traslado', 'act', '⏳ Guardando salida...');
+            const res = await DB.guardarTraslado(datosFinales);
+            if (res.ok) {
+                setStep('step-traslado', 'ok', '✅ Registro guardado');
+                btn.innerText = "✓ GUARDADO EXITOSO"; btn.style.background = "#25D366";
+                document.getElementById('bloque-wa').style.display = 'flex';
+            } else throw new Error(res.error);
+        } catch(e) {
+            setStep('step-traslado', 'err', '❌ Error: ' + e.message);
+            btn.disabled = false; btn.innerText = "💾 REINTENTAR";
         }
     }
 
     function enviarWA() {
         const hora = new Date().getHours();
         const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
+        let estadoCarroza = "Todo En Orden";
+        if (datosFinales.kit_carretera === 'incompleto') estadoCarroza = "Pendientes en Kit";
+        else if (datosFinales.kit_carretera === 'no-tiene') estadoCarroza = "Sin Kit de Carretera";
+
         const msg = saludo + "\n\n" +
             "*Reporte de Salida De Carroza*\n\n" +
-            "*Regional:* "       + datosFinales.regional    + "\n" +
-            "*Fecha:* "          + new Date().toLocaleDateString('es-CO') + "\n" +
-            "*Coordinador:* "    + datosFinales.coordinador + "\n" +
-            "*Hora De Salida:* " + datosFinales.hora_salida + "\n" +
-            "*Placa:* "          + datosFinales.placa       + "\n" +
-            "*Motivo:* "         + datosFinales.motivo      + "\n" +
-            "*Fallecido:* "      + (datosFinales.fallecido  || '---') + "\n" +
-            "*Lugar Recogida:* " + (datosFinales.clinica    || '---') + "\n" +
-            "*Origen:* "         + (datosFinales.origen     || '---') + "\n" +
-            "*Destino:* "        + (datosFinales.destino    || '---') + "\n" +
-            "*KM Salida:* "      + datosFinales.km_salida   + "\n" +
-            "*KM Ingreso:* "     + datosFinales.km_ingreso  + "\n" +
-            "*Conductor:* "      + datosFinales.conductor   + "\n\n" +
-            "*Teléfono:* "       + (datosFinales.telefono   || '---') + "\n\n" + // ✅ teléfono en WA
-            "*Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
-            "*La Carroza se Encuentra:* Todo En Orden 👍🏻";
+            "*Regional*: " + datosFinales.regional + "\n" +
+            "*Fecha:* " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
+            "*Coordinador:* " + datosFinales.coordinador + "\n" +
+            "*Hora Salida:* " + datosFinales.hora_salida + "\n" +
+            "*Placa:* " + datosFinales.placa + "\n" +
+            "*Motivo:* " + datosFinales.motivo + "\n" +
+            "*Fallecido:* " + (datosFinales.fallecido || '---') + "\n" +
+            "*Recogida:* " + (datosFinales.clinica || '---') + "\n" +
+            "*Origen:* " + (datosFinales.origen || '---') + "\n" +
+            "*Destino:* " + (datosFinales.destino || '---') + "\n" +
+            "*KM Salida:* " + datosFinales.km_salida + "\n" +
+            "*Kit De Carretera:* " + datosFinales.kit_carretera + "\n" +
+            "*Conductor:* " + datosFinales.conductor + "\n" +
+            "*Telefono:* " + (datosFinales.nnum_telefono || '---') + "\n\n" +
+            "*Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
+            "*La Carroza se Encuentra:* " + estadoCarroza;
+            
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
 
     function compartirFotos() {
         if (fotosArray.length === 0) { alert("No hay fotos para compartir."); return; }
-        if (navigator.share && navigator.canShare) {
-            Promise.all(fotosArray.map((dataUrl, i) =>
-                fetch(dataUrl).then(r => r.blob())
-                    .then(blob => new File([blob], 'evidencia_' + (i+1) + '_' + datosFinales.placa + '.jpg', { type: 'image/jpeg' }))
-            )).then(files => {
-                if (navigator.canShare({ files })) {
-                    navigator.share({ files, title: 'Evidencias J.R. - ' + datosFinales.placa }).catch(() => descargarFotos());
-                } else descargarFotos();
-            }).catch(() => descargarFotos());
-        } else descargarFotos();
+        Promise.all(fotosArray.map((url, i) => fetch(url).then(r => r.blob()).then(b => new File([b], `img_${i}.jpg`, {type: 'image/jpeg'}))))
+        .then(files => {
+            if (navigator.share) navigator.share({files, title: 'Evidencias'}).catch(descargarFotos);
+            else descargarFotos();
+        }).catch(descargarFotos);
     }
 
     function descargarFotos() {
-        fotosArray.forEach((dataUrl, i) => {
-            const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = 'evidencia_' + (i+1) + '_' + (datosFinales.placa || 'JR') + '.jpg';
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        fotosArray.forEach((url, i) => {
+            const a = document.createElement('a'); a.href = url; a.download = `foto_${i}.jpg`; a.click();
         });
         document.getElementById('instruccion-fotos').style.display = 'block';
     }
+
+    function irAtras() { window.history.back(); }
+
+    window.onload = async () => {
+        const sesionData = localStorage.getItem('usuario_sesion');
+        if (!sesionData) { window.location.href = "index.html"; return; }
+        const user = JSON.parse(sesionData);
+        document.getElementById('conductor').value = user.nombre;
+        document.getElementById('saludo').innerText = "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
+        if (user.regional) document.getElementById('regional').value = user.regional;
+
+        await cargarPlacas();
+
+        const now = new Date();
+        document.getElementById('hora_salida').value = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+    };
 </script>
-<script src="config-aplicar.js"></script>
 </body>
 </html>
