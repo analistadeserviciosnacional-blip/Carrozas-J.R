@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Solicitudes de Apoyo</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --azul: #001a70; --celeste: #e8f0fe; --blanco: #ffffff;
@@ -43,8 +42,7 @@
         .sol-card {
             background: var(--blanco); border-radius: 18px;
             overflow: hidden; box-shadow: 0 2px 10px rgba(0,26,112,0.06);
-            border: 1.5px solid #e8efff;
-            animation: fadeIn 0.3s ease;
+            border: 1.5px solid #e8efff; animation: fadeIn 0.3s ease;
         }
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
         .sol-card.urgente { border-left: 4px solid var(--naranja); }
@@ -90,17 +88,17 @@
             border-left: 3px solid var(--naranja); line-height: 1.5;
         }
 
-        /* ✅ NUEVO: badge que muestra para quién es el apoyo */
         .alcance-tag { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; margin-left: 6px; }
-        .tag-nacional  { background: #f5f3ff; color: #6d28d9; }
-        .tag-regional  { background: #ecfdf5; color: #065f46; }
-        .tag-especifica{ background: #fff7ed; color: #c2410c; }
+        .tag-nacional   { background: #f5f3ff; color: #6d28d9; }
+        .tag-regional   { background: #ecfdf5; color: #065f46; }
+        .tag-especifica { background: #fff7ed; color: #c2410c; }
 
         .btn-aceptar {
             width: 100%; padding: 15px; border: none; border-radius: 13px;
             background: var(--verde); color: white; font-weight: 800; font-size: 15px;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
             gap: 10px; transition: 0.2s; box-shadow: 0 4px 12px rgba(16,185,129,0.25);
+            font-family: inherit;
         }
         .btn-aceptar:active { transform: scale(0.98); }
 
@@ -146,8 +144,8 @@
             text-align: center; margin-bottom: 20px;
         }
         .modal-btns { display: flex; flex-direction: column; gap: 10px; }
-        .btn-confirmar { width: 100%; padding: 16px; border: none; border-radius: 13px; background: var(--verde); color: white; font-weight: 800; font-size: 16px; cursor: pointer; }
-        .btn-cancelar-m { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 13px; background: white; color: var(--gris); font-weight: 700; font-size: 14px; cursor: pointer; }
+        .btn-confirmar { width: 100%; padding: 16px; border: none; border-radius: 13px; background: var(--verde); color: white; font-weight: 800; font-size: 16px; cursor: pointer; font-family: inherit; }
+        .btn-cancelar-m { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 13px; background: white; color: var(--gris); font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
 
         .refresh-bar { text-align: center; padding: 10px; }
         .btn-refresh { background: none; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: var(--gris); cursor: pointer; }
@@ -199,254 +197,324 @@
 
 <script src="db.js"></script>
 <script>
-    let sesion = {};
-    let filtroActual = 'disponibles';
-    let todasSolicitudes = [];
-    let solPendiente = null;
+// ══════════════════════════════════════════════════════
+//  CONFIGURA ESTA URL con la de tu Apps Script desplegado
+// ══════════════════════════════════════════════════════
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec';
+// ══════════════════════════════════════════════════════
 
-    // ── INIT ──────────────────────────────────────────
-    window.onload = async () => {
-        sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        if (!sesion.nombre) { window.location.href = 'index.html'; return; }
+let sesion = {};
+let filtroActual = 'disponibles';
+let todasSolicitudes = [];
+let solPendiente = null;
 
-        const regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
-        document.getElementById('sub-info').textContent = sesion.nombre + ' · ' + regional;
+// ── INIT ──────────────────────────────────────────────
+window.onload = async () => {
+    sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+    if (!sesion.nombre) { window.location.href = 'index.html'; return; }
 
-        await cargar();
-        setInterval(cargar, 30000);
-    };
+    const regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+    document.getElementById('sub-info').textContent = sesion.nombre + ' · ' + regional;
 
-    function irAtras() {
-        const esAdmin = (sesion.usuario||'').toLowerCase()==='admin' || (sesion.rol||'').toLowerCase()==='admin';
-        const esCoord = (sesion.rol||'').toLowerCase().includes('coordinador');
-        window.location.href = esAdmin ? 'dashboard.html' : esCoord ? 'panel_coordinador.html' : 'panel_conductor.html';
-    }
+    await cargar();
+    setInterval(cargar, 30000);
+};
 
-    // ── CARGAR ────────────────────────────────────────
-    async function cargar() {
-        try {
-            const { data, error } = await DB.supabase
-                .from('solicitud_apoyo')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(100);
-            if (error) throw error;
-            todasSolicitudes = data || [];
-            renderLista();
-            actualizarBadge();
-        } catch(e) {
-            document.getElementById('lista').innerHTML =
-                '<div class="empty"><div class="icon">❌</div><p>Error al cargar</p><small>' + e.message + '</small></div>';
-        }
-    }
+function irAtras() {
+    const esAdmin = (sesion.usuario||'').toLowerCase() === 'admin' || (sesion.rol||'').toLowerCase() === 'admin';
+    const esCoord = (sesion.rol||'').toLowerCase().includes('coordinador');
+    window.location.href = esAdmin ? 'dashboard.html' : esCoord ? 'panel_coordinador.html' : 'panel_conductor.html';
+}
 
-    // ── FUNCIÓN CLAVE: determina si una solicitud es visible para MI regional ──
-    // ✅ CORREGIDO: ahora incluye solicitudes donde alcance === miRegional
-    function solicitudEsParaMiRegional(s, miRegional) {
-        const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const alcance = norm(s.alcance);
-        const regional = norm(miRegional);
+// ── CARGAR DESDE GOOGLE SHEETS ────────────────────────
+async function cargar() {
+    try {
+        const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo');
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
 
-        return (
-            alcance === 'nacional' ||           // Es para todo el país
-            alcance === regional ||              // ✅ Coordinador eligió MI regional específicamente
-            norm(s.regional_solicitante) === regional  // Es de mi misma regional
+        // Ordenar por id descendente (más reciente primero)
+        todasSolicitudes = (Array.isArray(data) ? data : []).sort(
+            (a, b) => Number(b.id || 0) - Number(a.id || 0)
         );
-    }
 
-    function actualizarBadge() {
-        const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
-        const pendientes = todasSolicitudes.filter(s =>
-            s.estado === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
-        ).length;
-        const badge = document.getElementById('badge-pendientes');
-        if (pendientes > 0) {
-            badge.style.display = 'block';
-            badge.textContent = pendientes + ' pendiente' + (pendientes > 1 ? 's' : '');
-        } else {
-            badge.style.display = 'none';
-        }
-    }
-
-    // ── FILTROS ───────────────────────────────────────
-    function setFiltro(f, el) {
-        filtroActual = f;
-        document.querySelectorAll('.filtro').forEach(b => b.classList.remove('on'));
-        el.classList.add('on');
         renderLista();
+        actualizarBadge();
+    } catch(e) {
+        document.getElementById('lista').innerHTML =
+            '<div class="empty"><div class="icon">❌</div><p>Error al cargar</p><small>' + e.message + '</small></div>';
+    }
+}
+
+// ── VISIBILIDAD PARA MI REGIONAL ──────────────────────
+function solicitudEsParaMiRegional(s, miRegional) {
+    const norm = str => (str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const alc = norm(s.alcance);
+    const reg = norm(miRegional);
+    return (alc === 'nacional' || alc === reg || norm(s.regional_solicitante) === reg);
+}
+
+function actualizarBadge() {
+    const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+    const pendientes = todasSolicitudes.filter(s =>
+        (s.estado || '').toLowerCase() === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
+    ).length;
+    const badge = document.getElementById('badge-pendientes');
+    if (pendientes > 0) {
+        badge.style.display = 'block';
+        badge.textContent = pendientes + ' pendiente' + (pendientes > 1 ? 's' : '');
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// ── FILTROS ───────────────────────────────────────────
+function setFiltro(f, el) {
+    filtroActual = f;
+    document.querySelectorAll('.filtro').forEach(b => b.classList.remove('on'));
+    el.classList.add('on');
+    renderLista();
+}
+
+// ── RENDER ────────────────────────────────────────────
+function renderLista() {
+    const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    let lista = [...todasSolicitudes];
+
+    if (filtroActual === 'disponibles') {
+        lista = lista.filter(s =>
+            (s.estado||'').toLowerCase() === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
+        );
+    } else if (filtroActual === 'mi_regional') {
+        lista = lista.filter(s =>
+            norm(s.regional_solicitante) === norm(miRegional) ||
+            norm(s.alcance) === norm(miRegional)
+        );
+    } else if (filtroActual === 'nacional') {
+        lista = lista.filter(s => norm(s.alcance) === 'nacional');
+    } else if (filtroActual === 'mis_aceptadas') {
+        // Buscar por nombre del conductor en la columna conductor_aceptó
+        lista = lista.filter(s => {
+            const ca = (s['conductor_aceptó'] || s['conductor_acepto'] || '').toLowerCase().trim();
+            return ca === (sesion.nombre||'').toLowerCase().trim();
+        });
     }
 
-    // ── RENDER ────────────────────────────────────────
-    function renderLista() {
-        const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
-        const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        let lista = [...todasSolicitudes];
+    const div = document.getElementById('lista');
+    if (!lista.length) {
+        div.innerHTML = '<div class="empty">' +
+            '<div class="icon">' + (filtroActual === 'disponibles' ? '🎉' : '📭') + '</div>' +
+            '<p>' + (filtroActual === 'disponibles' ? 'Sin solicitudes pendientes para tu regional' : 'Nada aquí todavía') + '</p>' +
+            '<small>Actualiza en unos minutos</small></div>';
+        return;
+    }
+    div.innerHTML = lista.map(s => renderCard(s, miRegional)).join('');
+}
 
-        if (filtroActual === 'disponibles') {
-            // ✅ CORREGIDO: muestra pendientes que son para MI regional (cualquier forma)
-            lista = lista.filter(s =>
-                s.estado === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
-            );
-        } else if (filtroActual === 'mi_regional') {
-            // Solicitudes que vienen DE mi regional o que me piden A mí
-            lista = lista.filter(s =>
-                norm(s.regional_solicitante) === norm(miRegional) ||
-                norm(s.alcance) === norm(miRegional)
-            );
-        } else if (filtroActual === 'nacional') {
-            lista = lista.filter(s => norm(s.alcance) === 'nacional');
-        } else if (filtroActual === 'mis_aceptadas') {
-            lista = lista.filter(s => s['conductor_aceptó'] === sesion.nombre);
-        }
+function renderCard(s, miRegional) {
+    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const yaAceptada = (s.estado||'').toLowerCase() !== 'pendiente';
+    const conductorAcepto = s['conductor_aceptó'] || s['conductor_acepto'] || '';
+    const esLaMia = norm(conductorAcepto) === norm(sesion.nombre||'');
+    const tiempo  = tiempoAtras(s.created_at);
 
-        const div = document.getElementById('lista');
+    const urgencia = (s.urgencia||'normal').toLowerCase();
+    const barClass = urgencia === 'critica' ? 'bar-critica' : urgencia === 'urgente' ? 'bar-urgente' : 'bar-normal';
+    const barIcon  = urgencia === 'critica' ? '🚨 CRÍTICA'  : urgencia === 'urgente' ? '⚡ URGENTE'  : '✅ Normal';
+    const cardClass= urgencia === 'critica' ? 'critica'     : urgencia === 'urgente' ? 'urgente'    : '';
 
-        if (!lista.length) {
-            div.innerHTML = '<div class="empty">' +
-                '<div class="icon">' + (filtroActual==='disponibles' ? '🎉' : '📭') + '</div>' +
-                '<p>' + (filtroActual==='disponibles' ? 'Sin solicitudes pendientes para tu regional' : 'Nada aquí todavía') + '</p>' +
-                '<small>Actualiza en unos minutos</small></div>';
-            return;
-        }
-
-        div.innerHTML = lista.map(s => renderCard(s, miRegional)).join('');
+    let alcanceTag = '';
+    if (norm(s.alcance) === 'nacional') {
+        alcanceTag = '<span class="alcance-tag tag-nacional">🌎 Nacional</span>';
+    } else if (norm(s.alcance) === norm(miRegional)) {
+        alcanceTag = '<span class="alcance-tag tag-especifica">🎯 Para ' + miRegional + '</span>';
+    } else {
+        alcanceTag = '<span class="alcance-tag tag-regional">📍 ' + (s.alcance || 'Regional') + '</span>';
     }
 
-    function renderCard(s, miRegional) {
-        const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const yaAceptada = s.estado !== 'pendiente';
-        const esLaMia    = s['conductor_aceptó'] === sesion.nombre;
-        const tiempo     = tiempoAtras(s.created_at);
+    // ── Fechas y horas limpias ──
+    const fechaLimpia = formatFecha(s.fecha_servicio);
+    const horaLimpia  = formatHora(s.hora_requerida);
+    const idSol = String(s.id || '');
 
-        const barClass  = s.urgencia === 'critica' ? 'bar-critica' : s.urgencia === 'urgente' ? 'bar-urgente' : 'bar-normal';
-        const barIcon   = s.urgencia === 'critica' ? '🚨 CRÍTICA'  : s.urgencia === 'urgente' ? '⚡ URGENTE'  : '✅ Normal';
-        const cardClass = s.urgencia === 'critica' ? 'critica'     : s.urgencia === 'urgente' ? 'urgente'    : '';
-
-        // ✅ Badge de alcance más descriptivo
-        let alcanceTag = '';
-        if (norm(s.alcance) === 'nacional') {
-            alcanceTag = '<span class="alcance-tag tag-nacional">🌎 Nacional</span>';
-        } else if (norm(s.alcance) === norm(miRegional)) {
-            alcanceTag = '<span class="alcance-tag tag-especifica">🎯 Para ' + miRegional + '</span>';
-        } else {
-            alcanceTag = '<span class="alcance-tag tag-regional">📍 ' + (s.alcance || 'Regional') + '</span>';
-        }
-
-        return '<div class="sol-card ' + cardClass + '">' +
-
-            '<div class="sol-urgencia-bar ' + barClass + '">' + barIcon + alcanceTag + '</div>' +
-
-            '<div class="sol-body">' +
-                '<div class="sol-top">' +
-                    '<div>' +
-                        '<div class="sol-regional">📍 ' + (s.regional_solicitante||'---') + '</div>' +
-                        '<div style="font-size:11px;color:var(--gris);margin-top:2px;">Solicitado por ' + (s.coordinador||'---') + '</div>' +
-                    '</div>' +
-                    '<div class="sol-tiempo">' + tiempo + '</div>' +
+    return '<div class="sol-card ' + cardClass + '">' +
+        '<div class="sol-urgencia-bar ' + barClass + '">' + barIcon + alcanceTag + '</div>' +
+        '<div class="sol-body">' +
+            '<div class="sol-top">' +
+                '<div>' +
+                    '<div class="sol-regional">📍 ' + (s.regional_solicitante||'---') + '</div>' +
+                    '<div style="font-size:11px;color:var(--gris);margin-top:2px;">Solicitado por ' + (s.coordinador||'---') + '</div>' +
                 '</div>' +
-
-                '<div class="sol-tipo">' + (s.tipo_servicio||'---') + '</div>' +
-
-                '<div class="sol-ruta">' +
-                    '<div class="ciudad">🚩 ' + (s.origen||'---') + '</div>' +
-                    '<div class="flecha">➔</div>' +
-                    '<div class="ciudad" style="text-align:right;">🏁 ' + (s.destino||'---') + '</div>' +
-                '</div>' +
-
-                '<div class="sol-detalles">' +
-                    (s.nombre_fallecido ? '<div class="detalle-item"><div class="d-label">Fallecido</div><div class="d-val">⚱️ ' + s.nombre_fallecido + '</div></div>' : '') +
-                    (s.clinica_hospital ? '<div class="detalle-item"><div class="d-label">Lugar</div><div class="d-val">🏥 ' + s.clinica_hospital + '</div></div>' : '') +
-                    (s.fecha_servicio   ? '<div class="detalle-item"><div class="d-label">Fecha</div><div class="d-val">📅 ' + s.fecha_servicio + '</div></div>' : '') +
-                    (s.hora_requerida   ? '<div class="detalle-item"><div class="d-label">Hora</div><div class="d-val">🕒 ' + s.hora_requerida + '</div></div>' : '') +
-                '</div>' +
-
-                (s.observaciones ? '<div class="sol-obs">📝 ' + s.observaciones + '</div>' : '') +
-
-                (!yaAceptada ?
-                    '<button class="btn-aceptar" onclick="pedirConfirmar(' + s.id + ')">' +
-                        '<span>🤝</span> ACEPTAR ESTE SERVICIO' +
-                    '</button>'
-                : esLaMia ?
-                    '<div class="sol-aceptada-info">✅ Aceptada por ti · Estado: ' + estadoLabel(s.estado) + '</div>'
-                :
-                    '<div class="sol-aceptada-info" style="background:#f1f5f9;color:var(--gris);">Aceptada por ' + (s['conductor_aceptó']||'otro conductor') + '</div>'
-                ) +
+                '<div class="sol-tiempo">' + tiempo + '</div>' +
             '</div>' +
-        '</div>';
-    }
+            '<div class="sol-tipo">' + (s.tipo_servicio||'---') + '</div>' +
+            '<div class="sol-ruta">' +
+                '<div class="ciudad">🚩 ' + (s.origen||'---') + '</div>' +
+                '<div class="flecha">➔</div>' +
+                '<div class="ciudad" style="text-align:right;">🏁 ' + (s.destino||'---') + '</div>' +
+            '</div>' +
+            '<div class="sol-detalles">' +
+                (s.nombre_fallecido ? '<div class="detalle-item"><div class="d-label">Fallecido</div><div class="d-val">⚱️ ' + s.nombre_fallecido + '</div></div>' : '') +
+                (s.clinica_hospital ? '<div class="detalle-item"><div class="d-label">Lugar</div><div class="d-val">🏥 ' + s.clinica_hospital + '</div></div>' : '') +
+                (fechaLimpia        ? '<div class="detalle-item"><div class="d-label">Fecha</div><div class="d-val">📅 ' + fechaLimpia + '</div></div>' : '') +
+                (horaLimpia         ? '<div class="detalle-item"><div class="d-label">Hora</div><div class="d-val">🕒 ' + horaLimpia + '</div></div>' : '') +
+            '</div>' +
+            (s.observaciones ? '<div class="sol-obs">📝 ' + s.observaciones + '</div>' : '') +
+            (!yaAceptada ?
+                '<button class="btn-aceptar" onclick="pedirConfirmar(\'' + idSol + '\')">' +
+                    '<span>🤝</span> ACEPTAR ESTE SERVICIO' +
+                '</button>'
+            : esLaMia ?
+                '<div class="sol-aceptada-info">✅ Aceptada por ti · Estado: ' + estadoLabel(s.estado) + '</div>'
+            :
+                '<div class="sol-aceptada-info" style="background:#f1f5f9;color:var(--gris);">Aceptada por ' + (conductorAcepto||'otro conductor') + '</div>'
+            ) +
+        '</div>' +
+    '</div>';
+}
 
-    // ── CONFIRMAR ─────────────────────────────────────
-    function pedirConfirmar(id) {
-        solPendiente = todasSolicitudes.find(s => s.id === id);
-        if (!solPendiente) return;
-        document.getElementById('modal-ruta-info').innerHTML =
-            '🚩 ' + (solPendiente.origen||'---') + '  ➔  🏁 ' + (solPendiente.destino||'---') +
-            (solPendiente.nombre_fallecido ? '<br><small style="font-weight:500;color:#64748b;">⚱️ ' + solPendiente.nombre_fallecido + '</small>' : '');
-        document.getElementById('modal-bg').classList.add('open');
-    }
-
-    function cerrarModal() {
-        document.getElementById('modal-bg').classList.remove('open');
-        solPendiente = null;
-    }
-
-    async function confirmarAceptar() {
-        if (!solPendiente) return;
-        const btn = document.getElementById('btn-confirmar-final');
-        btn.disabled = true;
-        btn.textContent = '⏳ Procesando...';
-
-        try {
-            const { error } = await DB.supabase
-                .from('solicitud_apoyo')
-                .update({ estado: 'aceptada', 'conductor_aceptó': sesion.nombre })
-                .eq('id', solPendiente.id);
-            if (error) throw error;
-
-            localStorage.setItem('apoyo_prellenado', JSON.stringify({
-                solicitud_id:  solPendiente.id,
-                fallecido:     solPendiente.nombre_fallecido || '',
-                clinica:       solPendiente.clinica_hospital || '',
-                origen:        solPendiente.origen || '',
-                destino:       solPendiente.destino || '',
-                motivo:        solPendiente.tipo_servicio || 'Servicio Funerario',
-                coordinador:   solPendiente.coordinador || '',
-                observaciones: solPendiente.observaciones || ''
-            }));
-            localStorage.setItem('apoyo_id_activo', solPendiente.id);
-
-            toast('✅ Apoyo aceptado — abriendo formulario...', '#10b981');
-            cerrarModal();
-            setTimeout(() => { window.location.href = 'registro_salida.html'; }, 1000);
-
-        } catch(e) {
-            toast('❌ Error: ' + e.message, '#dc2626');
-            btn.disabled = false;
-            btn.textContent = '✅ ACEPTAR Y LLENAR SALIDA';
+// ── FORMATEAR FECHA ───────────────────────────────────
+// Sheets puede devolver "Mon Apr 20 2026 02:00:00 GMT..." — extraer YYYY-MM-DD
+function formatFecha(val) {
+    if (!val || String(val).trim() === '') return '';
+    const s = String(val).trim();
+    // Formato limpio YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+    // Fecha larga → parsear
+    try {
+        const d = new Date(s);
+        if (!isNaN(d.getTime()) && d.getFullYear() > 1970 && d.getFullYear() < 2100) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth()+1).padStart(2,'0');
+            const day = String(d.getDate()).padStart(2,'0');
+            return y + '-' + m + '-' + day;
         }
-    }
+    } catch(e) {}
+    return s;
+}
 
-    // ── HELPERS ───────────────────────────────────────
-    function estadoLabel(e) {
-        return { pendiente:'Pendiente', aceptada:'Aceptada', en_curso:'En Curso', completada:'Completada' }[e] || e;
-    }
+// ── FORMATEAR HORA ────────────────────────────────────
+// Sheets guarda horas como número serial → "Sat Dec 30 1899 17:41:44..."
+// Solución: usar getUTCHours/getUTCMinutes en ese caso
+function formatHora(val) {
+    if (!val || String(val).trim() === '') return '';
+    const s = String(val).trim();
+    // Ya es HH:MM
+    if (/^\d{1,2}:\d{2}/.test(s)) return s.substring(0, 5);
+    try {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+            // Si el año es 1899/1900 es número serial de Excel → usar UTC
+            if (d.getFullYear() <= 1900) {
+                const h = String(d.getUTCHours()).padStart(2,'0');
+                const m = String(d.getUTCMinutes()).padStart(2,'0');
+                return h + ':' + m;
+            }
+            // Fecha normal → hora local
+            const h = String(d.getHours()).padStart(2,'0');
+            const m = String(d.getMinutes()).padStart(2,'0');
+            return h + ':' + m;
+        }
+    } catch(e) {}
+    return s;
+}
 
-    function tiempoAtras(ts) {
-        if (!ts) return '';
-        const m = Math.floor((Date.now() - new Date(ts)) / 60000);
-        if (m < 1)  return 'Ahora';
-        if (m < 60) return 'Hace ' + m + 'min';
-        const h = Math.floor(m/60);
-        if (h < 24) return 'Hace ' + h + 'h';
-        return 'Hace ' + Math.floor(h/24) + 'd';
-    }
+// ── CONFIRMAR MODAL ───────────────────────────────────
+function pedirConfirmar(id) {
+    solPendiente = todasSolicitudes.find(s => String(s.id) === String(id));
+    if (!solPendiente) { toast('⚠️ No se encontró la solicitud', '#f59e0b'); return; }
+    document.getElementById('modal-ruta-info').innerHTML =
+        '🚩 ' + (solPendiente.origen||'---') + '  ➔  🏁 ' + (solPendiente.destino||'---') +
+        (solPendiente.nombre_fallecido ? '<br><small style="font-weight:500;color:#64748b;">⚱️ ' + solPendiente.nombre_fallecido + '</small>' : '');
+    document.getElementById('modal-bg').classList.add('open');
+}
 
-    function toast(msg, color) {
-        const t = document.getElementById('toast');
-        t.textContent = msg; t.style.background = color || '#1e293b';
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 3000);
+function cerrarModal() {
+    document.getElementById('modal-bg').classList.remove('open');
+    solPendiente = null;
+}
+
+// ── ACEPTAR → ACTUALIZAR SHEETS → PRELLENAR → IR A SALIDA ──
+async function confirmarAceptar() {
+    if (!solPendiente) return;
+    const btn = document.getElementById('btn-confirmar-final');
+    btn.disabled = true;
+    btn.textContent = '⏳ Procesando...';
+
+    try {
+        // 1. Actualizar estado en Google Sheets
+        const payload = {
+            estado: 'aceptada',
+            'conductor_aceptó': sesion.nombre
+        };
+        const resp = await fetch(
+            APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=update&idCol=id&idValue=' + encodeURIComponent(solPendiente.id),
+            { method: 'POST', body: JSON.stringify(payload) }
+        );
+        const res = await resp.json();
+        if (res.ok === false || res.error) throw new Error(res.error || 'Error al actualizar en Sheets');
+
+        // 2. Guardar datos en localStorage para prellenar registro_salida.html
+        localStorage.setItem('apoyo_prellenado', JSON.stringify({
+            solicitud_id:  String(solPendiente.id),
+            fallecido:     solPendiente.nombre_fallecido || '',
+            clinica:       solPendiente.clinica_hospital || '',
+            origen:        solPendiente.origen || '',
+            destino:       solPendiente.destino || '',
+            motivo:        solPendiente.tipo_servicio || 'Servicio Funerario',
+            coordinador:   solPendiente.coordinador || '',
+            observaciones: solPendiente.observaciones || '',
+            fecha:         formatFecha(solPendiente.fecha_servicio) || '',
+            hora:          formatHora(solPendiente.hora_requerida) || ''
+        }));
+        localStorage.setItem('apoyo_id_activo', String(solPendiente.id));
+
+        // 3. Notificación in-app Supabase (no crítico si falla)
+        try {
+            await DB.supabase.from('notificaciones_apoyo').insert([{
+                tipo:      'apoyo_aceptado',
+                titulo:    '✅ Apoyo Aceptado',
+                cuerpo:    sesion.nombre + ' aceptó: ' + (solPendiente.origen||'') + ' → ' + (solPendiente.destino||''),
+                regional:  solPendiente.regional_solicitante || '',
+                alcance:   solPendiente.alcance || '',
+                leido:     false,
+                remitente: sesion.nombre
+            }]);
+        } catch(eN) { console.warn('Notif in-app:', eN.message); }
+
+        toast('✅ Apoyo aceptado — abriendo formulario...', '#10b981');
+        cerrarModal();
+        setTimeout(() => { window.location.href = 'registro_salida.html'; }, 900);
+
+    } catch(e) {
+        toast('❌ Error: ' + e.message, '#dc2626');
+        btn.disabled = false;
+        btn.textContent = '✅ ACEPTAR Y LLENAR SALIDA';
     }
+}
+
+// ── HELPERS ───────────────────────────────────────────
+function estadoLabel(e) {
+    return { pendiente:'Pendiente', aceptada:'Aceptada', en_curso:'En Curso', completada:'Completada' }[(e||'').toLowerCase()] || e;
+}
+
+function tiempoAtras(ts) {
+    if (!ts) return '';
+    const m = Math.floor((Date.now() - new Date(ts)) / 60000);
+    if (m < 1)  return 'Ahora';
+    if (m < 60) return 'Hace ' + m + 'min';
+    const h = Math.floor(m/60);
+    if (h < 24) return 'Hace ' + h + 'h';
+    return 'Hace ' + Math.floor(h/24) + 'd';
+}
+
+function toast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.background = color || '#1e293b';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
 </script>
 <script src="config-aplicar.js"></script>
 </body>
