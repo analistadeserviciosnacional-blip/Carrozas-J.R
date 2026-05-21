@@ -218,83 +218,69 @@
         } catch(e) {
             select.innerHTML = '<option>Error al cargar placas</option>';
         }
-    
-    // ── AL ELEGIR PLACA (Corregido) ───────────────────────────
-async function alSeleccionarPlaca() {
-    const placa = document.getElementById('placa').value;
-    const subInfo = document.getElementById('km-sub-info');
-    
-    if (!placa) {
+    }
+
+    // ── AL ELEGIR PLACA (CORREGIDA) ────────────────────────
+    async function alSeleccionarPlaca() {
+        const placa = document.getElementById('placa').value;
+        const subInfo = document.getElementById('km-sub-info');
         window._kmSalidaActivo = 0;
-        subInfo.innerText = 'Selecciona la placa para calcular automáticamente';
+
+        if (!placa) {
+            subInfo.innerText = 'Selecciona la placa para calcular automáticamente';
+            calcularTotal();
+            return;
+        }
+
+        subInfo.innerText = '🔍 Buscando datos de salida...';
+
+        try {
+            const res = await DB.obtenerTrasladosRecientes(200);
+            const todos = res.data || [];
+            const activo = todos.find(r =>
+                String(r.placa || '').trim().toUpperCase() === placa.trim().toUpperCase() &&
+                (!r.km__ingreso || String(r.km__ingreso).trim() === '')
+            );
+
+            if (activo) {
+                // Leer km__salida (doble guion) o km_salida (un guion) según tu base de datos
+                window._kmSalidaActivo = parseFloat(activo.km__salida || activo.km_salida || 0);
+                subInfo.innerText = 'KM salida: ' + window._kmSalidaActivo.toLocaleString('es-CO') +
+                    ' | Hora salida: ' + (activo.hora_de_salida || '--');
+                window._idSalidaActivo = activo.id_salida || '';
+            } else {
+                subInfo.innerText = 'No se encontró traslado activo para esta placa';
+            }
+        } catch(e) {
+            subInfo.innerText = 'Error al obtener datos de salida';
+        }
         calcularTotal();
-        return;
     }
 
-    subInfo.innerText = '🔍 Buscando datos de salida...';
+    // ── CÁLCULO TOTAL KM (CORREGIDA) ───────────────────────
+    function calcularTotal() {
+        const kmI = parseFloat(document.getElementById('km_ingreso').value) || 0;
+        const kmS = window._kmSalidaActivo || 0;
+        const display = document.getElementById('total-km-display');
+        const card = document.getElementById('total-km-card');
+        const hiddenTotal = document.getElementById('total_km');
 
-    try {
-        const res = await DB.obtenerTrasladosRecientes(200);
-        const todos = res.data || [];
-        
-        // Buscamos el registro que coincida con la placa y no tenga kilometraje de ingreso
-        const activo = todos.find(r =>
-            String(r.placa || '').trim().toUpperCase() === placa.trim().toUpperCase() &&
-            (!r.km__ingreso || String(r.km__ingreso).trim() === '')
-        );
-
-        if (activo) {
-            // Intentamos leer tanto km__salida (doble raya) como km_salida (una raya) por seguridad
-            const kmSalidaRaw = activo.km__salida || activo.km_salida || 0;
-            window._kmSalidaActivo = parseFloat(kmSalidaRaw);
-            
-            subInfo.innerText = 'KM salida: ' + window._kmSalidaActivo.toLocaleString('es-CO') +
-                                ' | Hora salida: ' + (activo.hora_de_salida || '--');
-            window._idSalidaActivo = activo.id_salida || '';
+        if (kmI > 0 && kmS > 0) {
+            const total = kmI - kmS;
+            if (total >= 0) {
+                display.innerText = total.toLocaleString('es-CO') + ' KM';
+                hiddenTotal.value = total.toFixed(1);
+                card.style.borderColor = '#16a34a';
+            } else {
+                display.innerText = 'Error: KM menor';
+                card.style.borderColor = '#dc2626';
+            }
         } else {
-            window._kmSalidaActivo = 0;
-            subInfo.innerText = '⚠️ No se encontró salida activa para esta placa';
+            display.innerText = '— KM';
+            card.style.borderColor = '#86efac';
         }
-    } catch(e) {
-        console.error("Error al obtener datos:", e);
-        window._kmSalidaActivo = 0;
-        subInfo.innerText = '❌ Error al conectar con la base de datos';
     }
-    calcularTotal();
-}
 
-// ── CÁLCULO TOTAL KM (Corregido) ──────────────────────────
-function calcularTotal() {
-    const inputKmI = document.getElementById('km_ingreso');
-    const display = document.getElementById('total-km-display');
-    const card = document.getElementById('total-km-card');
-    const hiddenTotal = document.getElementById('total_km');
-
-    const kmI = parseFloat(inputKmI.value) || 0;
-    const kmS = window._kmSalidaActivo || 0;
-
-    // Solo calculamos si hay un KM de llegada mayor al de salida
-    if (kmI > 0 && kmS > 0) {
-        const total = kmI - kmS;
-        
-        if (total < 0) {
-            display.innerText = "Error";
-            display.style.color = "#dc2626"; // Rojo si el KM ingreso es menor al de salida
-            hiddenTotal.value = 0;
-            card.style.borderColor = "#dc2626";
-        } else {
-            display.innerText = total.toLocaleString('es-CO') + ' KM';
-            display.style.color = "var(--verde)";
-            hiddenTotal.value = total.toFixed(1);
-            card.style.borderColor = '#16a34a'; // Verde éxito
-        }
-    } else {
-        display.innerText = '— KM';
-        display.style.color = "var(--verde)";
-        hiddenTotal.value = 0;
-        card.style.borderColor = '#86efac';
-    }
-}
     // ── ESTADO DE ENTREGA ─────────────────────────────────
     function seleccionarEstado(valor) {
         estadoSeleccionado = valor;
@@ -341,7 +327,7 @@ function calcularTotal() {
             recibido_por:   document.getElementById('recibido_por').value,
         };
 
-        // ── Paso 1: actualizar carroza a Disponible ────────
+        // Paso 1: Carroza
         setStep('step-carroza', 'act', '⏳ Actualizando estado de carroza...');
         try {
             await DB.actualizarCarroza(placa, {
@@ -353,25 +339,15 @@ function calcularTotal() {
             setStep('step-carroza', 'ok', '⚠️ Carroza: se omitió (no crítico)');
         }
 
-        // ── Paso 2: guardar llegada con DB.guardarLlegada() ──
+        // Paso 2: Registro
         setStep('step-llegada', 'act', '⏳ Guardando registro de llegada...');
         try {
-            const res = await DB.guardarLlegada({
-                placa:          datosFinales.placa,
-                hora_ingreso:   datosFinales.hora_ingreso,
-                km_ingreso:     parseInt(datosFinales.km_ingreso),
-                total_km:       datosFinales.total_km,
-                estado_entrega: datosFinales.estado_entrega,
-                observaciones:  datosFinales.observaciones,
-                recibido_por:   datosFinales.recibido_por,
-            });
+            const res = await DB.guardarLlegada(datosFinales);
+            if (!res.ok) throw new Error(res.error || 'Error al guardar');
 
-            if (!res.ok) throw new Error(res.error || 'Error al guardar llegada');
-
-            // Actualizar traslado activo con km y hora de ingreso
             if (window._idSalidaActivo) {
-                await DB.actualizar('Traslado',
-                    { km__ingreso: parseInt(kmI), hora_de_ingreso: hora },
+                await DB.actualizar('Traslado', 
+                    { km__ingreso: parseInt(kmI), hora_de_ingreso: hora }, 
                     'id_salida', window._idSalidaActivo
                 );
             }
@@ -380,31 +356,26 @@ function calcularTotal() {
             btn.innerText = "✓ SERVICIO FINALIZADO";
             btn.style.background = "#16a34a";
             document.getElementById('bloque-wa').style.display = 'block';
-
         } catch(e) {
             setStep('step-llegada', 'err', '❌ Error: ' + e.message);
-            alert("❌ Error al guardar llegada:\n" + e.message);
-            btn.disabled  = false;
+            btn.disabled = false;
             btn.innerText = "🏁 REINTENTAR";
         }
+    }
 
     // ── WHATSAPP ──────────────────────────────────────────
     function enviarWA() {
-        const hora = new Date().getHours();
-        const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
-        const msg = saludo + "\n\n" +
-            "🏁 *Reporte de Llegada De Carroza*\n\n" +
-            "🚗 *Placa:* "          + datosFinales.placa          + "\n" +
-            "🕐 *Hora Llegada:* "   + datosFinales.hora_ingreso   + "\n" +
-            "📊 *KM Ingreso:* "     + parseInt(datosFinales.km_ingreso).toLocaleString('es-CO') + "\n" +
-            "🛣️ *Total KM:* "       + datosFinales.total_km       + " km\n" +
-            "🔍 *Estado Entrega:* " + datosFinales.estado_entrega + "\n" +
-            "👤 *Recibido Por:* "   + datosFinales.recibido_por   + "\n\n" +
-            "📝 *Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
-            "✅ *Servicio completado exitosamente* 🙏";
+        const msg = "*Reporte de Llegada*\n\n" +
+            "🚗 *Placa:* " + datosFinales.placa + "\n" +
+            "🕐 *Hora:* " + datosFinales.hora_ingreso + "\n" +
+            "📊 *KM:* " + parseInt(datosFinales.km_ingreso).toLocaleString('es-CO') + "\n" +
+            "🛣️ *Total:* " + datosFinales.total_km + " km\n" +
+            "🔍 *Estado:* " + datosFinales.estado_entrega + "\n" +
+            "👤 *Por:* " + datosFinales.recibido_por;
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
 
+    // ── VOLVER (CORREGIDA) ────────────────────────────────
     function irAtras() {
         const user = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -415,6 +386,5 @@ function calcularTotal() {
         else window.location.href = "panel_conductor.html";
     }
 </script>
-<script src="config-aplicar.js"></script>
 </body>
 </html>
