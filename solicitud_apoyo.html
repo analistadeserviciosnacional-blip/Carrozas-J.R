@@ -498,7 +498,16 @@ async function confirmarAceptar() {
 
         toast('✅ Apoyo aceptado — abriendo formulario...', '#10b981');
         cerrarModal();
-        setTimeout(() => { window.location.href = 'registro_salida.html'; }, 900);
+        const s = solPendiente;
+const params = new URLSearchParams({
+    id:        String(s.id),
+    fallecido: s.nombre_fallecido || '',
+    recogida:  s.clinica_hospital || '',
+    origen:    s.origen  || '',
+    destino:   s.destino || '',
+    motivo:    s.tipo_servicio || ''
+});
+setTimeout(() => { window.location.href = 'registro_salida.html?' + params.toString(); }, 900);
 
     } catch(e) {
         toast('❌ Error: ' + e.message, '#dc2626');
