@@ -218,60 +218,83 @@
         } catch(e) {
             select.innerHTML = '<option>Error al cargar placas</option>';
         }
-    }
-
-    // ── AL ELEGIR PLACA ───────────────────────────────────
-    async function alSeleccionarPlaca() {
-        const placa = document.getElementById('placa').value;
-        if (!placa) return;
+    
+    // ── AL ELEGIR PLACA (Corregido) ───────────────────────────
+async function alSeleccionarPlaca() {
+    const placa = document.getElementById('placa').value;
+    const subInfo = document.getElementById('km-sub-info');
+    
+    if (!placa) {
         window._kmSalidaActivo = 0;
-
-        try {
-            // Traer traslados de esa placa y buscar el más reciente sin km_ingreso
-            const res = await DB.obtenerTrasladosRecientes(200);
-            const todos = res.data || [];
-            const activo = todos.find(r =>
-                String(r.placa || '').trim().toUpperCase() === placa.trim().toUpperCase() &&
-                (!r.km__ingreso || String(r.km__ingreso).trim() === '')
-            );
-
-            if (activo) {
-                window._kmSalidaActivo = parseInt(activo.km__salida) || 0;
-                document.getElementById('km-sub-info').innerText =
-                    'KM salida: ' + window._kmSalidaActivo.toLocaleString('es-CO') +
-                    ' | Hora salida: ' + (activo.hora_de_salida || '--');
-                // Guardar id_salida para actualizar después
-                window._idSalidaActivo = activo.id_salida || '';
-            } else {
-                document.getElementById('km-sub-info').innerText = 'No se encontró traslado activo para esta placa';
-            }
-        } catch(e) {
-            window._kmSalidaActivo = 0;
-        }
+        subInfo.innerText = 'Selecciona la placa para calcular automáticamente';
         calcularTotal();
+        return;
     }
 
-    // ── CÁLCULO TOTAL KM ──────────────────────────────────
-    function calcularTotal() {
-        const kmI   = parseFloat(document.getElementById('km_ingreso').value) || 0;
-        const kmS   = window._kmSalidaActivo || 0;
-        const total = (kmI > 0 && kmS > 0) ? (kmI - kmS) : 0;
-        document.getElementById('total_km').value = total.toFixed(1);
+    subInfo.innerText = '🔍 Buscando datos de salida...';
 
-        const display = document.getElementById('total-km-display');
-        const card    = document.getElementById('total-km-card');
+    try {
+        const res = await DB.obtenerTrasladosRecientes(200);
+        const todos = res.data || [];
+        
+        // Buscamos el registro que coincida con la placa y no tenga kilometraje de ingreso
+        const activo = todos.find(r =>
+            String(r.placa || '').trim().toUpperCase() === placa.trim().toUpperCase() &&
+            (!r.km__ingreso || String(r.km__ingreso).trim() === '')
+        );
 
-        if (kmI > 0 && kmS > 0 && total >= 0) {
-            display.innerText = total.toLocaleString('es-CO') + ' KM';
-            card.style.borderColor = '#16a34a';
-        } else if (kmI > 0) {
-            display.innerText = '— KM';
-            document.getElementById('km-sub-info').innerText = 'Selecciona la placa para calcular automáticamente';
+        if (activo) {
+            // Intentamos leer tanto km__salida (doble raya) como km_salida (una raya) por seguridad
+            const kmSalidaRaw = activo.km__salida || activo.km_salida || 0;
+            window._kmSalidaActivo = parseFloat(kmSalidaRaw);
+            
+            subInfo.innerText = 'KM salida: ' + window._kmSalidaActivo.toLocaleString('es-CO') +
+                                ' | Hora salida: ' + (activo.hora_de_salida || '--');
+            window._idSalidaActivo = activo.id_salida || '';
         } else {
-            display.innerText = '— KM';
+            window._kmSalidaActivo = 0;
+            subInfo.innerText = '⚠️ No se encontró salida activa para esta placa';
         }
+    } catch(e) {
+        console.error("Error al obtener datos:", e);
+        window._kmSalidaActivo = 0;
+        subInfo.innerText = '❌ Error al conectar con la base de datos';
     }
+    calcularTotal();
+}
 
+// ── CÁLCULO TOTAL KM (Corregido) ──────────────────────────
+function calcularTotal() {
+    const inputKmI = document.getElementById('km_ingreso');
+    const display = document.getElementById('total-km-display');
+    const card = document.getElementById('total-km-card');
+    const hiddenTotal = document.getElementById('total_km');
+
+    const kmI = parseFloat(inputKmI.value) || 0;
+    const kmS = window._kmSalidaActivo || 0;
+
+    // Solo calculamos si hay un KM de llegada mayor al de salida
+    if (kmI > 0 && kmS > 0) {
+        const total = kmI - kmS;
+        
+        if (total < 0) {
+            display.innerText = "Error";
+            display.style.color = "#dc2626"; // Rojo si el KM ingreso es menor al de salida
+            hiddenTotal.value = 0;
+            card.style.borderColor = "#dc2626";
+        } else {
+            display.innerText = total.toLocaleString('es-CO') + ' KM';
+            display.style.color = "var(--verde)";
+            hiddenTotal.value = total.toFixed(1);
+            card.style.borderColor = '#16a34a'; // Verde éxito
+        }
+    } else {
+        display.innerText = '— KM';
+        display.style.color = "var(--verde)";
+        hiddenTotal.value = 0;
+        card.style.borderColor = '#86efac';
+    }
+}
     // ── ESTADO DE ENTREGA ─────────────────────────────────
     function seleccionarEstado(valor) {
         estadoSeleccionado = valor;
@@ -364,7 +387,6 @@
             btn.disabled  = false;
             btn.innerText = "🏁 REINTENTAR";
         }
-    }
 
     // ── WHATSAPP ──────────────────────────────────────────
     function enviarWA() {
