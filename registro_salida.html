@@ -367,16 +367,22 @@
 
         validarCompatibilidad();
 
-        if (estado === 'En Taller') {
+        if (estado === 'En Taller' || estado === 'En Servicio') {
+            const msjDetalle = estado === 'En Taller' 
+                ? 'La carroza está en taller y <b>no debe ser usada</b>.' 
+                : 'La carroza ya está <b>EN SERVICIO</b> (debe registrar llegada primero).';
+
             alertaEl.className = 'alerta-vehiculo en-taller';
             alertaEl.style.display = 'block';
             alertaEl.innerHTML = `
                 <div style="text-align:center;">
-                    <div class="av-titulo">⚠️ VEHÍCULO EN TALLER</div>
-                    <div class="av-msg">La carroza está en taller y <b>no debe ser usada</b>.</div>
+                    <div class="av-titulo">⚠️ VEHÍCULO NO DISPONIBLE</div>
+                    <div class="av-msg">${msjDetalle}</div>
                     <div class="av-bloqueo">🚫 RESTRICCIÓN DE SALIDA</div>
                 </div>`;
-            return;
+            
+            document.getElementById('km_s').value = ""; // Limpia el KM para evitar errores
+            return; // Detiene el proceso aquí
         }
 
         try {
