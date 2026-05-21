@@ -1,7 +1,8 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v9.3
- *  + Logo persistente en hoja "config" de Google Sheets
+ *  CONECTOR J.R. CARROZAS — db.js  v10.0 (VERSIÓN DEFINITIVA)
+ *  Basado en v9.3 Completo + Triple Acción Automatizada
+ *  ¡NO MODIFICAR ESTRUCTURA DE GASQueryBuilder!
  * ══════════════════════════════════════════════════════════
  */
 
@@ -16,7 +17,7 @@ const SHEET_MAP = {
   'mantenimientos':       'mantenimientos',
   'solicitud_apoyo':      'solicitud_apoyo',
   'notificaciones_apoyo': 'notificaciones_apoyo',
-  'config':               'config',   // ← NUEVO: hoja para logo y configuración
+  'config':               'config',
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
@@ -82,43 +83,30 @@ class GASQueryBuilder {
   }
 
   select()            { return this; }
-
   eq(col, val)        { this._filters.push({ col, val: String(val) }); return this; }
-
-  // Soporta .is(col, null) — usado para buscar traslados sin km_ingreso
   is(col, val) {
     if (val === null || val === undefined || val === '') {
       this._isNullFilters.push({ col });
     }
     return this;
   }
-
   ilike(col, pattern) { this._ilikes.push({ col, val: pattern.replace(/%/g,'').toLowerCase() }); return this; }
-
   order(col, opts={}) { this._orders.push({ col, asc: opts.ascending !== false }); return this; }
-
   limit(n)            { this._limitN = n; return this; }
-
   single()            { this._single = true; return this; }
-
   update(payload)     { this._updatePayload = payload; return this; }
-
-  // NUEVO: soporta .insert([{...}]) o .insert({...})
   insert(payload) {
     this._insertPayload = Array.isArray(payload) ? payload[0] : payload;
     return this;
   }
 
   then(resolve, reject) {
-    // ── INSERT ───────────────────────────────────────────
     if (this._insertPayload !== null) {
       gasWrite(this._table, this._insertPayload, 'insert')
         .then(res => resolve({ data: null, error: res.ok ? null : { message: res.error } }))
         .catch(err => resolve({ data: null, error: { message: err.message } }));
       return;
     }
-
-    // ── UPDATE ───────────────────────────────────────────
     if (this._updatePayload !== null) {
       const f = this._filters[0];
       if (!f) { resolve({ data: null, error: { message: 'update requiere .eq()' } }); return; }
@@ -127,25 +115,17 @@ class GASQueryBuilder {
         .catch(err => resolve({ data: null, error: { message: err.message } }));
       return;
     }
-
-    // ── SELECT ───────────────────────────────────────────
     gasGet(this._table)
       .then(rows => {
-        // filtros eq
         for (const f of this._filters)
           rows = rows.filter(r => String(r[f.col]||'').trim().toLowerCase() === f.val.trim().toLowerCase());
-        // filtros is(col, null) — filas donde la columna está vacía o ausente
         for (const f of this._isNullFilters)
           rows = rows.filter(r => r[f.col] === null || r[f.col] === undefined || String(r[f.col]).trim() === '');
-        // ilike
         for (const f of this._ilikes)
           rows = rows.filter(r => String(r[f.col]||'').toLowerCase().includes(f.val));
-        // orden
         for (const o of this._orders)
           rows.sort((a,b) => { const va=String(a[o.col]||''), vb=String(b[o.col]||''); return o.asc ? va.localeCompare(vb) : vb.localeCompare(va); });
-        // límite
         if (this._limitN) rows = rows.slice(0, this._limitN);
-
         resolve(this._single
           ? { data: rows[0]||null, error: rows.length ? null : { message: 'No rows' } }
           : { data: rows, error: null });
@@ -208,7 +188,7 @@ const DB = {
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  // ── GUARDAR TRASLADO ──────────────────────────────────────
+  // ── GUARDAR TRASLADO (Modificado para actualizar estado) ──
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
@@ -237,10 +217,17 @@ const DB = {
       imagen4:                d.imagen4               || '',
       kit_carretera:          d.kit_carretera         || '',
     };
-    return await gasWrite('Traslado', fila, 'insert');
+    const res = await gasWrite('Traslado', fila, 'insert');
+    if (res.ok) {
+        await this.actualizarCarroza(d.placa, { 
+            estado: 'En Servicio', 
+            kilometraje_actual: parseInt(d.km_salida) || 0 
+        });
+    }
+    return res;
   },
 
-  // ── GUARDAR LLEGADA ───────────────────────────────────────
+  // ── GUARDAR LLEGADA (Modificado para actualizar estado) ──
   async guardarLlegada(d) {
     const fila = {
       id:             'L-' + Date.now(),
@@ -254,10 +241,17 @@ const DB = {
       recibido_por:   d.recibido_por   || '',
       created_at:     new Date().toISOString(),
     };
-    return await gasWrite('Llegadas', fila, 'insert');
+    const res = await gasWrite('Llegadas', fila, 'insert');
+    if (res.ok) {
+        await this.actualizarCarroza(d.placa, { 
+            estado: 'Disponible', 
+            kilometraje_actual: parseInt(d.km_ingreso) || 0 
+        });
+    }
+    return res;
   },
 
-  // ── GUARDAR AVERÍA ────────────────────────────────────────
+  // ── GUARDAR AVERÍA (Triple Acción Integrada) ──────────────
   async guardarAveria(d) {
     const fila = {
       id:                   'AV-' + Date.now(),
@@ -274,7 +268,32 @@ const DB = {
       imagen4:              d.imagen4               || '',
       created_at:           new Date().toISOString(),
     };
-    return await gasWrite('Averias', fila, 'insert');
+    
+    const res = await gasWrite('Averias', fila, 'insert');
+    
+    if (res.ok) {
+        // 1. Marcar Carroza En Taller
+        await this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' });
+        
+        // 2. Crear Orden de Mantenimiento Pendiente
+        const h = new Date();
+        const fechaISO = h.getFullYear() + '-' + (h.getMonth()+1).toString().padStart(2,'0') + '-' + h.getDate().toString().padStart(2,'0');
+        
+        const filaMant = {
+            fecha: fechaISO,
+            placa: d.placa_vehiculo,
+            tipo_servicio: 'Avería — ' + (d.tipo_falla || 'Falla mecánica'),
+            kilometraje_servicio: 0,
+            costo: 0,
+            taller: 'Por asignar',
+            responsable: d.reportado_por,
+            observaciones: `🚨 ORDEN POR AVERÍA\nSíntomas: ${d.descripcion_sintomas}\nReportado por: ${d.reportado_por}`,
+            km_proximo_cambio: 0,
+            estado_orden: 'pendiente'
+        };
+        await gasWrite('mantenimientos', filaMant, 'insert');
+    }
+    return res;
   },
 
   async actualizarCarroza(placa, campos) {
@@ -297,34 +316,21 @@ const DB = {
     } catch(e) { return { ok: false, error: e.message }; }
   },
 
-  // ══════════════════════════════════════════════════════════
-  //  LOGO — Lee y guarda en hoja "config" (columnas: clave | valor)
-  // ══════════════════════════════════════════════════════════
-
   async obtenerLogo() {
     try {
       const rows = await gasGet('config');
       const fila = rows.find(r => String(r.clave||'').trim() === 'logo_app');
       return { ok: true, logo: (fila && fila.valor && fila.valor.length > 10) ? fila.valor : null };
-    } catch(e) {
-      return { ok: false, logo: null, error: e.message };
-    }
+    } catch(e) { return { ok: false, logo: null, error: e.message }; }
   },
 
   async guardarLogo(base64) {
     try {
       const rows  = await gasGet('config');
       const existe = rows.find(r => String(r.clave||'').trim() === 'logo_app');
-      if (existe) {
-        // Ya existe la fila → actualizar
-        return await gasWrite('config', { valor: base64 }, 'update', 'clave', 'logo_app');
-      } else {
-        // No existe → insertar por primera vez
-        return await gasWrite('config', { clave: 'logo_app', valor: base64 }, 'insert');
-      }
-    } catch(e) {
-      return { ok: false, error: e.message };
-    }
+      if (existe) return await gasWrite('config', { valor: base64 }, 'update', 'clave', 'logo_app');
+      else return await gasWrite('config', { clave: 'logo_app', valor: base64 }, 'insert');
+    } catch(e) { return { ok: false, error: e.message }; }
   },
 
   async eliminarLogo() {
