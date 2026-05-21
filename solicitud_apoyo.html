@@ -453,37 +453,20 @@ async function confirmarAceptar() {
     try {
         if (!solPendiente.id) throw new Error('La solicitud no tiene ID válido');
 
-        // ✅ FIX: idCol e idValue van dentro del body, no en la URL
-        const payload = {
-            idCol:            'id',
-            idValue:          String(solPendiente.id),
-            estado:           'aceptada',
-            'conductor_aceptó': sesion.nombre
-        };
-
-        const resp = await fetch(
-            APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=update',
-            { method: 'POST', body: JSON.stringify(payload) }
+        // ✅ USA DB.actualizar() — pasa idCol e idValue en la URL como el sistema espera
+        const res = await DB.actualizar(
+            'solicitud_apoyo',
+            {
+                estado:             'aceptada',
+                'conductor_aceptó': sesion.nombre
+            },
+            'id',
+            String(solPendiente.id)
         );
-        const res = await resp.json();
-        if (res.ok === false || res.error) throw new Error(res.error || 'Error al actualizar en Sheets');
 
-        // Guardar datos en localStorage para prellenar registro_salida.html
-        localStorage.setItem('apoyo_prellenado', JSON.stringify({
-            solicitud_id:  String(solPendiente.id),
-            fallecido:     solPendiente.nombre_fallecido || '',
-            clinica:       solPendiente.clinica_hospital || '',
-            origen:        solPendiente.origen  || '',
-            destino:       solPendiente.destino || '',
-            motivo:        solPendiente.tipo_servicio || 'Servicio Funerario',
-            coordinador:   solPendiente.coordinador   || '',
-            observaciones: solPendiente.observaciones || '',
-            fecha:         formatFecha(solPendiente.fecha_servicio),
-            hora:          formatHora(solPendiente.hora_requerida)
-        }));
-        localStorage.setItem('apoyo_id_activo', String(solPendiente.id));
+        if (!res.ok) throw new Error(res.error || 'Error al actualizar solicitud');
 
-        // Notificación in-app Supabase (no crítico)
+        // Notificación in-app (no crítico)
         try {
             await DB.supabase.from('notificaciones_apoyo').insert([{
                 tipo:      'apoyo_aceptado',
@@ -497,22 +480,30 @@ async function confirmarAceptar() {
         } catch(eN) { console.warn('Notif in-app:', eN.message); }
 
         toast('✅ Apoyo aceptado — abriendo formulario...', '#10b981');
-        cerrarModal();
+
         const s = solPendiente;
-const params = new URLSearchParams({
-    id:        String(s.id),
-    fallecido: s.nombre_fallecido || '',
-    recogida:  s.clinica_hospital || '',
-    origen:    s.origen  || '',
-    destino:   s.destino || '',
-    motivo:    s.tipo_servicio || ''
-});
-setTimeout(() => { window.location.href = 'registro_salida.html?' + params.toString(); }, 900);
+        const params = new URLSearchParams({
+            id:        String(s.id),
+            fallecido: s.nombre_fallecido || '',
+            recogida:  s.clinica_hospital || '',
+            origen:    s.origen           || '',
+            destino:   s.destino          || '',
+            motivo:    s.tipo_servicio    || ''
+        });
+
+        cerrarModal();
+        setTimeout(() => {
+            window.location.href = 'registro_salida.html?' + params.toString();
+        }, 900);
 
     } catch(e) {
         toast('❌ Error: ' + e.message, '#dc2626');
         btn.disabled = false;
         btn.textContent = '✅ ACEPTAR Y LLENAR SALIDA';
+        if (solPendiente) {
+            const btnCard = document.getElementById('btn-ac-' + solPendiente.id);
+            if (btnCard) btnCard.disabled = false;
+        }
     }
 }
 
