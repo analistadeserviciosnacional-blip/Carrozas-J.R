@@ -551,22 +551,20 @@
         const msg = saludo + "\n\n" +
             "*REPORTES DE SALIDA DE CARROZA* 🚗💨\n" +
             "───────────────────\n" +
-            "*📍 Regional:* " + datosFinales.regional + "\n" +
-            "*📅 Fecha:* " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
-            "*👨‍💼 Coordinador:* " + datosFinales.coordinador + "\n" +
-            "*⏰ Hora Salida:* " + datosFinales.hora_salida + "\n" +
-            "*🆔 Placa:* " + datosFinales.placa + "\n" +
-            "*📑 Motivo:* " + datosFinales.motivo + "\n" +
-            "───────────────────\n" +
-            "*👤 Fallecido:* " + (datosFinales.fallecido || '---') + "\n" +
-            "*🏥 Recogida:* " + (datosFinales.clinica || '---') + "\n" +
-            "*🚩 Origen:* " + (datosFinales.origen || '---') + "\n" +
-            "*🏁 Destino:* " + (datosFinales.destino || '---') + "\n" +
-            "───────────────────\n" +
-            "*📟 KM Salida:* " + datosFinales.km_salida + "\n" +
-            "*🧰 Kit Carretera:* " + datosFinales.kit_carretera + "\n" +
-            "*👨‍✈️ Conductor:* " + datosFinales.conductor + "\n" +
-            "*📱 Teléfono:* " + (datosFinales.nnum_telefono || '---') + "\n" +
+            "*Regional:* " + datosFinales.regional + "\n" +
+            "*Fecha:* " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
+            "*Coordinador:* " + datosFinales.coordinador + "\n" +
+            "*Hora Salida:* " + datosFinales.hora_salida + "\n" +
+            "*Placa:* " + datosFinales.placa + "\n" +
+            "*Motivo:* " + datosFinales.motivo + "\n" +
+            "*Fallecido:* " + (datosFinales.fallecido || '---') + "\n" +
+            "*Recogida:* " + (datosFinales.clinica || '---') + "\n" +
+            "*Origen:* " + (datosFinales.origen || '---') + "\n" +
+            "*Destino:* " + (datosFinales.destino || '---') + "\n" +
+            "*KM Salida:* " + datosFinales.km_salida + "\n" +
+            "*Kit Carretera:* " + datosFinales.kit_carretera + "\n" +
+            "*Conductor:* " + datosFinales.conductor + "\n" +
+            "*Teléfono:* " + (datosFinales.nnum_telefono || '---') + "\n" +
             "───────────────────\n" +
             "*📝 Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
             "*Estado del Vehículo:* " + estadoCarroza;
