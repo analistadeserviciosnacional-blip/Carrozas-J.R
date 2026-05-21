@@ -239,9 +239,6 @@
         .btn-wa-enviado { background: #94a3b8 !important; cursor: default !important; }
         
         .modal-wa-footer { padding: 16px 24px 30px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; }
-        .btn-wa-todos { 
-            width: 100%; padding: 16px; border: none; border-radius: 16px; background: #25D366; color: white; font-weight: 800; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;
-        }
         .btn-wa-cerrar { width: 100%; padding: 14px; border: 1.8px solid #e2e8f0; border-radius: 16px; background: white; color: var(--gris); font-weight: 700; cursor: pointer; }
 
         .toast { 
@@ -251,6 +248,10 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         .wa-spinner { width: 24px; height: 24px; border: 3px solid #e2e8f0; border-top-color: #25D366; border-radius: 50%; animation: spin 0.8s linear infinite; }
         .spinner-sm { width: 18px; height: 18px; border: 2.5px solid rgba(0,0,0,0.1); border-top-color: #001a70; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+        /* Estilos campo manual */
+        .manual-phone-box { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1.5px dashed #e2e8f0; }
+        .manual-input-row { display: flex; gap: 8px; margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -344,20 +345,28 @@
     <button class="btn-enviar" id="btn-crear" onclick="crearSolicitud()"><span>📤</span> ENVIAR Y NOTIFICAR</button>
 </div>
 
-<!-- MODAL WHATSAPP COMPLETO -->
+<!-- MODAL WHATSAPP CORREGIDO PARA UN SOLO NUMERO -->
 <div class="modal-wa-bg" id="modal-wa-bg">
     <div class="modal-wa-sheet">
         <div class="modal-wa-header">
             <h3>📲 Notificar por WhatsApp</h3>
-            <p>Registro guardado en sistema ✅. Envía el reporte a los conductores:</p>
+            <p>Registro guardado en sistema ✅. Selecciona un destinatario para enviar el reporte:</p>
             <div class="modal-wa-msg-box" id="wa-msg-preview"></div>
         </div>
         <div class="modal-wa-body">
+            <!-- Sección teléfono manual -->
+            <div class="manual-phone-box">
+                <label>¿Enviar a un número que no está en la lista?</label>
+                <div class="manual-input-row">
+                    <input type="tel" id="wa-manual-tel" placeholder="Número (ej: 3001234567)" style="flex:1;">
+                    <button class="btn-wa-enviar" onclick="enviarManual()">📲 Enviar</button>
+                </div>
+            </div>
+
             <div id="wa-loading" class="wa-loading"><div class="wa-spinner"></div> Cargando conductores...</div>
             <div class="wa-conductor-list" id="wa-list"></div>
         </div>
         <div class="modal-wa-footer">
-            <button class="btn-wa-todos" id="btn-wa-todos" onclick="abrirTodos()">📲 Abrir todos los WhatsApp (Automático)</button>
             <button class="btn-wa-cerrar" onclick="cerrarModalWA()">Listo — Volver al panel</button>
         </div>
     </div>
@@ -427,7 +436,6 @@
         actualizarPreview();
     }
 
-    // --- CONSTRUCCIÓN DE MENSAJE DETALLADO ---
     function generarMensajePRO(datos) {
         const emojiU = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '✅';
         const labelU = urgencia.toUpperCase();
@@ -459,7 +467,6 @@
         document.getElementById('push-dest-txt').textContent = destTxt;
     }
 
-    // --- LÓGICA DE ID S-1, S-2... ---
     async function crearSolicitud() {
         const btn = document.getElementById('btn-crear');
         const origen = document.getElementById('c-origen').value.trim(), destino = document.getElementById('c-destino').value.trim();
@@ -468,7 +475,6 @@
         btn.disabled = true; btn.innerHTML = '<span>⏳</span> CALCULANDO ID Y GUARDANDO...';
 
         try {
-            // 1. Calcular ID (S-X)
             const respList = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo');
             const filas = await respList.json();
             let n = 1;
@@ -481,7 +487,6 @@
             }
             const nuevoId = "S-" + n;
 
-            // 2. Fecha Actual
             const now = new Date();
             const created_at = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0') + " " + String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
 
@@ -503,7 +508,6 @@
                 urgencia: urgencia
             };
 
-            // 3. Guardar en Sheets
             await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', { method: 'POST', mode: 'no-cors', body: JSON.stringify(datos) });
 
             mensajeWA = generarMensajePRO(datos);
@@ -516,7 +520,6 @@
     async function abrirModalWA(reg) {
         document.getElementById('modal-wa-bg').classList.add('open');
         document.getElementById('wa-msg-preview').textContent = mensajeWA;
-        document.getElementById('wa-regional-nombre').textContent = reg;
         const list = document.getElementById('wa-list');
         list.innerHTML = ''; document.getElementById('wa-loading').style.display = 'flex';
         
@@ -528,6 +531,7 @@
             
             if (conductoresWA.length === 0) { list.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">No hay conductores en esta regional.</p>'; return; }
 
+            // Lista conductores: El usuario elije uno
             list.innerHTML = conductoresWA.map((c, i) => `
                 <div class="wa-conductor-item">
                     <div class="wa-conductor-avatar">${c.nombre[0]}</div>
@@ -537,26 +541,17 @@
                     </div>
                     <a class="btn-wa-enviar" id="wabtn-${i}" href="https://api.whatsapp.com/send?phone=57${c.telefono}&text=${encodeURIComponent(mensajeWA)}" target="_blank" onclick="marcar(${i})">📲 Enviar</a>
                 </div>`).join('');
-            
-            if (conductoresWA.length > 1) document.getElementById('btn-wa-todos').style.display = 'flex';
         } catch(e) { list.innerHTML = 'Error al cargar lista.'; }
     }
 
-    function marcar(i) { const b = document.getElementById('wabtn-'+i); b.textContent = '✅ Enviado'; b.classList.add('btn-wa-enviado'); enviados.add(i); }
-    
-    function abrirTodos() {
-        conductoresWA.forEach((c, i) => {
-            if (!enviados.has(i)) {
-                setTimeout(() => {
-                    window.open(`https://api.whatsapp.com/send?phone=57${c.telefono}&text=${encodeURIComponent(mensajeWA)}`, '_blank');
-                    marcar(i);
-                }, i * 1000);
-            }
-        });
+    function enviarManual() {
+        const tel = document.getElementById('wa-manual-tel').value.trim();
+        if (!tel) { alert('Ingresa un teléfono válido'); return; }
+        window.open(`https://api.whatsapp.com/send?phone=57${tel}&text=${encodeURIComponent(mensajeWA)}`, '_blank');
     }
 
+    function marcar(i) { const b = document.getElementById('wabtn-'+i); b.textContent = '✅ Enviado'; b.classList.add('btn-wa-enviado'); }
     function cerrarModalWA() { window.location.href = 'panel_coordinador.html'; }
-    function irAtras() { window.location.href = 'panel_coordinador.html'; }
     function toast(m, c) { const t = document.getElementById('toast'); t.textContent = m; t.style.background = c; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3500); }
 </script>
 </body>
