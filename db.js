@@ -1,361 +1,536 @@
-/**
- * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v10.3 (VERSIÓN INTEGRAL)
- *  Basado en v10.0 Completo + Bloqueo Anti-Duplicados
- *  ¡ESTRUCTURA ORIGINAL PRESERVADA AL 100%!
- * ══════════════════════════════════════════════════════════
- */
-
-const URL_GAS = "https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec";
-
-const SHEET_MAP = {
-  'carrozas':             'carrozas',
-  'Traslado':             'Traslado',
-  'Averias':              'Averias',
-  'usuarios':             'usuarios',
-  'Llegadas':             'Llegadas',
-  'mantenimientos':       'mantenimientos',
-  'solicitud_apoyo':      'solicitud_apoyo',
-  'notificaciones_apoyo': 'notificaciones_apoyo',
-  'config':               'config',
-};
-
-function resolveSheet(name) { return SHEET_MAP[name] || name; }
-
-// Fecha limpia: 17/05/2026
-function fechaHoy() {
-  const h = new Date();
-  return h.getDate().toString().padStart(2,'0') + '/' +
-         (h.getMonth()+1).toString().padStart(2,'0') + '/' +
-         h.getFullYear();
-}
-
-async function gasGet(sheetName) {
-  try {
-    const url  = `${URL_GAS}?sheetName=${encodeURIComponent(resolveSheet(sheetName))}`;
-    const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
-    if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
-    const json = await resp.json();
-    if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
-    return Array.isArray(json) ? json : [];
-  } catch (err) {
-    console.warn(`gasGet ${sheetName} error:`, err.message);
-    return [];
-  }
-}
-
-async function gasWrite(sheetName, payload, action = "insert", idCol = "", idValue = "") {
-  const urlParams = new URLSearchParams({ sheetName: resolveSheet(sheetName), action });
-  if (idCol)   urlParams.set('idCol',   idCol);
-  if (idValue) urlParams.set('idValue', idValue);
-  const url = `${URL_GAS}?${urlParams}`;
-  try {
-    const resp = await fetch(url, {
-      method:   'POST',
-      redirect: 'follow',
-      headers:  { 'Content-Type': 'text/plain' },
-      body:     JSON.stringify(payload),
-    });
-    if (!resp.ok) { console.error(`gasWrite HTTP ${resp.status}`); return { ok: false, error: `HTTP ${resp.status}` }; }
-    const text = await resp.text();
-    let json;
-    try { json = JSON.parse(text); }
-    catch(e) { return { ok: false, error: 'Respuesta no JSON: ' + text.substring(0, 200) }; }
-    if (json.ok === false) { console.error(`gasWrite error:`, json.error); return { ok: false, error: json.error || 'Error desconocido' }; }
-    return { ok: true, data: json };
-  } catch(err) {
-    console.error('gasWrite excepción:', err);
-    return { ok: false, error: err.message };
-  }
-}
-
-class GASQueryBuilder {
-  constructor(t) {
-    this._table         = t;
-    this._filters       = [];   // eq filters
-    this._isNullFilters = [];   // is(col, null) filters
-    this._ilikes        = [];
-    this._orders        = [];
-    this._limitN        = null;
-    this._single        = false;
-    this._updatePayload = null;
-    this._insertPayload = null;
-  }
-
-  select()            { return this; }
-  eq(col, val)        { this._filters.push({ col, val: String(val) }); return this; }
-  is(col, val) {
-    if (val === null || val === undefined || val === '') {
-      this._isNullFilters.push({ col });
-    }
-    return this;
-  }
-  ilike(col, pattern) { this._ilikes.push({ col, val: pattern.replace(/%/g,'').toLowerCase() }); return this; }
-  order(col, opts={}) { this._orders.push({ col, asc: opts.ascending !== false }); return this; }
-  limit(n)            { this._limitN = n; return this; }
-  single()            { this._single = true; return this; }
-  update(payload)     { this._updatePayload = payload; return this; }
-  insert(payload) {
-    this._insertPayload = Array.isArray(payload) ? payload[0] : payload;
-    return this;
-  }
-
-  then(resolve, reject) {
-    if (this._insertPayload !== null) {
-      gasWrite(this._table, this._insertPayload, 'insert')
-        .then(res => resolve({ data: null, error: res.ok ? null : { message: res.error } }))
-        .catch(err => resolve({ data: null, error: { message: err.message } }));
-      return;
-    }
-    if (this._updatePayload !== null) {
-      const f = this._filters[0];
-      if (!f) { resolve({ data: null, error: { message: 'update requiere .eq()' } }); return; }
-      gasWrite(this._table, this._updatePayload, 'update', f.col, f.val)
-        .then(res => resolve({ data: null, error: res.ok ? null : { message: res.error } }))
-        .catch(err => resolve({ data: null, error: { message: err.message } }));
-      return;
-    }
-    gasGet(this._table)
-      .then(rows => {
-        for (const f of this._filters)
-          rows = rows.filter(r => String(r[f.col]||'').trim().toLowerCase() === f.val.trim().toLowerCase());
-        for (const f of this._isNullFilters)
-          rows = rows.filter(r => r[f.col] === null || r[f.col] === undefined || String(r[f.col]).trim() === '');
-        for (const f of this._ilikes)
-          rows = rows.filter(r => String(r[f.col]||'').toLowerCase().includes(f.val));
-        for (const o of this._orders)
-          rows.sort((a,b) => { const va=String(a[o.col]||''), vb=String(b[o.col]||''); return o.asc ? va.localeCompare(vb) : vb.localeCompare(va); });
-        if (this._limitN) rows = rows.slice(0, this._limitN);
-        resolve(this._single
-          ? { data: rows[0]||null, error: rows.length ? null : { message: 'No rows' } }
-          : { data: rows, error: null });
-      })
-      .catch(err => resolve({ data: null, error: { message: err.message } }));
-  }
-}
-
-class ChannelStub { on() { return this; } subscribe() { return this; } }
-
-const DB = {
-  // Variable interna para evitar guardados dobles
-  _isSavingAveria: false,
-
-  supabase: {
-    from(t)   { return new GASQueryBuilder(t); },
-    channel() { return new ChannelStub(); },
-  },
-
-  async login(usuario, clave) {
-    try {
-      const rows  = await gasGet('usuarios');
-      const match = rows.filter(r =>
-        String(r.usuario ||'').trim().toLowerCase() === usuario.trim().toLowerCase() &&
-        String(r.password||'').trim()               === clave.trim()
-      );
-      return match.length > 0
-        ? { ok: true,  data: match[0] }
-        : { ok: false, error: 'Credenciales incorrectas' };
-    } catch(e) { return { ok: false, error: e.message }; }
-  },
-
-  async registrarUsuario(datos) {
-    return await gasWrite('usuarios', { ...datos, created_at: new Date().toISOString() }, 'insert');
-  },
-
-  async obtenerFlota() {
-    try { return { ok: true, data: await gasGet('carrozas') }; }
-    catch(e) { return { ok: false, data: [], error: e.message }; }
-  },
-
-  async obtenerTrasladosRecientes(limite = 50) {
-    try {
-      let data = await gasGet('Traslado');
-      data.sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
-      return { ok: true, data: data.slice(0, limite) };
-    } catch(e) { return { ok: false, data: [], error: e.message }; }
-  },
-
-  async obtenerTodasAverias(limite = 20) {
-    try {
-      let data = await gasGet('Averias');
-      data.sort((a,b) => String(b.created_at||b.fecha||'').localeCompare(String(a.created_at||a.fecha||'')));
-      return { ok: true, data: data.slice(0, limite) };
-    } catch(e) { return { ok: false, data: [], error: e.message }; }
-  },
-
-  async obtenerMantenimientos(limite = 50) {
-    try {
-      let data = await gasGet('mantenimientos');
-      data.sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
-      return { ok: true, data: data.slice(0, limite) };
-    } catch(e) { return { ok: false, data: [], error: e.message }; }
-  },
-
-  // ── GUARDAR TRASLADO ──
-  async guardarTraslado(d) {
-    const fila = {
-      id_salida:              'S-' + Date.now(),
-      fecha:                  fechaHoy(),
-      regional:               d.regional              || '',
-      conductor:              d.conductor             || '',
-      nnum_telefono:          d.nnum_telefono         || '',
-      placa:                  d.placa                 || '',
-      motivo_de_salida:       d.motivo                || '',
-      nombre_del_fallecido:   d.fallecido             || '',
-      clinica_hospital_o_rsd: d.clinica               || '',
-      numero_prestacion:      d.prestacion            || '',
-      origen:                 d.origen                || '',
-      destino:                d.destino               || '',
-      hora_de_salida:         d.hora_salida           || '',
-      hora_de_ingreso:        '',
-      km__salida:             d.km_salida             || '',
-      km__ingreso:            '',
-      total_km:               '',
-      coordinador_en_turno:   d.coordinador           || '',
-      observaciones:          d.observaciones         || '',
-      imagen1:                d.imagen1               || '',
-      firma:                  d.firma                 || '',
-      imagen2:                d.imagen2               || '',
-      imagen3:                d.imagen3               || '',
-      imagen4:                d.imagen4               || '',
-      kit_carretera:          d.kit_carretera         || '',
-    };
-    const res = await gasWrite('Traslado', fila, 'insert');
-    if (res.ok) {
-        await this.actualizarCarroza(d.placa, { 
-            estado: 'En Servicio', 
-            kilometraje_actual: parseInt(d.km_salida) || 0 
-        });
-    }
-    return res;
-  },
-
-  // ── GUARDAR LLEGADA ──
-  async guardarLlegada(d) {
-    const fila = {
-      id:             'L-' + Date.now(),
-      fecha:          fechaHoy(),
-      hora_ingreso:   d.hora_ingreso   || '',
-      placa:          d.placa          || '',
-      km_ingreso:     d.km_ingreso     || '',
-      total_km:       d.total_km       || '',
-      estado_entrega: d.estado_entrega || '',
-      observaciones:  d.observaciones  || '',
-      recibido_por:   d.recibido_por   || '',
-      created_at:     new Date().toISOString(),
-    };
-    const res = await gasWrite('Llegadas', fila, 'insert');
-    if (res.ok) {
-        await this.actualizarCarroza(d.placa, { 
-            estado: 'Disponible', 
-            kilometraje_actual: parseInt(d.km_ingreso) || 0 
-        });
-    }
-    return res;
-  },
-
-  // ── GUARDAR AVERÍA (CORREGIDO PARA EVITAR DOBLE GUARDADO) ──
-  async guardarAveria(d) {
-    // Bloqueo de seguridad: si ya se está guardando, salir.
-    if (this._isSavingAveria) return { ok: false, error: 'Ya hay un proceso en curso' };
-    this._isSavingAveria = true;
-
-    try {
-        const fila = {
-          id:                   'AV-' + Date.now(),
-          reportado_por:        d.reportado_por        || '',
-          regional:             d.regional             || '',
-          placa_vehiculo:       d.placa_vehiculo        || '',
-          tipo_vehiculo:        d.tipo_vehiculo         || '',
-          tipo_falla:           d.tipo_falla            || '',
-          descripcion_sintomas: d.descripcion_sintomas  || '',
-          observaciones:        d.observaciones         || '',
-          imagen1:              d.imagen1               || '',
-          imagen2:              d.imagen2               || '',
-          imagen3:              d.imagen3               || '',
-          imagen4:              d.imagen4               || '',
-          created_at:           new Date().toISOString(),
-        };
-        
-        const res = await gasWrite('Averias', fila, 'insert');
-        
-        if (res.ok) {
-            // 1. Marcar Carroza En Taller
-            await this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' });
-            
-            // 2. Crear Orden de Mantenimiento Pendiente (UNA SOLA VEZ)
-            const h = new Date();
-            const fechaISO = h.getFullYear() + '-' + (h.getMonth()+1).toString().padStart(2,'0') + '-' + h.getDate().toString().padStart(2,'0');
-            
-            const filaMant = {
-                fecha: fechaISO,
-                placa: d.placa_vehiculo,
-                tipo_servicio: 'Avería — ' + (d.tipo_falla || 'Falla mecánica'),
-                kilometraje_servicio: 0,
-                costo: 0,
-                taller: 'Por asignar',
-                responsable: d.reportado_por,
-                observaciones: `🚨 ORDEN POR AVERÍA\nSíntomas: ${d.descripcion_sintomas}\nReportado por: ${d.reportado_por}`,
-                km_proximo_cambio: 0,
-                estado_orden: 'pendiente'
-            };
-            await gasWrite('mantenimientos', filaMant, 'insert');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.R. — Solicitudes de Apoyo</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --azul: #001a70; --celeste: #e8f0fe; --blanco: #ffffff;
+            --verde: #10b981; --naranja: #f59e0b; --rojo: #dc2626;
+            --gris: #64748b; --fondo: #f0f4ff;
         }
-        return res;
-    } catch (e) {
-        return { ok: false, error: e.message };
-    } finally {
-        // Liberar el bloqueo al finalizar (sea éxito o error)
-        this._isSavingAveria = false;
-    }
-  },
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--fondo); font-family: 'DM Sans', sans-serif; color: #1e293b; min-height: 100vh; }
 
-  async actualizarCarroza(placa, campos) {
-    return await gasWrite('carrozas', campos, 'update', 'placa', placa);
-  },
+        .header {
+            background: var(--azul); color: white;
+            padding: 18px 20px 16px; position: sticky; top: 0; z-index: 50;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .header h1 { font-size: 16px; font-weight: 800; }
+        .header small { font-size: 10px; opacity: 0.7; display: block; }
+        .btn-back { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 13px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
 
-  async insertar(hoja, datos) {
-    return await gasWrite(hoja, datos, 'insert');
-  },
+        .filtros-bar {
+            display: flex; gap: 8px; padding: 14px 16px 10px;
+            overflow-x: auto; background: var(--blanco);
+            border-bottom: 1.5px solid #e2e8f0; position: sticky; top: 58px; z-index: 40;
+        }
+        .filtros-bar::-webkit-scrollbar { display: none; }
+        .filtro {
+            padding: 7px 14px; border-radius: 20px; border: 1.5px solid #e2e8f0;
+            background: var(--fondo); font-size: 12px; font-weight: 700;
+            color: var(--gris); cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: 0.15s;
+            font-family: inherit;
+        }
+        .filtro.on { background: var(--azul); color: white; border-color: var(--azul); }
 
-  async actualizar(hoja, datos, idCol, idValue) {
-    return await gasWrite(hoja, datos, 'update', idCol, idValue);
-  },
+        .lista { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 
-  async testConexion() {
-    try {
-      const resp = await fetch(URL_GAS, { method: 'GET', redirect: 'follow' });
-      const json = await resp.json();
-      return { ok: true, mensaje: json.mensaje || JSON.stringify(json) };
-    } catch(e) { return { ok: false, error: e.message }; }
-  },
+        .sol-card {
+            background: var(--blanco); border-radius: 18px;
+            overflow: hidden; box-shadow: 0 2px 10px rgba(0,26,112,0.06);
+            border: 1.5px solid #e8efff; animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+        .sol-card.urgente { border-left: 4px solid var(--naranja); }
+        .sol-card.critica { border-left: 4px solid var(--rojo); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{box-shadow:0 2px 10px rgba(220,38,38,0.1);} 50%{box-shadow:0 2px 20px rgba(220,38,38,0.3);} }
 
-  async obtenerLogo() {
-    try {
-      const rows = await gasGet('config');
-      const fila = rows.find(r => String(r.clave||'').trim() === 'logo_app');
-      return { ok: true, logo: (fila && fila.valor && fila.valor.length > 10) ? fila.valor : null };
-    } catch(e) { return { ok: false, logo: null, error: e.message }; }
-  },
+        .sol-urgencia-bar {
+            padding: 6px 16px; font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .bar-normal  { background: #ecfdf5; color: #065f46; }
+        .bar-urgente { background: #fffbeb; color: #92400e; }
+        .bar-critica { background: #fef2f2; color: #991b1b; }
 
-  async guardarLogo(base64) {
-    try {
-      const rows  = await gasGet('config');
-      const existe = rows.find(r => String(r.clave||'').trim() === 'logo_app');
-      if (existe) return await gasWrite('config', { valor: base64 }, 'update', 'clave', 'logo_app');
-      else return await gasWrite('config', { clave: 'logo_app', valor: base64 }, 'insert');
-    } catch(e) { return { ok: false, error: e.message }; }
-  },
+        .sol-body { padding: 16px; }
+        .sol-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .sol-regional { font-size: 18px; font-weight: 800; color: var(--azul); }
+        .sol-tiempo { font-size: 10px; color: var(--gris); text-align: right; line-height: 1.5; }
 
-  async eliminarLogo() {
-    return await gasWrite('config', { valor: '' }, 'update', 'clave', 'logo_app');
-  },
+        .sol-tipo {
+            display: inline-block; background: var(--celeste); color: var(--azul);
+            font-size: 10px; font-weight: 800; padding: 3px 10px;
+            border-radius: 6px; text-transform: uppercase; margin-bottom: 12px;
+        }
 
+        .sol-ruta {
+            background: var(--fondo); border-radius: 12px; padding: 12px 14px;
+            display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+            font-size: 13px; font-weight: 700;
+        }
+        .sol-ruta .ciudad { color: var(--azul); flex: 1; }
+        .sol-ruta .flecha { color: #94a3b8; font-size: 16px; }
+
+        .sol-detalles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+        .detalle-item { background: var(--fondo); border-radius: 10px; padding: 9px 11px; }
+        .detalle-item .d-label { font-size: 10px; color: var(--gris); font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
+        .detalle-item .d-val { font-size: 13px; font-weight: 700; color: #1e293b; }
+
+        .sol-obs {
+            font-size: 12px; color: #475569; background: #fffbeb;
+            border-radius: 8px; padding: 8px 11px; margin-bottom: 14px;
+            border-left: 3px solid var(--naranja); line-height: 1.5;
+        }
+
+        .alcance-tag { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; margin-left: 6px; }
+        .tag-nacional   { background: #f5f3ff; color: #6d28d9; }
+        .tag-regional   { background: #ecfdf5; color: #065f46; }
+        .tag-especifica { background: #fff7ed; color: #c2410c; }
+
+        .btn-aceptar {
+            width: 100%; padding: 15px; border: none; border-radius: 13px;
+            background: var(--verde); color: white; font-weight: 800; font-size: 15px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            gap: 10px; transition: 0.2s; box-shadow: 0 4px 12px rgba(16,185,129,0.25);
+            font-family: inherit;
+        }
+        .btn-aceptar:active { transform: scale(0.98); }
+        .btn-aceptar:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .sol-aceptada-info {
+            background: #ecfdf5; border-radius: 12px; padding: 12px 14px;
+            text-align: center; font-size: 13px; font-weight: 700; color: #065f46;
+        }
+
+        .empty { text-align: center; padding: 60px 20px; color: var(--gris); }
+        .empty .icon { font-size: 48px; margin-bottom: 12px; }
+        .empty p { font-size: 15px; font-weight: 600; }
+        .empty small { font-size: 12px; margin-top: 6px; display: block; }
+
+        .loader { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--gris); font-size: 14px; gap: 10px; }
+        .spinner { width: 20px; height: 20px; border: 2px solid #e2e8f0; border-top-color: var(--azul); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(60px);
+            background: #1e293b; color: white; padding: 13px 22px;
+            border-radius: 14px; font-size: 13px; font-weight: 600;
+            z-index: 999; opacity: 0; transition: 0.3s; white-space: nowrap;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        .modal-bg {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+            z-index: 200; align-items: flex-end; justify-content: center;
+        }
+        .modal-bg.open { display: flex; }
+        .modal-sheet {
+            background: white; border-radius: 24px 24px 0 0;
+            padding: 28px 22px 36px; width: 100%; max-width: 520px;
+        }
+        .modal-sheet h3 { font-size: 18px; font-weight: 800; color: var(--azul); margin-bottom: 6px; }
+        .modal-sheet p { font-size: 13px; color: var(--gris); margin-bottom: 20px; line-height: 1.5; }
+        .modal-ruta {
+            background: var(--fondo); border-radius: 12px; padding: 14px;
+            font-size: 14px; font-weight: 700; color: var(--azul);
+            text-align: center; margin-bottom: 20px;
+        }
+        .modal-btns { display: flex; flex-direction: column; gap: 10px; }
+        .btn-confirmar {
+            width: 100%; padding: 16px; border: none; border-radius: 13px;
+            background: var(--verde); color: white; font-weight: 800; font-size: 16px;
+            cursor: pointer; font-family: inherit; transition: 0.2s;
+        }
+        .btn-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-cancelar-m {
+            width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 13px;
+            background: white; color: var(--gris); font-weight: 700; font-size: 14px;
+            cursor: pointer; font-family: inherit;
+        }
+
+        .refresh-bar { text-align: center; padding: 10px; }
+        .btn-refresh { background: none; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: var(--gris); cursor: pointer; font-family: inherit; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <button class="btn-back" onclick="irAtras()">←</button>
+        <div>
+            <h1>🤝 Solicitudes de Apoyo</h1>
+            <small id="sub-info">Cargando...</small>
+        </div>
+    </div>
+    <div id="badge-pendientes" style="display:none; background:#ef4444; color:white; font-size:12px; font-weight:800; padding:5px 10px; border-radius:10px;"></div>
+</div>
+
+<div class="filtros-bar">
+    <div class="filtro on" onclick="setFiltro('disponibles',this)">⏳ Disponibles</div>
+    <div class="filtro"    onclick="setFiltro('mi_regional',this)">📍 Mi Regional</div>
+    <div class="filtro"    onclick="setFiltro('nacional',this)">🌎 Nacional</div>
+    <div class="filtro"    onclick="setFiltro('mis_aceptadas',this)">✅ Mis Aceptadas</div>
+</div>
+
+<div class="lista" id="lista">
+    <div class="loader"><div class="spinner"></div> Cargando solicitudes...</div>
+</div>
+
+<div class="refresh-bar">
+    <button class="btn-refresh" onclick="cargar()">↻ Actualizar</button>
+</div>
+
+<div class="modal-bg" id="modal-bg">
+    <div class="modal-sheet">
+        <h3>🤝 Confirmar Apoyo</h3>
+        <p>Al aceptar, quedarás asignado a este servicio y se abrirá el formulario de salida con los datos prellenados.</p>
+        <div class="modal-ruta" id="modal-ruta-info">---</div>
+        <div class="modal-btns">
+            <button class="btn-confirmar" id="btn-confirmar-final" onclick="confirmarAceptar()">
+                ✅ ACEPTAR Y LLENAR SALIDA
+            </button>
+            <button class="btn-cancelar-m" onclick="cerrarModal()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="db.js"></script>
+<script>
+let sesion = {};
+let filtroActual = 'disponibles';
+let todasSolicitudes = [];
+let solPendiente = null;
+
+// ── INIT ──────────────────────────────────────────────
+window.onload = async () => {
+    sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+    if (!sesion.nombre) { window.location.href = 'index.html'; return; }
+
+    const regional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+    document.getElementById('sub-info').textContent = sesion.nombre + ' · ' + regional;
+
+    await cargar();
+    setInterval(cargar, 30000);
 };
 
-window.DB = DB;
+function irAtras() {
+    const esAdmin = (sesion.usuario||'').toLowerCase() === 'admin' || (sesion.rol||'').toLowerCase() === 'admin';
+    const esCoord = (sesion.rol||'').toLowerCase().includes('coordinador');
+    window.location.href = esAdmin ? 'dashboard.html' : esCoord ? 'panel_coordinador.html' : 'panel_conductor.html';
+}
 
-DB.testConexion().then(r => {
-  if (r.ok) console.log("🟢 API J.R. conectada:", r.mensaje);
-  else      console.warn("🔴 API J.R. sin conexión:", r.error);
-});
+// ── CARGAR SOLICITUDES ────────────────────────────────
+async function cargar() {
+    try {
+        // ✅ USA DB.supabase (GASQueryBuilder) igual que todo el sistema
+        const { data, error } = await DB.supabase
+            .from('solicitud_apoyo')
+            .select();
+
+        if (error) throw new Error(error.message);
+
+        todasSolicitudes = (Array.isArray(data) ? data : []).sort(
+            (a, b) => Number(b.id || 0) - Number(a.id || 0)
+        );
+
+        renderLista();
+        actualizarBadge();
+    } catch(e) {
+        document.getElementById('lista').innerHTML =
+            '<div class="empty"><div class="icon">❌</div><p>Error al cargar</p><small>' + e.message + '</small></div>';
+    }
+}
+
+// ── VISIBILIDAD PARA MI REGIONAL ──────────────────────
+function solicitudEsParaMiRegional(s, miRegional) {
+    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const alc = norm(s.alcance || '');
+    const reg = norm(miRegional);
+    return (alc === 'nacional' || alc === reg || norm(s.regional_solicitante) === reg);
+}
+
+function actualizarBadge() {
+    const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+    const pendientes = todasSolicitudes.filter(s =>
+        (s.estado||'').toLowerCase() === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
+    ).length;
+    const badge = document.getElementById('badge-pendientes');
+    if (pendientes > 0) {
+        badge.style.display = 'block';
+        badge.textContent = pendientes + ' pendiente' + (pendientes > 1 ? 's' : '');
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// ── FILTROS ───────────────────────────────────────────
+function setFiltro(f, el) {
+    filtroActual = f;
+    document.querySelectorAll('.filtro').forEach(b => b.classList.remove('on'));
+    el.classList.add('on');
+    renderLista();
+}
+
+// ── RENDER ────────────────────────────────────────────
+function renderLista() {
+    const miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
+    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    let lista = [...todasSolicitudes];
+
+    if (filtroActual === 'disponibles') {
+        lista = lista.filter(s =>
+            (s.estado||'').toLowerCase() === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
+        );
+    } else if (filtroActual === 'mi_regional') {
+        lista = lista.filter(s =>
+            norm(s.regional_solicitante) === norm(miRegional) ||
+            norm(s.alcance) === norm(miRegional)
+        );
+    } else if (filtroActual === 'nacional') {
+        lista = lista.filter(s => norm(s.alcance) === 'nacional');
+    } else if (filtroActual === 'mis_aceptadas') {
+        lista = lista.filter(s => {
+            const ca = (s['conductor_aceptó'] || s['conductor_acepto'] || '').toLowerCase().trim();
+            return ca === (sesion.nombre||'').toLowerCase().trim();
+        });
+    }
+
+    const div = document.getElementById('lista');
+    if (!lista.length) {
+        div.innerHTML = '<div class="empty">' +
+            '<div class="icon">' + (filtroActual === 'disponibles' ? '🎉' : '📭') + '</div>' +
+            '<p>' + (filtroActual === 'disponibles' ? 'Sin solicitudes pendientes para tu regional' : 'Nada aquí todavía') + '</p>' +
+            '<small>Actualiza en unos minutos</small></div>';
+        return;
+    }
+    div.innerHTML = lista.map(s => renderCard(s, miRegional)).join('');
+}
+
+function renderCard(s, miRegional) {
+    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const yaAceptada     = (s.estado||'').toLowerCase() !== 'pendiente';
+    const conductorAcepto= s['conductor_aceptó'] || s['conductor_acepto'] || '';
+    const esLaMia        = norm(conductorAcepto) === norm(sesion.nombre||'');
+    const tiempo         = tiempoAtras(s.created_at);
+
+    const urgencia = (s.urgencia||'normal').toLowerCase();
+    const barClass = urgencia === 'critica' ? 'bar-critica' : urgencia === 'urgente' ? 'bar-urgente' : 'bar-normal';
+    const barIcon  = urgencia === 'critica' ? '🚨 CRÍTICA'  : urgencia === 'urgente' ? '⚡ URGENTE'  : '✅ Normal';
+    const cardClass= urgencia === 'critica' ? 'critica'     : urgencia === 'urgente' ? 'urgente'    : '';
+
+    let alcanceTag = '';
+    if (norm(s.alcance) === 'nacional') {
+        alcanceTag = '<span class="alcance-tag tag-nacional">🌎 Nacional</span>';
+    } else if (norm(s.alcance) === norm(miRegional)) {
+        alcanceTag = '<span class="alcance-tag tag-especifica">🎯 Para ' + miRegional + '</span>';
+    } else {
+        alcanceTag = '<span class="alcance-tag tag-regional">📍 ' + (s.alcance||'Regional') + '</span>';
+    }
+
+    const fechaLimpia = formatFecha(s.fecha_servicio);
+    const horaLimpia  = formatHora(s.hora_requerida);
+    const idSol       = String(s.id || '');
+
+    return '<div class="sol-card ' + cardClass + '">' +
+        '<div class="sol-urgencia-bar ' + barClass + '">' + barIcon + alcanceTag + '</div>' +
+        '<div class="sol-body">' +
+            '<div class="sol-top">' +
+                '<div>' +
+                    '<div class="sol-regional">📍 ' + (s.regional_solicitante||'---') + '</div>' +
+                    '<div style="font-size:11px;color:var(--gris);margin-top:2px;">Solicitado por ' + (s.coordinador||'---') + '</div>' +
+                '</div>' +
+                '<div class="sol-tiempo">' + tiempo + '</div>' +
+            '</div>' +
+            '<div class="sol-tipo">' + (s.tipo_servicio||'---') + '</div>' +
+            '<div class="sol-ruta">' +
+                '<div class="ciudad">🚩 ' + (s.origen||'---') + '</div>' +
+                '<div class="flecha">➔</div>' +
+                '<div class="ciudad" style="text-align:right;">🏁 ' + (s.destino||'---') + '</div>' +
+            '</div>' +
+            '<div class="sol-detalles">' +
+                (s.nombre_fallecido ? '<div class="detalle-item"><div class="d-label">Fallecido</div><div class="d-val">⚱️ ' + s.nombre_fallecido + '</div></div>' : '') +
+                (s.clinica_hospital ? '<div class="detalle-item"><div class="d-label">Lugar</div><div class="d-val">🏥 ' + s.clinica_hospital + '</div></div>' : '') +
+                (fechaLimpia        ? '<div class="detalle-item"><div class="d-label">Fecha</div><div class="d-val">📅 ' + fechaLimpia + '</div></div>' : '') +
+                (horaLimpia         ? '<div class="detalle-item"><div class="d-label">Hora</div><div class="d-val">🕒 ' + horaLimpia + '</div></div>' : '') +
+            '</div>' +
+            (s.observaciones ? '<div class="sol-obs">📝 ' + s.observaciones + '</div>' : '') +
+            (!yaAceptada
+                ? '<button class="btn-aceptar" id="btn-ac-' + idSol + '" onclick="pedirConfirmar(\'' + idSol + '\')">' +
+                      '<span>🤝</span> ACEPTAR ESTE SERVICIO' +
+                  '</button>'
+                : esLaMia
+                    ? '<div class="sol-aceptada-info">✅ Aceptada por ti · Estado: ' + estadoLabel(s.estado) + '</div>'
+                    : '<div class="sol-aceptada-info" style="background:#f1f5f9;color:var(--gris);">Aceptada por ' + (conductorAcepto||'otro conductor') + '</div>'
+            ) +
+        '</div>' +
+    '</div>';
+}
+
+// ── FORMATEAR FECHA ───────────────────────────────────
+function formatFecha(val) {
+    if (!val || String(val).trim() === '') return '';
+    const s = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+    try {
+        const d = new Date(s);
+        if (!isNaN(d.getTime()) && d.getFullYear() > 1970 && d.getFullYear() < 2100) {
+            return d.getFullYear() + '-' +
+                   String(d.getMonth()+1).padStart(2,'0') + '-' +
+                   String(d.getDate()).padStart(2,'0');
+        }
+    } catch(e) {}
+    return s;
+}
+
+// ── FORMATEAR HORA ────────────────────────────────────
+function formatHora(val) {
+    if (!val || String(val).trim() === '') return '';
+    const s = String(val).trim();
+    if (/^\d{1,2}:\d{2}/.test(s)) return s.substring(0, 5);
+    try {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+            if (d.getFullYear() <= 1900) {
+                return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+            }
+            return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+        }
+    } catch(e) {}
+    return s;
+}
+
+// ── CONFIRMAR MODAL ───────────────────────────────────
+function pedirConfirmar(id) {
+    solPendiente = todasSolicitudes.find(s => String(s.id) === String(id));
+    if (!solPendiente) { toast('⚠️ No se encontró la solicitud', '#f59e0b'); return; }
+
+    const btnCard = document.getElementById('btn-ac-' + id);
+    if (btnCard) btnCard.disabled = true;
+
+    document.getElementById('modal-ruta-info').innerHTML =
+        '🚩 ' + (solPendiente.origen||'---') + '  ➔  🏁 ' + (solPendiente.destino||'---') +
+        (solPendiente.nombre_fallecido
+            ? '<br><small style="font-weight:500;color:#64748b;">⚱️ ' + solPendiente.nombre_fallecido + '</small>'
+            : '');
+
+    document.getElementById('btn-confirmar-final').disabled = false;
+    document.getElementById('btn-confirmar-final').textContent = '✅ ACEPTAR Y LLENAR SALIDA';
+    document.getElementById('modal-bg').classList.add('open');
+}
+
+function cerrarModal() {
+    document.getElementById('modal-bg').classList.remove('open');
+    if (solPendiente) {
+        const btnCard = document.getElementById('btn-ac-' + solPendiente.id);
+        if (btnCard) btnCard.disabled = false;
+    }
+    solPendiente = null;
+}
+
+// ── ACEPTAR ───────────────────────────────────────────
+async function confirmarAceptar() {
+    if (!solPendiente) return;
+
+    const btn = document.getElementById('btn-confirmar-final');
+    btn.disabled = true;
+    btn.textContent = '⏳ Procesando...';
+
+    try {
+        if (!solPendiente.id) throw new Error('La solicitud no tiene ID válido');
+
+        // ✅ CORRECCIÓN PRINCIPAL: usa DB.actualizar() que llama gasWrite()
+        // correctamente con idCol e idValue como parámetros de URL,
+        // igual que el resto del sistema (actualizarCarroza, guardarLlegada, etc.)
+        const res = await DB.actualizar(
+            'solicitud_apoyo',
+            {
+                estado:             'aceptada',
+                'conductor_aceptó': sesion.nombre
+            },
+            'id',
+            String(solPendiente.id)
+        );
+
+        if (!res.ok) throw new Error(res.error || 'Error al actualizar solicitud');
+
+        // Notificación in-app Supabase (no crítico)
+        try {
+            await DB.supabase.from('notificaciones_apoyo').insert([{
+                tipo:      'apoyo_aceptado',
+                titulo:    '✅ Apoyo Aceptado',
+                cuerpo:    sesion.nombre + ' aceptó: ' + (solPendiente.origen||'') + ' → ' + (solPendiente.destino||''),
+                regional:  solPendiente.regional_solicitante || '',
+                alcance:   solPendiente.alcance || '',
+                leido:     false,
+                remitente: sesion.nombre
+            }]);
+        } catch(eN) { console.warn('Notif in-app:', eN.message); }
+
+        toast('✅ Apoyo aceptado — abriendo formulario...', '#10b981');
+
+        // ✅ Redirigir con parámetros en URL para prellenar registro_salida.html
+        const s = solPendiente;
+        const params = new URLSearchParams({
+            id:        String(s.id),
+            fallecido: s.nombre_fallecido || '',
+            recogida:  s.clinica_hospital || '',
+            origen:    s.origen           || '',
+            destino:   s.destino          || '',
+            motivo:    s.tipo_servicio    || ''
+        });
+
+        cerrarModal();
+        setTimeout(() => {
+            window.location.href = 'registro_salida.html?' + params.toString();
+        }, 900);
+
+    } catch(e) {
+        toast('❌ Error: ' + e.message, '#dc2626');
+        btn.disabled = false;
+        btn.textContent = '✅ ACEPTAR Y LLENAR SALIDA';
+        // Rehabilitar botón de la card
+        if (solPendiente) {
+            const btnCard = document.getElementById('btn-ac-' + solPendiente.id);
+            if (btnCard) btnCard.disabled = false;
+        }
+    }
+}
+
+// ── HELPERS ───────────────────────────────────────────
+function estadoLabel(e) {
+    const m = { pendiente:'Pendiente', aceptada:'Aceptada', en_curso:'En Curso', completada:'Completada' };
+    return m[(e||'').toLowerCase()] || e;
+}
+
+function tiempoAtras(ts) {
+    if (!ts) return '';
+    const m = Math.floor((Date.now() - new Date(ts)) / 60000);
+    if (m < 1)  return 'Ahora';
+    if (m < 60) return 'Hace ' + m + 'min';
+    const h = Math.floor(m/60);
+    if (h < 24) return 'Hace ' + h + 'h';
+    return 'Hace ' + Math.floor(h/24) + 'd';
+}
+
+function toast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.background = color || '#1e293b';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+<script src="config-aplicar.js"></script>
+</body>
+</html>
