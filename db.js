@@ -1,8 +1,8 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v10.0 (VERSIÓN DEFINITIVA)
- *  Basado en v9.3 Completo + Triple Acción Automatizada
- *  ¡NO MODIFICAR ESTRUCTURA DE GASQueryBuilder!
+ *  CONECTOR J.R. CARROZAS — db.js  v10.3 (VERSIÓN INTEGRAL)
+ *  Basado en v10.0 Completo + Bloqueo Anti-Duplicados
+ *  ¡ESTRUCTURA ORIGINAL PRESERVADA AL 100%!
  * ══════════════════════════════════════════════════════════
  */
 
@@ -137,6 +137,9 @@ class GASQueryBuilder {
 class ChannelStub { on() { return this; } subscribe() { return this; } }
 
 const DB = {
+  // Variable interna para evitar guardados dobles
+  _isSavingAveria: false,
+
   supabase: {
     from(t)   { return new GASQueryBuilder(t); },
     channel() { return new ChannelStub(); },
@@ -188,7 +191,7 @@ const DB = {
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  // ── GUARDAR TRASLADO (Modificado para actualizar estado) ──
+  // ── GUARDAR TRASLADO ──
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
@@ -227,7 +230,7 @@ const DB = {
     return res;
   },
 
-  // ── GUARDAR LLEGADA (Modificado para actualizar estado) ──
+  // ── GUARDAR LLEGADA ──
   async guardarLlegada(d) {
     const fila = {
       id:             'L-' + Date.now(),
@@ -251,49 +254,60 @@ const DB = {
     return res;
   },
 
-  // ── GUARDAR AVERÍA (Triple Acción Integrada) ──────────────
+  // ── GUARDAR AVERÍA (CORREGIDO PARA EVITAR DOBLE GUARDADO) ──
   async guardarAveria(d) {
-    const fila = {
-      id:                   'AV-' + Date.now(),
-      reportado_por:        d.reportado_por        || '',
-      regional:             d.regional             || '',
-      placa_vehiculo:       d.placa_vehiculo        || '',
-      tipo_vehiculo:        d.tipo_vehiculo         || '',
-      tipo_falla:           d.tipo_falla            || '',
-      descripcion_sintomas: d.descripcion_sintomas  || '',
-      observaciones:        d.observaciones         || '',
-      imagen1:              d.imagen1               || '',
-      imagen2:              d.imagen2               || '',
-      imagen3:              d.imagen3               || '',
-      imagen4:              d.imagen4               || '',
-      created_at:           new Date().toISOString(),
-    };
-    
-    const res = await gasWrite('Averias', fila, 'insert');
-    
-    if (res.ok) {
-        // 1. Marcar Carroza En Taller
-        await this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' });
-        
-        // 2. Crear Orden de Mantenimiento Pendiente
-        const h = new Date();
-        const fechaISO = h.getFullYear() + '-' + (h.getMonth()+1).toString().padStart(2,'0') + '-' + h.getDate().toString().padStart(2,'0');
-        
-        const filaMant = {
-            fecha: fechaISO,
-            placa: d.placa_vehiculo,
-            tipo_servicio: 'Avería — ' + (d.tipo_falla || 'Falla mecánica'),
-            kilometraje_servicio: 0,
-            costo: 0,
-            taller: 'Por asignar',
-            responsable: d.reportado_por,
-            observaciones: `🚨 ORDEN POR AVERÍA\nSíntomas: ${d.descripcion_sintomas}\nReportado por: ${d.reportado_por}`,
-            km_proximo_cambio: 0,
-            estado_orden: 'pendiente'
+    // Bloqueo de seguridad: si ya se está guardando, salir.
+    if (this._isSavingAveria) return { ok: false, error: 'Ya hay un proceso en curso' };
+    this._isSavingAveria = true;
+
+    try {
+        const fila = {
+          id:                   'AV-' + Date.now(),
+          reportado_por:        d.reportado_por        || '',
+          regional:             d.regional             || '',
+          placa_vehiculo:       d.placa_vehiculo        || '',
+          tipo_vehiculo:        d.tipo_vehiculo         || '',
+          tipo_falla:           d.tipo_falla            || '',
+          descripcion_sintomas: d.descripcion_sintomas  || '',
+          observaciones:        d.observaciones         || '',
+          imagen1:              d.imagen1               || '',
+          imagen2:              d.imagen2               || '',
+          imagen3:              d.imagen3               || '',
+          imagen4:              d.imagen4               || '',
+          created_at:           new Date().toISOString(),
         };
-        await gasWrite('mantenimientos', filaMant, 'insert');
+        
+        const res = await gasWrite('Averias', fila, 'insert');
+        
+        if (res.ok) {
+            // 1. Marcar Carroza En Taller
+            await this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' });
+            
+            // 2. Crear Orden de Mantenimiento Pendiente (UNA SOLA VEZ)
+            const h = new Date();
+            const fechaISO = h.getFullYear() + '-' + (h.getMonth()+1).toString().padStart(2,'0') + '-' + h.getDate().toString().padStart(2,'0');
+            
+            const filaMant = {
+                fecha: fechaISO,
+                placa: d.placa_vehiculo,
+                tipo_servicio: 'Avería — ' + (d.tipo_falla || 'Falla mecánica'),
+                kilometraje_servicio: 0,
+                costo: 0,
+                taller: 'Por asignar',
+                responsable: d.reportado_por,
+                observaciones: `🚨 ORDEN POR AVERÍA\nSíntomas: ${d.descripcion_sintomas}\nReportado por: ${d.reportado_por}`,
+                km_proximo_cambio: 0,
+                estado_orden: 'pendiente'
+            };
+            await gasWrite('mantenimientos', filaMant, 'insert');
+        }
+        return res;
+    } catch (e) {
+        return { ok: false, error: e.message };
+    } finally {
+        // Liberar el bloqueo al finalizar (sea éxito o error)
+        this._isSavingAveria = false;
     }
-    return res;
   },
 
   async actualizarCarroza(placa, campos) {
