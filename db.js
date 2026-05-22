@@ -6,7 +6,7 @@
  * ══════════════════════════════════════════════════════════
  */
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec";
 
 const SHEET_MAP = {
   'carrozas':             'carrozas',
