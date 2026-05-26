@@ -491,7 +491,7 @@
                 destino:              destino,
                 fecha_servicio:       document.getElementById('c-fecha').value,
                 hora_requerida:       document.getElementById('c-hora').value,
-                alcance:              alcance === 'especifica' ? regionalEspecifica : alcance,
+                alcance: alcance === 'especifica' ? regionalEspecifica : alcance === 'regional' ? sesion.regional : 'nacional',
                 estado:               'pendiente',
                 'conductor_aceptó':   '',
                 placa_asignada:       '',
