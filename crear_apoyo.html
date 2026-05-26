@@ -508,7 +508,7 @@
                 urgencia: urgencia
             };
 
-            await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', { method: 'POST', mode: 'no-cors', body: JSON.stringify(datos) });
+            await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(datos) });
 
             mensajeWA = generarMensajePRO(datos);
             toast('✅ Solicitud ' + nuevoId + ' Creada', '#10b981');
