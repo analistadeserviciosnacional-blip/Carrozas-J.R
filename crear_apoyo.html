@@ -27,7 +27,6 @@
             line-height: 1.5;
         }
 
-        /* ── HEADER ── */
         .header { 
             background: var(--azul); 
             color: white; 
@@ -57,7 +56,6 @@
         }
         .btn-back:hover { background: rgba(255,255,255,0.3); }
 
-        /* ── CONTENT ── */
         .content { padding: 18px; max-width: 620px; margin: 0 auto; }
         
         .card { 
@@ -85,7 +83,6 @@
             gap: 10px;
         }
 
-        /* ── FORM ── */
         label { 
             display: block; 
             font-size: 11px; 
@@ -115,7 +112,6 @@
         .form-group { margin-bottom: 15px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-        /* ── PILLS ── */
         .pills { display: flex; gap: 10px; }
         .pill { 
             flex:1; 
@@ -156,7 +152,6 @@
         .a-pill.sel-especifica { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
         .a-pill.sel-nacional   { border-color: var(--azul); background: var(--celeste); color: var(--azul); }
 
-        /* ── REGIONAL SELECTOR ── */
         .regional-selector { display: none; margin-top: 15px; padding-top: 15px; border-top: 1.5px dashed #e2e8f0; }
         .regional-selector.visible { display: block; animation: slideDown 0.3s ease; }
         @keyframes slideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:none; } }
@@ -177,7 +172,6 @@
         }
         .reg-btn.sel { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; box-shadow: 0 4px 10px rgba(139,92,246,0.15); }
 
-        /* ── BADGE ── */
         .conductores-badge { 
             display: none; align-items: center; gap: 12px; border-radius: 14px; padding: 15px; font-size: 13px; font-weight: 700; margin-top: 12px; border: 1.8px solid transparent;
         }
@@ -185,7 +179,6 @@
         .conductores-badge.loading { background: #f8faff; border-color: #e2e8f0; color: #64748b; }
         .c-num { font-size: 28px; font-weight: 900; line-height: 1; }
 
-        /* ── PUSH PREVIEW ── */
         .push-preview { 
             background: #1e293b; border-radius: 18px; padding: 16px; margin-top: 12px; position: relative; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
@@ -199,14 +192,12 @@
         .push-body { font-size: 13px; color: #94a3b8; line-height: 1.5; }
         .push-destinatarios { margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155; font-size: 11.5px; color: #64748b; display: flex; align-items: center; gap: 8px; }
 
-        /* ── BUTTONS ── */
         .btn-enviar { 
             width: 100%; padding: 18px; border: none; border-radius: 18px; background: var(--azul); color: white; font-weight: 800; font-size: 16.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; box-shadow: 0 8px 25px rgba(0,26,112,0.25); transition: all 0.3s ease; font-family:inherit; margin-top: 10px;
         }
         .btn-enviar:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,26,112,0.35); }
-        .btn-enviar:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-enviar:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-        /* ── MODAL WA ── */
         .modal-wa-bg { 
             display: none; position: fixed; inset: 0; background: rgba(0,12,50,0.65); backdrop-filter: blur(8px); z-index: 500; align-items: flex-end; justify-content: center; 
         }
@@ -249,7 +240,6 @@
         .wa-spinner { width: 24px; height: 24px; border: 3px solid #e2e8f0; border-top-color: #25D366; border-radius: 50%; animation: spin 0.8s linear infinite; }
         .spinner-sm { width: 18px; height: 18px; border: 2.5px solid rgba(0,0,0,0.1); border-top-color: #001a70; border-radius: 50%; animation: spin 0.7s linear infinite; }
 
-        /* Estilos campo manual */
         .manual-phone-box { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1.5px dashed #e2e8f0; }
         .manual-input-row { display: flex; gap: 8px; margin-top: 8px; }
     </style>
@@ -266,7 +256,6 @@
 
 <div class="content">
 
-    <!-- 1. RESPONSABLE -->
     <div class="card">
         <div class="card-title"><span>👤</span> Responsable</div>
         <div class="grid-2">
@@ -290,7 +279,6 @@
         </div>
     </div>
 
-    <!-- 2. DATOS SERVICIO -->
     <div class="card">
         <div class="card-title"><span>⚱️</span> Datos del Servicio</div>
         <div class="form-group"><label>Nombre del Fallecido</label><input type="text" id="c-fallecido" placeholder="Nombre completo"></div>
@@ -306,7 +294,6 @@
         <div class="form-group"><label>Observaciones</label><textarea id="c-obs" rows="2" placeholder="Detalles..."></textarea></div>
     </div>
 
-    <!-- 3. URGENCIA -->
     <div class="card">
         <div class="card-title"><span>🚨</span> Urgencia</div>
         <div class="pills">
@@ -316,7 +303,6 @@
         </div>
     </div>
 
-    <!-- 4. ALCANCE -->
     <div class="card">
         <div class="card-title"><span>🌎</span> Alcance de Notificación</div>
         <div class="alcance-pills">
@@ -331,7 +317,6 @@
         <div class="alcance-desc" id="alcance-desc">📍 Se notificará a conductores de tu regional.</div>
     </div>
 
-    <!-- 5. PREVIEW PUSH -->
     <div class="card">
         <div class="card-title"><span>🔔</span> Vista Previa Notificación</div>
         <div class="push-preview">
@@ -345,7 +330,6 @@
     <button class="btn-enviar" id="btn-crear" onclick="crearSolicitud()"><span>📤</span> ENVIAR Y NOTIFICAR</button>
 </div>
 
-<!-- MODAL WHATSAPP CORREGIDO PARA UN SOLO NUMERO -->
 <div class="modal-wa-bg" id="modal-wa-bg">
     <div class="modal-wa-sheet">
         <div class="modal-wa-header">
@@ -354,7 +338,6 @@
             <div class="modal-wa-msg-box" id="wa-msg-preview"></div>
         </div>
         <div class="modal-wa-body">
-            <!-- Sección teléfono manual -->
             <div class="manual-phone-box">
                 <label>¿Enviar a un número que no está en la lista?</label>
                 <div class="manual-input-row">
@@ -362,7 +345,6 @@
                     <button class="btn-wa-enviar" onclick="enviarManual()">📲 Enviar</button>
                 </div>
             </div>
-
             <div id="wa-loading" class="wa-loading"><div class="wa-spinner"></div> Cargando conductores...</div>
             <div class="wa-conductor-list" id="wa-list"></div>
         </div>
@@ -375,7 +357,8 @@
 <div class="toast" id="toast"></div>
 
 <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnusHdaZUJ6EayiWc8Xj655U-57HOiz58YdGmypuwMtb3xnd67EETpDlH0d_D8FAvvuA/exec';
+    // ✅ FIX 1: URL correcta — la misma que usa db.js y el resto del sistema
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
     
     let sesion = {}, urgencia = 'normal', alcance = 'regional', regionalEspecifica = '', conductoresWA = [], mensajeWA = '', enviados = new Set();
     const REGIONALES = ['Pereira','Risaralda','Quindío','Caldas','Antioquia','Valle Centro','Valle Norte','Valle Sur','C/ Marca','Tolima Norte','Palmira'];
@@ -469,69 +452,96 @@
 
     async function crearSolicitud() {
         const btn = document.getElementById('btn-crear');
-        const origen = document.getElementById('c-origen').value.trim(), destino = document.getElementById('c-destino').value.trim();
+        const origen = document.getElementById('c-origen').value.trim();
+        const destino = document.getElementById('c-destino').value.trim();
         if (!origen || !destino) { toast('⚠️ Origen y Destino obligatorios', '#f59e0b'); return; }
 
-        btn.disabled = true; btn.innerHTML = '<span>⏳</span> CALCULANDO ID Y GUARDANDO...';
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> CALCULANDO ID Y GUARDANDO...';
 
         try {
             const respList = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo');
             const filas = await respList.json();
             let n = 1;
-            if (filas.length > 0) {
+            if (Array.isArray(filas) && filas.length > 0) {
                 const nums = filas.map(f => {
-                    const idStr = String(f.id || "");
-                    return idStr.startsWith("S-") ? parseInt(idStr.replace("S-", "")) : parseInt(idStr);
+                    const idStr = String(f.id || '');
+                    return idStr.startsWith('S-') ? parseInt(idStr.replace('S-', '')) : parseInt(idStr);
                 }).filter(val => !isNaN(val));
                 n = nums.length > 0 ? Math.max(...nums) + 1 : filas.length + 1;
             }
-            const nuevoId = "S-" + n;
+            const nuevoId = 'S-' + n;
 
             const now = new Date();
-            const created_at = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0') + " " + String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+            const created_at = now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0') + ' ' +
+                String(now.getHours()).padStart(2, '0') + ':' +
+                String(now.getMinutes()).padStart(2, '0');
 
             const datos = {
-                id: nuevoId,
-                created_at: created_at,
+                id:                   nuevoId,
+                created_at:           created_at,
                 regional_solicitante: sesion.regional,
-                coordinador: sesion.nombre,
-                tipo_servicio: document.getElementById('c-tipo').value,
-                nombre_fallecido: document.getElementById('c-fallecido').value.trim(),
-                clinica_hospital: document.getElementById('c-clinica').value.trim(),
-                origen: origen,
-                destino: destino,
-                fecha_servicio: document.getElementById('c-fecha').value,
-                hora_requerida: document.getElementById('c-hora').value,
-                alcance: alcance === 'especifica' ? regionalEspecifica : alcance,
-                estado: 'pendiente',
-                observaciones: document.getElementById('c-obs').value.trim(),
-                urgencia: urgencia
+                coordinador:          sesion.nombre,
+                tipo_servicio:        document.getElementById('c-tipo').value,
+                nombre_fallecido:     document.getElementById('c-fallecido').value.trim(),
+                clinica_hospital:     document.getElementById('c-clinica').value.trim(),
+                origen:               origen,
+                destino:              destino,
+                fecha_servicio:       document.getElementById('c-fecha').value,
+                hora_requerida:       document.getElementById('c-hora').value,
+                alcance:              alcance === 'especifica' ? regionalEspecifica : alcance,
+                estado:               'pendiente',
+                'conductor_aceptó':   '',
+                placa_asignada:       '',
+                observaciones:        document.getElementById('c-obs').value.trim(),
+                urgencia:             urgencia
             };
 
-            await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(datos) });
+            // ✅ FIX 2: sin mode:'no-cors' + header Content-Type correcto
+            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', {
+                method:  'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body:    JSON.stringify(datos)
+            });
+
+            const result = await resp.json();
+            if (!result.ok) throw new Error(result.error || 'Error al guardar');
 
             mensajeWA = generarMensajePRO(datos);
             toast('✅ Solicitud ' + nuevoId + ' Creada', '#10b981');
-            abrirModalWA(alcance === 'regional' ? sesion.regional : (alcance === 'especifica' ? regionalEspecifica : 'NACIONAL'));
 
-        } catch(e) { toast('❌ Error al guardar', '#dc2626'); btn.disabled = false; btn.innerHTML = '📤 REINTENTAR'; }
+            const destReg = alcance === 'regional' ? sesion.regional : (alcance === 'especifica' ? regionalEspecifica : 'NACIONAL');
+            abrirModalWA(destReg);
+
+        } catch(e) {
+            toast('❌ Error: ' + e.message, '#dc2626');
+            btn.disabled = false;
+            btn.innerHTML = '<span>📤</span> REINTENTAR';
+        }
     }
 
     async function abrirModalWA(reg) {
         document.getElementById('modal-wa-bg').classList.add('open');
         document.getElementById('wa-msg-preview').textContent = mensajeWA;
         const list = document.getElementById('wa-list');
-        list.innerHTML = ''; document.getElementById('wa-loading').style.display = 'flex';
+        list.innerHTML = '';
+        document.getElementById('wa-loading').style.display = 'flex';
         
         try {
             const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=usuarios');
             const users = await resp.json();
-            conductoresWA = users.filter(u => (reg==='NACIONAL' || u.regional === reg) && u.rol === 'conductor' && u.telefono);
+            conductoresWA = (Array.isArray(users) ? users : []).filter(u =>
+                (reg === 'NACIONAL' || u.regional === reg) && u.rol === 'conductor' && u.telefono
+            );
             document.getElementById('wa-loading').style.display = 'none';
             
-            if (conductoresWA.length === 0) { list.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">No hay conductores en esta regional.</p>'; return; }
+            if (conductoresWA.length === 0) {
+                list.innerHTML = '<p style="text-align:center; padding:20px; color:#64748b;">No hay conductores en esta regional.</p>';
+                return;
+            }
 
-            // Lista conductores: El usuario elije uno
             list.innerHTML = conductoresWA.map((c, i) => `
                 <div class="wa-conductor-item">
                     <div class="wa-conductor-avatar">${c.nombre[0]}</div>
@@ -541,7 +551,9 @@
                     </div>
                     <a class="btn-wa-enviar" id="wabtn-${i}" href="https://api.whatsapp.com/send?phone=57${c.telefono}&text=${encodeURIComponent(mensajeWA)}" target="_blank" onclick="marcar(${i})">📲 Enviar</a>
                 </div>`).join('');
-        } catch(e) { list.innerHTML = 'Error al cargar lista.'; }
+        } catch(e) {
+            list.innerHTML = '<p style="color:#dc2626; padding:20px;">Error al cargar lista: ' + e.message + '</p>';
+        }
     }
 
     function enviarManual() {
@@ -550,9 +562,20 @@
         window.open(`https://api.whatsapp.com/send?phone=57${tel}&text=${encodeURIComponent(mensajeWA)}`, '_blank');
     }
 
-    function marcar(i) { const b = document.getElementById('wabtn-'+i); b.textContent = '✅ Enviado'; b.classList.add('btn-wa-enviado'); }
+    function marcar(i) {
+        const b = document.getElementById('wabtn-' + i);
+        b.textContent = '✅ Enviado';
+        b.classList.add('btn-wa-enviado');
+    }
+
     function cerrarModalWA() { window.location.href = 'panel_coordinador.html'; }
-    function toast(m, c) { const t = document.getElementById('toast'); t.textContent = m; t.style.background = c; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3500); }
+
+    function toast(m, c) {
+        const t = document.getElementById('toast');
+        t.textContent = m; t.style.background = c;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3500);
+    }
 </script>
 </body>
 </html>
