@@ -293,9 +293,8 @@ function renderLista() {
             (s.estado||'').toLowerCase() === 'pendiente' && solicitudEsParaMiRegional(s, miRegional)
         );
     } else if (filtroActual === 'mi_regional') {
-        lista = lista.filter(s =>
-            norm(s.regional_solicitante) === norm(miRegional) ||
-            norm(s.alcance) === norm(miRegional)
+    const norm2 = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    lista = lista.filter(s => solicitudEsParaMiRegional(s, miRegional));
         );
     } else if (filtroActual === 'nacional') {
         lista = lista.filter(s => norm(s.alcance) === 'nacional');
