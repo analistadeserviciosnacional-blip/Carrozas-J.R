@@ -448,19 +448,19 @@
     }
 
     // ── CARGA DE DATOS ────────────────────────────────────────
-   async function cargarSalidasRecientes(nombre) {
-    const { data, error } = await DB.obtenerDatos('Traslado');
+async function cargarSalidasRecientes(nombre) {
     const tabla = document.getElementById('tabla-salidas');
-
-    if (error || !data || data.length === 0) {
+    
+    const { ok, data } = await DB.obtenerTrasladosRecientes(200);
+    
+    if (!ok || !data || data.length === 0) {
         tabla.innerHTML = '<tr><td colspan="3" style="text-align:center; font-size:11px;">Sin salidas registradas recientemente.</td></tr>';
         return;
     }
 
     const misSalidas = data
         .filter(s => (s.conductor || '').toLowerCase().includes(nombre.toLowerCase()))
-        .slice(-3)
-        .reverse();
+        .slice(0, 3);
 
     if (misSalidas.length === 0) {
         tabla.innerHTML = '<tr><td colspan="3" style="text-align:center; font-size:11px;">Sin salidas registradas recientemente.</td></tr>';
@@ -490,7 +490,6 @@
         </tr>`
     ).join('');
 }
-
     async function cargarResumenAverias(nombre) {
         const { data, error } = await DB.supabase
             .from('Averias').select('placa_vehiculo, tipo_falla, created_at')
