@@ -449,63 +449,64 @@
 
     // ── CARGA DE DATOS ────────────────────────────────────────
 async function cargarSalidasRecientes(nombre) {
-    // 1. Buscamos el contenedor en el HTML (el id="tabla-salidas")
-    const tablaUI = document.getElementById('tabla-salidas');
-    
-    // 2. Traemos los datos de la tabla "Traslado" a través de tu clase DB
+    const tabla = document.getElementById('tabla-salidas');
     const { ok, data } = await DB.obtenerTrasladosRecientes(200);
     
     if (!ok || !data || data.length === 0) {
-        tablaUI.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#94a3b8;">No hay traslados registrados.</td></tr>';
+        tabla.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:15px; color:#94a3b8; font-size:12px;">Sin registros.</td></tr>';
         return;
     }
 
-    // 3. Filtramos por tu nombre de conductor (normalizando texto)
     const nombreBusqueda = norm(nombre);
     const misSalidas = data
         .filter(s => norm(s.conductor).includes(nombreBusqueda))
-        .slice(0, 5); // Tomar solo las 5 más recientes
+        .slice(0, 5);
 
     if (misSalidas.length === 0) {
-        tablaUI.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#94a3b8;">No tienes salidas recientes.</td></tr>';
+        tabla.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:15px; color:#94a3b8; font-size:12px;">No tienes salidas registradas.</td></tr>';
         return;
     }
 
-    // 4. Dibujamos las filas con los nombres exactos de tus columnas de Excel/DB
-    tablaUI.innerHTML = misSalidas.map(s => {
-        
-        // --- PROCESAR FECHA Y HORA ---
-        // En tu Excel la fecha está en columna B y la hora en columna M
-        let fechaMostrar = "---";
+    tabla.innerHTML = misSalidas.map(s => {
+        // --- LIMPIEZA DE FECHA ---
+        let fechaCorta = "---";
         if (s.fecha) {
-            // Limpiamos la fecha por si viene con hora 00:00:00
-            const soloFecha = s.fecha.split('T')[0]; 
-            const hora = s.hora_de_salida || ""; // Columna M
-            fechaMostrar = `${soloFecha} ${hora}`;
+            const f = new Date(s.fecha);
+            // Si la fecha es válida, sacamos DD/MM
+            if (!isNaN(f.getTime())) {
+                fechaCorta = String(f.getDate()).padStart(2, '0') + '/' + String(f.getMonth() + 1).padStart(2, '0');
+            }
+        }
+
+        // --- LIMPIEZA DE HORA (Evita el error de 1899) ---
+        let horaCorta = "";
+        if (s.hora_de_salida) {
+            // Si viene como string largo "Wed May...", buscamos los dos puntos ":"
+            // O si es un objeto Date, extraemos las horas y minutos
+            const h = new Date(s.hora_de_salida);
+            if (!isNaN(h.getTime())) {
+                horaCorta = h.getHours().toString().padStart(2, '0') + ':' + h.getMinutes().toString().padStart(2, '0');
+            } else {
+                // Si falla como fecha, intentamos tratarlo como texto simple
+                horaCorta = s.hora_de_salida.toString().substring(0, 5);
+            }
         }
 
         return `
-        <tr style="border-bottom: 1px solid #f1f5f9;">
-          <td style="padding: 12px 5px;">
-            <b style="font-size:16px; color:#001a70; display:block;">${s.placa || 'S/P'}</b>
-            <small style="color:#64748b; font-weight:600;">🏙️ ${s.regional || 'Quindío'}</small>
+        <tr>
+          <td style="padding: 10px 5px; width: 80px;">
+            <b style="font-size:15px; color:#001a70;">${s.placa || 'S/P'}</b><br>
+            <span style="font-size:10px; color:#64748b; font-weight:700;">🏙️ ${s.regional || 'Quindío'}</span>
           </td>
-          <td style="padding: 12px 5px;">
-            <div style="font-size:13px; font-weight:700; color:#334155; margin-bottom:2px;">
-              🕊️ ${s.nombre_del_fallecido || 'S/N'}
-            </div>
-            <div style="font-size:11px; color:#64748b;">
-              📍 <span style="display:inline-block; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                ${s.destino || 'Local'}
-              </span>
-            </div>
+          <td style="padding: 10px 5px;">
+            <div style="font-size:12px; font-weight:700; color:#334155;">🕊️ ${s.nombre_del_fallecido || 'S/N'}</div>
+            <div style="font-size:11px; color:#64748b;">📍 ${s.destino || 'Local'}</div>
           </td>
-          <td style="padding: 12px 5px; text-align:right;">
-            <div style="font-size:10px; color:#1e293b; font-weight:bold; background:#e2e8f0; padding:3px 6px; border-radius:5px; display:inline-block; margin-bottom:4px; white-space:nowrap;">
-              ${fechaMostrar}
+          <td style="padding: 10px 5px; text-align:right;">
+            <div style="font-size:11px; font-weight:800; color:#1e293b; margin-bottom:4px;">
+                ${fechaCorta} <span style="color:#94a3b8; font-weight:400;">|</span> ${horaCorta}
             </div>
-            <br>
-            <span class="servicio-pill" style="font-size:9px; padding:2px 6px;">
+            <span class="servicio-pill" style="font-size:9px; background:#e0e7ff; color:#001a70; padding:2px 6px; border-radius:6px; font-weight:800;">
                 ${(s.motivo_de_salida || 'SERVICIO').toUpperCase()}
             </span>
           </td>
