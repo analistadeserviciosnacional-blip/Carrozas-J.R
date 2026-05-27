@@ -3,15 +3,14 @@
   "short_name": "App Carroza J.R.",
   "description": "Sistema de Control de Flota J.R.",
   "start_url": "./index.html",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#001a70",
   "theme_color": "#001a70",
   "icons": [
     {
       "src": "https://drive.google.com/uc?export=view&id=1GKSGrh_1G_zwwJAwiif3JfyxJ-gka7An",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
       "src": "https://drive.google.com/uc?export=view&id=1GKSGrh_1G_zwwJAwiif3JfyxJ-gka7An",
