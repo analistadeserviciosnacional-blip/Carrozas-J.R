@@ -104,9 +104,9 @@ async function cargarAverias() {
 function reenviarWhatsApp(av) {
     const msj = `*🚨 REPORTE DE AVERÍA J.R.*\n\n` +
         `🚗 *Vehículo:* ${av.placa_vehiculo}\n` +
-        `⚠️ *Falla:* ${av.tipo_falla}\n` +
-        `📍 *Regional:* ${av.regional || '---'}\n` +
-        `👤 *Reportado por:* ${sesion.nombre}\n` +
+        `*Falla:* ${av.tipo_falla}\n` +
+        `*Regional:* ${av.regional || '---'}\n` +
+        `*Reportado por:* ${sesion.nombre}\n` +
         `📝 *Síntomas:* ${av.descripcion_sintomas || '---'}\n\n` +
         `_Historial de App J.R._`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msj)}`, '_blank');
