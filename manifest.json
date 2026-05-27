@@ -8,15 +8,15 @@
   "theme_color": "#001a70",
   "icons": [
     {
-      "src": "https://i.imgur.com/4Pz0Oeo.png",
+      "src": "https://i.imgur.com/4Pz0Oeo.jpeg",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "https://i.imgur.com/4Pz0Oeo.png",
+      "src": "https://i.imgur.com/4Pz0Oeo.jpeg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/jpeg"
     }
   ]
 }
