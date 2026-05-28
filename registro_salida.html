@@ -25,10 +25,32 @@
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-        /* Banner de Apoyo Vinculado */
+        /* ── BANNER APOYO ── */
         #banner-apoyo { display: none; background: #fff9db; border: 1.5px dashed #fab005; color: #856404; padding: 10px; border-radius: 12px; margin-bottom: 15px; font-size: 12px; text-align: center; font-weight: 700; }
 
-        /* ── KIT DE CARRETERA ─────────────────────────────── */
+        /* ── BANNER MODO EDICIÓN ── */
+        #banner-edicion {
+            display: none;
+            background: linear-gradient(135deg, #fef3c7, #fffbeb);
+            border: 2px solid #f59e0b;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            animation: fadeIn 0.4s ease;
+        }
+        #banner-edicion .edit-titulo {
+            font-size: 13px; font-weight: 800; color: #92400e;
+            display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+        }
+        #banner-edicion .edit-desc {
+            font-size: 11px; color: #a16207; line-height: 1.5;
+        }
+        #banner-edicion .edit-id {
+            font-size: 10px; color: #d97706; font-weight: 700;
+            margin-top: 6px; font-family: monospace;
+        }
+
+        /* ── KIT DE CARRETERA ── */
         .kit-selector { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
         .kit-opcion {
             display: flex; align-items: center; gap: 12px;
@@ -43,20 +65,20 @@
         .kit-opcion .kit-titulo { font-size: 13px; font-weight: 700; color: var(--azul); }
         .kit-opcion .kit-desc   { font-size: 11px; color: var(--gris); margin-top: 2px; }
         .kit-opcion .kit-check  { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #90caf9; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-        .kit-opcion.sel-completo { border-color: #16a34a; background: #f0fdf4; }
-        .kit-opcion.sel-completo .kit-check { background: #16a34a; border-color: #16a34a; }
-        .kit-opcion.sel-completo .kit-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 900; }
+        .kit-opcion.sel-completo   { border-color: #16a34a; background: #f0fdf4; }
+        .kit-opcion.sel-completo   .kit-check { background: #16a34a; border-color: #16a34a; }
+        .kit-opcion.sel-completo   .kit-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 900; }
         .kit-opcion.sel-incompleto { border-color: #d97706; background: #fffbeb; }
         .kit-opcion.sel-incompleto .kit-check { background: #d97706; border-color: #d97706; }
         .kit-opcion.sel-incompleto .kit-check::after { content: '!'; color: white; font-size: 11px; font-weight: 900; }
-        .kit-opcion.sel-no-tiene { border-color: #dc2626; background: #fef2f2; }
-        .kit-opcion.sel-no-tiene .kit-check { background: #dc2626; border-color: #dc2626; }
-        .kit-opcion.sel-no-tiene .kit-check::after { content: '✗'; color: white; font-size: 11px; font-weight: 900; }
+        .kit-opcion.sel-no-tiene   { border-color: #dc2626; background: #fef2f2; }
+        .kit-opcion.sel-no-tiene   .kit-check { background: #dc2626; border-color: #dc2626; }
+        .kit-opcion.sel-no-tiene   .kit-check::after { content: '✗'; color: white; font-size: 11px; font-weight: 900; }
         .kit-alerta { display: none; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
         .kit-alerta.inc { background: #fffbeb; border: 1.5px solid #fcd34d; color: #92400e; display: block; }
         .kit-alerta.no  { background: #fef2f2; border: 1.5px solid #fca5a5; color: #991b1b; display: block; }
 
-        /* ── ALERTAS VEHÍCULO ────────────────────────────── */
+        /* ── ALERTAS VEHÍCULO ── */
         .alerta-vehiculo { display: none; border-radius: 16px; padding: 16px 18px; margin-bottom: 14px; font-size: 13px; line-height: 1.6; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
         .alerta-vehiculo.en-taller    { background: #fef2f2; border: 2px solid #ef4444; }
@@ -64,12 +86,36 @@
         .av-bloqueo { background: #ef4444; color: white; border-radius: 10px; padding: 10px 14px; margin-top: 12px; font-size: 12px; font-weight: 800; text-align: center; }
         .alerta-vehiculo.mant-vencido { background: #fef2f2; border: 2px solid #fca5a5; }
         .alerta-vehiculo.mant-proximo { background: #fffbeb; border: 2px solid #fcd34d; }
-        .alerta-vehiculo.al-dia { background: #f0fdf4; border: 2px solid #86efac; }
+        .alerta-vehiculo.al-dia       { background: #f0fdf4; border: 2px solid #86efac; }
         .km-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.06); border-radius: 8px; padding: 5px 10px; font-size: 13px; font-weight: 800; margin-top: 8px; }
         .km-progreso-wrap { margin-top: 12px; background: rgba(0,0,0,0.05); border-radius: 10px; overflow: hidden; height: 10px; }
         .km-progreso-bar  { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
 
-        /* ── FOTOS / FIRMA / BOTONES ─────────────────────── */
+        /* ── DUPLICADO WARNING ── */
+        #banner-duplicado {
+            display: none;
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s ease;
+        }
+        #banner-duplicado .dup-titulo {
+            font-size: 13px; font-weight: 800; color: #991b1b;
+            display: flex; align-items: center; gap: 6px;
+        }
+        #banner-duplicado .dup-desc {
+            font-size: 11px; color: #b91c1c; margin-top: 5px; line-height: 1.5;
+        }
+        #banner-duplicado .dup-btn {
+            margin-top: 10px; background: #991b1b; color: white;
+            border: none; border-radius: 10px; padding: 9px 16px;
+            font-size: 12px; font-weight: 800; cursor: pointer;
+            font-family: inherit; width: 100%;
+        }
+
+        /* ── FOTOS / FIRMA / BOTONES ── */
         .upload-container { border: 2px dashed var(--azul); border-radius: 15px; padding: 15px; text-align: center; background: #f0f7ff; cursor: pointer; margin-bottom: 12px; }
         .preview-gallery  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         .thumb-wrap { position: relative; width: 100%; aspect-ratio: 1/1; }
@@ -78,9 +124,10 @@
         canvas { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 140px; background: #fff; touch-action: none; }
         .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
         .btn-accion-guardar { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: var(--azul); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,74,153,0.25); transition: 0.2s; font-family: inherit; }
+        .btn-accion-guardar.modo-edicion { background: #d97706; box-shadow: 0 4px 14px rgba(217,119,6,0.3); }
         .btn-accion-wa    { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .btn-accion-fotos { width: 100%; padding: 14px; border: none; border-radius: 14px; font-weight: 700; background: #128C7E; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn-accion-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-accion-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-family: inherit; }
         .instruccion-fotos { background: #fff9e6; border: 1px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; text-align: center; display: none; }
         #progreso-steps { display:none; background:#f0f7ff; border:1px solid #c7dff7; border-radius:12px; padding:12px 15px; margin-bottom:14px; font-size:12px; }
         #progreso-steps div { padding: 3px 0; color: #546e7a; }
@@ -94,13 +141,34 @@
 <div class="container">
     <div class="header">
         <h2 id="saludo">CARGANDO PERFIL...</h2>
-        <p id="rol-info"></p>
+        <p id="rol-info" style="opacity:0.8; font-size:11px; margin-top:4px;"></p>
     </div>
 
     <div class="content">
+
+        <!-- BANNER APOYO -->
         <div id="banner-apoyo">🤝 SERVICIO DE APOYO DETECTADO: Los datos se han pre-cargado.</div>
 
-        <!-- ── RESPONSABLE ─────────────────────────────── -->
+        <!-- BANNER MODO EDICIÓN -->
+        <div id="banner-edicion">
+            <div class="edit-titulo">✏️ MODO EDICIÓN ACTIVO</div>
+            <div class="edit-desc">
+                Se encontró un registro previo de salida para esta carroza.<br>
+                Al guardar, <strong>se actualizará</strong> el registro existente sin crear duplicados.
+            </div>
+            <div class="edit-id" id="edit-id-info"></div>
+        </div>
+
+        <!-- BANNER DUPLICADO -->
+        <div id="banner-duplicado">
+            <div class="dup-titulo">🚫 POSIBLE DUPLICADO DETECTADO</div>
+            <div class="dup-desc" id="dup-desc">
+                Ya existe un registro activo para esta placa. Si deseas corregir datos, usa el botón de edición.
+            </div>
+            <button class="dup-btn" onclick="activarModoEdicion()">✏️ EDITAR REGISTRO EXISTENTE</button>
+        </div>
+
+        <!-- ── RESPONSABLE ── -->
         <div class="section-title">Datos de Responsable</div>
         <div class="grid-2">
             <div>
@@ -124,7 +192,7 @@
             </div>
         </div>
 
-        <!-- ── VEHÍCULO ────────────────────────────────── -->
+        <!-- ── VEHÍCULO ── -->
         <div class="section-title">Información del Vehículo</div>
         <div class="grid-2">
             <div>
@@ -151,7 +219,7 @@
 
         <div class="alerta-vehiculo" id="alerta-vehiculo"></div>
 
-        <!-- ── KIT DE CARRETERA ────────────────────────── -->
+        <!-- ── KIT DE CARRETERA ── -->
         <div class="section-title">🧰 Kit de Carretera</div>
         <div class="kit-selector" id="kit-selector">
             <label class="kit-opcion" id="kit-completo" onclick="seleccionarKit('completo')">
@@ -184,7 +252,7 @@
         </div>
         <div class="kit-alerta" id="kit-alerta"></div>
 
-        <!-- ── SERVICIO ────────────────────────────────── -->
+        <!-- ── SERVICIO ── -->
         <div class="section-title">Datos del Servicio</div>
         <label>Nombre del Fallecido</label>
         <input type="text" id="fallecido" placeholder="Nombre completo">
@@ -230,7 +298,7 @@
 
         <div class="acciones">
             <button class="btn-accion-guardar" id="btn-envio" onclick="guardarTodo()">
-                <span>💾</span> GUARDAR EN SISTEMA
+                <span id="btn-icono">💾</span> <span id="btn-texto">GUARDAR EN SISTEMA</span>
             </button>
             <div id="bloque-wa" style="display:none; flex-direction:column; gap:8px;">
                 <button class="btn-accion-wa" id="btn-wa" onclick="enviarWA()">
@@ -245,29 +313,42 @@
             </div>
             <button class="btn-accion-volver" onclick="irAtras()">← Volver</button>
         </div>
+
     </div>
 </div>
 
 <script src="db.js"></script>
 <script>
-    let fotosArray    = [];
-    let datosFinales  = {};
-    let flotaCompleta = [];
-    let kitSeleccionado = ''; 
-    let idApoyoCapturado = null; // Variable para el error de ID
+    let fotosArray       = [];
+    let datosFinales     = {};
+    let flotaCompleta    = [];
+    let kitSeleccionado  = '';
+    let idApoyoCapturado = null;
+    // ── VARIABLES DE CONTROL DE DUPLICIDAD/EDICIÓN ──
+    let modoEdicion      = false;    // true = UPDATE, false = INSERT
+    let registroExistenteId = null;  // ID del registro a actualizar
+    let registroDuplicadoId = null;  // ID del posible duplicado detectado
 
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
     let dibujando = false;
 
-    // ── FUNCION PRO: RECUPERAR ID DE URL Y LLENAR DATOS ─────
+    // ══════════════════════════════════════════════
+    //  VERIFICAR PARÁMETROS URL (apoyo pre-cargado)
+    // ══════════════════════════════════════════════
     function verificarParametrosURL() {
         const params = new URLSearchParams(window.location.search);
-        idApoyoCapturado = params.get('id'); // El ID que faltaba en el error
+        idApoyoCapturado = params.get('id');
+
+        // Si viene con ?editar=ID, activamos edición directa
+        const editarId = params.get('editar');
+        if (editarId) {
+            registroExistenteId = editarId;
+            cargarRegistroParaEditar(editarId);
+        }
 
         if (idApoyoCapturado) {
             document.getElementById('banner-apoyo').style.display = 'block';
-            // Llenado inteligente si existen datos en la URL
             if (params.get('fallecido')) document.getElementById('fallecido').value = params.get('fallecido');
             if (params.get('origen'))    document.getElementById('origen').value    = params.get('origen');
             if (params.get('destino'))   document.getElementById('destino').value   = params.get('destino');
@@ -276,7 +357,104 @@
         }
     }
 
-    // ── CARGAR PLACAS FILTRADAS ────────────────────────────
+    // ══════════════════════════════════════════════
+    //  CARGAR REGISTRO EXISTENTE PARA EDITAR
+    //  Usa los nombres de columna reales de la hoja Traslado
+    // ══════════════════════════════════════════════
+    async function cargarRegistroParaEditar(idSalida) {
+        try {
+            const { ok, data } = await DB.obtenerTrasladosRecientes(500);
+            if (!ok || !data) return;
+
+            const reg = data.find(r => String(r.id_salida || '').trim() === String(idSalida).trim());
+            if (!reg) { console.warn('No se encontró el registro:', idSalida); return; }
+
+            // Llenar campos con los nombres reales de la hoja
+            if (reg.placa)                  { document.getElementById('placa').value          = reg.placa;                  await alSeleccionarPlaca(); }
+            if (reg.motivo_de_salida)         document.getElementById('motivo').value          = reg.motivo_de_salida;
+            if (reg.nombre_del_fallecido)     document.getElementById('fallecido').value       = reg.nombre_del_fallecido;
+            if (reg.clinica_hospital_o_rsd)   document.getElementById('clinica').value         = reg.clinica_hospital_o_rsd;
+            if (reg.numero_prestacion)        document.getElementById('prestacion').value      = reg.numero_prestacion;
+            if (reg.origen)                   document.getElementById('origen').value          = reg.origen;
+            if (reg.destino)                  document.getElementById('destino').value         = reg.destino;
+            if (reg.hora_de_salida)           document.getElementById('hora_salida').value     = reg.hora_de_salida;
+            if (reg.km__salida)               document.getElementById('km_s').value            = reg.km__salida;
+            if (reg.observaciones)            document.getElementById('observaciones').value   = reg.observaciones;
+            if (reg.coordinador_en_turno)     document.getElementById('nombre-coordinador').value = reg.coordinador_en_turno;
+            if (reg.kit_carretera)            seleccionarKit(reg.kit_carretera);
+
+            activarModoEdicionConId(idSalida, reg.placa);
+
+        } catch(e) {
+            console.error('Error cargando registro para editar:', e);
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    //  ACTIVAR MODO EDICIÓN
+    // ══════════════════════════════════════════════
+    function activarModoEdicion() {
+        if (registroDuplicadoId) {
+            activarModoEdicionConId(registroDuplicadoId, document.getElementById('placa').value);
+            cargarRegistroParaEditar(registroDuplicadoId);
+        }
+    }
+
+    function activarModoEdicionConId(id, placa) {
+        modoEdicion          = true;
+        registroExistenteId  = id;
+        registroDuplicadoId  = null;
+
+        // Ocultar banner duplicado, mostrar banner edición
+        document.getElementById('banner-duplicado').style.display = 'none';
+        const bannerEdicion = document.getElementById('banner-edicion');
+        bannerEdicion.style.display = 'block';
+        document.getElementById('edit-id-info').textContent = '🔑 ID Registro: ' + id + (placa ? ' · Placa: ' + placa : '');
+
+        // Cambiar botón guardar a modo edición
+        const btn = document.getElementById('btn-envio');
+        btn.classList.add('modo-edicion');
+        document.getElementById('btn-icono').textContent = '✏️';
+        document.getElementById('btn-texto').textContent = 'ACTUALIZAR REGISTRO';
+    }
+
+    // ══════════════════════════════════════════════
+    //  VERIFICAR DUPLICADO AL SELECCIONAR PLACA
+    //  Usa DB.verificarDuplicadoSalida() — Google Sheets
+    // ══════════════════════════════════════════════
+    async function verificarDuplicado(placa) {
+        if (!placa || modoEdicion) return false;
+
+        try {
+            const resultado = await DB.verificarDuplicadoSalida(placa);
+
+            if (resultado.existe) {
+                const reg = resultado.detalle;
+                registroDuplicadoId = resultado.id_salida;
+
+                document.getElementById('dup-desc').innerHTML = `
+                    Ya existe un registro de salida activo para la placa <strong>${placa}</strong> hoy.<br>
+                    <span style="font-size:10px; opacity:0.8;">
+                        Conductor: ${reg.conductor || 'N/A'} &nbsp;·&nbsp;
+                        Hora: ${reg.hora_de_salida || 'N/A'} &nbsp;·&nbsp;
+                        Motivo: ${reg.motivo_de_salida || 'N/A'}
+                    </span>`;
+                document.getElementById('banner-duplicado').style.display = 'block';
+                return true;
+            }
+
+            document.getElementById('banner-duplicado').style.display = 'none';
+            registroDuplicadoId = null;
+            return false;
+
+        } catch(e) {
+            return false;
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    //  CARGAR PLACAS FILTRADAS POR REGIONAL
+    // ══════════════════════════════════════════════
     async function cargarPlacas() {
         const select = document.getElementById('placa');
         const regionalActual = document.getElementById('regional').value;
@@ -287,7 +465,7 @@
                 .from('carrozas')
                 .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento, tipo_vehiculo, sede_asignada, sede_intercambio')
                 .order('placa');
-            
+
             if (error) throw error;
             flotaCompleta = data || [];
 
@@ -312,12 +490,13 @@
         }
     }
 
-    // ── VALIDACIÓN DE COMPATIBILIDAD ──────────────────────
+    // ══════════════════════════════════════════════
+    //  VALIDACIÓN COMPATIBILIDAD VEHÍCULO/MOTIVO
+    // ══════════════════════════════════════════════
     function validarCompatibilidad() {
         const motivo = document.getElementById('motivo').value;
         const placaSelect = document.getElementById('placa');
         const optionSel = placaSelect.options[placaSelect.selectedIndex];
-        
         if (!optionSel || !optionSel.value) return;
 
         const tipoVehiculo = (optionSel.getAttribute('data-tipo') || "").toUpperCase();
@@ -343,19 +522,27 @@
                 cancelButtonText: 'Cambiar vehículo'
             }).then((result) => {
                 if (!result.isConfirmed) {
-                    placaSelect.value = ""; 
-                    if(document.getElementById('alerta-vehiculo')) {
-                        document.getElementById('alerta-vehiculo').style.display = 'none';
-                    }
+                    placaSelect.value = "";
+                    document.getElementById('alerta-vehiculo').style.display = 'none';
                 }
             });
         }
     }
 
-    // ── ALERTA AL SELECCIONAR PLACA ──────────────────────
+    // ══════════════════════════════════════════════
+    //  AL SELECCIONAR PLACA
+    // ══════════════════════════════════════════════
     async function alSeleccionarPlaca() {
         const placa    = document.getElementById('placa').value;
         const alertaEl = document.getElementById('alerta-vehiculo');
+
+        // Resetear banners de duplicado/edición si se cambia la placa
+        if (!modoEdicion) {
+            document.getElementById('banner-duplicado').style.display = 'none';
+            document.getElementById('banner-edicion').style.display   = 'none';
+            registroDuplicadoId = null;
+        }
+
         if (!placa) { alertaEl.style.display = 'none'; return; }
 
         const veh = flotaCompleta.find(c => c.placa === placa);
@@ -367,9 +554,14 @@
 
         validarCompatibilidad();
 
+        // ── Verificar duplicado (solo si NO estamos ya en modo edición) ──
+        if (!modoEdicion) {
+            await verificarDuplicado(placa);
+        }
+
         if (estado === 'En Taller' || estado === 'En Servicio') {
-            const msjDetalle = estado === 'En Taller' 
-                ? 'La carroza está en taller y <b>no debe ser usada</b>.' 
+            const msjDetalle = estado === 'En Taller'
+                ? 'La carroza está en taller y <b>no debe ser usada</b>.'
                 : 'La carroza ya está <b>EN SERVICIO</b> (debe registrar llegada primero).';
 
             alertaEl.className = 'alerta-vehiculo en-taller';
@@ -380,9 +572,8 @@
                     <div class="av-msg">${msjDetalle}</div>
                     <div class="av-bloqueo">🚫 RESTRICCIÓN DE SALIDA</div>
                 </div>`;
-            
-            document.getElementById('km_s').value = ""; // Limpia el KM para evitar errores
-            return; // Detiene el proceso aquí
+            document.getElementById('km_s').value = "";
+            return;
         }
 
         try {
@@ -428,23 +619,29 @@
         }
     }
 
+    // ══════════════════════════════════════════════
+    //  KIT DE CARRETERA
+    // ══════════════════════════════════════════════
     function seleccionarKit(valor) {
         kitSeleccionado = valor;
         ['completo','incompleto','no-tiene'].forEach(v => {
-            const el = document.getElementById('kit-' + v);
+            const el  = document.getElementById('kit-' + v);
             const chk = document.getElementById('check-' + v);
             el.classList.remove('sel-completo','sel-incompleto','sel-no-tiene');
             chk.innerHTML = '';
         });
-        const el = document.getElementById('kit-' + valor);
+        const el  = document.getElementById('kit-' + valor);
         const chk = document.getElementById('check-' + valor);
-        el.classList.add('sel-' + valor);
+        if (el) el.classList.add('sel-' + valor);
 
         const alerta = document.getElementById('kit-alerta');
         alerta.className = 'kit-alerta ' + (valor === 'incompleto' ? 'inc' : valor === 'no-tiene' ? 'no' : '');
         alerta.innerText = valor === 'incompleto' ? '⚠️ Reporta faltantes al coordinador.' : valor === 'no-tiene' ? '🚨 Prohibido salir sin kit.' : '';
     }
 
+    // ══════════════════════════════════════════════
+    //  FOTOS
+    // ══════════════════════════════════════════════
     function procesarFotos(input) {
         Array.from(input.files).forEach(f => {
             if (fotosArray.length < 4) {
@@ -462,6 +659,9 @@
     }
     function eliminarFoto(i) { fotosArray.splice(i, 1); renderGaleria(); }
 
+    // ══════════════════════════════════════════════
+    //  FIRMA
+    // ══════════════════════════════════════════════
     const obtenerPos = e => {
         const r = canvas.getBoundingClientRect();
         return { x: (e.clientX || e.touches[0].clientX) - r.left, y: (e.clientY || e.touches[0].clientY) - r.top };
@@ -478,22 +678,47 @@
         if (el) { el.style.display = 'block'; el.className = estado; el.innerText = texto; }
     }
 
-    // ── GUARDAR TODO ──────────────────────────────────
+    // ══════════════════════════════════════════════
+    //  GUARDAR TODO — MODO INSERT O UPDATE
+    // ══════════════════════════════════════════════
     async function guardarTodo() {
-        const btn = document.getElementById('btn-envio');
+        const btn       = document.getElementById('btn-envio');
         const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
 
-        if (!document.getElementById('placa').value) { Swal.fire("Error", "Selecciona placa", "error"); return; }
-        if (!kitSeleccionado) { Swal.fire("Error", "Selecciona estado del kit", "error"); return; }
-        if (!sesionUser) { alert("Sesión expirada"); return; }
+        if (!document.getElementById('placa').value) { Swal.fire("Error", "Selecciona una placa", "error"); return; }
+        if (!kitSeleccionado)                         { Swal.fire("Error", "Selecciona estado del kit", "error"); return; }
+        if (!sesionUser)                               { alert("Sesión expirada"); return; }
 
-        btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true;
+        // ── BLOQUEO ANTI-DUPLICADO ──
+        // Si hay un duplicado detectado y NO estamos en modo edición, preguntar
+        if (registroDuplicadoId && !modoEdicion) {
+            const result = await Swal.fire({
+                title: '⚠️ Registro Duplicado',
+                html: `Ya existe un registro activo para esta placa hoy.<br><br>
+                       ¿Deseas <b>editar el registro existente</b> o <b>cancelar</b>?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d97706',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: '✏️ Editar existente',
+                cancelButtonText: 'Cancelar'
+            });
+            if (result.isConfirmed) {
+                activarModoEdicion();
+                await cargarRegistroParaEditar(registroDuplicadoId);
+            }
+            return;
+        }
+
+        const textoGuardando = modoEdicion ? "⏳ ACTUALIZANDO..." : "⏳ GUARDANDO...";
+        btn.innerText  = textoGuardando;
+        btn.disabled   = true;
         document.getElementById('progreso-steps').style.display = 'block';
 
         datosFinales = {
             regional:      document.getElementById('regional').value,
             conductor:     document.getElementById('conductor').value,
-            nnum_telefono: sesionUser.telefono || '', 
+            nnum_telefono: sesionUser.telefono || '',
             placa:         document.getElementById('placa').value,
             motivo:        document.getElementById('motivo').value,
             fallecido:     document.getElementById('fallecido').value,
@@ -512,21 +737,36 @@
         };
 
         try {
-            // Actualizar Carroza
+            // Paso 1: Actualizar carroza
             setStep('step-carroza', 'act', '⏳ Actualizando vehículo...');
-            await DB.supabase.from('carrozas').update({ 
-                estado: 'En Servicio', 
-                kilometraje_actual: parseInt(datosFinales.km_salida) 
+            await DB.supabase.from('carrozas').update({
+                estado: 'En Servicio',
+                kilometraje_actual: parseInt(datosFinales.km_salida)
             }).eq('placa', datosFinales.placa);
             setStep('step-carroza', 'ok', '✅ Vehículo actualizado');
-            
-            // Guardar Salida
-            setStep('step-traslado', 'act', '⏳ Guardando salida...');
-            const res = await DB.guardarTraslado(datosFinales);
-            if (!res.ok) throw new Error(res.error);
-            setStep('step-traslado', 'ok', '✅ Registro guardado');
 
-            // Actualizar Solicitud de Apoyo (SI EXISTE EL ID)
+            // Paso 2: INSERT o UPDATE según modo
+            setStep('step-traslado', 'act', modoEdicion ? '⏳ Actualizando registro...' : '⏳ Guardando salida...');
+
+            let res;
+            if (modoEdicion && registroExistenteId) {
+                // ── UPDATE ──
+                res = await DB.actualizarTraslado(registroExistenteId, datosFinales);
+            } else {
+                // ── INSERT ──
+                res = await DB.guardarTraslado(datosFinales);
+                // Capturar el id_salida generado para futuras ediciones
+                if (res && res.ok) {
+                    // El id_salida fue generado en DB.guardarTraslado como 'S-' + Date.now()
+                    // Lo guardamos por si el usuario necesita editar en la misma sesión
+                    registroExistenteId = datosFinales.placa + '_' + new Date().toISOString().slice(0,10);
+                }
+            }
+
+            if (!res || !res.ok) throw new Error(res ? res.error : 'Error desconocido');
+            setStep('step-traslado', 'ok', modoEdicion ? '✅ Registro actualizado' : '✅ Registro guardado');
+
+            // Paso 3: Vincular apoyo (si aplica)
             if (idApoyoCapturado) {
                 setStep('step-apoyo', 'act', '⏳ Vinculando con apoyo...');
                 await DB.supabase.from('solicitudes_apoyo').update({
@@ -537,25 +777,41 @@
                 setStep('step-apoyo', 'ok', '✅ Solicitud vinculada');
             }
 
-            btn.innerText = "✓ GUARDADO EXITOSO"; btn.style.background = "#25D366";
+            const textoExito = modoEdicion ? "✓ ACTUALIZADO EXITOSO" : "✓ GUARDADO EXITOSO";
+            btn.innerText = textoExito;
+            btn.style.background = "#25D366";
+
+            // Si estaba en modo edición, quitar el banner
+            if (modoEdicion) {
+                document.getElementById('banner-edicion').style.display = 'none';
+            }
+
             document.getElementById('bloque-wa').style.display = 'flex';
+
         } catch(e) {
             setStep('step-traslado', 'err', '❌ Error: ' + e.message);
-            btn.disabled = false; btn.innerText = "💾 REINTENTAR";
+            btn.disabled = false;
+            btn.innerText = modoEdicion ? '✏️ REINTENTAR ACTUALIZACIÓN' : '💾 REINTENTAR';
+            btn.style.background = '';
         }
     }
 
-    // ── FUNCION PRO: WHATSAPP COMPLETO ──────────────────
+    // ══════════════════════════════════════════════
+    //  WHATSAPP
+    // ══════════════════════════════════════════════
     function enviarWA() {
         const hora = new Date().getHours();
         const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
-        
+
         let estadoCarroza = "✅ Todo En Orden";
         if (datosFinales.kit_carretera === 'incompleto') estadoCarroza = "⚠️ Pendientes en Kit";
         else if (datosFinales.kit_carretera === 'no-tiene') estadoCarroza = "🚨 Sin Kit de Carretera";
 
+        const esEdicion = modoEdicion ? '\n*🔄 REGISTRO ACTUALIZADO/CORREGIDO*\n' : '';
+
         const msg = saludo + "\n\n" +
             "*REPORTES DE SALIDA DE CARROZA* 🚗💨\n" +
+            esEdicion +
             "───────────────────\n" +
             "*Regional:* " + datosFinales.regional + "\n" +
             "*Fecha:* " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
@@ -574,7 +830,7 @@
             "───────────────────\n" +
             "*📝 Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
             "*Estado del Vehículo:* " + estadoCarroza;
-            
+
         window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
     }
 
@@ -596,6 +852,9 @@
 
     function irAtras() { window.history.back(); }
 
+    // ══════════════════════════════════════════════
+    //  INIT
+    // ══════════════════════════════════════════════
     window.onload = async () => {
         const sesionData = localStorage.getItem('usuario_sesion');
         if (!sesionData) { window.location.href = "index.html"; return; }
@@ -608,9 +867,12 @@
         await cargarPlacas();
 
         const now = new Date();
-        document.getElementById('hora_salida').value = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        document.getElementById('hora_salida').value =
+            now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+        canvas.width  = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
     };
 </script>
+
 </body>
 </html>
