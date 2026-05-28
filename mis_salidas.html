@@ -141,7 +141,6 @@
             <label>Motivo de Salida</label>
             <select id="edit_motivo">
                 <option value="RECOGIDA DE CUERPO">Recogida de Cuerpo</option>
-                 <option value="SEPELIO">Sepelio</option>
                 <option value="TRAMITES EMPRESARIAL">Trámites Empresarial</option>
                 <option value="TRASLADO">Traslado</option>
                 <option value="SERVICIO">Servicio</option>
@@ -207,16 +206,34 @@
 <script>
 const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
 
-/* ── FORMATO FECHA (DD/MM/YYYY o YYYY-MM-DD → DD/MM/YYYY) ── */
+/* ── FORMATO FECHA — maneja todos los formatos que llegan de Google Sheets ── */
 function formatFecha(str) {
     if (!str) return '---';
-    // Ya viene como DD/MM/YYYY desde fechaHoy() del db.js
+
+    // Ya está bien: DD/MM/YYYY
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
-    // Si viene como ISO YYYY-MM-DD
-    const solo = str.length > 10 ? str.substring(0, 10) : str;
-    const [y, m, d] = solo.split('-');
-    if (!y || !m || !d) return str;
-    return d + '/' + m + '/' + y;
+
+    // ISO corto: YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        const [y, m, d] = str.split('-');
+        return d + '/' + m + '/' + y;
+    }
+
+    // ISO largo o con zona horaria: "Thu May 28 2026 02:00:00 GMT-0500..."
+    // Usamos UTC para evitar que el offset cambie el día
+    try {
+        const ts = Date.parse(str);
+        if (!isNaN(ts)) {
+            const d = new Date(ts);
+            // Extraer partes en UTC para no desplazar el día por zona horaria
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const yy = d.getUTCFullYear();
+            return dd + '/' + mm + '/' + yy;
+        }
+    } catch(e) {}
+
+    return str; // fallback: devolver como está
 }
 
 function formatHora(str) {
