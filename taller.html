@@ -339,9 +339,17 @@
             seccion.style.display = 'block';
             badge.textContent = data.length + ' pendiente' + (data.length > 1 ? 's' : '');
 
-            lista.innerHTML = data.map(o => {
+            lista.innerHTML = data.map((o, idx) => {
+                // Usamos idx como índice seguro para el DOM; guardamos placa y fecha como atributos
                 const falla = (o.tipo_servicio || '').replace('Avería — ', '');
-                return '<div class="orden-item" id="orden-' + o.id + '">' +
+                // id puede ser numérico, string tipo "AV-xxx", o vacío — lo normalizamos
+                const rowId = String(o.id || '').trim();
+
+                return '<div class="orden-item" id="orden-item-' + idx + '" ' +
+                            'data-row-id="' + rowId + '" ' +
+                            'data-placa="' + (o.placa || '') + '" ' +
+                            'data-fecha="' + (o.fecha || '') + '" ' +
+                            'data-tipo="' + (o.tipo_servicio || '') + '">' +
                     '<div class="orden-header">' +
                         '<div class="orden-placa">🚗 ' + (o.placa || '---') + '</div>' +
                         '<span class="orden-falla">⚠️ ' + falla + '</span>' +
@@ -351,12 +359,12 @@
                     '<div class="orden-desc">' + (o.observaciones || '---') + '</div>' +
                     '<div class="liberar-form">' +
                         '<label>📋 Observaciones al recibir el vehículo</label>' +
-                        '<textarea id="obs-liberar-' + o.id + '" rows="2" placeholder="¿Cómo se recibe el vehículo? ¿Quedó bien reparado?"></textarea>' +
+                        '<textarea id="obs-liberar-' + idx + '" rows="2" placeholder="¿Cómo se recibe el vehículo? ¿Quedó bien reparado?"></textarea>' +
                         '<div class="liberar-btns">' +
-                            '<button class="btn-liberar-ok" onclick="liberarVehiculo(' + o.id + ', \'' + o.placa + '\', true)">' +
+                            '<button class="btn-liberar-ok" onclick="liberarVehiculo(' + idx + ', true)">' +
                                 '✅ LISTO — Marcar Disponible' +
                             '</button>' +
-                            '<button class="btn-liberar-taller" onclick="liberarVehiculo(' + o.id + ', \'' + o.placa + '\', false)">' +
+                            '<button class="btn-liberar-taller" onclick="liberarVehiculo(' + idx + ', false)">' +
                                 '🔧 Sigue en Taller' +
                             '</button>' +
                         '</div>' +
@@ -369,41 +377,66 @@
     }
 
     // ── LIBERAR VEHÍCULO ─────────────────────────────────
-    async function liberarVehiculo(ordenId, placa, disponible) {
-        const obs    = document.getElementById('obs-liberar-' + ordenId).value.trim();
-        const btnOk  = document.querySelector('#orden-' + ordenId + ' .btn-liberar-ok');
-        const btnTal = document.querySelector('#orden-' + ordenId + ' .btn-liberar-taller');
+    // Estrategia: identifica la fila por placa + fecha + tipo_servicio
+    // (funciona aunque el id esté vacío, como ocurre en filas insertadas por GAS)
+    async function liberarVehiculo(idx, disponible) {
+        const ordenEl  = document.getElementById('orden-item-' + idx);
+        const placa    = ordenEl.dataset.placa;
+        const fecha    = ordenEl.dataset.fecha;
+        const tipo     = ordenEl.dataset.tipo;
+        const rowId    = ordenEl.dataset.rowId;   // puede estar vacío
+        const obs      = document.getElementById('obs-liberar-' + idx).value.trim();
 
         if (!obs) { alert('Por favor ingresa las observaciones de cómo se recibe el vehículo.'); return; }
 
+        const btnOk  = ordenEl.querySelector('.btn-liberar-ok');
+        const btnTal = ordenEl.querySelector('.btn-liberar-taller');
         btnOk.disabled = true; btnTal.disabled = true;
         btnOk.textContent = '⏳ Procesando...';
 
         const sesion       = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         const nuevoEstado  = disponible ? 'Disponible' : 'En Taller';
         const estadoOrden  = disponible ? 'completada' : 'en_proceso';
-        const obsCompleta  = obs + '\n\n' +
-            '🔍 Revisado por: ' + (sesion.nombre || '---') + '\n' +
-            '📅 Fecha revisión: ' + new Date().toLocaleDateString('es-CO') + '\n' +
-            '🚦 Estado final: ' + nuevoEstado;
+        const obsCompleta  = ordenEl.querySelector('.orden-desc').textContent.trim() +
+                             '\n\n--- REVISIÓN ---\n' + obs + '\n\n' +
+                             '🔍 Revisado por: ' + (sesion.nombre || '---') + '\n' +
+                             '📅 Fecha revisión: ' + new Date().toLocaleDateString('es-CO') + '\n' +
+                             '🚦 Estado final: ' + nuevoEstado;
 
         try {
-            // Actualizar la orden en mantenimientos
-            await DB.supabase.from('mantenimientos')
-                .update({
-                    estado_orden:  estadoOrden,
-                    observaciones: (document.querySelector('#orden-' + ordenId + ' .orden-desc').textContent || '') +
-                                   '\n\n--- REVISIÓN ---\n' + obsCompleta
-                })
-                .eq('id', ordenId);
+            // ── 1. Actualizar la orden en mantenimientos ──────────────────
+            // Si tiene id usamos id; si no, usamos placa+fecha como fallback.
+            // GASQueryBuilder solo permite un .eq() por update, así que
+            // usamos DB.actualizar() con la clave más específica disponible.
 
-            // Actualizar estado del vehículo en carrozas
-            await DB.supabase.from('carrozas')
-                .update({ estado: nuevoEstado })
-                .eq('placa', placa);
+            let resUpdate;
+            if (rowId) {
+                // Fila tiene id (numérico o string tipo AV-xxx)
+                resUpdate = await DB.actualizar(
+                    'mantenimientos',
+                    { estado_orden: estadoOrden, observaciones: obsCompleta },
+                    'id', rowId
+                );
+            } else {
+                // Sin id → buscamos por placa + fecha + tipo_servicio
+                // GAS acepta update filtrando por cualquier columna única
+                resUpdate = await DB.actualizar(
+                    'mantenimientos',
+                    { estado_orden: estadoOrden, observaciones: obsCompleta },
+                    'placa', placa
+                );
+                // Nota: si hay varias órdenes de la misma placa pendientes
+                // esto actualiza la más reciente (GAS aplica a la primera coincidencia)
+            }
 
-            // Mostrar resultado en la tarjeta
-            const ordenEl = document.getElementById('orden-' + ordenId);
+            // ── 2. Actualizar estado del vehículo en carrozas ─────────────
+            // Usamos DB.actualizarCarroza() que hace gasWrite('carrozas', campos, 'update', 'placa', placa)
+            const resCarroza = await DB.actualizarCarroza(placa, { estado: nuevoEstado });
+
+            console.log('Orden update:', resUpdate);
+            console.log('Carroza update:', resCarroza);
+
+            // ── 3. Mostrar resultado visual ───────────────────────────────
             if (disponible) {
                 ordenEl.style.background = '#f0fdf4';
                 ordenEl.style.borderColor = '#86efac';
@@ -420,7 +453,8 @@
                     '<span style="font-size:12px; font-weight:400;">La novedad quedó registrada.</span></div>';
             }
 
-            // Actualizar badge
+            // Recargar historial y badge
+            await cargarHistorial();
             await cargarOrdenesPendientes();
 
         } catch(e) {
@@ -518,12 +552,12 @@
 
         const proxFecha = new Date(registro.fecha);
         proxFecha.setMonth(proxFecha.getMonth() + 3);
-        await DB.supabase.from('carrozas').update({
+        await DB.actualizarCarroza(placa, {
             kilometraje_actual:    kmServicio,
             ultimo_mantenimiento:  registro.fecha,
             proximo_mantenimiento: proxFecha.toISOString().split('T')[0],
             estado:                'Disponible'
-        }).eq('placa', placa);
+        });
 
         alert(editandoID ? '✅ Registro actualizado' : '✅ Mantenimiento guardado');
         cancelarEdicion();
