@@ -199,24 +199,20 @@
         const partes  = v_select.split('|');
         const placa   = partes[0];
         const nombreV = partes[1] || 'Vehículo';
-        const kmActual = parseInt(partes[2]) || 0;
 
         btn.disabled = true;
         btn.innerHTML = '<span>⏳</span> ENVIANDO...';
 
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const sintomas    = document.getElementById('sintomas').value;
-        const observaciones = document.getElementById('observaciones').value;
-        const regional    = document.getElementById('regional').value;
 
         const datos = {
             reportado_por:        sesion.nombre,
-            regional,
+            regional:             document.getElementById('regional').value,
             placa_vehiculo:       placa,
             tipo_vehiculo:        nombreV,
             tipo_falla:           falla,
-            descripcion_sintomas: sintomas,
-            observaciones,
+            descripcion_sintomas: document.getElementById('sintomas').value,
+            observaciones:        document.getElementById('observaciones').value,
             imagen1: fotosArray[0] || "",
             imagen2: fotosArray[1] || "",
             imagen3: fotosArray[2] || "",
@@ -224,32 +220,12 @@
         };
 
         try {
-            // 1. Guardar avería
+            // DB.guardarAveria() ya hace internamente:
+            //   1. Insert en Averias
+            //   2. Update carroza → 'En Taller'
+            //   3. Insert en mantenimientos con estado_orden 'pendiente'
             const res = await DB.guardarAveria(datos);
-            if (!res.ok) throw new Error(res.error?.message || 'Error desconocido');
-
-            // 2. Marcar vehículo En Taller
-            await DB.supabase.from('carrozas')
-                .update({ estado: 'En Taller' })
-                .eq('placa', placa);
-
-            // 3. ✅ Crear orden automática en mantenimientos
-            await DB.supabase.from('mantenimientos').insert([{
-                placa,
-                fecha:                new Date().toISOString().split('T')[0],
-                tipo_servicio:        'Avería — ' + falla,
-                kilometraje_servicio: kmActual,
-                taller:               'Por asignar',
-                responsable:          sesion.nombre,
-                observaciones:        '🚨 ORDEN POR AVERÍA\n' +
-                                      'Falla: ' + falla + '\n' +
-                                      'Síntomas: ' + (sintomas || '---') + '\n' +
-                                      'Obs: ' + (observaciones || '---') + '\n' +
-                                      'Reportado por: ' + sesion.nombre,
-                costo:                0,
-                km_proximo_cambio:    0,
-                estado_orden:         'pendiente'   // ← campo nuevo para filtrar en taller
-            }]);
+            if (!res.ok) throw new Error(res.error?.message || res.error || 'Error desconocido');
 
             btn.innerHTML = '<span>✅</span> AVERÍA REGISTRADA';
             btn.style.background = "#16a34a";
