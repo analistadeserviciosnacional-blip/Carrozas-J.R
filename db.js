@@ -1,7 +1,7 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v10.4 (CON EDICIÓN)
- *  + actualizarTraslado() para modo edición / anti-duplicados
+ *  CONECTOR J.R. CARROZAS — db.js  v10.5
+ *  + id generado en filaMant de guardarAveria()
  * ══════════════════════════════════════════════════════════
  */
 
@@ -228,9 +228,6 @@ const DB = {
   },
 
   // ── ACTUALIZAR TRASLADO (UPDATE / MODO EDICIÓN) ────────────
-  // Busca la fila por id_salida y sobreescribe los campos editables.
-  // Los campos hora_de_ingreso, km__ingreso y total_km NO se tocan
-  // para no romper el registro de llegada si ya fue completado.
   async actualizarTraslado(idSalida, d) {
     try {
       const campos = {
@@ -255,10 +252,8 @@ const DB = {
         firma:                  d.firma        || '',
         kit_carretera:          d.kit_carretera|| '',
       };
-      // Usa id_salida como clave de búsqueda (la columna que identifica la fila)
       const res = await gasWrite('Traslado', campos, 'update', 'id_salida', idSalida);
       if (res.ok) {
-        // También actualiza el kilometraje en la carroza
         await this.actualizarCarroza(d.placa, {
           kilometraje_actual: parseInt(d.km_salida) || 0
         });
@@ -270,30 +265,19 @@ const DB = {
   },
 
   // ── VERIFICAR DUPLICADO ────────────────────────────────────
-  // Revisa si ya existe un traslado activo (sin hora_de_ingreso)
-  // para la placa indicada en el día de hoy.
-  // Retorna: { existe: bool, id_salida: string|null, detalle: objeto|null }
   async verificarDuplicadoSalida(placa) {
     try {
-      const hoy  = fechaHoy();                         // "DD/MM/YYYY"
+      const hoy  = fechaHoy();
       const rows = await gasGet('Traslado');
-
       const activos = rows.filter(r =>
         String(r.placa    ||'').trim().toUpperCase() === placa.trim().toUpperCase() &&
         String(r.fecha    ||'').trim()               === hoy &&
         (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '')
       );
-
       if (activos.length === 0) return { existe: false, id_salida: null, detalle: null };
-
-      // Toma el más reciente si hay más de uno
       activos.sort((a,b) => String(b.hora_de_salida||'').localeCompare(String(a.hora_de_salida||'')));
       const reg = activos[0];
-      return {
-        existe:    true,
-        id_salida: reg.id_salida || null,
-        detalle:   reg,
-      };
+      return { existe: true, id_salida: reg.id_salida || null, detalle: reg };
     } catch(e) {
       return { existe: false, id_salida: null, detalle: null };
     }
@@ -349,6 +333,7 @@ const DB = {
         const h        = new Date();
         const fechaISO = h.getFullYear() + '-' + (h.getMonth()+1).toString().padStart(2,'0') + '-' + h.getDate().toString().padStart(2,'0');
         const filaMant = {
+          id:                  'M-' + Date.now(),   // ← ÚNICO CAMBIO: id propio para poder actualizar la orden
           fecha:               fechaISO,
           placa:               d.placa_vehiculo,
           tipo_servicio:       'Avería — ' + (d.tipo_falla || 'Falla mecánica'),
