@@ -533,89 +533,121 @@
     //  AL SELECCIONAR PLACA
     // ══════════════════════════════════════════════
     async function alSeleccionarPlaca() {
-        const placa    = document.getElementById('placa').value;
+        const placaSeleccionada = document.getElementById('placa').value;
         const alertaEl = document.getElementById('alerta-vehiculo');
 
-        // Resetear banners de duplicado/edición si se cambia la placa
+        // 1. Limpieza inicial de banners
         if (!modoEdicion) {
             document.getElementById('banner-duplicado').style.display = 'none';
             document.getElementById('banner-edicion').style.display   = 'none';
             registroDuplicadoId = null;
         }
 
-        if (!placa) { alertaEl.style.display = 'none'; return; }
+        if (!placaSeleccionada) { alertaEl.style.display = 'none'; return; }
 
-        const veh = flotaCompleta.find(c => c.placa === placa);
-        if (!veh)  { alertaEl.style.display = 'none'; return; }
+        // 2. Obtener datos del vehículo desde la flota (Carrozas)
+        const veh = flotaCompleta.find(c => c.placa === placaSeleccionada);
+        if (!veh) { alertaEl.style.display = 'none'; return; }
 
-        const estado   = (veh.estado || '').trim();
+        const estado = (veh.estado || '').trim();
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
         document.getElementById('km_s').value = kmActual;
 
         validarCompatibilidad();
 
-        // ── Verificar duplicado (solo si NO estamos ya en modo edición) ──
+        // 3. VERIFICACIÓN DE DUPLICIDAD POR ID_SALIDA
+        // Creamos el ID que correspondería a hoy: PLACA_AAAA-MM-DD
+        const hoy = new Date().toISOString().split('T')[0];
+        const idSalidaHoy = `${placaSeleccionada}_${hoy}`;
+
         if (!modoEdicion) {
-            await verificarDuplicado(placa);
+            // Buscamos en los traslados existentes si ya existe ese ID específico
+            const resTraslados = await DB.obtenerTrasladosRecientes(100); 
+            if (resTraslados.ok) {
+                const duplicado = resTraslados.data.find(t => t.id_salida === idSalidaHoy);
+                if (duplicado) {
+                    registroDuplicadoId = duplicado.id_salida;
+                    document.getElementById('dup-desc').innerHTML = `
+                        Ya existe un registro de salida para hoy con el ID: <b>${idSalidaHoy}</b>.<br>
+                        Conductor: ${duplicado.conductor || 'N/A'}`;
+                    document.getElementById('banner-duplicado').style.display = 'block';
+                    // Si hay duplicado, no permitimos seguir sin editar
+                    return; 
+                }
+            }
         }
 
+        // 4. Bloqueo por Taller o Servicio Activo
         if (estado === 'En Taller' || estado === 'En Servicio') {
-            const msjDetalle = estado === 'En Taller'
-                ? 'La carroza está en taller y <b>no debe ser usada</b>.'
-                : 'La carroza ya está <b>EN SERVICIO</b> (debe registrar llegada primero).';
-
             alertaEl.className = 'alerta-vehiculo en-taller';
             alertaEl.style.display = 'block';
             alertaEl.innerHTML = `
                 <div style="text-align:center;">
                     <div class="av-titulo">⚠️ VEHÍCULO NO DISPONIBLE</div>
-                    <div class="av-msg">${msjDetalle}</div>
+                    <div class="av-msg">Estado actual: <b>${estado}</b>.</div>
                     <div class="av-bloqueo">🚫 RESTRICCIÓN DE SALIDA</div>
                 </div>`;
             document.getElementById('km_s').value = "";
             return;
         }
 
+        // 5. ANÁLISIS DE ACEITE (Filtrando el último registro real)
         try {
-            const { data: mants } = await DB.supabase
-                .from('mantenimientos')
-                .select('kilometraje_servicio, km_proximo_cambio, fecha')
-                .eq('placa', placa)
-                .eq('tipo_servicio', 'Cambio de Aceite')
-                .order('fecha', { ascending: false })
-                .limit(1);
+            const respuesta = await DB.obtenerMantenimientos();
+            if (!respuesta.ok) throw new Error("Error en Google Sheets");
 
-            const ultimoCambio = (mants && mants.length > 0) ? mants[0] : null;
+            const todosLosMants = respuesta.data;
+            const norm = (p) => p.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            const placaBusqueda = norm(placaSeleccionada);
+
+            // Filtrar solo cambios de aceite de esta placa
+            const historialAceite = todosLosMants.filter(m => 
+                m.tipo_servicio === 'Cambio de Aceite' && 
+                norm(m.placa || '') === placaBusqueda
+            );
+
+            // ORDENAR: 1º por Fecha, 2º por posición en la tabla (el último es el más reciente)
+            historialAceite.sort((a, b) => {
+                const fA = new Date(a.fecha);
+                const fB = new Date(b.fecha);
+                if (fB - fA !== 0) return fB - fA;
+                // Si la fecha es igual, comparamos el ID o índice (suponiendo que DB devuelve orden de inserción)
+                return todosLosMants.indexOf(b) - todosLosMants.indexOf(a);
+            });
+
+            const ultimoCambio = historialAceite[0];
 
             if (ultimoCambio && ultimoCambio.km_proximo_cambio > 0) {
-                const kmProximo  = parseInt(ultimoCambio.km_proximo_cambio);
+                const kmProximo = parseInt(ultimoCambio.km_proximo_cambio);
                 const kmFaltante = kmProximo - kmActual;
-                const kmRealizdo = kmActual - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
-                const intervalo  = kmProximo - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
-                const porcentaje = Math.min(100, Math.round((kmRealizdo / Math.max(intervalo,1)) * 100));
-                const colorBarra = porcentaje >= 90 ? '#ef4444' : porcentaje >= 70 ? '#f59e0b' : '#10b981';
-
+                const kmRealizado = kmActual - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
+                const intervalo = kmProximo - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
+                const porcentaje = Math.min(100, Math.round((kmRealizado / Math.max(intervalo, 1)) * 100));
+                
+                let clase = 'al-dia';
+                let titulo = '✅ ACEITE AL DÍA';
                 if (kmFaltante <= 0) {
-                    alertaEl.className = 'alerta-vehiculo mant-vencido';
-                    alertaEl.innerHTML = `<div class="av-titulo">🚨 ACEITE VENCIDO</div><div class="av-msg">KM actual: ${kmActual}. Debió cambiarse a los ${kmProximo}.</div>`;
+                    clase = 'mant-vencido'; titulo = '🚨 ACEITE VENCIDO';
                 } else if (kmFaltante <= 500) {
-                    alertaEl.className = 'alerta-vehiculo mant-proximo';
-                    alertaEl.innerHTML = `<div class="av-titulo">⚠️ ACEITE PRÓXIMO</div><div class="av-msg">Faltan ${kmFaltante} KM para el cambio.</div>`;
-                } else {
-                    alertaEl.className = 'alerta-vehiculo al-dia';
-                    alertaEl.innerHTML = `<div class="av-titulo">✅ ACEITE AL DÍA</div><div class="av-msg">Faltan ${kmFaltante} KM. Próximo a los ${kmProximo} KM.</div>`;
+                    clase = 'mant-proximo'; titulo = '⚠️ ACEITE PRÓXIMO';
                 }
-                alertaEl.innerHTML += `
-                    <div class="km-badge">🚗 KM: ${kmActual.toLocaleString()}</div>
-                    <div class="km-progreso-wrap"><div class="km-progreso-bar" style="width: ${porcentaje}%; background: ${colorBarra};"></div></div>
-                `;
+
+                alertaEl.className = `alerta-vehiculo ${clase}`;
+                alertaEl.innerHTML = `
+                    <div class="av-titulo">${titulo}</div>
+                    <div class="av-msg">KM actual: ${kmActual.toLocaleString()}. Próximo cambio: ${kmProximo.toLocaleString()}.</div>
+                    <div class="km-badge">🚗 Faltan: ${kmFaltante.toLocaleString()} KM</div>
+                    <div class="km-progreso-wrap">
+                        <div class="km-progreso-bar" style="width: ${porcentaje}%; background: ${porcentaje > 90 ? '#ef4444' : '#10b981'};"></div>
+                    </div>`;
             } else {
                 alertaEl.className = 'alerta-vehiculo al-dia';
-                alertaEl.innerHTML = `<div class="av-titulo">ℹ️ SIN REGISTRO RECIENTE</div><div class="av-msg">Verifique último cambio de aceite manualmente.</div>`;
+                alertaEl.innerHTML = `<div class="av-titulo">ℹ️ SIN DATOS DE ACEITE</div><div class="av-msg">No hay registros de aceite para ${placaSeleccionada}.</div>`;
             }
             alertaEl.style.display = 'block';
-        } catch(e) {
-            alertaEl.style.display = 'none';
+
+        } catch (e) {
+            console.error("Error:", e);
         }
     }
 
