@@ -681,120 +681,114 @@
     // ══════════════════════════════════════════════
     //  GUARDAR TODO — MODO INSERT O UPDATE
     // ══════════════════════════════════════════════
-    async function guardarTodo() {
-        const btn       = document.getElementById('btn-envio');
-        const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
+   let guardandoActualmente = false;
+     async function guardarTodo() {
+    const btn = document.getElementById('btn-envio');
+    const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
 
-        if (!document.getElementById('placa').value) { Swal.fire("Error", "Selecciona una placa", "error"); return; }
-        if (!kitSeleccionado)                         { Swal.fire("Error", "Selecciona estado del kit", "error"); return; }
-        if (!sesionUser)                               { alert("Sesión expirada"); return; }
+    // --- BLOQUEO 1: Si ya se está guardando, no hacer nada ---
+    if (guardandoActualmente) return;
 
-        // ── BLOQUEO ANTI-DUPLICADO ──
-        // Si hay un duplicado detectado y NO estamos en modo edición, preguntar
-        if (registroDuplicadoId && !modoEdicion) {
-            const result = await Swal.fire({
-                title: '⚠️ Registro Duplicado',
-                html: `Ya existe un registro activo para esta placa hoy.<br><br>
-                       ¿Deseas <b>editar el registro existente</b> o <b>cancelar</b>?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d97706',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: '✏️ Editar existente',
-                cancelButtonText: 'Cancelar'
-            });
-            if (result.isConfirmed) {
-                activarModoEdicion();
-                await cargarRegistroParaEditar(registroDuplicadoId);
-            }
-            return;
+    if (!document.getElementById('placa').value) { Swal.fire("Error", "Selecciona una placa", "error"); return; }
+    if (!kitSeleccionado) { Swal.fire("Error", "Selecciona estado del kit", "error"); return; }
+    if (!sesionUser) { alert("Sesión expirada"); return; }
+
+    // --- BLOQUEO 2: Tu lógica de advertencia de duplicado ---
+    if (registroDuplicadoId && !modoEdicion) {
+        const result = await Swal.fire({
+            title: '⚠️ Registro Duplicado',
+            html: `Ya existe un registro activo para esta placa hoy.<br><br>
+                   ¿Deseas <b>editar el registro existente</b> o <b>cancelar</b>?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d97706',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: '✏️ Editar existente',
+            cancelButtonText: 'Cancelar'
+        });
+        if (result.isConfirmed) {
+            activarModoEdicion();
+            await cargarRegistroParaEditar(registroDuplicadoId);
         }
-
-        const textoGuardando = modoEdicion ? "⏳ ACTUALIZANDO..." : "⏳ GUARDANDO...";
-        btn.innerText  = textoGuardando;
-        btn.disabled   = true;
-        document.getElementById('progreso-steps').style.display = 'block';
-
-        datosFinales = {
-            regional:      document.getElementById('regional').value,
-            conductor:     document.getElementById('conductor').value,
-            nnum_telefono: sesionUser.telefono || '',
-            placa:         document.getElementById('placa').value,
-            motivo:        document.getElementById('motivo').value,
-            fallecido:     document.getElementById('fallecido').value,
-            clinica:       document.getElementById('clinica').value,
-            prestacion:    document.getElementById('prestacion').value,
-            origen:        document.getElementById('origen').value,
-            destino:       document.getElementById('destino').value,
-            hora_salida:   document.getElementById('hora_salida').value,
-            km_salida:     document.getElementById('km_s').value,
-            kit_carretera: kitSeleccionado,
-            coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
-            observaciones: document.getElementById('observaciones').value,
-            imagen1: fotosArray[0] || '', imagen2: fotosArray[1] || '',
-            imagen3: fotosArray[2] || '', imagen4: fotosArray[3] || '',
-            firma:   canvas.toDataURL()
-        };
-
-        try {
-            // Paso 1: Actualizar carroza
-            setStep('step-carroza', 'act', '⏳ Actualizando vehículo...');
-            await DB.supabase.from('carrozas').update({
-                estado: 'En Servicio',
-                kilometraje_actual: parseInt(datosFinales.km_salida)
-            }).eq('placa', datosFinales.placa);
-            setStep('step-carroza', 'ok', '✅ Vehículo actualizado');
-
-            // Paso 2: INSERT o UPDATE según modo
-            setStep('step-traslado', 'act', modoEdicion ? '⏳ Actualizando registro...' : '⏳ Guardando salida...');
-
-            let res;
-            if (modoEdicion && registroExistenteId) {
-                // ── UPDATE ──
-                res = await DB.actualizarTraslado(registroExistenteId, datosFinales);
-            } else {
-                // ── INSERT ──
-                res = await DB.guardarTraslado(datosFinales);
-                // Capturar el id_salida generado para futuras ediciones
-                if (res && res.ok) {
-                    // El id_salida fue generado en DB.guardarTraslado como 'S-' + Date.now()
-                    // Lo guardamos por si el usuario necesita editar en la misma sesión
-                    registroExistenteId = datosFinales.placa + '_' + new Date().toISOString().slice(0,10);
-                }
-            }
-
-            if (!res || !res.ok) throw new Error(res ? res.error : 'Error desconocido');
-            setStep('step-traslado', 'ok', modoEdicion ? '✅ Registro actualizado' : '✅ Registro guardado');
-
-            // Paso 3: Vincular apoyo (si aplica)
-            if (idApoyoCapturado) {
-                setStep('step-apoyo', 'act', '⏳ Vinculando con apoyo...');
-                await DB.supabase.from('solicitudes_apoyo').update({
-                    estado: 'Atendido',
-                    placa_asignada: datosFinales.placa,
-                    conductor_asignado: datosFinales.conductor
-                }).eq('id', idApoyoCapturado);
-                setStep('step-apoyo', 'ok', '✅ Solicitud vinculada');
-            }
-
-            const textoExito = modoEdicion ? "✓ ACTUALIZADO EXITOSO" : "✓ GUARDADO EXITOSO";
-            btn.innerText = textoExito;
-            btn.style.background = "#25D366";
-
-            // Si estaba en modo edición, quitar el banner
-            if (modoEdicion) {
-                document.getElementById('banner-edicion').style.display = 'none';
-            }
-
-            document.getElementById('bloque-wa').style.display = 'flex';
-
-        } catch(e) {
-            setStep('step-traslado', 'err', '❌ Error: ' + e.message);
-            btn.disabled = false;
-            btn.innerText = modoEdicion ? '✏️ REINTENTAR ACTUALIZACIÓN' : '💾 REINTENTAR';
-            btn.style.background = '';
-        }
+        return;
     }
+
+    // --- ACTIVAR BLOQUEO DE SEGURIDAD Y FEEDBACK VISUAL ---
+    guardandoActualmente = true; 
+    const textoGuardando = modoEdicion ? "⏳ ACTUALIZANDO..." : "⏳ GUARDANDO...";
+    btn.innerText = textoGuardando;
+    btn.disabled = true;
+    document.getElementById('progreso-steps').style.display = 'block';
+
+    // Tus datos originales (Sin cambios)
+    datosFinales = {
+        regional:      document.getElementById('regional').value,
+        conductor:     document.getElementById('conductor').value,
+        nnum_telefono: sesionUser.telefono || '',
+        placa:         document.getElementById('placa').value,
+        motivo:        document.getElementById('motivo').value,
+        fallecido:     document.getElementById('fallecido').value,
+        clinica:       document.getElementById('clinica').value,
+        prestacion:    document.getElementById('prestacion').value,
+        origen:        document.getElementById('origen').value,
+        destino:       document.getElementById('destino').value,
+        hora_salida:   document.getElementById('hora_salida').value,
+        km_salida:     document.getElementById('km_s').value,
+        kit_carretera: kitSeleccionado,
+        coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
+        observaciones: document.getElementById('observaciones').value,
+        imagen1: fotosArray[0] || '', imagen2: fotosArray[1] || '',
+        imagen3: fotosArray[2] || '', imagen4: fotosArray[3] || '',
+        firma:   canvas.toDataURL()
+    };
+
+    try {
+        // Ocultamos pasos innecesarios para que la interfaz sea limpia
+        if (document.getElementById('step-carroza')) document.getElementById('step-carroza').style.display = 'none';
+        if (document.getElementById('step-apoyo')) document.getElementById('step-apoyo').style.display = 'none';
+
+        setStep('step-traslado', 'act', modoEdicion ? '⏳ Actualizando registro en Excel...' : '⏳ Guardando salida en Excel...');
+
+        // --- ÚNICO PASO: GUARDAR EN GOOGLE SHEETS ---
+        let res;
+        if (modoEdicion && registroExistenteId) {
+            // Actualiza la fila existente en el Excel
+            res = await DB.actualizarTraslado(registroExistenteId, datosFinales);
+        } else {
+            // Crea un registro nuevo en el Excel
+            res = await DB.guardarTraslado(datosFinales);
+            
+            // Si es nuevo y exitoso, asignamos ID para permitir edición inmediata
+            if (res && res.ok) {
+                registroExistenteId = datosFinales.placa + '_' + new Date().toISOString().slice(0,10);
+            }
+        }
+
+        if (!res || !res.ok) throw new Error(res ? res.error : 'Error en la respuesta del Excel');
+
+        // --- ÉXITO ---
+        setStep('step-traslado', 'ok', modoEdicion ? '✅ Registro actualizado' : '✅ Registro guardado');
+
+        const textoExito = modoEdicion ? "✓ ACTUALIZADO EXITOSO" : "✓ GUARDADO EXITOSO";
+        btn.innerText = textoExito;
+        btn.style.background = "#25D366";
+
+        if (modoEdicion) {
+            document.getElementById('banner-edicion').style.display = 'none';
+        }
+
+        document.getElementById('bloque-wa').style.display = 'flex';
+
+    } catch(e) {
+        // En caso de error, permitimos que el usuario vuelva a intentar
+        guardandoActualmente = false;
+        btn.disabled = false;
+        setStep('step-traslado', 'err', '❌ Error: ' + e.message);
+        btn.innerText = modoEdicion ? '✏️ REINTENTAR ACTUALIZACIÓN' : '💾 REINTENTAR';
+        btn.style.background = '';
+        Swal.fire("Error", "No se pudo completar el guardado en Excel: " + e.message, "error");
+    }
+}
 
     // ══════════════════════════════════════════════
     //  WHATSAPP
