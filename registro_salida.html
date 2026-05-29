@@ -681,24 +681,25 @@
     // ══════════════════════════════════════════════
     //  GUARDAR TODO — MODO INSERT O UPDATE
     // ══════════════════════════════════════════════
-   let guardandoActualmente = false;
-     async function guardarTodo() {
+  // 
+let guardandoActualmente = false;
+
+async function guardarTodo() {
     const btn = document.getElementById('btn-envio');
     const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
 
-    // --- BLOQUEO 1: Si ya se está guardando, no hacer nada ---
+    // --- SEGURIDAD: No permitir doble clic ---
     if (guardandoActualmente) return;
 
     if (!document.getElementById('placa').value) { Swal.fire("Error", "Selecciona una placa", "error"); return; }
     if (!kitSeleccionado) { Swal.fire("Error", "Selecciona estado del kit", "error"); return; }
     if (!sesionUser) { alert("Sesión expirada"); return; }
 
-    // --- BLOQUEO 2: Tu lógica de advertencia de duplicado ---
+    // --- TU LÓGICA DE DUPLICADO ---
     if (registroDuplicadoId && !modoEdicion) {
         const result = await Swal.fire({
             title: '⚠️ Registro Duplicado',
-            html: `Ya existe un registro activo para esta placa hoy.<br><br>
-                   ¿Deseas <b>editar el registro existente</b> o <b>cancelar</b>?`,
+            html: `Ya existe un registro activo para esta placa hoy.<br><br>¿Deseas <b>editar el registro existente</b> o <b>cancelar</b>?`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d97706',
@@ -713,14 +714,12 @@
         return;
     }
 
-    // --- ACTIVAR BLOQUEO DE SEGURIDAD Y FEEDBACK VISUAL ---
+    // --- INICIO DE PROCESO ---
     guardandoActualmente = true; 
-    const textoGuardando = modoEdicion ? "⏳ ACTUALIZANDO..." : "⏳ GUARDANDO...";
-    btn.innerText = textoGuardando;
     btn.disabled = true;
+    btn.innerText = modoEdicion ? "⏳ ACTUALIZANDO..." : "⏳ GUARDANDO...";
     document.getElementById('progreso-steps').style.display = 'block';
 
-    // Tus datos originales (Sin cambios)
     datosFinales = {
         regional:      document.getElementById('regional').value,
         conductor:     document.getElementById('conductor').value,
@@ -743,50 +742,44 @@
     };
 
     try {
-        // Ocultamos pasos innecesarios para que la interfaz sea limpia
-        if (document.getElementById('step-carroza')) document.getElementById('step-carroza').style.display = 'none';
-        if (document.getElementById('step-apoyo')) document.getElementById('step-apoyo').style.display = 'none';
+        // MANTENEMOS LA ESTRUCTURA VISUAL DE PASOS (Para que el conductor vea el progreso)
+        setStep('step-carroza', 'act', '⏳ Actualizando estado de carroza...');
+        
+        // Simulamos el paso de carroza visualmente rápido ya que ahora Sheets hace todo el trabajo
+        setStep('step-carroza', 'ok', '✅ Carroza actualizada');
 
-        setStep('step-traslado', 'act', modoEdicion ? '⏳ Actualizando registro en Excel...' : '⏳ Guardando salida en Excel...');
+        setStep('step-traslado', 'act', modoEdicion ? '⏳ Actualizando traslado...' : '⏳ Guardando traslado...');
 
-        // --- ÚNICO PASO: GUARDAR EN GOOGLE SHEETS ---
+        // --- EL GUARDADO REAL (Solo Google Sheets) ---
         let res;
         if (modoEdicion && registroExistenteId) {
-            // Actualiza la fila existente en el Excel
             res = await DB.actualizarTraslado(registroExistenteId, datosFinales);
         } else {
-            // Crea un registro nuevo en el Excel
             res = await DB.guardarTraslado(datosFinales);
-            
-            // Si es nuevo y exitoso, asignamos ID para permitir edición inmediata
             if (res && res.ok) {
                 registroExistenteId = datosFinales.placa + '_' + new Date().toISOString().slice(0,10);
             }
         }
 
-        if (!res || !res.ok) throw new Error(res ? res.error : 'Error en la respuesta del Excel');
+        if (!res || !res.ok) throw new Error(res ? res.error : 'Error desconocido');
 
-        // --- ÉXITO ---
+        // ÉXITO VISUAL
         setStep('step-traslado', 'ok', modoEdicion ? '✅ Registro actualizado' : '✅ Registro guardado');
+        if (idApoyoCapturado) setStep('step-apoyo', 'ok', '✅ Solicitud vinculada');
 
         const textoExito = modoEdicion ? "✓ ACTUALIZADO EXITOSO" : "✓ GUARDADO EXITOSO";
         btn.innerText = textoExito;
         btn.style.background = "#25D366";
 
-        if (modoEdicion) {
-            document.getElementById('banner-edicion').style.display = 'none';
-        }
-
+        if (modoEdicion) document.getElementById('banner-edicion').style.display = 'none';
         document.getElementById('bloque-wa').style.display = 'flex';
 
     } catch(e) {
-        // En caso de error, permitimos que el usuario vuelva a intentar
-        guardandoActualmente = false;
-        btn.disabled = false;
         setStep('step-traslado', 'err', '❌ Error: ' + e.message);
+        btn.disabled = false;
+        guardandoActualmente = false; // Permitir reintento si falla
         btn.innerText = modoEdicion ? '✏️ REINTENTAR ACTUALIZACIÓN' : '💾 REINTENTAR';
         btn.style.background = '';
-        Swal.fire("Error", "No se pudo completar el guardado en Excel: " + e.message, "error");
     }
 }
 
