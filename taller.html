@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.R. — Control de Taller</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --amarillo: #f59e0b; --rojo: #dc2626; --verde: #10b981; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -18,15 +17,12 @@
         .card { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 5px solid var(--azul); }
         .card.edit-mode { border-top-color: var(--amarillo); background: #fffcf5; }
 
-        /* ── ÓRDENES POR AVERÍA ── */
+        /* ORDENES POR AVERIA */
         .card-ordenes { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 5px solid var(--rojo); }
         .ordenes-titulo { font-size: 15px; font-weight: 800; color: var(--rojo); text-transform: uppercase; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
         .badge-ordenes { background: #fef2f2; color: var(--rojo); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 8px; }
 
-        .orden-item {
-            background: #fffafa; border: 1.5px solid #fecaca;
-            border-radius: 16px; padding: 16px; margin-bottom: 12px;
-        }
+        .orden-item { background: #fffafa; border: 1.5px solid #fecaca; border-radius: 16px; padding: 16px; margin-bottom: 12px; animation: fadeIn 0.3s ease; }
         .orden-item:last-child { margin-bottom: 0; }
         .orden-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
         .orden-placa { font-size: 18px; font-weight: 800; color: var(--azul); }
@@ -35,31 +31,20 @@
         .orden-desc { font-size: 13px; color: #475569; background: #f8fafc; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; line-height: 1.6; white-space: pre-line; }
         .orden-reportado { font-size: 11px; color: #64748b; margin-bottom: 12px; }
 
-        /* Formulario de liberación dentro de cada orden */
         .liberar-form { border-top: 1.5px dashed #fca5a5; padding-top: 14px; margin-top: 4px; }
         .liberar-form label { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
         .liberar-form textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 13px; margin-bottom: 10px; resize: vertical; }
         .liberar-form textarea:focus { outline: none; border-color: var(--azul); }
 
         .liberar-btns { display: flex; gap: 8px; }
-        .btn-liberar-ok {
-            flex: 1; padding: 13px; border: none; border-radius: 12px;
-            background: var(--verde); color: white; font-weight: 800;
-            font-size: 13px; cursor: pointer; transition: 0.2s; font-family: inherit;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-        }
+        .btn-liberar-ok { flex: 1; padding: 13px; border: none; border-radius: 12px; background: var(--verde); color: white; font-weight: 800; font-size: 13px; cursor: pointer; transition: 0.2s; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-liberar-ok:active { transform: scale(0.97); }
         .btn-liberar-ok:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-liberar-taller {
-            flex: 1; padding: 13px; border: none; border-radius: 12px;
-            background: #fee2e2; color: var(--rojo); font-weight: 800;
-            font-size: 13px; cursor: pointer; transition: 0.2s; font-family: inherit;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-        }
+        .btn-liberar-taller { flex: 1; padding: 13px; border: none; border-radius: 12px; background: #fee2e2; color: var(--rojo); font-weight: 800; font-size: 13px; cursor: pointer; transition: 0.2s; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-liberar-taller:active { transform: scale(0.97); }
         .btn-liberar-taller:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* ── FORMULARIO MANTENIMIENTO ── */
+        /* FORMULARIO */
         h2 { color: var(--azul); text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; }
         label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; text-transform: uppercase; }
         input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 14px; font-family: inherit; margin-bottom: 15px; background: #f8fafc; }
@@ -103,7 +88,6 @@
         .empty { text-align: center; color: #94a3b8; padding: 30px; font-size: 13px; }
 
         @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
-        .orden-item { animation: fadeIn 0.3s ease; }
     </style>
 </head>
 <body>
@@ -111,29 +95,29 @@
 <div class="container">
 
     <div class="nav-header">
-        <button class="btn-volver" onclick="irAtras()">← Volver</button>
-        <span style="font-size:13px; color:#64748b; font-weight:600;">🔧 Control de Taller</span>
+        <button class="btn-volver" onclick="irAtras()">&#8592; Volver</button>
+        <span style="font-size:13px; color:#64748b; font-weight:600;">&#128296; Control de Taller</span>
     </div>
 
-    <!-- ── ÓRDENES PENDIENTES POR AVERÍA ── -->
+    <!-- ORDENES PENDIENTES POR AVERIA -->
     <div class="card-ordenes" id="seccion-ordenes" style="display:none;">
         <div class="ordenes-titulo">
-            🚨 Órdenes Pendientes por Avería
+            Ordenes Pendientes por Averia
             <span class="badge-ordenes" id="badge-ordenes">0</span>
         </div>
         <div id="lista-ordenes">
-            <p class="empty">Cargando órdenes...</p>
+            <p class="empty">Cargando ordenes...</p>
         </div>
     </div>
 
     <!-- FORMULARIO MANTENIMIENTO -->
     <div class="card" id="contenedor-form">
-        <h2 id="titulo-form">🛠️ Registro de Mantenimiento</h2>
+        <h2 id="titulo-form">Registro de Mantenimiento</h2>
 
         <form id="form-taller">
             <div class="grid-2">
                 <div>
-                    <label>Placa del Vehículo *</label>
+                    <label>Placa del Vehiculo *</label>
                     <select id="placa" required onchange="alSeleccionarPlaca()">
                         <option value="">Cargando flota...</option>
                     </select>
@@ -145,21 +129,21 @@
             </div>
 
             <div class="info-km" id="info-km">
-                📊 KM actual registrado: <b id="km-actual-txt">---</b>
+                KM actual registrado: <b id="km-actual-txt">---</b>
             </div>
 
             <div class="grid-2">
                 <div>
                     <label>Tipo de Servicio *</label>
                     <select id="tipo_servicio" required onchange="alCambiarTipo()">
-                        <option value="Cambio de Aceite">🛢️ Cambio de Aceite</option>
-                        <option value="Frenos">🛑 Frenos</option>
-                        <option value="Llantas">⚫ Llantas</option>
-                        <option value="Sincronización">⚙️ Sincronización</option>
-                        <option value="Suspensión">🔩 Suspensión</option>
-                        <option value="Eléctrico">⚡ Eléctrico</option>
-                        <option value="Lavado">🧼 Lavado</option>
-                        <option value="Otro">🔧 Otro</option>
+                        <option value="Cambio de Aceite">Cambio de Aceite</option>
+                        <option value="Frenos">Frenos</option>
+                        <option value="Llantas">Llantas</option>
+                        <option value="Sincronizacion">Sincronizacion</option>
+                        <option value="Suspension">Suspension</option>
+                        <option value="Electrico">Electrico</option>
+                        <option value="Lavado">Lavado</option>
+                        <option value="Otro">Otro</option>
                     </select>
                 </div>
                 <div>
@@ -169,10 +153,10 @@
             </div>
 
             <div class="bloque-aceite" id="bloque-aceite">
-                <div class="ba-titulo">🛢️ Configuración del Próximo Cambio de Aceite</div>
+                <div class="ba-titulo">Configuracion del Proximo Cambio de Aceite</div>
                 <div class="grid-2">
                     <div>
-                        <label>Intervalo de KM para próximo cambio</label>
+                        <label>Intervalo de KM para proximo cambio</label>
                         <select id="intervalo-km" onchange="calcularProximoCambio()">
                             <option value="3000">Cada 3.000 KM</option>
                             <option value="5000" selected>Cada 5.000 KM</option>
@@ -186,7 +170,7 @@
                         <input type="number" id="custom-km" placeholder="Ej: 6000" min="1000" oninput="calcularProximoCambio()">
                     </div>
                 </div>
-                <div class="ba-resumen" id="ba-resumen">Ingresa el KM del servicio para ver el cálculo.</div>
+                <div class="ba-resumen" id="ba-resumen">Ingresa el KM del servicio para ver el calculo.</div>
             </div>
 
             <div class="grid-2">
@@ -195,22 +179,22 @@
                     <input type="number" id="costo" placeholder="Ej: 350000" min="0" value="0">
                 </div>
                 <div>
-                    <label>Taller / Mecánico</label>
-                    <input type="text" id="taller" placeholder="Nombre del taller o mecánico">
+                    <label>Taller / Mecanico</label>
+                    <input type="text" id="taller" placeholder="Nombre del taller o mecanico">
                 </div>
             </div>
 
             <label>Responsable del Registro</label>
-            <input type="text" id="responsable" placeholder="Coordinador o técnico" readonly style="background:#eef5ff; font-weight:600;">
+            <input type="text" id="responsable" placeholder="Coordinador o tecnico" readonly style="background:#eef5ff; font-weight:600;">
 
             <label>Observaciones</label>
             <textarea id="observaciones" rows="2" placeholder="Detalles del servicio..."></textarea>
 
             <button type="submit" class="btn-registrar" id="btn-submit">
-                <span>🔧</span> <span id="btn-texto">GUARDAR MANTENIMIENTO</span>
+                <span id="btn-texto">GUARDAR MANTENIMIENTO</span>
             </button>
             <button type="button" id="btn-cancelar" class="btn-cancelar" onclick="cancelarEdicion()">
-                ✕ CANCELAR EDICIÓN
+                CANCELAR EDICION
             </button>
         </form>
     </div>
@@ -218,14 +202,14 @@
     <!-- HISTORIAL -->
     <div class="historial">
         <div class="historial-header">
-            <h2>📋 Últimos Mantenimientos</h2>
+            <h2>Ultimos Mantenimientos</h2>
             <span class="badge-total" id="badge-total">0 registros</span>
         </div>
         <table>
             <thead>
                 <tr>
                     <th>Fecha</th><th>Placa</th><th>Servicio</th>
-                    <th>KM Servicio</th><th>Próximo KM</th>
+                    <th>KM Servicio</th><th>Proximo KM</th>
                     <th>Costo</th><th>Taller</th><th>Responsable</th><th></th>
                 </tr>
             </thead>
@@ -239,13 +223,14 @@
 
 <script src="db.js"></script>
 <script>
-    let editandoID = null;
-    let flotaData  = [];
+    // ── ESTADO GLOBAL
+    var editandoID = null;
+    var flotaData  = [];
 
-    // ── INIT ────────────────────────────────────────────
-    window.onload = async () => {
+    // ── INIT
+    window.onload = async function() {
         document.getElementById('fecha').valueAsDate = new Date();
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        var sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (sesion.nombre) document.getElementById('responsable').value = sesion.nombre;
         document.getElementById('bloque-aceite').style.display = 'block';
         await cargarPlacas();
@@ -253,34 +238,44 @@
         await cargarHistorial();
     };
 
+    // ── NAVEGACION
     function irAtras() {
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const rol = norm(sesion.rol), usr = norm(sesion.usuario);
+        var sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        var norm = function(s) { return (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,''); };
+        var rol = norm(sesion.rol), usr = norm(sesion.usuario);
         if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = 'dashboard.html';
         else if (rol === 'coordinador') window.location.href = 'panel_coordinador.html';
         else window.location.href = 'panel_conductor.html';
     }
 
-    // ── CARGAR PLACAS ───────────────────────────────────
+    // ── CARGAR PLACAS
     async function cargarPlacas() {
-        const { data } = await DB.supabase.from('carrozas').select('placa, modelo, kilometraje_actual').order('placa');
-        flotaData = data || [];
-        const sel = document.getElementById('placa');
-        if (flotaData.length > 0) {
-            sel.innerHTML = '<option value="">— Seleccione placa —</option>' +
-                flotaData.map(c => '<option value="' + c.placa + '">' + c.placa + (c.modelo ? ' — ' + c.modelo : '') + '</option>').join('');
-        } else {
-            sel.innerHTML = '<option value="">Sin vehículos registrados</option>';
+        try {
+            var res = await DB.supabase.from('carrozas').select('placa, modelo, kilometraje_actual').order('placa');
+            flotaData = res.data || [];
+            var sel = document.getElementById('placa');
+            if (flotaData.length > 0) {
+                sel.innerHTML = '<option value="">&#8212; Seleccione placa &#8212;</option>' +
+                    flotaData.map(function(c) {
+                        return '<option value="' + c.placa + '">' + c.placa +
+                               (c.modelo ? ' - ' + c.modelo : '') + '</option>';
+                    }).join('');
+            } else {
+                sel.innerHTML = '<option value="">Sin vehiculos registrados</option>';
+            }
+        } catch(e) {
+            console.error('Error cargando placas:', e);
         }
     }
 
+    // ── AL SELECCIONAR PLACA
     function alSeleccionarPlaca() {
-        const placa = document.getElementById('placa').value;
-        const veh   = flotaData.find(c => c.placa === placa);
-        const infoEl = document.getElementById('info-km');
+        var placa  = document.getElementById('placa').value;
+        var veh    = flotaData.find(function(c) { return c.placa === placa; });
+        var infoEl = document.getElementById('info-km');
         if (veh && placa) {
-            document.getElementById('km-actual-txt').textContent = Number(veh.kilometraje_actual || 0).toLocaleString() + ' KM';
+            document.getElementById('km-actual-txt').textContent =
+                Number(veh.kilometraje_actual || 0).toLocaleString() + ' KM';
             document.getElementById('km_servicio').value = veh.kilometraje_actual || '';
             infoEl.style.display = 'flex';
             calcularProximoCambio();
@@ -289,14 +284,17 @@
         }
     }
 
+    // ── AL CAMBIAR TIPO DE SERVICIO
     function alCambiarTipo() {
-        const tipo = document.getElementById('tipo_servicio').value;
-        document.getElementById('bloque-aceite').style.display = tipo === 'Cambio de Aceite' ? 'block' : 'none';
+        var tipo = document.getElementById('tipo_servicio').value;
+        document.getElementById('bloque-aceite').style.display =
+            tipo === 'Cambio de Aceite' ? 'block' : 'none';
         if (tipo === 'Cambio de Aceite') calcularProximoCambio();
     }
 
+    // ── OBTENER INTERVALO
     function getIntervalo() {
-        const sel = document.getElementById('intervalo-km').value;
+        var sel = document.getElementById('intervalo-km').value;
         if (sel === 'custom') {
             document.getElementById('custom-km-wrap').style.display = 'block';
             return parseInt(document.getElementById('custom-km').value) || 0;
@@ -306,230 +304,58 @@
         }
     }
 
+    // ── CALCULAR PROXIMO CAMBIO
     function calcularProximoCambio() {
-        const kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
-        const intervalo  = getIntervalo();
-        const resumen    = document.getElementById('ba-resumen');
-        if (!kmServicio || !intervalo) { resumen.innerHTML = 'Ingresa el KM del servicio para ver el cálculo.'; return; }
-        const kmProximo = kmServicio + intervalo;
+        var kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
+        var intervalo  = getIntervalo();
+        var resumen    = document.getElementById('ba-resumen');
+        if (!kmServicio || !intervalo) {
+            resumen.innerHTML = 'Ingresa el KM del servicio para ver el calculo.';
+            return;
+        }
+        var kmProximo = kmServicio + intervalo;
         resumen.innerHTML =
-            '🔧 KM del servicio actual: <b>' + kmServicio.toLocaleString() + ' KM</b><br>' +
-            '📏 Intervalo del cambio: <b>cada ' + intervalo.toLocaleString() + ' KM</b><br>' +
-            '🎯 Próximo cambio de aceite a los: <b style="color:#92400e; font-size:15px;">' + kmProximo.toLocaleString() + ' KM</b>';
+            'KM del servicio actual: <b>' + kmServicio.toLocaleString() + ' KM</b><br>' +
+            'Intervalo del cambio: <b>cada ' + intervalo.toLocaleString() + ' KM</b><br>' +
+            'Proximo cambio de aceite a los: <b style="color:#92400e; font-size:15px;">' +
+            kmProximo.toLocaleString() + ' KM</b>';
     }
 
-    // ── ÓRDENES PENDIENTES POR AVERÍA ───────────────────
-    async function cargarOrdenesPendientes() {
-        try {
-            const { data } = await DB.supabase
-                .from('mantenimientos')
-                .select('*')
-                .eq('estado_orden', 'pendiente')
-                .order('fecha', { ascending: false });
+    // ── GUARDAR / ACTUALIZAR MANTENIMIENTO
+    document.getElementById('form-taller').onsubmit = async function(e) {
+        e.preventDefault();
+        var btn = document.getElementById('btn-submit');
+        var txt = document.getElementById('btn-texto');
+        btn.disabled      = true;
+        txt.textContent   = 'GUARDANDO...';
 
-            const seccion = document.getElementById('seccion-ordenes');
-            const lista   = document.getElementById('lista-ordenes');
-            const badge   = document.getElementById('badge-ordenes');
-
-            if (!data || data.length === 0) {
-                seccion.style.display = 'none';
-                return;
-            }
-
-            seccion.style.display = 'block';
-            badge.textContent = data.length + ' pendiente' + (data.length > 1 ? 's' : '');
-
-            lista.innerHTML = data.map((o, idx) => {
-                // Usamos idx como índice seguro para el DOM; guardamos placa y fecha como atributos
-                const falla = (o.tipo_servicio || '').replace('Avería — ', '');
-                // id puede ser numérico, string tipo "AV-xxx", o vacío — lo normalizamos
-                const rowId = String(o.id || '').trim();
-
-                return '<div class="orden-item" id="orden-item-' + idx + '" ' +
-                            'data-row-id="' + rowId + '" ' +
-                            'data-placa="' + (o.placa || '') + '" ' +
-                            'data-fecha="' + (o.fecha || '') + '" ' +
-                            'data-tipo="' + (o.tipo_servicio || '') + '">' +
-                    '<div class="orden-header">' +
-                        '<div class="orden-placa">🚗 ' + (o.placa || '---') + '</div>' +
-                        '<span class="orden-falla">⚠️ ' + falla + '</span>' +
-                        '<span class="orden-fecha">' + (o.fecha || '---') + '</span>' +
-                    '</div>' +
-                    '<div class="orden-reportado">👤 Reportado por: <b>' + (o.responsable || '---') + '</b></div>' +
-                    '<div class="orden-desc">' + (o.observaciones || '---') + '</div>' +
-                    '<div class="liberar-form">' +
-                        '<label>📋 Observaciones al recibir el vehículo</label>' +
-                        '<textarea id="obs-liberar-' + idx + '" rows="2" placeholder="¿Cómo se recibe el vehículo? ¿Quedó bien reparado?"></textarea>' +
-                        '<div class="liberar-btns">' +
-                            '<button class="btn-liberar-ok" onclick="liberarVehiculo(' + idx + ', true)">' +
-                                '✅ LISTO — Marcar Disponible' +
-                            '</button>' +
-                            '<button class="btn-liberar-taller" onclick="liberarVehiculo(' + idx + ', false)">' +
-                                '🔧 Sigue en Taller' +
-                            '</button>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-            }).join('');
-        } catch(e) {
-            console.error('Error cargando órdenes:', e);
-        }
-    }
-
-    // ── LIBERAR VEHÍCULO ─────────────────────────────────
-    // Estrategia: identifica la fila por placa + fecha + tipo_servicio
-    // (funciona aunque el id esté vacío, como ocurre en filas insertadas por GAS)
-    async function liberarVehiculo(idx, disponible) {
-        const ordenEl  = document.getElementById('orden-item-' + idx);
-        const placa    = ordenEl.dataset.placa;
-        const fecha    = ordenEl.dataset.fecha;
-        const tipo     = ordenEl.dataset.tipo;
-        const rowId    = ordenEl.dataset.rowId;   // puede estar vacío
-        const obs      = document.getElementById('obs-liberar-' + idx).value.trim();
-
-        if (!obs) { alert('Por favor ingresa las observaciones de cómo se recibe el vehículo.'); return; }
-
-        const btnOk  = ordenEl.querySelector('.btn-liberar-ok');
-        const btnTal = ordenEl.querySelector('.btn-liberar-taller');
-        btnOk.disabled = true; btnTal.disabled = true;
-        btnOk.textContent = '⏳ Procesando...';
-
-        const sesion       = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const nuevoEstado  = disponible ? 'Disponible' : 'En Taller';
-        const estadoOrden  = disponible ? 'completada' : 'en_proceso';
-        const obsCompleta  = ordenEl.querySelector('.orden-desc').textContent.trim() +
-                             '\n\n--- REVISIÓN ---\n' + obs + '\n\n' +
-                             '🔍 Revisado por: ' + (sesion.nombre || '---') + '\n' +
-                             '📅 Fecha revisión: ' + new Date().toLocaleDateString('es-CO') + '\n' +
-                             '🚦 Estado final: ' + nuevoEstado;
-
-        try {
-            // ── 1. Actualizar la orden en mantenimientos ──────────────────
-            // Si tiene id usamos id; si no, usamos placa+fecha como fallback.
-            // GASQueryBuilder solo permite un .eq() por update, así que
-            // usamos DB.actualizar() con la clave más específica disponible.
-
-            let resUpdate;
-            if (rowId) {
-                // Fila tiene id (numérico o string tipo AV-xxx)
-                resUpdate = await DB.actualizar(
-                    'mantenimientos',
-                    { estado_orden: estadoOrden, observaciones: obsCompleta },
-                    'id', rowId
-                );
-            } else {
-                // Sin id → buscamos por placa + fecha + tipo_servicio
-                // GAS acepta update filtrando por cualquier columna única
-                resUpdate = await DB.actualizar(
-                    'mantenimientos',
-                    { estado_orden: estadoOrden, observaciones: obsCompleta },
-                    'placa', placa
-                );
-                // Nota: si hay varias órdenes de la misma placa pendientes
-                // esto actualiza la más reciente (GAS aplica a la primera coincidencia)
-            }
-
-            // ── 2. Actualizar estado del vehículo en carrozas ─────────────
-            // Usamos DB.actualizarCarroza() que hace gasWrite('carrozas', campos, 'update', 'placa', placa)
-            const resCarroza = await DB.actualizarCarroza(placa, { estado: nuevoEstado });
-
-            console.log('Orden update:', resUpdate);
-            console.log('Carroza update:', resCarroza);
-
-            // ── 3. Mostrar resultado visual ───────────────────────────────
-            if (disponible) {
-                ordenEl.style.background = '#f0fdf4';
-                ordenEl.style.borderColor = '#86efac';
-                ordenEl.querySelector('.liberar-form').innerHTML =
-                    '<div style="text-align:center; padding:12px; color:#065f46; font-weight:800; font-size:14px;">' +
-                    '✅ Vehículo ' + placa + ' marcado como DISPONIBLE<br>' +
-                    '<span style="font-size:12px; font-weight:400;">La orden quedó cerrada en el historial.</span></div>';
-            } else {
-                ordenEl.style.background = '#fffbeb';
-                ordenEl.style.borderColor = '#fcd34d';
-                ordenEl.querySelector('.liberar-form').innerHTML =
-                    '<div style="text-align:center; padding:12px; color:#92400e; font-weight:800; font-size:14px;">' +
-                    '🔧 Vehículo ' + placa + ' continúa EN TALLER<br>' +
-                    '<span style="font-size:12px; font-weight:400;">La novedad quedó registrada.</span></div>';
-            }
-
-            // Recargar historial y badge
-            await cargarHistorial();
-            await cargarOrdenesPendientes();
-
-        } catch(e) {
-            alert('Error: ' + e.message);
-            btnOk.disabled = false; btnTal.disabled = false;
-            btnOk.textContent = '✅ LISTO — Marcar Disponible';
-        }
-    }
-
-    // ── HISTORIAL ───────────────────────────────────────
-    async function cargarHistorial() {
-        const { data } = await DB.supabase
-            .from('mantenimientos').select('*')
-            .order('fecha', { ascending: false }).limit(30);
-
-        const tbody = document.getElementById('tbody-mant');
-        document.getElementById('badge-total').textContent = (data ? data.length : 0) + ' registros';
-
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty">Sin registros de mantenimiento.</td></tr>';
+        var placa = document.getElementById('placa').value;
+        if (!placa) {
+            alert('Selecciona una placa');
+            btn.disabled    = false;
+            txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
             return;
         }
 
-        tbody.innerHTML = data.map(m => {
-            const tipo = m.tipo_servicio || '';
-            let cls = 'tp-otro';
-            if (tipo.includes('Aceite'))   cls = 'tp-aceite';
-            else if (tipo.includes('Freno'))  cls = 'tp-frenos';
-            else if (tipo.includes('Llanta')) cls = 'tp-llantas';
-            else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
-            else if (tipo.includes('Avería')) cls = 'tp-averia';
+        var tipo       = document.getElementById('tipo_servicio').value;
+        var kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
+        var esAceite   = (tipo === 'Cambio de Aceite');
+        var intervalo  = esAceite ? getIntervalo() : 0;
 
-            const safe = JSON.stringify(m).replace(/'/g, '&#39;');
-            const kmProxCell = (m.km_proximo_cambio && m.km_proximo_cambio > 0)
-                ? '<span class="km-prox-badge">🎯 ' + Number(m.km_proximo_cambio).toLocaleString() + ' KM</span>'
-                : '<span style="color:#94a3b8; font-size:11px;">—</span>';
+        // CALCULO SEGURO: km_proximo_cambio = kmServicio + intervalo
+        // Solo se asigna cuando es cambio de aceite Y ambos valores son positivos
+        var kmProximo = (esAceite && intervalo > 0 && kmServicio > 0) ? (kmServicio + intervalo) : 0;
 
-            const estadoPill = m.estado_orden === 'pendiente'
-                ? '<span style="font-size:10px; background:#fef2f2; color:#991b1b; padding:2px 6px; border-radius:5px; font-weight:700;">PENDIENTE</span> '
-                : m.estado_orden === 'completada'
-                ? '<span style="font-size:10px; background:#ecfdf5; color:#065f46; padding:2px 6px; border-radius:5px; font-weight:700;">CERRADA</span> '
-                : '';
-
-            return '<tr>' +
-                '<td>' + (m.fecha || '---') + '</td>' +
-                '<td><b>' + (m.placa || '---') + '</b></td>' +
-                '<td>' + estadoPill + '<span class="tipo-pill ' + cls + '">' + tipo + '</span></td>' +
-                '<td>' + Number(m.kilometraje_servicio || 0).toLocaleString() + ' KM</td>' +
-                '<td>' + kmProxCell + '</td>' +
-                '<td>$' + Number(m.costo || 0).toLocaleString() + '</td>' +
-                '<td style="font-size:11px;">' + (m.taller || '---') + '</td>' +
-                '<td style="font-size:11px;">' + (m.responsable || '---') + '</td>' +
-                '<td><button class="btn-edit" onclick=\'prepararEdicion(' + safe + ')\'>EDITAR</button></td>' +
-            '</tr>';
-        }).join('');
-    }
-
-    // ── GUARDAR / ACTUALIZAR ────────────────────────────
-    document.getElementById('form-taller').onsubmit = async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('btn-submit');
-        const txt = document.getElementById('btn-texto');
-        btn.disabled = true; txt.textContent = 'GUARDANDO...';
-
-        const placa = document.getElementById('placa').value;
-        if (!placa) { alert("Selecciona una placa"); btn.disabled = false; txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO'; return; }
-
-        const tipo       = document.getElementById('tipo_servicio').value;
-        const kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
-        const esAceite   = tipo === 'Cambio de Aceite';
-        const intervalo  = esAceite ? getIntervalo() : 0;
-        const kmProximo  = esAceite && intervalo ? kmServicio + intervalo : 0;
-
-        const registro = {
-            placa,
+        // ================================================================
+        // OBJETO REGISTRO CON ID SIEMPRE PRESENTE
+        // - INSERT nuevo  → id propio generado: 'M-' + timestamp
+        // - EDICION       → conserva el id existente (editandoID)
+        // Esto es clave para que GAS pueda actualizar la fila correcta
+        // y para que las salidas lean el km_proximo_cambio correcto.
+        // ================================================================
+        var registro = {
+            id:                   editandoID ? String(editandoID) : ('M-' + Date.now()),
+            placa:                placa,
             fecha:                document.getElementById('fecha').value,
             tipo_servicio:        tipo,
             kilometraje_servicio: kmServicio,
@@ -541,37 +367,296 @@
             estado_orden:         'completada'
         };
 
-        let res;
-        if (editandoID) {
-            res = await DB.supabase.from('mantenimientos').update(registro).eq('id', editandoID);
-        } else {
-            res = await DB.supabase.from('mantenimientos').insert([registro]);
+        // Log de verificacion (visible en consola del navegador F12)
+        console.log('==== GUARDANDO MANTENIMIENTO ====');
+        console.log('ID generado:', registro.id);
+        console.log('Placa:', registro.placa);
+        console.log('KM servicio:', kmServicio);
+        console.log('Intervalo:', intervalo);
+        console.log('KM proximo cambio:', kmProximo);
+        console.log('Objeto completo:', registro);
+
+        var res;
+        try {
+            if (editandoID) {
+                // UPDATE por id existente
+                res = await DB.supabase.from('mantenimientos').update(registro).eq('id', editandoID);
+            } else {
+                // INSERT con id generado incluido en el payload
+                res = await DB.supabase.from('mantenimientos').insert([registro]);
+            }
+        } catch(err) {
+            alert('Error inesperado al guardar: ' + err.message);
+            btn.disabled    = false;
+            txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
+            return;
         }
 
-        if (res.error) { alert("Error al guardar: " + res.error.message); btn.disabled = false; txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO'; return; }
+        if (res.error) {
+            alert('Error al guardar: ' + res.error.message);
+            btn.disabled    = false;
+            txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
+            return;
+        }
 
-        const proxFecha = new Date(registro.fecha);
-        proxFecha.setMonth(proxFecha.getMonth() + 3);
-        await DB.actualizarCarroza(placa, {
-            kilometraje_actual:    kmServicio,
-            ultimo_mantenimiento:  registro.fecha,
-            proximo_mantenimiento: proxFecha.toISOString().split('T')[0],
-            estado:                'Disponible'
-        });
+        // Actualizar datos de la carroza
+        try {
+            var proxFecha = new Date(registro.fecha);
+            proxFecha.setMonth(proxFecha.getMonth() + 3);
+            await DB.actualizarCarroza(placa, {
+                kilometraje_actual:    kmServicio,
+                ultimo_mantenimiento:  registro.fecha,
+                proximo_mantenimiento: proxFecha.toISOString().split('T')[0],
+                estado:                'Disponible'
+            });
+        } catch(err) {
+            // No bloquear el flujo si falla la actualizacion de carroza
+            console.warn('Advertencia al actualizar carroza:', err.message);
+        }
 
-        alert(editandoID ? '✅ Registro actualizado' : '✅ Mantenimiento guardado');
+        alert(editandoID ? 'Registro actualizado correctamente' : 'Mantenimiento guardado correctamente');
         cancelarEdicion();
         await cargarHistorial();
         await cargarOrdenesPendientes();
     };
 
-    // ── EDITAR ──────────────────────────────────────────
-    function prepararEdicion(m) {
-        editandoID = m.id;
+    // ── ORDENES PENDIENTES POR AVERIA
+    async function cargarOrdenesPendientes() {
+        try {
+            var res = await DB.supabase
+                .from('mantenimientos')
+                .select('*')
+                .eq('estado_orden', 'pendiente')
+                .order('fecha', { ascending: false });
+
+            var seccion = document.getElementById('seccion-ordenes');
+            var lista   = document.getElementById('lista-ordenes');
+            var badge   = document.getElementById('badge-ordenes');
+
+            if (!res.data || res.data.length === 0) {
+                seccion.style.display = 'none';
+                return;
+            }
+
+            seccion.style.display = 'block';
+            badge.textContent = res.data.length + ' pendiente' + (res.data.length > 1 ? 's' : '');
+
+            lista.innerHTML = res.data.map(function(o, idx) {
+                var falla = (o.tipo_servicio || '').replace('Averia - ', '').replace('Avería — ', '');
+                // Normalizar id: puede ser numerico, 'AV-xxx', 'M-xxx' o vacio
+                var rowId = String(o.id || '').trim();
+
+                return '<div class="orden-item" id="orden-item-' + idx + '" ' +
+                            'data-row-id="' + rowId + '" ' +
+                            'data-placa="' + (o.placa || '') + '" ' +
+                            'data-fecha="' + (o.fecha || '') + '" ' +
+                            'data-tipo="' + (o.tipo_servicio || '') + '">' +
+                    '<div class="orden-header">' +
+                        '<div class="orden-placa">' + (o.placa || '---') + '</div>' +
+                        '<span class="orden-falla">' + falla + '</span>' +
+                        '<span class="orden-fecha">' + (o.fecha || '---') + '</span>' +
+                    '</div>' +
+                    '<div class="orden-reportado">Reportado por: <b>' + (o.responsable || '---') + '</b></div>' +
+                    '<div class="orden-desc">' + (o.observaciones || '---') + '</div>' +
+                    '<div class="liberar-form">' +
+                        '<label>Observaciones al recibir el vehiculo</label>' +
+                        '<textarea id="obs-liberar-' + idx + '" rows="2" ' +
+                            'placeholder="Como se recibe el vehiculo? Quedo bien reparado?"></textarea>' +
+                        '<div class="liberar-btns">' +
+                            '<button class="btn-liberar-ok" onclick="liberarVehiculo(' + idx + ', true)">' +
+                                'LISTO - Marcar Disponible' +
+                            '</button>' +
+                            '<button class="btn-liberar-taller" onclick="liberarVehiculo(' + idx + ', false)">' +
+                                'Sigue en Taller' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        } catch(e) {
+            console.error('Error cargando ordenes pendientes:', e);
+        }
+    }
+
+    // ── LIBERAR VEHICULO
+    async function liberarVehiculo(idx, disponible) {
+        var ordenEl = document.getElementById('orden-item-' + idx);
+        var placa   = ordenEl.dataset.placa;
+        var rowId   = ordenEl.dataset.rowId;
+        var obs     = document.getElementById('obs-liberar-' + idx).value.trim();
+
+        if (!obs) {
+            alert('Por favor ingresa las observaciones de como se recibe el vehiculo.');
+            return;
+        }
+
+        var btnOk  = ordenEl.querySelector('.btn-liberar-ok');
+        var btnTal = ordenEl.querySelector('.btn-liberar-taller');
+        btnOk.disabled  = true;
+        btnTal.disabled = true;
+        btnOk.textContent = 'Procesando...';
+
+        var sesion      = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        var nuevoEstado = disponible ? 'Disponible' : 'En Taller';
+        var estadoOrden = disponible ? 'completada'  : 'en_proceso';
+
+        var obsOriginal = ordenEl.querySelector('.orden-desc').textContent.trim();
+        var obsCompleta =
+            obsOriginal + '\n\n--- REVISION ---\n' + obs + '\n\n' +
+            'Revisado por: ' + (sesion.nombre || '---') + '\n' +
+            'Fecha revision: ' + new Date().toLocaleDateString('es-CO') + '\n' +
+            'Estado final: ' + nuevoEstado;
+
+        try {
+            var resUpdate;
+
+            if (rowId) {
+                // Tiene id propio → actualizar por id (lo mas confiable)
+                resUpdate = await DB.actualizar(
+                    'mantenimientos',
+                    { estado_orden: estadoOrden, observaciones: obsCompleta },
+                    'id',
+                    rowId
+                );
+            } else {
+                // Sin id → fallback por placa (GAS actualiza primera coincidencia pendiente)
+                console.warn('Orden sin id - usando placa como clave:', placa);
+                resUpdate = await DB.actualizar(
+                    'mantenimientos',
+                    { estado_orden: estadoOrden, observaciones: obsCompleta },
+                    'placa',
+                    placa
+                );
+            }
+
+            // Actualizar estado del vehiculo en carrozas
+            await DB.actualizarCarroza(placa, { estado: nuevoEstado });
+
+            console.log('Orden actualizada:', resUpdate);
+
+            // Feedback visual
+            if (disponible) {
+                ordenEl.style.background  = '#f0fdf4';
+                ordenEl.style.borderColor = '#86efac';
+                ordenEl.querySelector('.liberar-form').innerHTML =
+                    '<div style="text-align:center; padding:12px; color:#065f46; font-weight:800; font-size:14px;">' +
+                    'Vehiculo ' + placa + ' marcado como DISPONIBLE<br>' +
+                    '<span style="font-size:12px; font-weight:400;">La orden quedo cerrada en el historial.</span></div>';
+            } else {
+                ordenEl.style.background  = '#fffbeb';
+                ordenEl.style.borderColor = '#fcd34d';
+                ordenEl.querySelector('.liberar-form').innerHTML =
+                    '<div style="text-align:center; padding:12px; color:#92400e; font-weight:800; font-size:14px;">' +
+                    'Vehiculo ' + placa + ' continua EN TALLER<br>' +
+                    '<span style="font-size:12px; font-weight:400;">La novedad quedo registrada.</span></div>';
+            }
+
+            await cargarHistorial();
+            await cargarOrdenesPendientes();
+
+        } catch(e) {
+            alert('Error al procesar: ' + e.message);
+            btnOk.disabled  = false;
+            btnTal.disabled = false;
+            btnOk.textContent = 'LISTO - Marcar Disponible';
+        }
+    }
+
+    // ── HISTORIAL
+    async function cargarHistorial() {
+        try {
+            var res = await DB.supabase
+                .from('mantenimientos')
+                .select('*')
+                .order('fecha', { ascending: false })
+                .limit(30);
+
+            var tbody = document.getElementById('tbody-mant');
+            document.getElementById('badge-total').textContent =
+                (res.data ? res.data.length : 0) + ' registros';
+
+            if (!res.data || res.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="empty">Sin registros de mantenimiento.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = res.data.map(function(m) {
+                var tipo = m.tipo_servicio || '';
+                var cls  = 'tp-otro';
+                if (tipo.includes('Aceite'))   cls = 'tp-aceite';
+                else if (tipo.includes('Freno'))  cls = 'tp-frenos';
+                else if (tipo.includes('Llanta')) cls = 'tp-llantas';
+                else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
+                else if (tipo.includes('Acer'))   cls = 'tp-sinc';
+                else if (tipo.includes('veria'))  cls = 'tp-averia';
+
+                // Serializar de forma segura para onclick
+                var safe = JSON.stringify(m)
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'");
+
+                var kmServNum = parseInt(m.kilometraje_servicio) || 0;
+                var kmProxNum = parseInt(m.km_proximo_cambio)    || 0;
+
+                // Mostrar km proximo solo si es mayor que km servicio (evita datos erroneos)
+                var kmProxCell;
+                if (kmProxNum > 0 && kmProxNum > kmServNum) {
+                    kmProxCell = '<span class="km-prox-badge">' +
+                        Number(kmProxNum).toLocaleString() + ' KM</span>';
+                } else if (kmProxNum > 0 && kmProxNum <= kmServNum) {
+                    // Dato inconsistente — lo muestra en rojo como advertencia
+                    kmProxCell = '<span style="font-size:10px; background:#fee2e2; color:#991b1b; ' +
+                        'padding:3px 8px; border-radius:6px; font-weight:700;" ' +
+                        'title="KM proximo parece incorrecto, revisar">!' +
+                        Number(kmProxNum).toLocaleString() + ' KM</span>';
+                } else {
+                    kmProxCell = '<span style="color:#94a3b8; font-size:11px;">-</span>';
+                }
+
+                var estadoPill = '';
+                if (m.estado_orden === 'pendiente') {
+                    estadoPill = '<span style="font-size:10px; background:#fef2f2; color:#991b1b; ' +
+                        'padding:2px 6px; border-radius:5px; font-weight:700; margin-right:4px;">PENDIENTE</span>';
+                } else if (m.estado_orden === 'completada') {
+                    estadoPill = '<span style="font-size:10px; background:#ecfdf5; color:#065f46; ' +
+                        'padding:2px 6px; border-radius:5px; font-weight:700; margin-right:4px;">CERRADA</span>';
+                }
+
+                return '<tr>' +
+                    '<td>' + (m.fecha || '---') + '</td>' +
+                    '<td><b>' + (m.placa || '---') + '</b></td>' +
+                    '<td>' + estadoPill + '<span class="tipo-pill ' + cls + '">' + tipo + '</span></td>' +
+                    '<td>' + Number(kmServNum).toLocaleString() + ' KM</td>' +
+                    '<td>' + kmProxCell + '</td>' +
+                    '<td>$' + Number(m.costo || 0).toLocaleString() + '</td>' +
+                    '<td style="font-size:11px;">' + (m.taller || '---') + '</td>' +
+                    '<td style="font-size:11px;">' + (m.responsable || '---') + '</td>' +
+                    '<td><button class="btn-edit" onclick="prepararEdicion(\'' +
+                        safe + '\')">EDITAR</button></td>' +
+                '</tr>';
+            }).join('');
+        } catch(e) {
+            console.error('Error cargando historial:', e);
+        }
+    }
+
+    // ── PREPARAR EDICION
+    function prepararEdicion(mStr) {
+        var m;
+        try {
+            m = JSON.parse(mStr);
+        } catch(e) {
+            alert('Error al cargar los datos del registro para edicion.');
+            return;
+        }
+
+        editandoID = m.id || null;
+
         document.getElementById('contenedor-form').classList.add('edit-mode');
-        document.getElementById('titulo-form').innerText  = '📝 Editando Registro';
-        document.getElementById('btn-texto').textContent  = 'ACTUALIZAR CAMBIOS';
+        document.getElementById('titulo-form').innerText      = 'Editando Registro';
+        document.getElementById('btn-texto').textContent      = 'ACTUALIZAR CAMBIOS';
         document.getElementById('btn-cancelar').style.display = 'block';
+
         document.getElementById('placa').value         = m.placa         || '';
         document.getElementById('fecha').value         = m.fecha         || '';
         document.getElementById('tipo_servicio').value = m.tipo_servicio || '';
@@ -580,24 +665,45 @@
         document.getElementById('taller').value        = m.taller        || '';
         document.getElementById('responsable').value   = m.responsable   || '';
         document.getElementById('observaciones').value = m.observaciones || '';
-        alSeleccionarPlaca(); alCambiarTipo(); calcularProximoCambio();
+
+        // Restaurar intervalo si era cambio de aceite
+        if (m.tipo_servicio === 'Cambio de Aceite' && m.km_proximo_cambio && m.kilometraje_servicio) {
+            var intervaloRegistrado = parseInt(m.km_proximo_cambio) - parseInt(m.kilometraje_servicio);
+            var selIntervalo = document.getElementById('intervalo-km');
+            var opcionesValidas = [3000, 5000, 7500, 10000];
+            if (opcionesValidas.includes(intervaloRegistrado)) {
+                selIntervalo.value = String(intervaloRegistrado);
+            } else if (intervaloRegistrado > 0) {
+                selIntervalo.value = 'custom';
+                document.getElementById('custom-km').value = intervaloRegistrado;
+                document.getElementById('custom-km-wrap').style.display = 'block';
+            }
+        }
+
+        alSeleccionarPlaca();
+        alCambiarTipo();
+        calcularProximoCambio();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // ── CANCELAR EDICION
     function cancelarEdicion() {
         editandoID = null;
         document.getElementById('form-taller').reset();
         document.getElementById('fecha').valueAsDate = new Date();
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+
+        var sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (sesion.nombre) document.getElementById('responsable').value = sesion.nombre;
+
         document.getElementById('contenedor-form').classList.remove('edit-mode');
-        document.getElementById('titulo-form').innerText  = '🛠️ Registro de Mantenimiento';
-        document.getElementById('btn-texto').textContent  = 'GUARDAR MANTENIMIENTO';
+        document.getElementById('titulo-form').innerText      = 'Registro de Mantenimiento';
+        document.getElementById('btn-texto').textContent      = 'GUARDAR MANTENIMIENTO';
         document.getElementById('btn-cancelar').style.display = 'none';
-        document.getElementById('btn-submit').disabled   = false;
-        document.getElementById('info-km').style.display = 'none';
+        document.getElementById('btn-submit').disabled        = false;
+        document.getElementById('info-km').style.display      = 'none';
         document.getElementById('bloque-aceite').style.display = 'block';
-        document.getElementById('ba-resumen').innerHTML  = 'Ingresa el KM del servicio para ver el cálculo.';
+        document.getElementById('custom-km-wrap').style.display = 'none';
+        document.getElementById('ba-resumen').innerHTML        = 'Ingresa el KM del servicio para ver el calculo.';
     }
 </script>
 </body>
