@@ -224,8 +224,9 @@
 <script src="db.js"></script>
 <script>
     // ── ESTADO GLOBAL
-    var editandoID = null;
-    var flotaData  = [];
+    var editandoID    = null;
+    var flotaData     = [];
+    var historialData = [];   // cache del historial para edicion segura por indice
 
     // ── INIT
     window.onload = async function() {
@@ -562,6 +563,23 @@
         }
     }
 
+    // ── FORMATEAR FECHA: convierte cualquier formato a YYYY-MM-DD legible
+    function formatearFecha(f) {
+        if (!f) return '---';
+        var s = String(f).trim();
+        // Ya esta en formato YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        // Viene como objeto Date serializado o string largo tipo "Tue May 19 2026..."
+        var d = new Date(s);
+        if (!isNaN(d.getTime())) {
+            var y  = d.getFullYear();
+            var mo = String(d.getMonth() + 1).padStart(2, '0');
+            var dy = String(d.getDate()).padStart(2, '0');
+            return y + '-' + mo + '-' + dy;
+        }
+        return s;
+    }
+
     // ── HISTORIAL
     async function cargarHistorial() {
         try {
@@ -580,34 +598,29 @@
                 return;
             }
 
-            tbody.innerHTML = res.data.map(function(m) {
+            // Guardar en cache global para acceso seguro por indice desde prepararEdicion
+            historialData = res.data;
+
+            tbody.innerHTML = res.data.map(function(m, idx) {
                 var tipo = m.tipo_servicio || '';
                 var cls  = 'tp-otro';
                 if (tipo.includes('Aceite'))   cls = 'tp-aceite';
                 else if (tipo.includes('Freno'))  cls = 'tp-frenos';
                 else if (tipo.includes('Llanta')) cls = 'tp-llantas';
                 else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
-                else if (tipo.includes('Acer'))   cls = 'tp-sinc';
                 else if (tipo.includes('veria'))  cls = 'tp-averia';
-
-                // Serializar de forma segura para onclick
-                var safe = JSON.stringify(m)
-                    .replace(/\\/g, '\\\\')
-                    .replace(/'/g, "\\'");
 
                 var kmServNum = parseInt(m.kilometraje_servicio) || 0;
                 var kmProxNum = parseInt(m.km_proximo_cambio)    || 0;
 
-                // Mostrar km proximo solo si es mayor que km servicio (evita datos erroneos)
                 var kmProxCell;
                 if (kmProxNum > 0 && kmProxNum > kmServNum) {
                     kmProxCell = '<span class="km-prox-badge">' +
                         Number(kmProxNum).toLocaleString() + ' KM</span>';
                 } else if (kmProxNum > 0 && kmProxNum <= kmServNum) {
-                    // Dato inconsistente — lo muestra en rojo como advertencia
                     kmProxCell = '<span style="font-size:10px; background:#fee2e2; color:#991b1b; ' +
                         'padding:3px 8px; border-radius:6px; font-weight:700;" ' +
-                        'title="KM proximo parece incorrecto, revisar">!' +
+                        'title="KM proximo parece incorrecto">! ' +
                         Number(kmProxNum).toLocaleString() + ' KM</span>';
                 } else {
                     kmProxCell = '<span style="color:#94a3b8; font-size:11px;">-</span>';
@@ -622,8 +635,10 @@
                         'padding:2px 6px; border-radius:5px; font-weight:700; margin-right:4px;">CERRADA</span>';
                 }
 
+                // CLAVE: el boton pasa solo el INDICE numerico, sin JSON inline
+                // Esto evita que caracteres especiales en observaciones rompan el onclick
                 return '<tr>' +
-                    '<td>' + (m.fecha || '---') + '</td>' +
+                    '<td>' + formatearFecha(m.fecha) + '</td>' +
                     '<td><b>' + (m.placa || '---') + '</b></td>' +
                     '<td>' + estadoPill + '<span class="tipo-pill ' + cls + '">' + tipo + '</span></td>' +
                     '<td>' + Number(kmServNum).toLocaleString() + ' KM</td>' +
@@ -631,8 +646,7 @@
                     '<td>$' + Number(m.costo || 0).toLocaleString() + '</td>' +
                     '<td style="font-size:11px;">' + (m.taller || '---') + '</td>' +
                     '<td style="font-size:11px;">' + (m.responsable || '---') + '</td>' +
-                    '<td><button class="btn-edit" onclick="prepararEdicion(\'' +
-                        safe + '\')">EDITAR</button></td>' +
+                    '<td><button class="btn-edit" onclick="prepararEdicion(' + idx + ')">EDITAR</button></td>' +
                 '</tr>';
             }).join('');
         } catch(e) {
@@ -640,13 +654,11 @@
         }
     }
 
-    // ── PREPARAR EDICION
-    function prepararEdicion(mStr) {
-        var m;
-        try {
-            m = JSON.parse(mStr);
-        } catch(e) {
-            alert('Error al cargar los datos del registro para edicion.');
+    // ── PREPARAR EDICION (recibe indice del array historialData)
+    function prepararEdicion(idx) {
+        var m = historialData[idx];
+        if (!m) {
+            alert('No se pudo cargar el registro. Recarga la pagina e intenta de nuevo.');
             return;
         }
 
