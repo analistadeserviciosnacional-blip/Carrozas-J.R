@@ -46,7 +46,6 @@ body {
 }
 .logo:hover .logo-hint { display: flex; }
 
-/* Estilos para el Saludo y Fecha/Hora */
 h2#saludo-dinamico { color: var(--texto); font-size: 24px; margin-bottom: 5px; font-weight: 700; line-height: 1.2; }
 .txt-bienvenida { color: #64748b; font-size: 14px; margin-bottom: 15px; font-weight: 500; display: block; }
 .reloj-interno {
@@ -56,13 +55,11 @@ h2#saludo-dinamico { color: var(--texto); font-size: 24px; margin-bottom: 5px; f
 .reloj-fecha { color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; display: block; letter-spacing: 0.5px; }
 .reloj-hora { color: var(--azul); font-size: 19px; font-weight: 800; display: block; margin-top: 3px; }
 
-/* Créditos Zaider */
 .creditos-footer {
     margin-top: 25px; font-size: 11px; color: var(--azul); opacity: 0.7;
     font-weight: 600; text-align: center; letter-spacing: 0.3px;
 }
 
-/* Modal genérico */
 .modal-logo-box {
     background: white; padding: 28px 24px; border-radius: 28px;
     width: 92%; max-width: 360px; text-align: center;
@@ -145,6 +142,43 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
     animation: pulse 1.5s ease-in-out infinite; transform: rotate(-5deg);
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* ── BOTÓN INSTALAR PWA ── */
+#pwa-install-bar {
+    display: none;
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: white; border-radius: 20px; padding: 14px 20px;
+    box-shadow: 0 8px 30px rgba(0,74,153,0.25);
+    z-index: 9999; width: 90%; max-width: 340px;
+    flex-direction: column; align-items: center; gap: 10px;
+    border: 1.5px solid #e2e8f0;
+}
+#pwa-install-bar.visible { display: flex; }
+.pwa-install-title { font-size: 13px; font-weight: 700; color: #1a3a6d; text-align: center; }
+.pwa-install-sub   { font-size: 11px; color: #64748b; text-align: center; margin-top: -6px; }
+.pwa-btns { display: flex; gap: 8px; width: 100%; }
+.btn-pwa-instalar {
+    flex: 2; padding: 12px; border: none; border-radius: 12px;
+    background: #004a99; color: white; font-weight: 700; font-size: 14px;
+    cursor: pointer; font-family: inherit;
+}
+.btn-pwa-cerrar {
+    flex: 1; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px;
+    background: white; color: #94a3b8; font-weight: 700; font-size: 13px;
+    cursor: pointer; font-family: inherit;
+}
+/* Modal instrucciones manuales */
+.pwa-pasos { text-align: left; margin: 12px 0; }
+.pwa-paso  {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13px; color: #334155; margin-bottom: 10px; line-height: 1.4;
+}
+.pwa-paso-num {
+    background: #004a99; color: white; border-radius: 50%;
+    width: 22px; height: 22px; min-width: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800;
+}
 </style>
 </head>
 <body>
@@ -195,7 +229,6 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
     <h2 id="saludo-dinamico">Bienvenido</h2>
     <span class="txt-bienvenida">Bienvenido a la App Salida de carrozas</span>
 
-    <!-- RELOJ Y FECHA INTERNA -->
     <div class="reloj-interno">
         <span class="reloj-fecha" id="display-fecha">...</span>
         <span class="reloj-hora" id="display-hora">00:00:00</span>
@@ -211,6 +244,28 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
 <!-- CREDITOS -->
 <div class="creditos-footer">
     Diseñado y creado por Zaider J Buitrago A
+</div>
+
+<!-- ── BARRA INSTALAR PWA ── -->
+<div id="pwa-install-bar">
+    <div class="pwa-install-title">📱 Instalar App J.R. Carrozas</div>
+    <div class="pwa-install-sub">Accede más rápido desde tu pantalla de inicio</div>
+    <div class="pwa-btns">
+        <button class="btn-pwa-cerrar"   onclick="ocultarBarraPWA()">Ahora no</button>
+        <button class="btn-pwa-instalar" onclick="instalarPWA()">⬇️ INSTALAR</button>
+    </div>
+</div>
+
+<!-- ── MODAL INSTRUCCIONES MANUALES PWA ── -->
+<div class="modal" id="modal-pwa-manual">
+    <div class="modal-box">
+        <h2>📱 Instalar App</h2>
+        <p>Tu navegador no soporta instalación automática.<br>Sigue estos pasos:</p>
+        <div class="pwa-pasos" id="pwa-pasos-contenido"></div>
+        <button class="btn btn-azul" onclick="document.getElementById('modal-pwa-manual').classList.remove('open')" style="margin-top:4px;">
+            Entendido ✓
+        </button>
+    </div>
 </div>
 
 <!-- ── MODAL REGISTRO ── -->
@@ -312,7 +367,6 @@ function actualizarReloj() {
     const horaNum = ahora.getHours();
     const saludoEl = document.getElementById('saludo-dinamico');
 
-    // Saludo según hora
     if (horaNum >= 6 && horaNum < 12) {
         saludoEl.innerText = "¡Buenos días!";
     } else if (horaNum >= 12 && horaNum < 18) {
@@ -321,16 +375,13 @@ function actualizarReloj() {
         saludoEl.innerText = "¡Buenas noches!";
     }
 
-    // Fecha (Ej: Martes, 19 de Mayo de 2026)
     const opcionesFecha = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
     document.getElementById('display-fecha').innerText = ahora.toLocaleDateString('es-ES', opcionesFecha);
-
-    // Hora (Ej: 08:28:05 AM)
-    document.getElementById('display-hora').innerText = ahora.toLocaleTimeString('es-ES', { hour12: true });
+    document.getElementById('display-hora').innerText  = ahora.toLocaleTimeString('es-ES', { hour12: true });
 }
 
 // ══════════════════════════════════════════════════════════
-//  LOGO — Carga desde servidor al iniciar
+//  LOGO
 // ══════════════════════════════════════════════════════════
 let logoNuevoBase64 = null;
 
@@ -345,7 +396,7 @@ let logoNuevoBase64 = null;
         const res = await DB.obtenerLogo();
         if (res.ok && res.logo) {
             aplicarLogo(res.logo);
-            localStorage.setItem('jr_logo_app', res.logo); 
+            localStorage.setItem('jr_logo_app', res.logo);
         } else if (res.ok && !res.logo) {
             localStorage.removeItem('jr_logo_app');
             aplicarLogo(null);
@@ -372,7 +423,6 @@ function aplicarLogo(base64) {
     }
 }
 
-// ── VERIFICAR ADMIN ANTES DE ABRIR MODAL LOGO ────────────
 function intentarCambiarLogo() {
     document.getElementById('va-usuario').value  = '';
     document.getElementById('va-password').value = '';
@@ -718,29 +768,95 @@ function limpiarCarroza() {
 }
 </script>
 
-<!-- REGISTRO DEL SERVICE WORKER PARA PWA -->
+<!-- ── SERVICE WORKER + PWA INSTALL ── -->
 <script>
-  if ('serviceWorker' in navigator) {
+// ── SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then((registration) => {
-          console.log('¡Service Worker de Carrozas J.R. registrado con éxito! Ámbito:', registration.scope);
-        })
-        .catch((error) => {
-          console.error('La instalación del Service Worker ha fallado:', error);
-        });
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('✅ SW J.R. registrado:', reg.scope))
+            .catch(err => console.error('❌ Error SW:', err));
     });
-  }
-</script>
-   
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('✅ Service Worker J.R. registrado con éxito!'))
-        .catch(err => console.error('❌ Error registrando SW:', err));
-    });
-  }
+}
+
+// ── PWA INSTALL ──
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!sessionStorage.getItem('pwa_descartada')) {
+        document.getElementById('pwa-install-bar').classList.add('visible');
+    }
+});
+
+window.addEventListener('appinstalled', () => {
+    document.getElementById('pwa-install-bar').classList.remove('visible');
+    deferredPrompt = null;
+    console.log('✅ PWA instalada correctamente');
+});
+
+async function instalarPWA() {
+    if (deferredPrompt) {
+        // Chrome/Edge Android — instalación nativa
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            document.getElementById('pwa-install-bar').classList.remove('visible');
+        }
+        deferredPrompt = null;
+    } else {
+        // Navegador sin soporte automático — mostrar instrucciones manuales
+        mostrarInstruccionesManuales();
+    }
+}
+
+function ocultarBarraPWA() {
+    document.getElementById('pwa-install-bar').classList.remove('visible');
+    sessionStorage.setItem('pwa_descartada', '1');
+}
+
+function mostrarInstruccionesManuales() {
+    const ua = navigator.userAgent.toLowerCase();
+    let pasos = '';
+
+    if (/iphone|ipad|ipod/.test(ua)) {
+        pasos = `
+            <div class="pwa-paso"><div class="pwa-paso-num">1</div><span>Abre esta página en <strong>Safari</strong> (no Chrome ni Firefox)</span></div>
+            <div class="pwa-paso"><div class="pwa-paso-num">2</div><span>Toca el ícono de <strong>compartir</strong> <em>(cuadro con flecha ↑)</em> en la barra inferior</span></div>
+            <div class="pwa-paso"><div class="pwa-paso-num">3</div><span>Desplázate y toca <strong>"Agregar a pantalla de inicio"</strong></span></div>
+            <div class="pwa-paso"><div class="pwa-paso-num">4</div><span>Toca <strong>Agregar</strong> ✅</span></div>`;
+    } else if (/samsungbrowser/.test(ua)) {
+        pasos = `
+            <div class="pwa-paso"><div class="pwa-paso-num">1</div><span>Toca el ícono de <strong>menú</strong> (☰) abajo a la derecha</span></div>
+            <div class="pwa-paso"><div class="pwa-paso-num">2</div><span>Toca <strong>"Agregar página a"</strong></span></div>
+            <div class="pwa-paso"><div class="pwa-paso-num">3</div><span>Selecciona <strong>"Pantalla de inicio"</strong> ✅</span></div>`;
+    } else if (/firefox/.test(ua)) {
+        pasos = `
+            <div class="pwa-paso"><div class="pwa-paso-num">1</div><span>Toca el ícono de <strong>menú</strong> (⋮) arriba a la derecha</span></div>
+            <div class="pwa-paso"><div class="pwa-paso-num">2</div><span>Toca <strong>"Instalar"</strong> o <strong>"Agregar a pantalla de inicio"</strong> ✅</span></div>`;
+    } else {
+        pasos = `
+            <div class="pwa-paso"><div class="pwa-paso-num">1</div><span>Toca el ícono de <strong>menú</strong> (⋮ tres puntos) en tu navegador</span></div>
+            <div class="pwa-paso"><div class="pwa-paso-num">2</div><span>Busca <strong>"Agregar a pantalla de inicio"</strong> o <strong>"Instalar App"</strong></span></div>
+            <div class="pwa-paso"><div class="pwa-paso-num">3</div><span>Confirma y listo ✅</span></div>`;
+    }
+
+    document.getElementById('pwa-pasos-contenido').innerHTML = pasos;
+    document.getElementById('modal-pwa-manual').classList.add('open');
+    document.getElementById('pwa-install-bar').classList.remove('visible');
+}
+
+// Si en 3 segundos no hubo beforeinstallprompt (Samsung, Firefox, iOS),
+// mostrar la barra igual para que puedan ver las instrucciones manuales
+setTimeout(() => {
+    if (!deferredPrompt && !sessionStorage.getItem('pwa_descartada')) {
+        const bar = document.getElementById('pwa-install-bar');
+        if (!bar.classList.contains('visible')) {
+            bar.classList.add('visible');
+        }
+    }
+}, 3000);
 </script>
 
 </body>
