@@ -785,7 +785,9 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (!sessionStorage.getItem('pwa_descartada')) {
+    const yaInstalada = window.matchMedia('(display-mode: standalone)').matches
+                     || window.navigator.standalone === true;
+    if (!yaInstalada && !sessionStorage.getItem('pwa_descartada')) {
         document.getElementById('pwa-install-bar').classList.add('visible');
     }
 });
@@ -849,7 +851,12 @@ function mostrarInstruccionesManuales() {
 
 // Si en 3 segundos no hubo beforeinstallprompt (Samsung, Firefox, iOS),
 // mostrar la barra igual para que puedan ver las instrucciones manuales
+// Verificar si ya está instalada como PWA (modo standalone)
+const yaInstalada = window.matchMedia('(display-mode: standalone)').matches
+                 || window.navigator.standalone === true;
+
 setTimeout(() => {
+    if (yaInstalada) return; // Ya instalada — no mostrar nada
     if (!deferredPrompt && !sessionStorage.getItem('pwa_descartada')) {
         const bar = document.getElementById('pwa-install-bar');
         if (!bar.classList.contains('visible')) {
