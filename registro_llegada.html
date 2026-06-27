@@ -360,27 +360,49 @@
         try {
             const res  = await DB.obtenerTrasladosRecientes(200);
             const todos = res.data || [];
-            const activo = todos.find(r =>
-                String(r.placa || '').trim().toUpperCase() === placa.trim().toUpperCase() &&
-                (!r.km__ingreso || String(r.km__ingreso).trim() === '')
+
+            // DEBUG temporal — ver en consola qué trae la placa
+            const deEstaPlaca = todos.filter(r =>
+                String(r.placa || '').trim().toUpperCase() === placa.trim().toUpperCase()
             );
+            console.log('📋 Registros de placa ' + placa + ':', deEstaPlaca);
+            console.log('🔑 Campos del último:', deEstaPlaca[0] ? Object.keys(deEstaPlaca[0]) : 'ninguno');
+
+            // Traslado activo = misma placa + km__ingreso vacío/nulo/cero
+            const activo = deEstaPlaca.find(r => {
+                const kmIng = r.km__ingreso;
+                const sinIngreso = kmIng === null || kmIng === undefined ||
+                                   kmIng === '' || kmIng === 0 ||
+                                   String(kmIng).trim() === '' || String(kmIng).trim() === '0';
+                return sinIngreso;
+            });
+
+            console.log('✅ Traslado activo encontrado:', activo || 'NINGUNO');
 
             banner.style.display = 'none';
 
             if (activo) {
-                window._kmSalidaActivo = parseFloat(activo.km__salida || activo.km_salida || 0);
+                // Intentar ambos nombres de columna por si acaso
+                const kmSal = parseFloat(activo.km__salida || activo.km_salida || activo['km_ salida'] || 0);
+                window._kmSalidaActivo = kmSal;
                 window._idSalidaActivo = activo.id_salida || '';
                 estadoCargaKM = 'ok';
                 subInfo.className = 'km-sub';
-                subInfo.innerText = '✅ KM salida: ' + window._kmSalidaActivo.toLocaleString('es-CO') +
-                    ' | Hora salida: ' + (activo.hora_de_salida || '--');
+
+                if (kmSal > 0) {
+                    subInfo.innerText = '✅ KM salida: ' + kmSal.toLocaleString('es-CO') +
+                        ' | Hora salida: ' + (activo.hora_de_salida || '--');
+                    document.getElementById('km_salida_display').value = kmSal;
+                } else {
+                    // Traslado encontrado pero sin KM salida registrado
+                    subInfo.innerText = '⚠️ Traslado activo encontrado pero sin KM de salida registrado';
+                    document.getElementById('km_salida_display').placeholder = 'No registrado al salir';
+                }
                 card.className = 'total-km-card';
-                // Mostrar KM salida en el campo visible
-                document.getElementById('km_salida_display').value = window._kmSalidaActivo;
             } else {
                 estadoCargaKM = 'sin-dato';
                 subInfo.className = 'km-sub warn';
-                subInfo.innerText = '⚠️ No se encontró traslado activo — ingresa el KM manualmente';
+                subInfo.innerText = '⚠️ No se encontró traslado activo para esta placa hoy';
                 card.className = 'total-km-card';
             }
         } catch(e) {
