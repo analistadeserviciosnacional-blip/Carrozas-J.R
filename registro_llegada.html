@@ -313,14 +313,16 @@
         btn.classList.remove('bloqueado-km');
         btn.innerText = kmI > 0 ? '⏳ ESPERANDO DATOS DE KM...' : '🏁 FINALIZAR SERVICIO';
     }
-
-    // ── AL ELEGIR PLACA ───────────────────────────────────
+    
+ // ── AL ELEGIR PLACA (VERSIÓN FINAL OPTIMIZADA) ───────────────────────────────────
     async function alSeleccionarPlaca() {
-        const placa   = document.getElementById('placa').value;
+        const placaSeleccionada = document.getElementById('placa').value;
         const subInfo = document.getElementById('km-sub-info');
         const card    = document.getElementById('total-km-card');
         const banner  = document.getElementById('banner-esperar');
+        const campoKM = document.getElementById('km_ingreso');
 
+        // Resetear valores
         window._kmSalidaActivo  = 0;
         window._idSalidaActivo  = '';
         document.getElementById('total_km').value = '';
@@ -328,101 +330,82 @@
         document.getElementById('km_salida_display').value = '';
         document.getElementById('km_ingreso').value = '';
 
-        const campoKM = document.getElementById('km_ingreso');
-
-        if (!placa) {
+        if (!placaSeleccionada) {
             estadoCargaKM = null;
-            subInfo.innerText = 'Selecciona la placa para calcular automáticamente';
-            subInfo.className = 'km-sub';
-            card.className    = 'total-km-card';
+            subInfo.innerText = 'Selecciona la placa para calcular';
+            card.className = 'total-km-card';
             banner.style.display = 'none';
-            // Bloquear KM ingreso si no hay placa
             campoKM.disabled = true;
-            campoKM.placeholder = 'Selecciona la placa primero';
-            campoKM.style.cssText = 'background:#f1f5f9; color:#94a3b8; cursor:not-allowed;';
             actualizarBoton();
             return;
         }
 
-        // Bloquear campo KM mientras carga
         campoKM.disabled = true;
-        campoKM.placeholder = '⏳ Cargando KM de salida...';
-        campoKM.style.cssText = 'background:#fef9c3; color:#92400e; cursor:not-allowed;';
-
-        // Iniciar carga
+        campoKM.placeholder = '⏳ Buscando salida...';
         estadoCargaKM = 'cargando';
         banner.style.display = 'block';
         card.className = 'total-km-card cargando';
-        subInfo.className = 'km-sub warn';
-        subInfo.innerText = '🔍 Buscando datos de salida en el sistema...';
         actualizarBoton();
 
         try {
-            const res  = await DB.obtenerTrasladosRecientes(200);
+            const res = await DB.obtenerTrasladosRecientes(300);
             const todos = res.data || [];
 
-            // DEBUG temporal — ver en consola qué trae la placa
-            const deEstaPlaca = todos.filter(r =>
-                String(r.placa || '').trim().toUpperCase() === placa.trim().toUpperCase()
-            );
-            console.log('📋 Registros de placa ' + placa + ':', deEstaPlaca);
-            console.log('🔑 Campos del último:', deEstaPlaca[0] ? Object.keys(deEstaPlaca[0]) : 'ninguno');
+            // 1. FILTRADO DE PLACA
+            const deEstaPlaca = todos.filter(r => {
+                const pBase = String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                const pSel  = String(placaSeleccionada).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                return pBase === pSel;
+            });
 
-            // Traslado activo = misma placa + km__ingreso vacío/nulo/cero
-         // NUEVO — toma el último registro de la placa (el más reciente)
-const activo = deEstaPlaca.sort((a, b) => {
-    // Ordena por fecha desc, luego por hora_de_salida desc
-    const fechaA = (a.fecha || '') + ' ' + (a.hora_de_salida || '');
-    const fechaB = (b.fecha || '') + ' ' + (b.hora_de_salida || '');
-    return fechaB.localeCompare(fechaA);
-})[0]; // El primero = el más reciente
-
-            console.log('✅ Traslado activo encontrado:', activo || 'NINGUNO');
+            // 2. ORDENAR CRONOLÓGICAMENTE (Convirtiendo DD/MM/AAAA a AAAA/MM/DD para comparar)
+            const activo = deEstaPlaca.sort((a, b) => {
+                const procesarFecha = (f) => {
+                    if(!f) return '00000000';
+                    const partes = f.split('/');
+                    if(partes.length === 3) return partes[2] + partes[1] + partes[0]; // Retorna AAAAMMDD
+                    return f;
+                };
+                const fechaA = procesarFecha(a.fecha) + (a.hora_de_salida || '');
+                const fechaB = procesarFecha(b.fecha) + (b.hora_de_salida || '');
+                return fechaB.localeCompare(fechaA); // El más reciente primero
+            })[0];
 
             banner.style.display = 'none';
 
             if (activo) {
-                // Intentar ambos nombres de columna por si acaso
-                const kmSal = parseFloat(activo.km__salida || activo.km_salida || activo['km_ salida'] || 0);
+                // 3. BUSCAR KM EN CUALQUIER COLUMNA POSIBLE (Detección agresiva)
+                // Basado en tu dato: 279134
+                const kmSal = parseFloat(activo.km__salida || activo.km_salida || activo['km_ salida'] || activo['km salida'] || activo['kilometraje_salida'] || 0);
+                
                 window._kmSalidaActivo = kmSal;
-                window._idSalidaActivo = activo.id_salida || '';
+                window._idSalidaActivo = activo.id_salida || activo.id || '';
                 estadoCargaKM = 'ok';
-                subInfo.className = 'km-sub';
-
+                
                 if (kmSal > 0) {
-                    subInfo.innerText = '✅ KM salida: ' + kmSal.toLocaleString('es-CO') +
-                        ' | Hora salida: ' + (activo.hora_de_salida || '--');
+                    subInfo.innerText = `✅ Salida encontrada: ${kmSal.toLocaleString()} KM (${activo.fecha || ''})`;
                     document.getElementById('km_salida_display').value = kmSal;
+                    card.className = 'total-km-card listo';
                 } else {
-                    // Traslado encontrado pero sin KM salida registrado
-                    subInfo.innerText = '⚠️ Traslado activo encontrado pero sin KM de salida registrado';
-                    document.getElementById('km_salida_display').placeholder = 'No registrado al salir';
+                    subInfo.innerText = '⚠️ Registro hallado pero sin KM (aparece como 0)';
+                    card.className = 'total-km-card error';
                 }
-                card.className = 'total-km-card';
             } else {
                 estadoCargaKM = 'sin-dato';
-                subInfo.className = 'km-sub warn';
-                subInfo.innerText = '⚠️ No se encontró traslado activo para esta placa hoy';
+                subInfo.innerText = '⚠️ No se encontró el registro de salida para ' + placaSeleccionada;
                 card.className = 'total-km-card';
             }
         } catch(e) {
+            console.error("Error crítico:", e);
             banner.style.display = 'none';
             estadoCargaKM = 'sin-dato';
-            subInfo.className = 'km-sub err';
-            subInfo.innerText = '❌ Error al obtener datos de salida: ' + e.message;
+            subInfo.innerText = '❌ Error de conexión con la base de datos';
             card.className = 'total-km-card error';
         }
 
-        // Habilitar campo KM ingreso ahora que tenemos (o no) el KM salida
         campoKM.disabled = false;
         campoKM.placeholder = 'Ej: 155280';
         campoKM.style.cssText = '';
-        // Si el usuario ya había escrito algo antes (no debería, pero por si acaso), recalcular
-        if (campoKM.value) calcularTotal();
-        // Focus automático para que el usuario escriba directamente
-        setTimeout(() => campoKM.focus(), 100);
-
-        calcularTotal();
         actualizarBoton();
     }
 
