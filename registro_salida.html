@@ -324,14 +324,25 @@
     let flotaCompleta    = [];
     let kitSeleccionado  = '';
     let idApoyoCapturado = null;
-    // ── VARIABLES DE CONTROL DE DUPLICIDAD/EDICIÓN ──
-    let modoEdicion      = false;    // true = UPDATE, false = INSERT
-    let registroExistenteId = null;  // ID del registro a actualizar
-    let registroDuplicadoId = null;  // ID del posible duplicado detectado
+    let modoEdicion      = false;
+    let registroExistenteId = null;
+    let registroDuplicadoId = null;
+    let guardandoActualmente = false;
 
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
     let dibujando = false;
+
+    // ── NORMALIZAR TEXTO para comparaciones robustas ──
+    // Elimina tildes, convierte a minúsculas y recorta espacios
+    function normalizar(str) {
+        if (!str) return '';
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim();
+    }
 
     // ══════════════════════════════════════════════
     //  VERIFICAR PARÁMETROS URL (apoyo pre-cargado)
@@ -340,7 +351,6 @@
         const params = new URLSearchParams(window.location.search);
         idApoyoCapturado = params.get('id');
 
-        // Si viene con ?editar=ID, activamos edición directa
         const editarId = params.get('editar');
         if (editarId) {
             registroExistenteId = editarId;
@@ -359,7 +369,6 @@
 
     // ══════════════════════════════════════════════
     //  CARGAR REGISTRO EXISTENTE PARA EDITAR
-    //  Usa los nombres de columna reales de la hoja Traslado
     // ══════════════════════════════════════════════
     async function cargarRegistroParaEditar(idSalida) {
         try {
@@ -369,7 +378,6 @@
             const reg = data.find(r => String(r.id_salida || '').trim() === String(idSalida).trim());
             if (!reg) { console.warn('No se encontró el registro:', idSalida); return; }
 
-            // Llenar campos con los nombres reales de la hoja
             if (reg.placa)                  { document.getElementById('placa').value          = reg.placa;                  await alSeleccionarPlaca(); }
             if (reg.motivo_de_salida)         document.getElementById('motivo').value          = reg.motivo_de_salida;
             if (reg.nombre_del_fallecido)     document.getElementById('fallecido').value       = reg.nombre_del_fallecido;
@@ -405,13 +413,11 @@
         registroExistenteId  = id;
         registroDuplicadoId  = null;
 
-        // Ocultar banner duplicado, mostrar banner edición
         document.getElementById('banner-duplicado').style.display = 'none';
         const bannerEdicion = document.getElementById('banner-edicion');
         bannerEdicion.style.display = 'block';
         document.getElementById('edit-id-info').textContent = '🔑 ID Registro: ' + id + (placa ? ' · Placa: ' + placa : '');
 
-        // Cambiar botón guardar a modo edición
         const btn = document.getElementById('btn-envio');
         btn.classList.add('modo-edicion');
         document.getElementById('btn-icono').textContent = '✏️';
@@ -419,45 +425,14 @@
     }
 
     // ══════════════════════════════════════════════
-    //  VERIFICAR DUPLICADO AL SELECCIONAR PLACA
-    //  Usa DB.verificarDuplicadoSalida() — Google Sheets
-    // ══════════════════════════════════════════════
-    async function verificarDuplicado(placa) {
-        if (!placa || modoEdicion) return false;
-
-        try {
-            const resultado = await DB.verificarDuplicadoSalida(placa);
-
-            if (resultado.existe) {
-                const reg = resultado.detalle;
-                registroDuplicadoId = resultado.id_salida;
-
-                document.getElementById('dup-desc').innerHTML = `
-                    Ya existe un registro de salida activo para la placa <strong>${placa}</strong> hoy.<br>
-                    <span style="font-size:10px; opacity:0.8;">
-                        Conductor: ${reg.conductor || 'N/A'} &nbsp;·&nbsp;
-                        Hora: ${reg.hora_de_salida || 'N/A'} &nbsp;·&nbsp;
-                        Motivo: ${reg.motivo_de_salida || 'N/A'}
-                    </span>`;
-                document.getElementById('banner-duplicado').style.display = 'block';
-                return true;
-            }
-
-            document.getElementById('banner-duplicado').style.display = 'none';
-            registroDuplicadoId = null;
-            return false;
-
-        } catch(e) {
-            return false;
-        }
-    }
-
-    // ══════════════════════════════════════════════
     //  CARGAR PLACAS FILTRADAS POR REGIONAL
+    //  *** FIX PRINCIPAL: normalización en ambos lados ***
     // ══════════════════════════════════════════════
     async function cargarPlacas() {
         const select = document.getElementById('placa');
         const regionalActual = document.getElementById('regional').value;
+        const regionalNorm   = normalizar(regionalActual);
+
         select.innerHTML = '<option value="">Cargando flota...</option>';
 
         try {
@@ -470,8 +445,13 @@
             flotaCompleta = data || [];
 
             const flotaFiltrada = flotaCompleta.filter(c => {
-                const ubicacion = c.sede_intercambio || c.sede_asignada;
-                return ubicacion === regionalActual;
+                // sede_intercambio tiene prioridad solo si está rellena (no vacía ni null)
+                const sedeIntercambio = (c.sede_intercambio || '').trim();
+                const sedeAsignada    = (c.sede_asignada    || '').trim();
+                const ubicacion       = sedeIntercambio !== '' ? sedeIntercambio : sedeAsignada;
+
+                // Comparación normalizada: sin tildes, sin distinción de mayúsculas/espacios
+                return normalizar(ubicacion) === regionalNorm;
             });
 
             if (flotaFiltrada.length > 0) {
@@ -486,6 +466,7 @@
                 select.innerHTML = '<option value="">Sin vehículos en esta regional</option>';
             }
         } catch(e) {
+            console.error('Error cargando placas:', e);
             select.innerHTML = '<option>Error al cargar placas</option>';
         }
     }
@@ -499,18 +480,18 @@
         const optionSel = placaSelect.options[placaSelect.selectedIndex];
         if (!optionSel || !optionSel.value) return;
 
-        const tipoVehiculo = (optionSel.getAttribute('data-tipo') || "").toUpperCase();
-        let mensajeAlerta = "";
+        const tipoVehiculo = (optionSel.getAttribute('data-tipo') || '').toUpperCase();
+        let mensajeAlerta = '';
 
-        if (tipoVehiculo.includes("DESTINO FINAL")) {
-            if (motivo.includes("Recogida") || motivo === "Traslado Nacional") {
+        if (tipoVehiculo.includes('DESTINO FINAL')) {
+            if (motivo.includes('Recogida') || motivo === 'Traslado Nacional') {
                 mensajeAlerta = `⚠️ <b>RIESGO DE DAÑO AL ACTIVO</b><br><br>` +
                                 `La carroza <b>${optionSel.value}</b> es de tipo <b>DESTINO FINAL</b> (Perfil Bajo).<br><br>` +
                                 `Usarla para <b>${motivo}</b> puede causar daños en el chasis o desajustes por baches en rutas no urbanas.`;
             }
         }
 
-        if (mensajeAlerta !== "") {
+        if (mensajeAlerta !== '') {
             Swal.fire({
                 title: '¿ESTÁ SEGURO?',
                 html: mensajeAlerta,
@@ -522,7 +503,7 @@
                 cancelButtonText: 'Cambiar vehículo'
             }).then((result) => {
                 if (!result.isConfirmed) {
-                    placaSelect.value = "";
+                    placaSelect.value = '';
                     document.getElementById('alerta-vehiculo').style.display = 'none';
                 }
             });
@@ -536,7 +517,6 @@
         const placaSeleccionada = document.getElementById('placa').value;
         const alertaEl = document.getElementById('alerta-vehiculo');
 
-        // 1. Limpieza inicial de banners
         if (!modoEdicion) {
             document.getElementById('banner-duplicado').style.display = 'none';
             document.getElementById('banner-edicion').style.display   = 'none';
@@ -545,39 +525,39 @@
 
         if (!placaSeleccionada) { alertaEl.style.display = 'none'; return; }
 
-        // 2. Obtener datos del vehículo desde la flota (Carrozas)
         const veh = flotaCompleta.find(c => c.placa === placaSeleccionada);
         if (!veh) { alertaEl.style.display = 'none'; return; }
 
-        const estado = (veh.estado || '').trim();
+        const estado   = (veh.estado || '').trim();
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
         document.getElementById('km_s').value = kmActual;
 
         validarCompatibilidad();
 
-        // 3. VERIFICACIÓN DE DUPLICIDAD POR ID_SALIDA
-        // Creamos el ID que correspondería a hoy: PLACA_AAAA-MM-DD
-        const hoy = new Date().toISOString().split('T')[0];
-        const idSalidaHoy = `${placaSeleccionada}_${hoy}`;
-
+        // ── VERIFICACIÓN DE DUPLICIDAD POR ID_SALIDA ──
         if (!modoEdicion) {
-            // Buscamos en los traslados existentes si ya existe ese ID específico
-            const resTraslados = await DB.obtenerTrasladosRecientes(100); 
-            if (resTraslados.ok) {
-                const duplicado = resTraslados.data.find(t => t.id_salida === idSalidaHoy);
-                if (duplicado) {
-                    registroDuplicadoId = duplicado.id_salida;
-                    document.getElementById('dup-desc').innerHTML = `
-                        Ya existe un registro de salida para hoy con el ID: <b>${idSalidaHoy}</b>.<br>
-                        Conductor: ${duplicado.conductor || 'N/A'}`;
-                    document.getElementById('banner-duplicado').style.display = 'block';
-                    // Si hay duplicado, no permitimos seguir sin editar
-                    return; 
+            const hoy = new Date().toISOString().split('T')[0];
+            const idSalidaHoy = `${placaSeleccionada}_${hoy}`;
+
+            try {
+                const resTraslados = await DB.obtenerTrasladosRecientes(100);
+                if (resTraslados.ok && resTraslados.data) {
+                    const duplicado = resTraslados.data.find(t => t.id_salida === idSalidaHoy);
+                    if (duplicado) {
+                        registroDuplicadoId = duplicado.id_salida;
+                        document.getElementById('dup-desc').innerHTML = `
+                            Ya existe un registro de salida para hoy con el ID: <b>${idSalidaHoy}</b>.<br>
+                            Conductor: ${duplicado.conductor || 'N/A'}`;
+                        document.getElementById('banner-duplicado').style.display = 'block';
+                        return;
+                    }
                 }
+            } catch(e) {
+                console.warn('No se pudo verificar duplicados:', e);
             }
         }
 
-        // 4. Bloqueo por Taller o Servicio Activo
+        // ── BLOQUEO POR TALLER O SERVICIO ACTIVO ──
         if (estado === 'En Taller' || estado === 'En Servicio') {
             alertaEl.className = 'alerta-vehiculo en-taller';
             alertaEl.style.display = 'block';
@@ -587,43 +567,40 @@
                     <div class="av-msg">Estado actual: <b>${estado}</b>.</div>
                     <div class="av-bloqueo">🚫 RESTRICCIÓN DE SALIDA</div>
                 </div>`;
-            document.getElementById('km_s').value = "";
+            document.getElementById('km_s').value = '';
             return;
         }
 
-        // 5. ANÁLISIS DE ACEITE (Filtrando el último registro real)
+        // ── ANÁLISIS DE ACEITE ──
         try {
             const respuesta = await DB.obtenerMantenimientos();
-            if (!respuesta.ok) throw new Error("Error en Google Sheets");
+            if (!respuesta.ok) throw new Error('Error en Google Sheets');
 
             const todosLosMants = respuesta.data;
             const norm = (p) => p.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
             const placaBusqueda = norm(placaSeleccionada);
 
-            // Filtrar solo cambios de aceite de esta placa
-            const historialAceite = todosLosMants.filter(m => 
-                m.tipo_servicio === 'Cambio de Aceite' && 
+            const historialAceite = todosLosMants.filter(m =>
+                m.tipo_servicio === 'Cambio de Aceite' &&
                 norm(m.placa || '') === placaBusqueda
             );
 
-            // ORDENAR: 1º por Fecha, 2º por posición en la tabla (el último es el más reciente)
             historialAceite.sort((a, b) => {
                 const fA = new Date(a.fecha);
                 const fB = new Date(b.fecha);
                 if (fB - fA !== 0) return fB - fA;
-                // Si la fecha es igual, comparamos el ID o índice (suponiendo que DB devuelve orden de inserción)
                 return todosLosMants.indexOf(b) - todosLosMants.indexOf(a);
             });
 
             const ultimoCambio = historialAceite[0];
 
             if (ultimoCambio && ultimoCambio.km_proximo_cambio > 0) {
-                const kmProximo = parseInt(ultimoCambio.km_proximo_cambio);
+                const kmProximo  = parseInt(ultimoCambio.km_proximo_cambio);
                 const kmFaltante = kmProximo - kmActual;
                 const kmRealizado = kmActual - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
-                const intervalo = kmProximo - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
-                const porcentaje = Math.min(100, Math.round((kmRealizado / Math.max(intervalo, 1)) * 100));
-                
+                const intervalo   = kmProximo - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
+                const porcentaje  = Math.min(100, Math.round((kmRealizado / Math.max(intervalo, 1)) * 100));
+
                 let clase = 'al-dia';
                 let titulo = '✅ ACEITE AL DÍA';
                 if (kmFaltante <= 0) {
@@ -646,8 +623,8 @@
             }
             alertaEl.style.display = 'block';
 
-        } catch (e) {
-            console.error("Error:", e);
+        } catch(e) {
+            console.error('Error analizando aceite:', e);
         }
     }
 
@@ -659,12 +636,12 @@
         ['completo','incompleto','no-tiene'].forEach(v => {
             const el  = document.getElementById('kit-' + v);
             const chk = document.getElementById('check-' + v);
-            el.classList.remove('sel-completo','sel-incompleto','sel-no-tiene');
-            chk.innerHTML = '';
+            if (el)  el.classList.remove('sel-completo','sel-incompleto','sel-no-tiene');
+            if (chk) chk.innerHTML = '';
         });
         const el  = document.getElementById('kit-' + valor);
         const chk = document.getElementById('check-' + valor);
-        if (el) el.classList.add('sel-' + valor);
+        if (el)  el.classList.add('sel-' + valor);
 
         const alerta = document.getElementById('kit-alerta');
         alerta.className = 'kit-alerta ' + (valor === 'incompleto' ? 'inc' : valor === 'no-tiene' ? 'no' : '');
@@ -696,13 +673,20 @@
     // ══════════════════════════════════════════════
     const obtenerPos = e => {
         const r = canvas.getBoundingClientRect();
-        return { x: (e.clientX || e.touches[0].clientX) - r.left, y: (e.clientY || e.touches[0].clientY) - r.top };
+        const scaleX = canvas.width  / r.width;
+        const scaleY = canvas.height / r.height;
+        return {
+            x: ((e.clientX || e.touches[0].clientX) - r.left) * scaleX,
+            y: ((e.clientY || e.touches[0].clientY) - r.top)  * scaleY
+        };
     };
     const iniciar = e => { dibujando = true; ctx.beginPath(); const p = obtenerPos(e); ctx.moveTo(p.x, p.y); };
-    const mover   = e => { if (!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = "#004a99"; ctx.lineWidth = 2; ctx.stroke(); };
+    const mover   = e => { if (!dibujando) return; e.preventDefault(); const p = obtenerPos(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = '#004a99'; ctx.lineWidth = 2; ctx.stroke(); };
     canvas.addEventListener('mousedown', iniciar); canvas.addEventListener('mousemove', mover);
     window.addEventListener('mouseup', () => dibujando = false);
-    canvas.addEventListener('touchstart', iniciar); canvas.addEventListener('touchmove', mover);
+    canvas.addEventListener('touchstart', iniciar, { passive: false });
+    canvas.addEventListener('touchmove',  mover,   { passive: false });
+
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
     function setStep(id, estado, texto) {
@@ -713,150 +697,138 @@
     // ══════════════════════════════════════════════
     //  GUARDAR TODO — MODO INSERT O UPDATE
     // ══════════════════════════════════════════════
-  // 
-let guardandoActualmente = false;
+    async function guardarTodo() {
+        const btn = document.getElementById('btn-envio');
+        const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
 
-async function guardarTodo() {
-    const btn = document.getElementById('btn-envio');
-    const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
+        if (guardandoActualmente) return;
 
-    // --- SEGURIDAD: No permitir doble clic ---
-    if (guardandoActualmente) return;
+        if (!document.getElementById('placa').value) { Swal.fire('Error', 'Selecciona una placa', 'error'); return; }
+        if (!kitSeleccionado) { Swal.fire('Error', 'Selecciona estado del kit', 'error'); return; }
+        if (!sesionUser) { alert('Sesión expirada'); return; }
 
-    if (!document.getElementById('placa').value) { Swal.fire("Error", "Selecciona una placa", "error"); return; }
-    if (!kitSeleccionado) { Swal.fire("Error", "Selecciona estado del kit", "error"); return; }
-    if (!sesionUser) { alert("Sesión expirada"); return; }
-
-    // --- TU LÓGICA DE DUPLICADO ---
-    if (registroDuplicadoId && !modoEdicion) {
-        const result = await Swal.fire({
-            title: '⚠️ Registro Duplicado',
-            html: `Ya existe un registro activo para esta placa hoy.<br><br>¿Deseas <b>editar el registro existente</b> o <b>cancelar</b>?`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d97706',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: '✏️ Editar existente',
-            cancelButtonText: 'Cancelar'
-        });
-        if (result.isConfirmed) {
-            activarModoEdicion();
-            await cargarRegistroParaEditar(registroDuplicadoId);
-        }
-        return;
-    }
-
-    // --- INICIO DE PROCESO ---
-    guardandoActualmente = true; 
-    btn.disabled = true;
-    btn.innerText = modoEdicion ? "⏳ ACTUALIZANDO..." : "⏳ GUARDANDO...";
-    document.getElementById('progreso-steps').style.display = 'block';
-
-    datosFinales = {
-        regional:      document.getElementById('regional').value,
-        conductor:     document.getElementById('conductor').value,
-        nnum_telefono: sesionUser.telefono || '',
-        placa:         document.getElementById('placa').value,
-        motivo:        document.getElementById('motivo').value,
-        fallecido:     document.getElementById('fallecido').value,
-        clinica:       document.getElementById('clinica').value,
-        prestacion:    document.getElementById('prestacion').value,
-        origen:        document.getElementById('origen').value,
-        destino:       document.getElementById('destino').value,
-        hora_salida:   document.getElementById('hora_salida').value,
-        km_salida:     document.getElementById('km_s').value,
-        kit_carretera: kitSeleccionado,
-        coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
-        observaciones: document.getElementById('observaciones').value,
-        imagen1: fotosArray[0] || '', imagen2: fotosArray[1] || '',
-        imagen3: fotosArray[2] || '', imagen4: fotosArray[3] || '',
-        firma:   canvas.toDataURL()
-    };
-
-    try {
-        // MANTENEMOS LA ESTRUCTURA VISUAL DE PASOS (Para que el conductor vea el progreso)
-        setStep('step-carroza', 'act', '⏳ Actualizando estado de carroza...');
-        
-        // Simulamos el paso de carroza visualmente rápido ya que ahora Sheets hace todo el trabajo
-        setStep('step-carroza', 'ok', '✅ Carroza actualizada');
-
-        setStep('step-traslado', 'act', modoEdicion ? '⏳ Actualizando traslado...' : '⏳ Guardando traslado...');
-
-        // --- EL GUARDADO REAL (Solo Google Sheets) ---
-        let res;
-        if (modoEdicion && registroExistenteId) {
-            res = await DB.actualizarTraslado(registroExistenteId, datosFinales);
-        } else {
-            res = await DB.guardarTraslado(datosFinales);
-            if (res && res.ok) {
-                registroExistenteId = datosFinales.placa + '_' + new Date().toISOString().slice(0,10);
+        if (registroDuplicadoId && !modoEdicion) {
+            const result = await Swal.fire({
+                title: '⚠️ Registro Duplicado',
+                html: `Ya existe un registro activo para esta placa hoy.<br><br>¿Deseas <b>editar el registro existente</b> o <b>cancelar</b>?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d97706',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: '✏️ Editar existente',
+                cancelButtonText: 'Cancelar'
+            });
+            if (result.isConfirmed) {
+                activarModoEdicion();
+                await cargarRegistroParaEditar(registroDuplicadoId);
             }
+            return;
         }
 
-        if (!res || !res.ok) throw new Error(res ? res.error : 'Error desconocido');
+        guardandoActualmente = true;
+        btn.disabled = true;
+        document.getElementById('btn-texto').textContent = modoEdicion ? '⏳ ACTUALIZANDO...' : '⏳ GUARDANDO...';
+        document.getElementById('progreso-steps').style.display = 'block';
 
-        // ÉXITO VISUAL
-        setStep('step-traslado', 'ok', modoEdicion ? '✅ Registro actualizado' : '✅ Registro guardado');
-        if (idApoyoCapturado) setStep('step-apoyo', 'ok', '✅ Solicitud vinculada');
+        datosFinales = {
+            regional:      document.getElementById('regional').value,
+            conductor:     document.getElementById('conductor').value,
+            nnum_telefono: sesionUser.telefono || '',
+            placa:         document.getElementById('placa').value,
+            motivo:        document.getElementById('motivo').value,
+            fallecido:     document.getElementById('fallecido').value,
+            clinica:       document.getElementById('clinica').value,
+            prestacion:    document.getElementById('prestacion').value,
+            origen:        document.getElementById('origen').value,
+            destino:       document.getElementById('destino').value,
+            hora_salida:   document.getElementById('hora_salida').value,
+            km_salida:     document.getElementById('km_s').value,
+            kit_carretera: kitSeleccionado,
+            coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
+            observaciones: document.getElementById('observaciones').value,
+            imagen1: fotosArray[0] || '', imagen2: fotosArray[1] || '',
+            imagen3: fotosArray[2] || '', imagen4: fotosArray[3] || '',
+            firma:   canvas.toDataURL()
+        };
 
-        const textoExito = modoEdicion ? "✓ ACTUALIZADO EXITOSO" : "✓ GUARDADO EXITOSO";
-        btn.innerText = textoExito;
-        btn.style.background = "#25D366";
+        try {
+            setStep('step-carroza', 'act', '⏳ Actualizando estado de carroza...');
+            setStep('step-carroza', 'ok',  '✅ Carroza actualizada');
+            setStep('step-traslado', 'act', modoEdicion ? '⏳ Actualizando traslado...' : '⏳ Guardando traslado...');
 
-        if (modoEdicion) document.getElementById('banner-edicion').style.display = 'none';
-        document.getElementById('bloque-wa').style.display = 'flex';
+            let res;
+            if (modoEdicion && registroExistenteId) {
+                res = await DB.actualizarTraslado(registroExistenteId, datosFinales);
+            } else {
+                res = await DB.guardarTraslado(datosFinales);
+                if (res && res.ok) {
+                    registroExistenteId = datosFinales.placa + '_' + new Date().toISOString().slice(0,10);
+                }
+            }
 
-    } catch(e) {
-        setStep('step-traslado', 'err', '❌ Error: ' + e.message);
-        btn.disabled = false;
-        guardandoActualmente = false; // Permitir reintento si falla
-        btn.innerText = modoEdicion ? '✏️ REINTENTAR ACTUALIZACIÓN' : '💾 REINTENTAR';
-        btn.style.background = '';
+            if (!res || !res.ok) throw new Error(res ? res.error : 'Error desconocido');
+
+            setStep('step-traslado', 'ok', modoEdicion ? '✅ Registro actualizado' : '✅ Registro guardado');
+            if (idApoyoCapturado) setStep('step-apoyo', 'ok', '✅ Solicitud vinculada');
+
+            document.getElementById('btn-texto').textContent = modoEdicion ? '✓ ACTUALIZADO EXITOSO' : '✓ GUARDADO EXITOSO';
+            btn.style.background = '#25D366';
+
+            if (modoEdicion) document.getElementById('banner-edicion').style.display = 'none';
+            document.getElementById('bloque-wa').style.display = 'flex';
+
+        } catch(e) {
+            setStep('step-traslado', 'err', '❌ Error: ' + e.message);
+            btn.disabled = false;
+            guardandoActualmente = false;
+            document.getElementById('btn-texto').textContent = modoEdicion ? '✏️ REINTENTAR ACTUALIZACIÓN' : '💾 REINTENTAR';
+            btn.style.background = '';
+        }
     }
-}
 
     // ══════════════════════════════════════════════
     //  WHATSAPP
     // ══════════════════════════════════════════════
     function enviarWA() {
         const hora = new Date().getHours();
-        const saludo = hora < 12 ? "*Buenos Días* ☀️" : hora < 18 ? "*Buenas Tardes* 🌤️" : "*Buenas Noches* 🌙";
+        const saludo = hora < 12 ? '*Buenos Días* ☀️' : hora < 18 ? '*Buenas Tardes* 🌤️' : '*Buenas Noches* 🌙';
 
-        let estadoCarroza = "✅ Todo En Orden";
-        if (datosFinales.kit_carretera === 'incompleto') estadoCarroza = "⚠️ Pendientes en Kit";
-        else if (datosFinales.kit_carretera === 'no-tiene') estadoCarroza = "🚨 Sin Kit de Carretera";
+        let estadoCarroza = '✅ Todo En Orden';
+        if (datosFinales.kit_carretera === 'incompleto') estadoCarroza = '⚠️ Pendientes en Kit';
+        else if (datosFinales.kit_carretera === 'no-tiene') estadoCarroza = '🚨 Sin Kit de Carretera';
 
         const esEdicion = modoEdicion ? '\n*🔄 REGISTRO ACTUALIZADO/CORREGIDO*\n' : '';
 
-        const msg = saludo + "\n\n" +
-            "*REPORTES DE SALIDA DE CARROZA* 🚗💨\n" +
+        const msg = saludo + '\n\n' +
+            '*REPORTES DE SALIDA DE CARROZA* 🚗💨\n' +
             esEdicion +
-            "───────────────────\n" +
-            "*Regional:* " + datosFinales.regional + "\n" +
-            "*Fecha:* " + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + "\n" +
-            "*Coordinador:* " + datosFinales.coordinador + "\n" +
-            "*Hora Salida:* " + datosFinales.hora_salida + "\n" +
-            "*Placa:* " + datosFinales.placa + "\n" +
-            "*Motivo:* " + datosFinales.motivo + "\n" +
-            "*Fallecido:* " + (datosFinales.fallecido || '---') + "\n" +
-            "*Recogida:* " + (datosFinales.clinica || '---') + "\n" +
-            "*Origen:* " + (datosFinales.origen || '---') + "\n" +
-            "*Destino:* " + (datosFinales.destino || '---') + "\n" +
-            "*KM Salida:* " + datosFinales.km_salida + "\n" +
-            "*Kit Carretera:* " + datosFinales.kit_carretera + "\n" +
-            "*Conductor:* " + datosFinales.conductor + "\n" +
-            "*Teléfono:* " + (datosFinales.nnum_telefono || '---') + "\n" +
-            "───────────────────\n" +
-            "*📝 Observaciones:* " + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
-            "*Estado del Vehículo:* " + estadoCarroza;
+            '───────────────────\n' +
+            '*Regional:* ' + datosFinales.regional + '\n' +
+            '*Fecha:* ' + new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) + '\n' +
+            '*Coordinador:* ' + datosFinales.coordinador + '\n' +
+            '*Hora Salida:* ' + datosFinales.hora_salida + '\n' +
+            '*Placa:* ' + datosFinales.placa + '\n' +
+            '*Motivo:* ' + datosFinales.motivo + '\n' +
+            '*Fallecido:* ' + (datosFinales.fallecido || '---') + '\n' +
+            '*Recogida:* ' + (datosFinales.clinica || '---') + '\n' +
+            '*Origen:* ' + (datosFinales.origen || '---') + '\n' +
+            '*Destino:* ' + (datosFinales.destino || '---') + '\n' +
+            '*KM Salida:* ' + datosFinales.km_salida + '\n' +
+            '*Kit Carretera:* ' + datosFinales.kit_carretera + '\n' +
+            '*Conductor:* ' + datosFinales.conductor + '\n' +
+            '*Teléfono:* ' + (datosFinales.nnum_telefono || '---') + '\n' +
+            '───────────────────\n' +
+            '*📝 Observaciones:* ' + (datosFinales.observaciones || 'Sin novedades') + '\n\n' +
+            '*Estado del Vehículo:* ' + estadoCarroza;
 
-        window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
+        window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
     }
 
     function compartirFotos() {
-        if (fotosArray.length === 0) { alert("No hay fotos para compartir."); return; }
-        Promise.all(fotosArray.map((url, i) => fetch(url).then(r => r.blob()).then(b => new File([b], `img_${i}.jpg`, {type: 'image/jpeg'}))))
-        .then(files => {
+        if (fotosArray.length === 0) { alert('No hay fotos para compartir.'); return; }
+        Promise.all(fotosArray.map((url, i) =>
+            fetch(url).then(r => r.blob()).then(b => new File([b], `img_${i}.jpg`, {type: 'image/jpeg'}))
+        )).then(files => {
             if (navigator.share) navigator.share({files, title: 'Evidencias'}).catch(descargarFotos);
             else descargarFotos();
         }).catch(descargarFotos);
@@ -876,10 +848,10 @@ async function guardarTodo() {
     // ══════════════════════════════════════════════
     window.onload = async () => {
         const sesionData = localStorage.getItem('usuario_sesion');
-        if (!sesionData) { window.location.href = "index.html"; return; }
+        if (!sesionData) { window.location.href = 'index.html'; return; }
         const user = JSON.parse(sesionData);
         document.getElementById('conductor').value = user.nombre;
-        document.getElementById('saludo').innerText = "¡HOLA, " + user.nombre.split(' ')[0].toUpperCase() + "!";
+        document.getElementById('saludo').innerText = '¡HOLA, ' + user.nombre.split(' ')[0].toUpperCase() + '!';
         if (user.regional) document.getElementById('regional').value = user.regional;
 
         verificarParametrosURL();
@@ -888,8 +860,16 @@ async function guardarTodo() {
         const now = new Date();
         document.getElementById('hora_salida').value =
             now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-        canvas.width  = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
+
+        // Ajustar canvas al tamaño real renderizado
+        const resizeCanvas = () => {
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            canvas.width  = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.putImageData(imgData, 0, 0);
+        };
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
     };
 </script>
 
