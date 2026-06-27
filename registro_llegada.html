@@ -369,13 +369,13 @@
             console.log('🔑 Campos del último:', deEstaPlaca[0] ? Object.keys(deEstaPlaca[0]) : 'ninguno');
 
             // Traslado activo = misma placa + km__ingreso vacío/nulo/cero
-            const activo = deEstaPlaca.find(r => {
-                const kmIng = r.km__ingreso;
-                const sinIngreso = kmIng === null || kmIng === undefined ||
-                                   kmIng === '' || kmIng === 0 ||
-                                   String(kmIng).trim() === '' || String(kmIng).trim() === '0';
-                return sinIngreso;
-            });
+         // NUEVO — toma el último registro de la placa (el más reciente)
+const activo = deEstaPlaca.sort((a, b) => {
+    // Ordena por fecha desc, luego por hora_de_salida desc
+    const fechaA = (a.fecha || '') + ' ' + (a.hora_de_salida || '');
+    const fechaB = (b.fecha || '') + ' ' + (b.hora_de_salida || '');
+    return fechaB.localeCompare(fechaA);
+})[0]; // El primero = el más reciente
 
             console.log('✅ Traslado activo encontrado:', activo || 'NINGUNO');
 
