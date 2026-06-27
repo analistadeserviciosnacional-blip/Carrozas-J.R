@@ -25,18 +25,44 @@
         input[readonly] { background: #eefff4; font-weight: bold; color: var(--verde); }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+        /* ── CARD TOTAL KM ── */
         .total-km-card {
-            background: #f0fdf4; border: 2px solid #86efac;
             border-radius: 14px; padding: 14px 18px;
             display: flex; align-items: center; gap: 14px;
-            margin-bottom: 12px;
+            margin-bottom: 12px; border: 2px solid #86efac;
+            background: #f0fdf4; transition: border-color 0.3s, background 0.3s;
         }
-        .total-km-card .km-icon { font-size: 28px; }
-        .total-km-card .km-info { flex: 1; }
-        .total-km-card .km-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--gris); letter-spacing: 1px; }
-        .total-km-card .km-valor { font-size: 28px; font-weight: 700; color: var(--verde); line-height: 1.2; }
-        .total-km-card .km-sub   { font-size: 11px; color: #4ade80; margin-top: 2px; }
+        .total-km-card.cargando { background: #fffbeb; border-color: #fcd34d; }
+        .total-km-card.error    { background: #fef2f2; border-color: #fca5a5; }
+        .total-km-card.listo    { background: #f0fdf4; border-color: #16a34a; }
+        .km-icon { font-size: 28px; flex-shrink: 0; }
+        .km-info { flex: 1; }
+        .km-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--gris); letter-spacing: 1px; }
+        .km-valor { font-size: 28px; font-weight: 700; color: var(--verde); line-height: 1.2; }
+        .km-sub   { font-size: 11px; color: #4ade80; margin-top: 2px; }
+        .km-sub.warn  { color: #d97706; }
+        .km-sub.err   { color: #dc2626; }
 
+        /* ── BANNER ESPERAR ── */
+        #banner-esperar {
+            display: none;
+            background: #fffbeb;
+            border: 2px solid #fcd34d;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            animation: pulso 1.5s ease-in-out infinite;
+        }
+        @keyframes pulso { 0%,100%{opacity:1} 50%{opacity:0.7} }
+        #banner-esperar .esp-titulo {
+            font-size: 13px; font-weight: 800; color: #92400e;
+            display: flex; align-items: center; gap: 8px;
+        }
+        #banner-esperar .esp-desc {
+            font-size: 11px; color: #a16207; margin-top: 5px; line-height: 1.5;
+        }
+
+        /* ── ESTADOS ── */
         .estado-selector { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
         .estado-opcion {
             display: flex; align-items: center; gap: 12px;
@@ -51,7 +77,6 @@
         .estado-opcion .est-titulo { font-size: 13px; font-weight: 700; color: #14532d; }
         .estado-opcion .est-desc   { font-size: 11px; color: var(--gris); margin-top: 2px; }
         .estado-opcion .est-check  { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #86efac; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-
         .estado-opcion.sel-orden   { border-color: #16a34a; background: #f0fdf4; }
         .estado-opcion.sel-orden   .est-check { background: #16a34a; border-color: #16a34a; }
         .estado-opcion.sel-orden   .est-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 900; }
@@ -62,10 +87,18 @@
         .estado-opcion.sel-averia  .est-check { background: #dc2626; border-color: #dc2626; }
         .estado-opcion.sel-averia  .est-check::after { content: '✗'; color: white; font-size: 11px; font-weight: 900; }
 
+        /* ── BOTONES ── */
         .acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
-        .btn-finalizar { width: 100%; padding: 18px; border: none; border-radius: 14px; font-weight: 800; font-size: 16px; cursor: pointer; background: var(--verde); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 16px rgba(21,128,61,0.3); transition: 0.2s; font-family: inherit; }
+        .btn-finalizar {
+            width: 100%; padding: 18px; border: none; border-radius: 14px;
+            font-weight: 800; font-size: 16px; cursor: pointer;
+            background: var(--verde); color: white;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 16px rgba(21,128,61,0.3); transition: 0.2s; font-family: inherit;
+        }
         .btn-finalizar:active   { transform: scale(0.98); }
-        .btn-finalizar:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+        .btn-finalizar:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; background: #6b7280; }
+        .btn-finalizar.bloqueado-km { background: #d97706; box-shadow: 0 4px 16px rgba(217,119,6,0.3); }
         .btn-wa    { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit; }
         .btn-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; font-family: inherit; }
 
@@ -107,25 +140,47 @@
                 <input type="time" id="hora_ingreso">
             </div>
             <div>
-                <label>KM al Llegar</label>
-                <input type="number" id="km_ingreso" placeholder="Ej: 155280" oninput="calcularTotal()">
+                <label>KM de Salida (automático)</label>
+                <input type="number" id="km_salida_display" readonly
+                    placeholder="— se carga al elegir placa"
+                    style="background:#eefff4; font-weight:bold; color:#15803d;">
             </div>
+        </div>
+        <div class="grid-2">
+            <div>
+                <label>KM al Llegar</label>
+                <input type="number" id="km_ingreso"
+                    placeholder="Selecciona la placa primero"
+                    oninput="calcularTotal()"
+                    disabled
+                    style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed;">
+            </div>
+            <div></div>
         </div>
 
         <label>Total KM Recorridos</label>
+
+        <!-- BANNER: cargando datos de salida -->
+        <div id="banner-esperar">
+            <div class="esp-titulo">⏳ Cargando datos de salida...</div>
+            <div class="esp-desc">
+                Espera un momento. El sistema está consultando el KM de salida de esta placa.<br>
+                <strong>No guardes hasta que aparezca el total de KM calculado.</strong>
+            </div>
+        </div>
+
         <div class="total-km-card" id="total-km-card">
             <div class="km-icon">🛣️</div>
             <div class="km-info">
                 <div class="km-label">Kilómetros del servicio</div>
                 <div class="km-valor" id="total-km-display">— KM</div>
-                <div class="km-sub" id="km-sub-info">Ingresa KM de llegada para calcular</div>
+                <div class="km-sub" id="km-sub-info">Selecciona la placa para calcular</div>
             </div>
         </div>
         <input type="number" id="total_km" readonly style="display:none;">
 
         <div class="section-title">Estado de Entrega</div>
         <div class="estado-selector">
-
             <label class="estado-opcion" id="est-orden" onclick="seleccionarEstado('orden')">
                 <input type="radio" name="estado" value="Todo En Orden">
                 <div class="est-icono">✅</div>
@@ -135,7 +190,6 @@
                 </div>
                 <div class="est-check" id="check-orden"></div>
             </label>
-
             <label class="estado-opcion" id="est-novedad" onclick="seleccionarEstado('novedad')">
                 <input type="radio" name="estado" value="Con Novedad">
                 <div class="est-icono">⚠️</div>
@@ -145,7 +199,6 @@
                 </div>
                 <div class="est-check" id="check-novedad"></div>
             </label>
-
             <label class="estado-opcion" id="est-averia" onclick="seleccionarEstado('averia')">
                 <input type="radio" name="estado" value="Con Avería">
                 <div class="est-icono">🔧</div>
@@ -155,7 +208,6 @@
                 </div>
                 <div class="est-check" id="check-averia"></div>
             </label>
-
         </div>
 
         <label>Observaciones Finales</label>
@@ -167,8 +219,8 @@
         </div>
 
         <div class="acciones">
-            <button class="btn-finalizar" id="btn-finalizar" onclick="finalizarServicio()">
-                🏁 FINALIZAR SERVICIO
+            <button class="btn-finalizar" id="btn-finalizar" onclick="finalizarServicio()" disabled>
+                ⏳ ESPERANDO DATOS DE KM...
             </button>
             <div id="bloque-wa" style="display:none;">
                 <button class="btn-wa" onclick="enviarWA()">💬 ENVIAR REPORTE POR WHATSAPP</button>
@@ -184,6 +236,10 @@
     let flotaCompleta      = [];
     let estadoSeleccionado = '';
     let datosFinales       = {};
+
+    // Estado de carga de KM salida
+    // null = no iniciado, 'cargando' = en proceso, 'ok' = listo, 'sin-dato' = no encontrado
+    let estadoCargaKM = null;
 
     // ── INIT ──────────────────────────────────────────────
     window.onload = async () => {
@@ -220,65 +276,161 @@
         }
     }
 
-    // ── AL ELEGIR PLACA (CORREGIDA) ────────────────────────
-    async function alSeleccionarPlaca() {
-        const placa = document.getElementById('placa').value;
-        const subInfo = document.getElementById('km-sub-info');
-        window._kmSalidaActivo = 0;
+    // ── ACTUALIZAR ESTADO DEL BOTÓN ───────────────────────
+    // El botón solo se habilita cuando:
+    //   1. estadoCargaKM === 'ok' (se encontró el KM de salida y el total está calculado)
+    //   2. O estadoCargaKM === 'sin-dato' (no hay traslado activo — el conductor escribe el KM salida manual)
+    // En cualquier otro caso permanece deshabilitado.
+    function actualizarBoton() {
+        const btn    = document.getElementById('btn-finalizar');
+        const kmI    = parseFloat(document.getElementById('km_ingreso').value) || 0;
+        const total  = parseFloat(document.getElementById('total_km').value) || 0;
 
-        if (!placa) {
-            subInfo.innerText = 'Selecciona la placa para calcular automáticamente';
-            calcularTotal();
+        if (estadoCargaKM === 'cargando') {
+            btn.disabled = true;
+            btn.classList.remove('bloqueado-km');
+            btn.innerText = '⏳ CARGANDO DATOS DE KM...';
             return;
         }
 
-        subInfo.innerText = '🔍 Buscando datos de salida...';
+        if (estadoCargaKM === 'ok' && total > 0 && kmI > 0) {
+            btn.disabled = false;
+            btn.classList.remove('bloqueado-km');
+            btn.innerText = '🏁 FINALIZAR SERVICIO';
+            return;
+        }
+
+        if (estadoCargaKM === 'sin-dato' && kmI > 0) {
+            // Permitir guardar pero avisar que no hay KM salida
+            btn.disabled = false;
+            btn.classList.add('bloqueado-km');
+            btn.innerText = '⚠️ GUARDAR SIN KM SALIDA';
+            return;
+        }
+
+        // Estado inicial o KM ingreso vacío
+        btn.disabled = true;
+        btn.classList.remove('bloqueado-km');
+        btn.innerText = kmI > 0 ? '⏳ ESPERANDO DATOS DE KM...' : '🏁 FINALIZAR SERVICIO';
+    }
+
+    // ── AL ELEGIR PLACA ───────────────────────────────────
+    async function alSeleccionarPlaca() {
+        const placa   = document.getElementById('placa').value;
+        const subInfo = document.getElementById('km-sub-info');
+        const card    = document.getElementById('total-km-card');
+        const banner  = document.getElementById('banner-esperar');
+
+        window._kmSalidaActivo  = 0;
+        window._idSalidaActivo  = '';
+        document.getElementById('total_km').value = '';
+        document.getElementById('total-km-display').innerText = '— KM';
+        document.getElementById('km_salida_display').value = '';
+        document.getElementById('km_ingreso').value = '';
+
+        const campoKM = document.getElementById('km_ingreso');
+
+        if (!placa) {
+            estadoCargaKM = null;
+            subInfo.innerText = 'Selecciona la placa para calcular automáticamente';
+            subInfo.className = 'km-sub';
+            card.className    = 'total-km-card';
+            banner.style.display = 'none';
+            // Bloquear KM ingreso si no hay placa
+            campoKM.disabled = true;
+            campoKM.placeholder = 'Selecciona la placa primero';
+            campoKM.style.cssText = 'background:#f1f5f9; color:#94a3b8; cursor:not-allowed;';
+            actualizarBoton();
+            return;
+        }
+
+        // Bloquear campo KM mientras carga
+        campoKM.disabled = true;
+        campoKM.placeholder = '⏳ Cargando KM de salida...';
+        campoKM.style.cssText = 'background:#fef9c3; color:#92400e; cursor:not-allowed;';
+
+        // Iniciar carga
+        estadoCargaKM = 'cargando';
+        banner.style.display = 'block';
+        card.className = 'total-km-card cargando';
+        subInfo.className = 'km-sub warn';
+        subInfo.innerText = '🔍 Buscando datos de salida en el sistema...';
+        actualizarBoton();
 
         try {
-            const res = await DB.obtenerTrasladosRecientes(200);
+            const res  = await DB.obtenerTrasladosRecientes(200);
             const todos = res.data || [];
             const activo = todos.find(r =>
                 String(r.placa || '').trim().toUpperCase() === placa.trim().toUpperCase() &&
                 (!r.km__ingreso || String(r.km__ingreso).trim() === '')
             );
 
+            banner.style.display = 'none';
+
             if (activo) {
-                // Leer km__salida (doble guion) o km_salida (un guion) según tu base de datos
                 window._kmSalidaActivo = parseFloat(activo.km__salida || activo.km_salida || 0);
-                subInfo.innerText = 'KM salida: ' + window._kmSalidaActivo.toLocaleString('es-CO') +
-                    ' | Hora salida: ' + (activo.hora_de_salida || '--');
                 window._idSalidaActivo = activo.id_salida || '';
+                estadoCargaKM = 'ok';
+                subInfo.className = 'km-sub';
+                subInfo.innerText = '✅ KM salida: ' + window._kmSalidaActivo.toLocaleString('es-CO') +
+                    ' | Hora salida: ' + (activo.hora_de_salida || '--');
+                card.className = 'total-km-card';
+                // Mostrar KM salida en el campo visible
+                document.getElementById('km_salida_display').value = window._kmSalidaActivo;
             } else {
-                subInfo.innerText = 'No se encontró traslado activo para esta placa';
+                estadoCargaKM = 'sin-dato';
+                subInfo.className = 'km-sub warn';
+                subInfo.innerText = '⚠️ No se encontró traslado activo — ingresa el KM manualmente';
+                card.className = 'total-km-card';
             }
         } catch(e) {
-            subInfo.innerText = 'Error al obtener datos de salida';
+            banner.style.display = 'none';
+            estadoCargaKM = 'sin-dato';
+            subInfo.className = 'km-sub err';
+            subInfo.innerText = '❌ Error al obtener datos de salida: ' + e.message;
+            card.className = 'total-km-card error';
         }
+
+        // Habilitar campo KM ingreso ahora que tenemos (o no) el KM salida
+        campoKM.disabled = false;
+        campoKM.placeholder = 'Ej: 155280';
+        campoKM.style.cssText = '';
+        // Si el usuario ya había escrito algo antes (no debería, pero por si acaso), recalcular
+        if (campoKM.value) calcularTotal();
+        // Focus automático para que el usuario escriba directamente
+        setTimeout(() => campoKM.focus(), 100);
+
         calcularTotal();
+        actualizarBoton();
     }
 
-    // ── CÁLCULO TOTAL KM (CORREGIDA) ───────────────────────
+    // ── CÁLCULO TOTAL KM ──────────────────────────────────
     function calcularTotal() {
-        const kmI = parseFloat(document.getElementById('km_ingreso').value) || 0;
-        const kmS = window._kmSalidaActivo || 0;
+        const kmI    = parseFloat(document.getElementById('km_ingreso').value) || 0;
+        const kmS    = window._kmSalidaActivo || 0;
         const display = document.getElementById('total-km-display');
-        const card = document.getElementById('total-km-card');
-        const hiddenTotal = document.getElementById('total_km');
+        const card    = document.getElementById('total-km-card');
+        const hidden  = document.getElementById('total_km');
 
         if (kmI > 0 && kmS > 0) {
             const total = kmI - kmS;
             if (total >= 0) {
                 display.innerText = total.toLocaleString('es-CO') + ' KM';
-                hiddenTotal.value = total.toFixed(1);
-                card.style.borderColor = '#16a34a';
+                hidden.value = total.toFixed(1);
+                card.classList.add('listo');
+                card.classList.remove('error');
             } else {
-                display.innerText = 'Error: KM menor';
-                card.style.borderColor = '#dc2626';
+                display.innerText = '⚠️ KM menor al de salida';
+                hidden.value = '';
+                card.classList.add('error');
+                card.classList.remove('listo');
             }
         } else {
             display.innerText = '— KM';
-            card.style.borderColor = '#86efac';
+            hidden.value = '';
         }
+
+        actualizarBoton();
     }
 
     // ── ESTADO DE ENTREGA ─────────────────────────────────
@@ -303,12 +455,28 @@
         const kmI   = document.getElementById('km_ingreso').value;
         const hora  = document.getElementById('hora_ingreso').value;
 
-        if (!placa) { alert("Selecciona la placa"); return; }
-        if (!kmI)   { alert("Ingresa el KM de llegada"); return; }
-        if (!estadoSeleccionado) { alert("Selecciona el estado de entrega"); return; }
+        if (!placa)              { alert('Selecciona la placa'); return; }
+        if (!kmI)                { alert('Ingresa el KM de llegada'); return; }
+        if (!estadoSeleccionado) { alert('Selecciona el estado de entrega'); return; }
+
+        // Guardia extra: no guardar si todavía está cargando el KM
+        if (estadoCargaKM === 'cargando') {
+            alert('⏳ Espera — todavía se están cargando los datos de KM de salida. Intenta en unos segundos.');
+            return;
+        }
+
+        // Confirmación si no hay KM salida
+        if (estadoCargaKM === 'sin-dato' || !window._kmSalidaActivo) {
+            const conf = confirm(
+                '⚠️ No se encontró el KM de salida para esta placa.\n\n' +
+                'El Total KM quedará vacío en el reporte.\n\n' +
+                '¿Deseas continuar de todas formas?'
+            );
+            if (!conf) return;
+        }
 
         btn.disabled  = true;
-        btn.innerText = "⏳ GUARDANDO...";
+        btn.innerText = '⏳ GUARDANDO...';
         document.getElementById('progreso-steps').style.display = 'block';
 
         const etiquetaEstado = {
@@ -321,7 +489,8 @@
             placa,
             hora_ingreso:   hora,
             km_ingreso:     kmI,
-            total_km:       document.getElementById('total_km').value,
+            km_salida_ref:  window._kmSalidaActivo || '',
+            total_km:       document.getElementById('total_km').value || '',
             estado_entrega: etiquetaEstado,
             observaciones:  document.getElementById('observaciones').value,
             recibido_por:   document.getElementById('recibido_por').value,
@@ -339,62 +508,65 @@
             setStep('step-carroza', 'ok', '⚠️ Carroza: se omitió (no crítico)');
         }
 
-        // Paso 2: Registro
+        // Paso 2: Registro llegada
         setStep('step-llegada', 'act', '⏳ Guardando registro de llegada...');
         try {
             const res = await DB.guardarLlegada(datosFinales);
             if (!res.ok) throw new Error(res.error || 'Error al guardar');
 
             if (window._idSalidaActivo) {
-                await DB.actualizar('Traslado', 
-                    { km__ingreso: parseInt(kmI), hora_de_ingreso: hora }, 
+                await DB.actualizar('Traslado',
+                    { km__ingreso: parseInt(kmI), hora_de_ingreso: hora },
                     'id_salida', window._idSalidaActivo
                 );
             }
 
             setStep('step-llegada', 'ok', '✅ Llegada registrada correctamente');
-            btn.innerText = "✓ SERVICIO FINALIZADO";
-            btn.style.background = "#16a34a";
+            btn.innerText = '✓ SERVICIO FINALIZADO';
+            btn.style.background = '#16a34a';
             document.getElementById('bloque-wa').style.display = 'block';
         } catch(e) {
             setStep('step-llegada', 'err', '❌ Error: ' + e.message);
             btn.disabled = false;
-            btn.innerText = "🏁 REINTENTAR";
+            btn.innerText = '🏁 REINTENTAR';
         }
     }
 
-  // ── WHATSAPP (CON FORMATO MEJORADO) ──────────────────
+    // ── WHATSAPP ──────────────────────────────────────────
     function enviarWA() {
-        // Lógica de saludo dinámico
         const horaActual = new Date().getHours();
-        let saludo = "";
-        if (horaActual >= 6 && horaActual < 12) saludo = "Buenos Días ☀️";
-        else if (horaActual >= 12 && horaActual < 18) saludo = "Buenas Tardes 🌤️";
-        else saludo = "Buenas Noches 🌙";
+        let saludo = '';
+        if (horaActual >= 6 && horaActual < 12)  saludo = 'Buenos Días ☀️';
+        else if (horaActual >= 12 && horaActual < 18) saludo = 'Buenas Tardes 🌤️';
+        else saludo = 'Buenas Noches 🌙';
 
-        const msg = saludo + "\n\n" +
-            "🏁 *Reporte de Llegada De Carroza*\n\n" +
-            "*Placa:* "          + datosFinales.placa          + "\n" +
-            "*Hora Llegada:* "   + datosFinales.hora_ingreso   + "\n" +
-            "*KM Ingreso:* "     + parseInt(datosFinales.km_ingreso).toLocaleString('es-CO') + "\n" +
-            "*Total KM:* "       + datosFinales.total_km       + " km\n" +
-            "*Estado Entrega:* " + datosFinales.estado_entrega + "\n" +
-            "*Recibido Por:* "   + datosFinales.recibido_por   + "\n\n" +
-            "📝 *Observaciones:* "  + (datosFinales.observaciones || 'Sin novedades') + "\n\n" +
-            "✅ *Servicio completado exitosamente* 🙏";
+        const totalKM = datosFinales.total_km
+            ? datosFinales.total_km + ' km'
+            : 'No disponible';
 
-        window.open("https://wa.me/?text=" + encodeURIComponent(msg), '_blank');
+        const msg = saludo + '\n\n' +
+            '🏁 *Reporte de Llegada De Carroza*\n\n' +
+            '*Placa:* '          + datosFinales.placa          + '\n' +
+            '*Hora Llegada:* '   + datosFinales.hora_ingreso   + '\n' +
+            '*KM Ingreso:* '     + parseInt(datosFinales.km_ingreso).toLocaleString('es-CO') + '\n' +
+            '*Total KM:* '       + totalKM                     + '\n' +
+            '*Estado Entrega:* ' + datosFinales.estado_entrega + '\n' +
+            '*Recibido Por:* '   + datosFinales.recibido_por   + '\n\n' +
+            '📝 *Observaciones:* ' + (datosFinales.observaciones || 'Sin novedades') + '\n\n' +
+            '✅ *Servicio completado exitosamente* 🙏';
+
+        window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
     }
 
-    // ── VOLVER (CORREGIDA) ────────────────────────────────
+    // ── VOLVER ────────────────────────────────────────────
     function irAtras() {
         const user = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const norm = s => (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const rol  = norm(user.rol);
         const usr  = norm(user.usuario);
-        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = "dashboard.html";
-        else if (rol === 'coordinador') window.location.href = "panel_coordinador.html";
-        else window.location.href = "panel_conductor.html";
+        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = 'dashboard.html';
+        else if (rol === 'coordinador') window.location.href = 'panel_coordinador.html';
+        else window.location.href = 'panel_conductor.html';
     }
 </script>
 </body>
