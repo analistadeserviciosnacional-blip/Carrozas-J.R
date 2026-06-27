@@ -343,17 +343,8 @@
         var esAceite   = (tipo === 'Cambio de Aceite');
         var intervalo  = esAceite ? getIntervalo() : 0;
 
-        // CALCULO SEGURO: km_proximo_cambio = kmServicio + intervalo
-        // Solo se asigna cuando es cambio de aceite Y ambos valores son positivos
         var kmProximo = (esAceite && intervalo > 0 && kmServicio > 0) ? (kmServicio + intervalo) : 0;
 
-        // ================================================================
-        // OBJETO REGISTRO CON ID SIEMPRE PRESENTE
-        // - INSERT nuevo  → id propio generado: 'M-' + timestamp
-        // - EDICION       → conserva el id existente (editandoID)
-        // Esto es clave para que GAS pueda actualizar la fila correcta
-        // y para que las salidas lean el km_proximo_cambio correcto.
-        // ================================================================
         var registro = {
             id:                   editandoID ? String(editandoID) : ('M-' + Date.now()),
             placa:                placa,
@@ -368,7 +359,6 @@
             estado_orden:         'completada'
         };
 
-        // Log de verificacion (visible en consola del navegador F12)
         console.log('==== GUARDANDO MANTENIMIENTO ====');
         console.log('ID generado:', registro.id);
         console.log('Placa:', registro.placa);
@@ -380,10 +370,8 @@
         var res;
         try {
             if (editandoID) {
-                // UPDATE por id existente
                 res = await DB.supabase.from('mantenimientos').update(registro).eq('id', editandoID);
             } else {
-                // INSERT con id generado incluido en el payload
                 res = await DB.supabase.from('mantenimientos').insert([registro]);
             }
         } catch(err) {
@@ -400,7 +388,6 @@
             return;
         }
 
-        // Actualizar datos de la carroza
         try {
             var proxFecha = new Date(registro.fecha);
             proxFecha.setMonth(proxFecha.getMonth() + 3);
@@ -411,7 +398,6 @@
                 estado:                'Disponible'
             });
         } catch(err) {
-            // No bloquear el flujo si falla la actualizacion de carroza
             console.warn('Advertencia al actualizar carroza:', err.message);
         }
 
@@ -444,7 +430,6 @@
 
             lista.innerHTML = res.data.map(function(o, idx) {
                 var falla = (o.tipo_servicio || '').replace('Averia - ', '').replace('Avería — ', '');
-                // Normalizar id: puede ser numerico, 'AV-xxx', 'M-xxx' o vacio
                 var rowId = String(o.id || '').trim();
 
                 return '<div class="orden-item" id="orden-item-' + idx + '" ' +
@@ -512,7 +497,6 @@
             var resUpdate;
 
             if (rowId) {
-                // Tiene id propio → actualizar por id (lo mas confiable)
                 resUpdate = await DB.actualizar(
                     'mantenimientos',
                     { estado_orden: estadoOrden, observaciones: obsCompleta },
@@ -520,7 +504,6 @@
                     rowId
                 );
             } else {
-                // Sin id → fallback por placa (GAS actualiza primera coincidencia pendiente)
                 console.warn('Orden sin id - usando placa como clave:', placa);
                 resUpdate = await DB.actualizar(
                     'mantenimientos',
@@ -535,7 +518,7 @@
 
             console.log('Orden actualizada:', resUpdate);
 
-            // Feedback visual
+            // ── FEEDBACK VISUAL INMEDIATO ──────────────────────────────────
             if (disponible) {
                 ordenEl.style.background  = '#f0fdf4';
                 ordenEl.style.borderColor = '#86efac';
@@ -552,8 +535,33 @@
                     '<span style="font-size:12px; font-weight:400;">La novedad quedo registrada.</span></div>';
             }
 
-            await cargarHistorial();
-            await cargarOrdenesPendientes();
+            // ── ELIMINAR TARJETA DEL DOM Y RECARGAR CON DELAY ─────────────
+            // Se espera 2.5s para mostrar el feedback y luego se elimina la tarjeta
+            // del DOM directamente sin esperar a Google Sheets (que tarda en reflejar
+            // el cambio). El recargarOrdenesPendientes se hace con delay adicional
+            // de 3s para que Sheets ya tenga el dato actualizado cuando se consulte.
+            setTimeout(async function() {
+                ordenEl.remove();
+
+                // Si no quedan tarjetas pendientes, ocultar la seccion
+                var lista     = document.getElementById('lista-ordenes');
+                var restantes = lista.querySelectorAll('.orden-item');
+                if (restantes.length === 0) {
+                    document.getElementById('seccion-ordenes').style.display = 'none';
+                } else {
+                    var badge = document.getElementById('badge-ordenes');
+                    badge.textContent = restantes.length + ' pendiente' + (restantes.length > 1 ? 's' : '');
+                }
+
+                // Recargar historial de inmediato
+                await cargarHistorial();
+
+                // Esperar 3s adicionales antes de recargar ordenes pendientes
+                // para dar tiempo a que Google Sheets refleje el cambio de estado
+                await new Promise(function(r) { setTimeout(r, 3000); });
+                await cargarOrdenesPendientes();
+
+            }, 2500);
 
         } catch(e) {
             alert('Error al procesar: ' + e.message);
@@ -563,13 +571,11 @@
         }
     }
 
-    // ── FORMATEAR FECHA: convierte cualquier formato a YYYY-MM-DD legible
+    // ── FORMATEAR FECHA
     function formatearFecha(f) {
         if (!f) return '---';
         var s = String(f).trim();
-        // Ya esta en formato YYYY-MM-DD
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        // Viene como objeto Date serializado o string largo tipo "Tue May 19 2026..."
         var d = new Date(s);
         if (!isNaN(d.getTime())) {
             var y  = d.getFullYear();
@@ -598,7 +604,6 @@
                 return;
             }
 
-            // Guardar en cache global para acceso seguro por indice desde prepararEdicion
             historialData = res.data;
 
             tbody.innerHTML = res.data.map(function(m, idx) {
@@ -635,8 +640,6 @@
                         'padding:2px 6px; border-radius:5px; font-weight:700; margin-right:4px;">CERRADA</span>';
                 }
 
-                // CLAVE: el boton pasa solo el INDICE numerico, sin JSON inline
-                // Esto evita que caracteres especiales en observaciones rompan el onclick
                 return '<tr>' +
                     '<td>' + formatearFecha(m.fecha) + '</td>' +
                     '<td><b>' + (m.placa || '---') + '</b></td>' +
@@ -654,7 +657,7 @@
         }
     }
 
-    // ── PREPARAR EDICION (recibe indice del array historialData)
+    // ── PREPARAR EDICION
     function prepararEdicion(idx) {
         var m = historialData[idx];
         if (!m) {
@@ -678,7 +681,6 @@
         document.getElementById('responsable').value   = m.responsable   || '';
         document.getElementById('observaciones').value = m.observaciones || '';
 
-        // Restaurar intervalo si era cambio de aceite
         if (m.tipo_servicio === 'Cambio de Aceite' && m.km_proximo_cambio && m.kilometraje_servicio) {
             var intervaloRegistrado = parseInt(m.km_proximo_cambio) - parseInt(m.kilometraje_servicio);
             var selIntervalo = document.getElementById('intervalo-km');
