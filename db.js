@@ -1,11 +1,14 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v11.2
- *  + Caché en memoria con TTL
- *  + Deduplicación de requests en vuelo
- *  + Timeout LARGO en escrituras (60s, con 1 reintento a 90s)
- *    -> evita "signal is aborted without reason" al subir fotos
- *  + Timeout corto en lecturas (15s)
+ *  CONECTOR J.R. CARROZAS — db.js  v12.0
+ *  + Sin capa de imitación de Supabase (no se necesitaba)
+ *  + Guardado directo: confirma apenas la escritura principal
+ *    responde OK, sin esperar a las actualizaciones secundarias
+ *    (eso era lo que dejaba "Guardando..." pegado / forzaba
+ *    un segundo intento)
+ *  + Caché en memoria con TTL para lecturas
+ *  + Deduplicación de lecturas en vuelo
+ *  + Timeout largo en escrituras + 1 reintento automático
  *  + Warm-up secuencial al cargar
  * ══════════════════════════════════════════════════════════
  */
@@ -34,7 +37,6 @@ function fechaHoy() {
 }
 
 // ── TIMEOUT HELPER ─────────────────────────────────────────
-// Da un mensaje legible en vez de "signal is aborted without reason"
 function fetchConTimeout(url, opciones, ms) {
   if (ms === undefined) ms = 15000;
   if (opciones === undefined) opciones = {};
@@ -44,7 +46,7 @@ function fetchConTimeout(url, opciones, ms) {
   }, ms);
   return fetch(url, Object.assign({}, opciones, { signal: controller.signal }))
     .catch(function(err) {
-      if (err.name === 'AbortError' || (controller.signal.aborted)) {
+      if (err.name === 'AbortError' || controller.signal.aborted) {
         const e = new Error('El servidor tardó demasiado en responder (más de ' + Math.round(ms/1000) + 's). Verifica tu conexión e intenta nuevamente.');
         e.isTimeout = true;
         throw e;
@@ -62,16 +64,13 @@ const CACHE_TTL = 60000;   // 60 segundos
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
-  // 1. Devolver caché si sigue vigente
   const cached = _cache[key];
   if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
     return cached.data;
   }
 
-  // 2. Si ya hay un fetch en curso para esta hoja, reutilizarlo
   if (_inflight[key]) return _inflight[key];
 
-  // 3. Lanzar fetch con timeout de 15 segundos (lecturas son livianas, no llevan fotos)
   _inflight[key] = (async () => {
     try {
       const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
@@ -94,8 +93,6 @@ async function gasGet(sheetName) {
 }
 
 // ── ESCRITURA con timeout largo + 1 reintento automático ──
-// Las escrituras pueden traer fotos en base64 (payload grande),
-// por eso necesitan mucho más margen que una simple lectura.
 async function gasWriteIntento(sheetName, payload, action, idCol, idValue, ms) {
   const urlParams = new URLSearchParams({ sheetName: resolveSheet(sheetName), action });
   if (idCol)   urlParams.set('idCol',   idCol);
@@ -124,15 +121,12 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
   if (idValue  === undefined) idValue  = '';
 
   try {
-    // Intento 1: 60 segundos (suficiente para payloads con fotos en la mayoría de redes)
     return await gasWriteIntento(sheetName, payload, action, idCol, idValue, 60000);
   } catch (err) {
     if (err.isTimeout) {
       console.warn(`gasWrite ${sheetName}: timeout en intento 1, reintentando con más tiempo…`);
       try {
-        // Intento 2: 90 segundos
-        const res = await gasWriteIntento(sheetName, payload, action, idCol, idValue, 90000);
-        return res;
+        return await gasWriteIntento(sheetName, payload, action, idCol, idValue, 90000);
       } catch (err2) {
         console.error('gasWrite excepción (reintento):', err2);
         return { ok: false, error: err2.message };
@@ -143,81 +137,21 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
   }
 }
 
-class GASQueryBuilder {
-  constructor(t) {
-    this._table         = t;
-    this._filters       = [];
-    this._isNullFilters = [];
-    this._ilikes        = [];
-    this._orders        = [];
-    this._limitN        = null;
-    this._single        = false;
-    this._updatePayload = null;
-    this._insertPayload = null;
-  }
-
-  select()            { return this; }
-  eq(col, val)        { this._filters.push({ col, val: String(val) }); return this; }
-  is(col, val) {
-    if (val === null || val === undefined || val === '') {
-      this._isNullFilters.push({ col });
-    }
-    return this;
-  }
-  ilike(col, pattern) { this._ilikes.push({ col, val: pattern.replace(/%/g,'').toLowerCase() }); return this; }
-  order(col, opts)    { if (!opts) opts = {}; this._orders.push({ col, asc: opts.ascending !== false }); return this; }
-  limit(n)            { this._limitN = n; return this; }
-  single()            { this._single = true; return this; }
-  update(payload)     { this._updatePayload = payload; return this; }
-  insert(payload) {
-    this._insertPayload = Array.isArray(payload) ? payload[0] : payload;
-    return this;
-  }
-
-  then(resolve, reject) {
-    if (this._insertPayload !== null) {
-      gasWrite(this._table, this._insertPayload, 'insert')
-        .then(function(res) { resolve({ data: null, error: res.ok ? null : { message: res.error } }); })
-        .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
-      return;
-    }
-    if (this._updatePayload !== null) {
-      const f = this._filters[0];
-      if (!f) { resolve({ data: null, error: { message: 'update requiere .eq()' } }); return; }
-      gasWrite(this._table, this._updatePayload, 'update', f.col, f.val)
-        .then(function(res) { resolve({ data: null, error: res.ok ? null : { message: res.error } }); })
-        .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
-      return;
-    }
-    const self = this;
-    gasGet(this._table)
-      .then(function(rows) {
-        for (const f of self._filters)
-          rows = rows.filter(function(r) { return String(r[f.col]||'').trim().toLowerCase() === f.val.trim().toLowerCase(); });
-        for (const f of self._isNullFilters)
-          rows = rows.filter(function(r) { return r[f.col] === null || r[f.col] === undefined || String(r[f.col]).trim() === ''; });
-        for (const f of self._ilikes)
-          rows = rows.filter(function(r) { return String(r[f.col]||'').toLowerCase().includes(f.val); });
-        for (const o of self._orders)
-          rows.sort(function(a,b) { const va=String(a[o.col]||''), vb=String(b[o.col]||''); return o.asc ? va.localeCompare(vb) : vb.localeCompare(va); });
-        if (self._limitN) rows = rows.slice(0, self._limitN);
-        resolve(self._single
-          ? { data: rows[0]||null, error: rows.length ? null : { message: 'No rows' } }
-          : { data: rows, error: null });
-      })
-      .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
-  }
+// ── ACTUALIZACIÓN SECUNDARIA EN SEGUNDO PLANO ─────────────
+// No bloquea la confirmación de "guardado" al usuario.
+// Si falla, solo queda log en consola (la fila principal ya está a salvo).
+function actualizarEnSegundoPlano(promesa, etiqueta) {
+  promesa
+    .then(function(res) {
+      if (!res.ok) console.warn(`(${etiqueta}) falló en segundo plano:`, res.error);
+    })
+    .catch(function(err) {
+      console.warn(`(${etiqueta}) excepción en segundo plano:`, err.message);
+    });
 }
-
-class ChannelStub { on() { return this; } subscribe() { return this; } }
 
 const DB = {
   _isSavingAveria: false,
-
-  supabase: {
-    from(t)   { return new GASQueryBuilder(t); },
-    channel() { return new ChannelStub(); },
-  },
 
   // ── CACHÉ: INVALIDAR UNA HOJA ──────────────────────────────
   invalidarCache(sheetName) {
@@ -282,6 +216,8 @@ const DB = {
   },
 
   // ── GUARDAR TRASLADO ───────────────────────────────────────
+  // Confirma apenas el INSERT principal responde OK.
+  // La actualización de la carroza (estado/km) se hace en segundo plano.
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
@@ -313,11 +249,13 @@ const DB = {
     const res = await gasWrite('Traslado', fila, 'insert');
     if (res.ok) {
       this.invalidarCache('Traslado');
-      await this.actualizarCarroza(d.placa, {
-        estado: 'En Servicio',
-        kilometraje_actual: parseInt(d.km_salida) || 0
-      });
-      this.invalidarCache('carrozas');
+      actualizarEnSegundoPlano(
+        this.actualizarCarroza(d.placa, {
+          estado: 'En Servicio',
+          kilometraje_actual: parseInt(d.km_salida) || 0
+        }).then((r) => { this.invalidarCache('carrozas'); return r; }),
+        'actualizarCarroza tras guardarTraslado'
+      );
     }
     return res;
   },
@@ -350,10 +288,12 @@ const DB = {
       const res = await gasWrite('Traslado', campos, 'update', 'id_salida', idSalida);
       if (res.ok) {
         this.invalidarCache('Traslado');
-        await this.actualizarCarroza(d.placa, {
-          kilometraje_actual: parseInt(d.km_salida) || 0
-        });
-        this.invalidarCache('carrozas');
+        actualizarEnSegundoPlano(
+          this.actualizarCarroza(d.placa, {
+            kilometraje_actual: parseInt(d.km_salida) || 0
+          }).then((r) => { this.invalidarCache('carrozas'); return r; }),
+          'actualizarCarroza tras actualizarTraslado'
+        );
       }
       return res;
     } catch(e) {
@@ -397,11 +337,13 @@ const DB = {
     const res = await gasWrite('Llegadas', fila, 'insert');
     if (res.ok) {
       this.invalidarCache('Llegadas');
-      await this.actualizarCarroza(d.placa, {
-        estado: 'Disponible',
-        kilometraje_actual: parseInt(d.km_ingreso) || 0
-      });
-      this.invalidarCache('carrozas');
+      actualizarEnSegundoPlano(
+        this.actualizarCarroza(d.placa, {
+          estado: 'Disponible',
+          kilometraje_actual: parseInt(d.km_ingreso) || 0
+        }).then((r) => { this.invalidarCache('carrozas'); return r; }),
+        'actualizarCarroza tras guardarLlegada'
+      );
     }
     return res;
   },
@@ -429,8 +371,6 @@ const DB = {
       const res = await gasWrite('Averias', fila, 'insert');
       if (res.ok) {
         this.invalidarCache('Averias');
-        await this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' });
-        this.invalidarCache('carrozas');
         const h        = new Date();
         const fechaISO = h.getFullYear() + '-' +
                          (h.getMonth()+1).toString().padStart(2,'0') + '-' +
@@ -448,8 +388,18 @@ const DB = {
           km_proximo_cambio:    0,
           estado_orden:         'pendiente',
         };
-        await gasWrite('mantenimientos', filaMant, 'insert');
-        this.invalidarCache('mantenimientos');
+
+        // Secundarios (estado carroza + orden de mantenimiento): en segundo plano
+        actualizarEnSegundoPlano(
+          this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' })
+            .then((r) => { this.invalidarCache('carrozas'); return r; }),
+          'actualizarCarroza tras guardarAveria'
+        );
+        actualizarEnSegundoPlano(
+          gasWrite('mantenimientos', filaMant, 'insert')
+            .then((r) => { this.invalidarCache('mantenimientos'); return r; }),
+          'crear orden de mantenimiento tras guardarAveria'
+        );
       }
       return res;
     } catch(e) {
@@ -514,7 +464,6 @@ const DB = {
 window.DB = DB;
 
 // ── WARM-UP SECUENCIAL AL INICIAR ─────────────────────────
-// Despierta el GAS y precarga hojas de a una para no saturarlo
 (async function() {
   try {
     const ping = await DB.testConexion();
