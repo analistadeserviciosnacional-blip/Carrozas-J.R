@@ -1,9 +1,10 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v11.0
+ *  CONECTOR J.R. CARROZAS — db.js  v11.1
  *  + Caché en memoria con TTL
  *  + Deduplicación de requests en vuelo
- *  + Prefetch automático al cargar
+ *  + Timeout de 15s en cada fetch (evita quedarse colgado)
+ *  + Warm-up secuencial al cargar
  * ══════════════════════════════════════════════════════════
  */
 
@@ -30,10 +31,20 @@ function fechaHoy() {
          h.getFullYear();
 }
 
+// ── TIMEOUT HELPER ─────────────────────────────────────────
+function fetchConTimeout(url, opciones, ms) {
+  if (ms === undefined) ms = 15000;
+  if (opciones === undefined) opciones = {};
+  const controller = new AbortController();
+  const timer = setTimeout(function() { controller.abort(); }, ms);
+  return fetch(url, Object.assign({}, opciones, { signal: controller.signal }))
+    .finally(function() { clearTimeout(timer); });
+}
+
 // ── CACHÉ EN MEMORIA ───────────────────────────────────────
 const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
-const CACHE_TTL = 60_000;  // 60 segundos — ajustar si los datos cambian más seguido
+const CACHE_TTL = 60000;   // 60 segundos
 
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
@@ -47,40 +58,43 @@ async function gasGet(sheetName) {
   // 2. Si ya hay un fetch en curso para esta hoja, reutilizarlo
   if (_inflight[key]) return _inflight[key];
 
-  // 3. Lanzar fetch y registrarlo
+  // 3. Lanzar fetch con timeout de 15 segundos
   _inflight[key] = (async () => {
     try {
       const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-      const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 15000);
       if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
       const json = await resp.json();
       if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
       const data = Array.isArray(json) ? json : [];
-      _cache[key] = { data, ts: Date.now() };  // guardar en caché
+      _cache[key] = { data, ts: Date.now() };
       return data;
     } catch (err) {
-      console.warn(`gasGet ${sheetName} error:`, err.message);
+      console.warn(`gasGet ${sheetName} error (${err.name}):`, err.message);
       return [];
     } finally {
-      delete _inflight[key];  // limpiar inflight siempre
+      delete _inflight[key];
     }
   })();
 
   return _inflight[key];
 }
 
-async function gasWrite(sheetName, payload, action = "insert", idCol = "", idValue = "") {
+async function gasWrite(sheetName, payload, action, idCol, idValue) {
+  if (action   === undefined) action   = 'insert';
+  if (idCol    === undefined) idCol    = '';
+  if (idValue  === undefined) idValue  = '';
   const urlParams = new URLSearchParams({ sheetName: resolveSheet(sheetName), action });
   if (idCol)   urlParams.set('idCol',   idCol);
   if (idValue) urlParams.set('idValue', idValue);
   const url = `${URL_GAS}?${urlParams}`;
   try {
-    const resp = await fetch(url, {
-      method:   'POST',
+    const resp = await fetchConTimeout(url, {
+      method:  'POST',
       redirect: 'follow',
-      headers:  { 'Content-Type': 'text/plain' },
-      body:     JSON.stringify(payload),
-    });
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(payload),
+    }, 20000);
     if (!resp.ok) { console.error(`gasWrite HTTP ${resp.status}`); return { ok: false, error: `HTTP ${resp.status}` }; }
     const text = await resp.text();
     let json;
@@ -116,7 +130,7 @@ class GASQueryBuilder {
     return this;
   }
   ilike(col, pattern) { this._ilikes.push({ col, val: pattern.replace(/%/g,'').toLowerCase() }); return this; }
-  order(col, opts={}) { this._orders.push({ col, asc: opts.ascending !== false }); return this; }
+  order(col, opts)    { if (!opts) opts = {}; this._orders.push({ col, asc: opts.ascending !== false }); return this; }
   limit(n)            { this._limitN = n; return this; }
   single()            { this._single = true; return this; }
   update(payload)     { this._updatePayload = payload; return this; }
@@ -128,34 +142,35 @@ class GASQueryBuilder {
   then(resolve, reject) {
     if (this._insertPayload !== null) {
       gasWrite(this._table, this._insertPayload, 'insert')
-        .then(res => resolve({ data: null, error: res.ok ? null : { message: res.error } }))
-        .catch(err => resolve({ data: null, error: { message: err.message } }));
+        .then(function(res) { resolve({ data: null, error: res.ok ? null : { message: res.error } }); })
+        .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
       return;
     }
     if (this._updatePayload !== null) {
       const f = this._filters[0];
       if (!f) { resolve({ data: null, error: { message: 'update requiere .eq()' } }); return; }
       gasWrite(this._table, this._updatePayload, 'update', f.col, f.val)
-        .then(res => resolve({ data: null, error: res.ok ? null : { message: res.error } }))
-        .catch(err => resolve({ data: null, error: { message: err.message } }));
+        .then(function(res) { resolve({ data: null, error: res.ok ? null : { message: res.error } }); })
+        .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
       return;
     }
+    const self = this;
     gasGet(this._table)
-      .then(rows => {
-        for (const f of this._filters)
-          rows = rows.filter(r => String(r[f.col]||'').trim().toLowerCase() === f.val.trim().toLowerCase());
-        for (const f of this._isNullFilters)
-          rows = rows.filter(r => r[f.col] === null || r[f.col] === undefined || String(r[f.col]).trim() === '');
-        for (const f of this._ilikes)
-          rows = rows.filter(r => String(r[f.col]||'').toLowerCase().includes(f.val));
-        for (const o of this._orders)
-          rows.sort((a,b) => { const va=String(a[o.col]||''), vb=String(b[o.col]||''); return o.asc ? va.localeCompare(vb) : vb.localeCompare(va); });
-        if (this._limitN) rows = rows.slice(0, this._limitN);
-        resolve(this._single
+      .then(function(rows) {
+        for (const f of self._filters)
+          rows = rows.filter(function(r) { return String(r[f.col]||'').trim().toLowerCase() === f.val.trim().toLowerCase(); });
+        for (const f of self._isNullFilters)
+          rows = rows.filter(function(r) { return r[f.col] === null || r[f.col] === undefined || String(r[f.col]).trim() === ''; });
+        for (const f of self._ilikes)
+          rows = rows.filter(function(r) { return String(r[f.col]||'').toLowerCase().includes(f.val); });
+        for (const o of self._orders)
+          rows.sort(function(a,b) { const va=String(a[o.col]||''), vb=String(b[o.col]||''); return o.asc ? va.localeCompare(vb) : vb.localeCompare(va); });
+        if (self._limitN) rows = rows.slice(0, self._limitN);
+        resolve(self._single
           ? { data: rows[0]||null, error: rows.length ? null : { message: 'No rows' } }
           : { data: rows, error: null });
       })
-      .catch(err => resolve({ data: null, error: { message: err.message } }));
+      .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
   }
 }
 
@@ -170,25 +185,25 @@ const DB = {
   },
 
   // ── CACHÉ: INVALIDAR UNA HOJA ──────────────────────────────
-  // Úsalo después de escribir si necesitas datos frescos de inmediato:
-  // DB.invalidarCache('Traslado')
   invalidarCache(sheetName) {
     const key = resolveSheet(sheetName);
     delete _cache[key];
   },
 
-  // ── CACHÉ: PRECARGAR HOJAS EN PARALELO ────────────────────
-  async prefetch(...hojas) {
-    await Promise.all(hojas.map(h => gasGet(h)));
+  // ── CACHÉ: PRECARGAR HOJAS ────────────────────────────────
+  async prefetch() {
+    const hojas = Array.from(arguments);
+    await Promise.all(hojas.map(function(h) { return gasGet(h); }));
   },
 
+  // ── LOGIN ──────────────────────────────────────────────────
   async login(usuario, clave) {
     try {
       const rows  = await gasGet('usuarios');
-      const match = rows.filter(r =>
-        String(r.usuario ||'').trim().toLowerCase() === usuario.trim().toLowerCase() &&
-        String(r.password||'').trim()               === clave.trim()
-      );
+      const match = rows.filter(function(r) {
+        return String(r.usuario ||'').trim().toLowerCase() === usuario.trim().toLowerCase() &&
+               String(r.password||'').trim()               === clave.trim();
+      });
       return match.length > 0
         ? { ok: true,  data: match[0] }
         : { ok: false, error: 'Credenciales incorrectas' };
@@ -196,7 +211,7 @@ const DB = {
   },
 
   async registrarUsuario(datos) {
-    return await gasWrite('usuarios', { ...datos, created_at: new Date().toISOString() }, 'insert');
+    return await gasWrite('usuarios', Object.assign({}, datos, { created_at: new Date().toISOString() }), 'insert');
   },
 
   async obtenerFlota() {
@@ -204,31 +219,34 @@ const DB = {
     catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  async obtenerTrasladosRecientes(limite = 50) {
+  async obtenerTrasladosRecientes(limite) {
+    if (limite === undefined) limite = 50;
     try {
       let data = await gasGet('Traslado');
-      data.sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
+      data.sort(function(a,b) { return String(b.fecha||'').localeCompare(String(a.fecha||'')); });
       return { ok: true, data: data.slice(0, limite) };
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  async obtenerTodasAverias(limite = 20) {
+  async obtenerTodasAverias(limite) {
+    if (limite === undefined) limite = 20;
     try {
       let data = await gasGet('Averias');
-      data.sort((a,b) => String(b.created_at||b.fecha||'').localeCompare(String(a.created_at||a.fecha||'')));
+      data.sort(function(a,b) { return String(b.created_at||b.fecha||'').localeCompare(String(a.created_at||a.fecha||'')); });
       return { ok: true, data: data.slice(0, limite) };
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  async obtenerMantenimientos(limite = 50) {
+  async obtenerMantenimientos(limite) {
+    if (limite === undefined) limite = 50;
     try {
       let data = await gasGet('mantenimientos');
-      data.sort((a,b) => String(b.fecha||'').localeCompare(String(a.fecha||'')));
+      data.sort(function(a,b) { return String(b.fecha||'').localeCompare(String(a.fecha||'')); });
       return { ok: true, data: data.slice(0, limite) };
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  // ── GUARDAR TRASLADO (INSERT) ──────────────────────────────
+  // ── GUARDAR TRASLADO ───────────────────────────────────────
   async guardarTraslado(d) {
     const fila = {
       id_salida:              'S-' + Date.now(),
@@ -259,7 +277,7 @@ const DB = {
     };
     const res = await gasWrite('Traslado', fila, 'insert');
     if (res.ok) {
-      this.invalidarCache('Traslado');   // forzar datos frescos tras escribir
+      this.invalidarCache('Traslado');
       await this.actualizarCarroza(d.placa, {
         estado: 'En Servicio',
         kilometraje_actual: parseInt(d.km_salida) || 0
@@ -269,30 +287,30 @@ const DB = {
     return res;
   },
 
-  // ── ACTUALIZAR TRASLADO (UPDATE / MODO EDICIÓN) ────────────
+  // ── ACTUALIZAR TRASLADO ────────────────────────────────────
   async actualizarTraslado(idSalida, d) {
     try {
       const campos = {
-        regional:               d.regional     || '',
-        conductor:              d.conductor    || '',
-        nnum_telefono:          d.nnum_telefono|| '',
-        placa:                  d.placa        || '',
-        motivo_de_salida:       d.motivo       || '',
-        nombre_del_fallecido:   d.fallecido    || '',
-        clinica_hospital_o_rsd: d.clinica      || '',
-        numero_prestacion:      d.prestacion   || '',
-        origen:                 d.origen       || '',
-        destino:                d.destino      || '',
-        hora_de_salida:         d.hora_salida  || '',
-        km__salida:             d.km_salida    || '',
-        coordinador_en_turno:   d.coordinador  || '',
-        observaciones:          d.observaciones|| '',
-        imagen1:                d.imagen1      || '',
-        imagen2:                d.imagen2      || '',
-        imagen3:                d.imagen3      || '',
-        imagen4:                d.imagen4      || '',
-        firma:                  d.firma        || '',
-        kit_carretera:          d.kit_carretera|| '',
+        regional:               d.regional      || '',
+        conductor:              d.conductor     || '',
+        nnum_telefono:          d.nnum_telefono || '',
+        placa:                  d.placa         || '',
+        motivo_de_salida:       d.motivo        || '',
+        nombre_del_fallecido:   d.fallecido     || '',
+        clinica_hospital_o_rsd: d.clinica       || '',
+        numero_prestacion:      d.prestacion    || '',
+        origen:                 d.origen        || '',
+        destino:                d.destino       || '',
+        hora_de_salida:         d.hora_salida   || '',
+        km__salida:             d.km_salida     || '',
+        coordinador_en_turno:   d.coordinador   || '',
+        observaciones:          d.observaciones || '',
+        imagen1:                d.imagen1       || '',
+        imagen2:                d.imagen2       || '',
+        imagen3:                d.imagen3       || '',
+        imagen4:                d.imagen4       || '',
+        firma:                  d.firma         || '',
+        kit_carretera:          d.kit_carretera || '',
       };
       const res = await gasWrite('Traslado', campos, 'update', 'id_salida', idSalida);
       if (res.ok) {
@@ -313,13 +331,13 @@ const DB = {
     try {
       const hoy  = fechaHoy();
       const rows = await gasGet('Traslado');
-      const activos = rows.filter(r =>
-        String(r.placa    ||'').trim().toUpperCase() === placa.trim().toUpperCase() &&
-        String(r.fecha    ||'').trim()               === hoy &&
-        (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '')
-      );
+      const activos = rows.filter(function(r) {
+        return String(r.placa||'').trim().toUpperCase() === placa.trim().toUpperCase() &&
+               String(r.fecha||'').trim()               === hoy &&
+               (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '');
+      });
       if (activos.length === 0) return { existe: false, id_salida: null, detalle: null };
-      activos.sort((a,b) => String(b.hora_de_salida||'').localeCompare(String(a.hora_de_salida||'')));
+      activos.sort(function(a,b) { return String(b.hora_de_salida||'').localeCompare(String(a.hora_de_salida||'')); });
       const reg = activos[0];
       return { existe: true, id_salida: reg.id_salida || null, detalle: reg };
     } catch(e) {
@@ -360,17 +378,17 @@ const DB = {
     try {
       const fila = {
         id:                   'AV-' + Date.now(),
-        reportado_por:        d.reportado_por        || '',
-        regional:             d.regional             || '',
-        placa_vehiculo:       d.placa_vehiculo        || '',
-        tipo_vehiculo:        d.tipo_vehiculo         || '',
-        tipo_falla:           d.tipo_falla            || '',
-        descripcion_sintomas: d.descripcion_sintomas  || '',
-        observaciones:        d.observaciones         || '',
-        imagen1:              d.imagen1               || '',
-        imagen2:              d.imagen2               || '',
-        imagen3:              d.imagen3               || '',
-        imagen4:              d.imagen4               || '',
+        reportado_por:        d.reportado_por       || '',
+        regional:             d.regional            || '',
+        placa_vehiculo:       d.placa_vehiculo      || '',
+        tipo_vehiculo:        d.tipo_vehiculo       || '',
+        tipo_falla:           d.tipo_falla          || '',
+        descripcion_sintomas: d.descripcion_sintomas|| '',
+        observaciones:        d.observaciones       || '',
+        imagen1:              d.imagen1             || '',
+        imagen2:              d.imagen2             || '',
+        imagen3:              d.imagen3             || '',
+        imagen4:              d.imagen4             || '',
         created_at:           new Date().toISOString(),
       };
       const res = await gasWrite('Averias', fila, 'insert');
@@ -379,19 +397,21 @@ const DB = {
         await this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' });
         this.invalidarCache('carrozas');
         const h        = new Date();
-        const fechaISO = h.getFullYear() + '-' + (h.getMonth()+1).toString().padStart(2,'0') + '-' + h.getDate().toString().padStart(2,'0');
+        const fechaISO = h.getFullYear() + '-' +
+                         (h.getMonth()+1).toString().padStart(2,'0') + '-' +
+                         h.getDate().toString().padStart(2,'0');
         const filaMant = {
-          id:                  'M-' + Date.now(),
-          fecha:               fechaISO,
-          placa:               d.placa_vehiculo,
-          tipo_servicio:       'Avería — ' + (d.tipo_falla || 'Falla mecánica'),
+          id:                   'M-' + Date.now(),
+          fecha:                fechaISO,
+          placa:                d.placa_vehiculo,
+          tipo_servicio:        'Avería — ' + (d.tipo_falla || 'Falla mecánica'),
           kilometraje_servicio: 0,
-          costo:               0,
-          taller:              'Por asignar',
-          responsable:         d.reportado_por,
-          observaciones:       `🚨 ORDEN POR AVERÍA\nSíntomas: ${d.descripcion_sintomas}\nReportado por: ${d.reportado_por}`,
-          km_proximo_cambio:   0,
-          estado_orden:        'pendiente'
+          costo:                0,
+          taller:               'Por asignar',
+          responsable:          d.reportado_por,
+          observaciones:        '🚨 ORDEN POR AVERÍA\nSíntomas: ' + d.descripcion_sintomas + '\nReportado por: ' + d.reportado_por,
+          km_proximo_cambio:    0,
+          estado_orden:         'pendiente',
         };
         await gasWrite('mantenimientos', filaMant, 'insert');
         this.invalidarCache('mantenimientos');
@@ -422,7 +442,7 @@ const DB = {
 
   async testConexion() {
     try {
-      const resp = await fetch(URL_GAS, { method: 'GET', redirect: 'follow' });
+      const resp = await fetchConTimeout(URL_GAS, { method: 'GET', redirect: 'follow' }, 10000);
       const json = await resp.json();
       return { ok: true, mensaje: json.mensaje || JSON.stringify(json) };
     } catch(e) { return { ok: false, error: e.message }; }
@@ -431,7 +451,7 @@ const DB = {
   async obtenerLogo() {
     try {
       const rows = await gasGet('config');
-      const fila = rows.find(r => String(r.clave||'').trim() === 'logo_app');
+      const fila = rows.find(function(r) { return String(r.clave||'').trim() === 'logo_app'; });
       return { ok: true, logo: (fila && fila.valor && fila.valor.length > 10) ? fila.valor : null };
     } catch(e) { return { ok: false, logo: null, error: e.message }; }
   },
@@ -439,7 +459,7 @@ const DB = {
   async guardarLogo(base64) {
     try {
       const rows   = await gasGet('config');
-      const existe = rows.find(r => String(r.clave||'').trim() === 'logo_app');
+      const existe = rows.find(function(r) { return String(r.clave||'').trim() === 'logo_app'; });
       let res;
       if (existe) res = await gasWrite('config', { valor: base64 }, 'update', 'clave', 'logo_app');
       else        res = await gasWrite('config', { clave: 'logo_app', valor: base64 }, 'insert');
@@ -458,21 +478,23 @@ const DB = {
 
 window.DB = DB;
 
-// ✅ REEMPLAZAR POR: warm-up suave y secuencial
-(async () => {
-  // Paso 1: ping rápido para despertar el servidor GAS
-  const ping = await DB.testConexion();
-  if (ping.ok) {
-    console.log("🟢 API J.R. conectada:", ping.mensaje);
-    // Paso 2: cargar hojas de una en una con pausa entre cada una
-    // así evitamos saturar el GAS con requests simultáneos
-    const hojas = ['carrozas', 'usuarios', 'Traslado', 'Averias', 'mantenimientos'];
-    for (const hoja of hojas) {
-      await gasGet(hoja);
-      await new Promise(r => setTimeout(r, 300)); // 300ms entre cada hoja
+// ── WARM-UP SECUENCIAL AL INICIAR ─────────────────────────
+// Despierta el GAS y precarga hojas de a una para no saturarlo
+(async function() {
+  try {
+    const ping = await DB.testConexion();
+    if (ping.ok) {
+      console.log('🟢 API J.R. conectada:', ping.mensaje);
+      const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos'];
+      for (let i = 0; i < hojas.length; i++) {
+        await gasGet(hojas[i]);
+        await new Promise(function(r) { setTimeout(r, 300); });
+      }
+      console.log('✅ Caché precargado correctamente');
+    } else {
+      console.warn('🔴 API J.R. sin conexión:', ping.error);
     }
-    console.log("✅ Caché precargado correctamente");
-  } else {
-    console.warn("🔴 API J.R. sin conexión:", ping.error);
+  } catch(e) {
+    console.warn('🔴 Error en warm-up:', e.message);
   }
 })();
