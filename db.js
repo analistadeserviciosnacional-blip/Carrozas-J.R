@@ -1,12 +1,13 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.1
+ *  CONECTOR J.R. CARROZAS — db.js  v12.2
+ *  + Repuesta la capa de compatibilidad con Supabase
+ *    (DB.supabase.from(...)) — otras páginas (dashboard,
+ *    panel_coordinador, panel_conductor) sí la necesitaban.
  *  + Anti-duplicados: antes de reintentar un INSERT por timeout,
- *    verifica si la fila ya quedó guardada (Google solo tardó
- *    en responder) — si ya existe, NO vuelve a insertar.
- *  + Bloqueo contra doble click: mientras un guardado está en
- *    curso, una segunda llamada a la misma función no dispara
- *    otra petición, solo avisa que ya se está guardando.
+ *    verifica si la fila ya quedó guardada — si ya existe, NO
+ *    vuelve a insertar.
+ *  + Bloqueo contra doble click en guardarTraslado/Llegada/Averia.
  *  + Guardado directo: confirma apenas la escritura principal
  *    responde OK, sin esperar a las actualizaciones secundarias.
  *  + Caché en memoria con TTL para lecturas
@@ -96,18 +97,16 @@ async function gasGet(sheetName) {
 }
 
 // ── VERIFICAR SI UNA FILA YA QUEDÓ GUARDADA ───────────────
-// Se usa antes de reintentar un INSERT: si Google tardó en responder
-// pero el dato sí llegó a quedar en la hoja, no hay que reinsertar.
 async function existeFila(sheetName, col, val) {
   if (!col || val === undefined || val === null || val === '') return false;
   try {
     const key = resolveSheet(sheetName);
-    delete _cache[key];           // forzar lectura fresca, sin caché vieja
+    delete _cache[key];
     delete _inflight[key];
     const rows = await gasGet(sheetName);
     return rows.some(function(r) { return String(r[col] || '') === String(val); });
   } catch (e) {
-    return false; // si la verificación falla, seguimos con el flujo normal (no bloquea)
+    return false;
   }
 }
 
@@ -135,16 +134,11 @@ async function gasWriteIntento(sheetName, payload, action, idCol, idValue, ms) {
 }
 
 // ── ESCRITURA con anti-duplicado + 1 reintento automático ─
-// Para INSERT: si hay timeout, antes de reintentar revisa si la fila
-// ya quedó guardada (por columna única, ej: id_salida / id).
-// Para UPDATE no hace falta: reintentar un update es inofensivo,
-// solo vuelve a poner los mismos valores.
 async function gasWrite(sheetName, payload, action, idCol, idValue) {
   if (action   === undefined) action   = 'insert';
   if (idCol    === undefined) idCol    = '';
   if (idValue  === undefined) idValue  = '';
 
-  // columna única para verificar duplicados en inserts
   const checkCol = (action === 'insert')
     ? (payload.id_salida !== undefined ? 'id_salida' : (payload.id !== undefined ? 'id' : null))
     : null;
@@ -198,8 +192,6 @@ function actualizarEnSegundoPlano(promesa, etiqueta) {
 }
 
 // ── BLOQUEO CONTRA DOBLE CLICK ────────────────────────────
-// Mientras una operación con este nombre está en curso, una segunda
-// llamada no dispara otra petición: devuelve aviso inmediato.
 const _locks = {};
 async function conLock(nombre, fn) {
   if (_locks[nombre]) {
@@ -213,7 +205,86 @@ async function conLock(nombre, fn) {
   }
 }
 
+// ══════════════════════════════════════════════════════════
+//  CAPA DE COMPATIBILIDAD ESTILO SUPABASE
+//  (algunas pantallas como dashboard/panel_coordinador/
+//   panel_conductor usan DB.supabase.from(...) en vez de
+//   los métodos directos — esto evita que se rompan)
+// ══════════════════════════════════════════════════════════
+class GASQueryBuilder {
+  constructor(t) {
+    this._table         = t;
+    this._filters       = [];
+    this._isNullFilters = [];
+    this._ilikes        = [];
+    this._orders        = [];
+    this._limitN        = null;
+    this._single        = false;
+    this._updatePayload = null;
+    this._insertPayload = null;
+  }
+
+  select()            { return this; }
+  eq(col, val)        { this._filters.push({ col, val: String(val) }); return this; }
+  is(col, val) {
+    if (val === null || val === undefined || val === '') {
+      this._isNullFilters.push({ col });
+    }
+    return this;
+  }
+  ilike(col, pattern) { this._ilikes.push({ col, val: pattern.replace(/%/g,'').toLowerCase() }); return this; }
+  order(col, opts)    { if (!opts) opts = {}; this._orders.push({ col, asc: opts.ascending !== false }); return this; }
+  limit(n)            { this._limitN = n; return this; }
+  single()            { this._single = true; return this; }
+  update(payload)     { this._updatePayload = payload; return this; }
+  insert(payload) {
+    this._insertPayload = Array.isArray(payload) ? payload[0] : payload;
+    return this;
+  }
+
+  then(resolve, reject) {
+    if (this._insertPayload !== null) {
+      gasWrite(this._table, this._insertPayload, 'insert')
+        .then(function(res) { resolve({ data: null, error: res.ok ? null : { message: res.error } }); })
+        .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
+      return;
+    }
+    if (this._updatePayload !== null) {
+      const f = this._filters[0];
+      if (!f) { resolve({ data: null, error: { message: 'update requiere .eq()' } }); return; }
+      gasWrite(this._table, this._updatePayload, 'update', f.col, f.val)
+        .then(function(res) { resolve({ data: null, error: res.ok ? null : { message: res.error } }); })
+        .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
+      return;
+    }
+    const self = this;
+    gasGet(this._table)
+      .then(function(rows) {
+        for (const f of self._filters)
+          rows = rows.filter(function(r) { return String(r[f.col]||'').trim().toLowerCase() === f.val.trim().toLowerCase(); });
+        for (const f of self._isNullFilters)
+          rows = rows.filter(function(r) { return r[f.col] === null || r[f.col] === undefined || String(r[f.col]).trim() === ''; });
+        for (const f of self._ilikes)
+          rows = rows.filter(function(r) { return String(r[f.col]||'').toLowerCase().includes(f.val); });
+        for (const o of self._orders)
+          rows.sort(function(a,b) { const va=String(a[o.col]||''), vb=String(b[o.col]||''); return o.asc ? va.localeCompare(vb) : vb.localeCompare(va); });
+        if (self._limitN) rows = rows.slice(0, self._limitN);
+        resolve(self._single
+          ? { data: rows[0]||null, error: rows.length ? null : { message: 'No rows' } }
+          : { data: rows, error: null });
+      })
+      .catch(function(err) { resolve({ data: null, error: { message: err.message } }); });
+  }
+}
+
+class ChannelStub { on() { return this; } subscribe() { return this; } }
+
 const DB = {
+
+  supabase: {
+    from(t)   { return new GASQueryBuilder(t); },
+    channel() { return new ChannelStub(); },
+  },
 
   // ── CACHÉ: INVALIDAR UNA HOJA ──────────────────────────────
   invalidarCache(sheetName) {
