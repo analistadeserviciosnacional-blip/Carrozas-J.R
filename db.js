@@ -1,7 +1,9 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v10.5
- *  + id generado en filaMant de guardarAveria()
+ *  CONECTOR J.R. CARROZAS — db.js  v11.0
+ *  + Caché en memoria con TTL
+ *  + Deduplicación de requests en vuelo
+ *  + Prefetch automático al cargar
  * ══════════════════════════════════════════════════════════
  */
 
@@ -28,18 +30,43 @@ function fechaHoy() {
          h.getFullYear();
 }
 
+// ── CACHÉ EN MEMORIA ───────────────────────────────────────
+const _cache    = {};      // { sheetName: { data, ts } }
+const _inflight = {};      // { sheetName: Promise }
+const CACHE_TTL = 60_000;  // 60 segundos — ajustar si los datos cambian más seguido
+
 async function gasGet(sheetName) {
-  try {
-    const url  = `${URL_GAS}?sheetName=${encodeURIComponent(resolveSheet(sheetName))}`;
-    const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
-    if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
-    const json = await resp.json();
-    if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
-    return Array.isArray(json) ? json : [];
-  } catch (err) {
-    console.warn(`gasGet ${sheetName} error:`, err.message);
-    return [];
+  const key = resolveSheet(sheetName);
+
+  // 1. Devolver caché si sigue vigente
+  const cached = _cache[key];
+  if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
+    return cached.data;
   }
+
+  // 2. Si ya hay un fetch en curso para esta hoja, reutilizarlo
+  if (_inflight[key]) return _inflight[key];
+
+  // 3. Lanzar fetch y registrarlo
+  _inflight[key] = (async () => {
+    try {
+      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
+      const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
+      if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
+      const json = await resp.json();
+      if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
+      const data = Array.isArray(json) ? json : [];
+      _cache[key] = { data, ts: Date.now() };  // guardar en caché
+      return data;
+    } catch (err) {
+      console.warn(`gasGet ${sheetName} error:`, err.message);
+      return [];
+    } finally {
+      delete _inflight[key];  // limpiar inflight siempre
+    }
+  })();
+
+  return _inflight[key];
 }
 
 async function gasWrite(sheetName, payload, action = "insert", idCol = "", idValue = "") {
@@ -142,6 +169,19 @@ const DB = {
     channel() { return new ChannelStub(); },
   },
 
+  // ── CACHÉ: INVALIDAR UNA HOJA ──────────────────────────────
+  // Úsalo después de escribir si necesitas datos frescos de inmediato:
+  // DB.invalidarCache('Traslado')
+  invalidarCache(sheetName) {
+    const key = resolveSheet(sheetName);
+    delete _cache[key];
+  },
+
+  // ── CACHÉ: PRECARGAR HOJAS EN PARALELO ────────────────────
+  async prefetch(...hojas) {
+    await Promise.all(hojas.map(h => gasGet(h)));
+  },
+
   async login(usuario, clave) {
     try {
       const rows  = await gasGet('usuarios');
@@ -219,10 +259,12 @@ const DB = {
     };
     const res = await gasWrite('Traslado', fila, 'insert');
     if (res.ok) {
+      this.invalidarCache('Traslado');   // forzar datos frescos tras escribir
       await this.actualizarCarroza(d.placa, {
         estado: 'En Servicio',
         kilometraje_actual: parseInt(d.km_salida) || 0
       });
+      this.invalidarCache('carrozas');
     }
     return res;
   },
@@ -254,9 +296,11 @@ const DB = {
       };
       const res = await gasWrite('Traslado', campos, 'update', 'id_salida', idSalida);
       if (res.ok) {
+        this.invalidarCache('Traslado');
         await this.actualizarCarroza(d.placa, {
           kilometraje_actual: parseInt(d.km_salida) || 0
         });
+        this.invalidarCache('carrozas');
       }
       return res;
     } catch(e) {
@@ -299,10 +343,12 @@ const DB = {
     };
     const res = await gasWrite('Llegadas', fila, 'insert');
     if (res.ok) {
+      this.invalidarCache('Llegadas');
       await this.actualizarCarroza(d.placa, {
         estado: 'Disponible',
         kilometraje_actual: parseInt(d.km_ingreso) || 0
       });
+      this.invalidarCache('carrozas');
     }
     return res;
   },
@@ -329,11 +375,13 @@ const DB = {
       };
       const res = await gasWrite('Averias', fila, 'insert');
       if (res.ok) {
+        this.invalidarCache('Averias');
         await this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' });
+        this.invalidarCache('carrozas');
         const h        = new Date();
         const fechaISO = h.getFullYear() + '-' + (h.getMonth()+1).toString().padStart(2,'0') + '-' + h.getDate().toString().padStart(2,'0');
         const filaMant = {
-          id:                  'M-' + Date.now(),   // ← ÚNICO CAMBIO: id propio para poder actualizar la orden
+          id:                  'M-' + Date.now(),
           fecha:               fechaISO,
           placa:               d.placa_vehiculo,
           tipo_servicio:       'Avería — ' + (d.tipo_falla || 'Falla mecánica'),
@@ -346,6 +394,7 @@ const DB = {
           estado_orden:        'pendiente'
         };
         await gasWrite('mantenimientos', filaMant, 'insert');
+        this.invalidarCache('mantenimientos');
       }
       return res;
     } catch(e) {
@@ -360,11 +409,15 @@ const DB = {
   },
 
   async insertar(hoja, datos) {
-    return await gasWrite(hoja, datos, 'insert');
+    const res = await gasWrite(hoja, datos, 'insert');
+    if (res.ok) this.invalidarCache(hoja);
+    return res;
   },
 
   async actualizar(hoja, datos, idCol, idValue) {
-    return await gasWrite(hoja, datos, 'update', idCol, idValue);
+    const res = await gasWrite(hoja, datos, 'update', idCol, idValue);
+    if (res.ok) this.invalidarCache(hoja);
+    return res;
   },
 
   async testConexion() {
@@ -387,20 +440,26 @@ const DB = {
     try {
       const rows   = await gasGet('config');
       const existe = rows.find(r => String(r.clave||'').trim() === 'logo_app');
-      if (existe) return await gasWrite('config', { valor: base64 }, 'update', 'clave', 'logo_app');
-      else        return await gasWrite('config', { clave: 'logo_app', valor: base64 }, 'insert');
+      let res;
+      if (existe) res = await gasWrite('config', { valor: base64 }, 'update', 'clave', 'logo_app');
+      else        res = await gasWrite('config', { clave: 'logo_app', valor: base64 }, 'insert');
+      if (res.ok) this.invalidarCache('config');
+      return res;
     } catch(e) { return { ok: false, error: e.message }; }
   },
 
   async eliminarLogo() {
-    return await gasWrite('config', { valor: '' }, 'update', 'clave', 'logo_app');
+    const res = await gasWrite('config', { valor: '' }, 'update', 'clave', 'logo_app');
+    if (res.ok) this.invalidarCache('config');
+    return res;
   },
 
 };
 
 window.DB = DB;
 
-DB.testConexion().then(r => {
-  if (r.ok) console.log("🟢 API J.R. conectada:", r.mensaje);
-  else      console.warn("🔴 API J.R. sin conexión:", r.error);
-});
+// ── PRECARGA AL INICIAR — las hojas más usadas se cargan en paralelo ──
+// El usuario ya tendrá los datos listos antes de hacer clic en cualquier cosa
+DB.prefetch('carrozas', 'usuarios', 'Traslado', 'Averias', 'mantenimientos', 'config')
+  .then(() => console.log("🟢 API J.R. conectada y caché precargado"))
+  .catch(e  => console.warn("🔴 Error precargando caché:", e));
