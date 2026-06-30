@@ -458,8 +458,21 @@ const DB = {
 
 window.DB = DB;
 
-// ── PRECARGA AL INICIAR — las hojas más usadas se cargan en paralelo ──
-// El usuario ya tendrá los datos listos antes de hacer clic en cualquier cosa
-DB.prefetch('carrozas', 'usuarios', 'Traslado', 'Averias', 'mantenimientos', 'config')
-  .then(() => console.log("🟢 API J.R. conectada y caché precargado"))
-  .catch(e  => console.warn("🔴 Error precargando caché:", e));
+// ✅ REEMPLAZAR POR: warm-up suave y secuencial
+(async () => {
+  // Paso 1: ping rápido para despertar el servidor GAS
+  const ping = await DB.testConexion();
+  if (ping.ok) {
+    console.log("🟢 API J.R. conectada:", ping.mensaje);
+    // Paso 2: cargar hojas de una en una con pausa entre cada una
+    // así evitamos saturar el GAS con requests simultáneos
+    const hojas = ['carrozas', 'usuarios', 'Traslado', 'Averias', 'mantenimientos'];
+    for (const hoja of hojas) {
+      await gasGet(hoja);
+      await new Promise(r => setTimeout(r, 300)); // 300ms entre cada hoja
+    }
+    console.log("✅ Caché precargado correctamente");
+  } else {
+    console.warn("🔴 API J.R. sin conexión:", ping.error);
+  }
+})();
