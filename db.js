@@ -1,11 +1,14 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.0
- *  + Sin capa de imitación de Supabase (no se necesitaba)
+ *  CONECTOR J.R. CARROZAS — db.js  v12.1
+ *  + Anti-duplicados: antes de reintentar un INSERT por timeout,
+ *    verifica si la fila ya quedó guardada (Google solo tardó
+ *    en responder) — si ya existe, NO vuelve a insertar.
+ *  + Bloqueo contra doble click: mientras un guardado está en
+ *    curso, una segunda llamada a la misma función no dispara
+ *    otra petición, solo avisa que ya se está guardando.
  *  + Guardado directo: confirma apenas la escritura principal
- *    responde OK, sin esperar a las actualizaciones secundarias
- *    (eso era lo que dejaba "Guardando..." pegado / forzaba
- *    un segundo intento)
+ *    responde OK, sin esperar a las actualizaciones secundarias.
  *  + Caché en memoria con TTL para lecturas
  *  + Deduplicación de lecturas en vuelo
  *  + Timeout largo en escrituras + 1 reintento automático
@@ -92,7 +95,23 @@ async function gasGet(sheetName) {
   return _inflight[key];
 }
 
-// ── ESCRITURA con timeout largo + 1 reintento automático ──
+// ── VERIFICAR SI UNA FILA YA QUEDÓ GUARDADA ───────────────
+// Se usa antes de reintentar un INSERT: si Google tardó en responder
+// pero el dato sí llegó a quedar en la hoja, no hay que reinsertar.
+async function existeFila(sheetName, col, val) {
+  if (!col || val === undefined || val === null || val === '') return false;
+  try {
+    const key = resolveSheet(sheetName);
+    delete _cache[key];           // forzar lectura fresca, sin caché vieja
+    delete _inflight[key];
+    const rows = await gasGet(sheetName);
+    return rows.some(function(r) { return String(r[col] || '') === String(val); });
+  } catch (e) {
+    return false; // si la verificación falla, seguimos con el flujo normal (no bloquea)
+  }
+}
+
+// ── ESCRITURA con timeout largo ───────────────────────────
 async function gasWriteIntento(sheetName, payload, action, idCol, idValue, ms) {
   const urlParams = new URLSearchParams({ sheetName: resolveSheet(sheetName), action });
   if (idCol)   urlParams.set('idCol',   idCol);
@@ -115,31 +134,59 @@ async function gasWriteIntento(sheetName, payload, action, idCol, idValue, ms) {
   return { ok: true, data: json };
 }
 
+// ── ESCRITURA con anti-duplicado + 1 reintento automático ─
+// Para INSERT: si hay timeout, antes de reintentar revisa si la fila
+// ya quedó guardada (por columna única, ej: id_salida / id).
+// Para UPDATE no hace falta: reintentar un update es inofensivo,
+// solo vuelve a poner los mismos valores.
 async function gasWrite(sheetName, payload, action, idCol, idValue) {
   if (action   === undefined) action   = 'insert';
   if (idCol    === undefined) idCol    = '';
   if (idValue  === undefined) idValue  = '';
 
+  // columna única para verificar duplicados en inserts
+  const checkCol = (action === 'insert')
+    ? (payload.id_salida !== undefined ? 'id_salida' : (payload.id !== undefined ? 'id' : null))
+    : null;
+  const checkVal = checkCol ? payload[checkCol] : null;
+
   try {
     return await gasWriteIntento(sheetName, payload, action, idCol, idValue, 60000);
   } catch (err) {
-    if (err.isTimeout) {
-      console.warn(`gasWrite ${sheetName}: timeout en intento 1, reintentando con más tiempo…`);
-      try {
-        return await gasWriteIntento(sheetName, payload, action, idCol, idValue, 90000);
-      } catch (err2) {
-        console.error('gasWrite excepción (reintento):', err2);
-        return { ok: false, error: err2.message };
+    if (!err.isTimeout) {
+      console.error('gasWrite excepción:', err);
+      return { ok: false, error: err.message };
+    }
+
+    console.warn(`gasWrite ${sheetName}: timeout en intento 1.`);
+
+    if (checkCol) {
+      const yaExiste = await existeFila(sheetName, checkCol, checkVal);
+      if (yaExiste) {
+        console.log(`gasWrite ${sheetName}: la fila ya se había guardado, no se reinserta.`);
+        return { ok: true, data: { yaGuardado: true } };
       }
     }
-    console.error('gasWrite excepción:', err);
-    return { ok: false, error: err.message };
+
+    console.warn(`gasWrite ${sheetName}: reintentando con más tiempo…`);
+    try {
+      const res2 = await gasWriteIntento(sheetName, payload, action, idCol, idValue, 90000);
+      return res2;
+    } catch (err2) {
+      if (err2.isTimeout && checkCol) {
+        const yaExiste2 = await existeFila(sheetName, checkCol, checkVal);
+        if (yaExiste2) {
+          console.log(`gasWrite ${sheetName}: la fila ya se había guardado (2do intento), no se reinserta.`);
+          return { ok: true, data: { yaGuardado: true } };
+        }
+      }
+      console.error('gasWrite excepción (reintento):', err2);
+      return { ok: false, error: err2.message };
+    }
   }
 }
 
 // ── ACTUALIZACIÓN SECUNDARIA EN SEGUNDO PLANO ─────────────
-// No bloquea la confirmación de "guardado" al usuario.
-// Si falla, solo queda log en consola (la fila principal ya está a salvo).
 function actualizarEnSegundoPlano(promesa, etiqueta) {
   promesa
     .then(function(res) {
@@ -150,8 +197,23 @@ function actualizarEnSegundoPlano(promesa, etiqueta) {
     });
 }
 
+// ── BLOQUEO CONTRA DOBLE CLICK ────────────────────────────
+// Mientras una operación con este nombre está en curso, una segunda
+// llamada no dispara otra petición: devuelve aviso inmediato.
+const _locks = {};
+async function conLock(nombre, fn) {
+  if (_locks[nombre]) {
+    return { ok: false, error: 'Ya hay un guardado en curso, espera a que termine.' };
+  }
+  _locks[nombre] = true;
+  try {
+    return await fn();
+  } finally {
+    delete _locks[nombre];
+  }
+}
+
 const DB = {
-  _isSavingAveria: false,
 
   // ── CACHÉ: INVALIDAR UNA HOJA ──────────────────────────────
   invalidarCache(sheetName) {
@@ -216,89 +278,91 @@ const DB = {
   },
 
   // ── GUARDAR TRASLADO ───────────────────────────────────────
-  // Confirma apenas el INSERT principal responde OK.
-  // La actualización de la carroza (estado/km) se hace en segundo plano.
   async guardarTraslado(d) {
-    const fila = {
-      id_salida:              'S-' + Date.now(),
-      fecha:                  fechaHoy(),
-      regional:               d.regional              || '',
-      conductor:              d.conductor             || '',
-      nnum_telefono:          d.nnum_telefono         || '',
-      placa:                  d.placa                 || '',
-      motivo_de_salida:       d.motivo                || '',
-      nombre_del_fallecido:   d.fallecido             || '',
-      clinica_hospital_o_rsd: d.clinica               || '',
-      numero_prestacion:      d.prestacion            || '',
-      origen:                 d.origen                || '',
-      destino:                d.destino               || '',
-      hora_de_salida:         d.hora_salida           || '',
-      hora_de_ingreso:        '',
-      km__salida:             d.km_salida             || '',
-      km__ingreso:            '',
-      total_km:               '',
-      coordinador_en_turno:   d.coordinador           || '',
-      observaciones:          d.observaciones         || '',
-      imagen1:                d.imagen1               || '',
-      firma:                  d.firma                 || '',
-      imagen2:                d.imagen2               || '',
-      imagen3:                d.imagen3               || '',
-      imagen4:                d.imagen4               || '',
-      kit_carretera:          d.kit_carretera         || '',
-    };
-    const res = await gasWrite('Traslado', fila, 'insert');
-    if (res.ok) {
-      this.invalidarCache('Traslado');
-      actualizarEnSegundoPlano(
-        this.actualizarCarroza(d.placa, {
-          estado: 'En Servicio',
-          kilometraje_actual: parseInt(d.km_salida) || 0
-        }).then((r) => { this.invalidarCache('carrozas'); return r; }),
-        'actualizarCarroza tras guardarTraslado'
-      );
-    }
-    return res;
+    return conLock('guardarTraslado', async () => {
+      const fila = {
+        id_salida:              'S-' + Date.now(),
+        fecha:                  fechaHoy(),
+        regional:               d.regional              || '',
+        conductor:              d.conductor             || '',
+        nnum_telefono:          d.nnum_telefono         || '',
+        placa:                  d.placa                 || '',
+        motivo_de_salida:       d.motivo                || '',
+        nombre_del_fallecido:   d.fallecido             || '',
+        clinica_hospital_o_rsd: d.clinica               || '',
+        numero_prestacion:      d.prestacion            || '',
+        origen:                 d.origen                || '',
+        destino:                d.destino               || '',
+        hora_de_salida:         d.hora_salida           || '',
+        hora_de_ingreso:        '',
+        km__salida:             d.km_salida             || '',
+        km__ingreso:            '',
+        total_km:               '',
+        coordinador_en_turno:   d.coordinador           || '',
+        observaciones:          d.observaciones         || '',
+        imagen1:                d.imagen1               || '',
+        firma:                  d.firma                 || '',
+        imagen2:                d.imagen2               || '',
+        imagen3:                d.imagen3               || '',
+        imagen4:                d.imagen4               || '',
+        kit_carretera:          d.kit_carretera         || '',
+      };
+      const res = await gasWrite('Traslado', fila, 'insert');
+      if (res.ok) {
+        DB.invalidarCache('Traslado');
+        actualizarEnSegundoPlano(
+          DB.actualizarCarroza(d.placa, {
+            estado: 'En Servicio',
+            kilometraje_actual: parseInt(d.km_salida) || 0
+          }).then((r) => { DB.invalidarCache('carrozas'); return r; }),
+          'actualizarCarroza tras guardarTraslado'
+        );
+      }
+      return res;
+    });
   },
 
   // ── ACTUALIZAR TRASLADO ────────────────────────────────────
   async actualizarTraslado(idSalida, d) {
-    try {
-      const campos = {
-        regional:               d.regional      || '',
-        conductor:              d.conductor     || '',
-        nnum_telefono:          d.nnum_telefono || '',
-        placa:                  d.placa         || '',
-        motivo_de_salida:       d.motivo        || '',
-        nombre_del_fallecido:   d.fallecido     || '',
-        clinica_hospital_o_rsd: d.clinica       || '',
-        numero_prestacion:      d.prestacion    || '',
-        origen:                 d.origen        || '',
-        destino:                d.destino       || '',
-        hora_de_salida:         d.hora_salida   || '',
-        km__salida:             d.km_salida     || '',
-        coordinador_en_turno:   d.coordinador   || '',
-        observaciones:          d.observaciones || '',
-        imagen1:                d.imagen1       || '',
-        imagen2:                d.imagen2       || '',
-        imagen3:                d.imagen3       || '',
-        imagen4:                d.imagen4       || '',
-        firma:                  d.firma         || '',
-        kit_carretera:          d.kit_carretera || '',
-      };
-      const res = await gasWrite('Traslado', campos, 'update', 'id_salida', idSalida);
-      if (res.ok) {
-        this.invalidarCache('Traslado');
-        actualizarEnSegundoPlano(
-          this.actualizarCarroza(d.placa, {
-            kilometraje_actual: parseInt(d.km_salida) || 0
-          }).then((r) => { this.invalidarCache('carrozas'); return r; }),
-          'actualizarCarroza tras actualizarTraslado'
-        );
+    return conLock('actualizarTraslado', async () => {
+      try {
+        const campos = {
+          regional:               d.regional      || '',
+          conductor:              d.conductor     || '',
+          nnum_telefono:          d.nnum_telefono || '',
+          placa:                  d.placa         || '',
+          motivo_de_salida:       d.motivo        || '',
+          nombre_del_fallecido:   d.fallecido     || '',
+          clinica_hospital_o_rsd: d.clinica       || '',
+          numero_prestacion:      d.prestacion    || '',
+          origen:                 d.origen        || '',
+          destino:                d.destino       || '',
+          hora_de_salida:         d.hora_salida   || '',
+          km__salida:             d.km_salida     || '',
+          coordinador_en_turno:   d.coordinador   || '',
+          observaciones:          d.observaciones || '',
+          imagen1:                d.imagen1       || '',
+          imagen2:                d.imagen2       || '',
+          imagen3:                d.imagen3       || '',
+          imagen4:                d.imagen4       || '',
+          firma:                  d.firma         || '',
+          kit_carretera:          d.kit_carretera || '',
+        };
+        const res = await gasWrite('Traslado', campos, 'update', 'id_salida', idSalida);
+        if (res.ok) {
+          DB.invalidarCache('Traslado');
+          actualizarEnSegundoPlano(
+            DB.actualizarCarroza(d.placa, {
+              kilometraje_actual: parseInt(d.km_salida) || 0
+            }).then((r) => { DB.invalidarCache('carrozas'); return r; }),
+            'actualizarCarroza tras actualizarTraslado'
+          );
+        }
+        return res;
+      } catch(e) {
+        return { ok: false, error: e.message };
       }
-      return res;
-    } catch(e) {
-      return { ok: false, error: e.message };
-    }
+    });
   },
 
   // ── VERIFICAR DUPLICADO ────────────────────────────────────
@@ -322,37 +386,37 @@ const DB = {
 
   // ── GUARDAR LLEGADA ────────────────────────────────────────
   async guardarLlegada(d) {
-    const fila = {
-      id:             'L-' + Date.now(),
-      fecha:          fechaHoy(),
-      hora_ingreso:   d.hora_ingreso   || '',
-      placa:          d.placa          || '',
-      km_ingreso:     d.km_ingreso     || '',
-      total_km:       d.total_km       || '',
-      estado_entrega: d.estado_entrega || '',
-      observaciones:  d.observaciones  || '',
-      recibido_por:   d.recibido_por   || '',
-      created_at:     new Date().toISOString(),
-    };
-    const res = await gasWrite('Llegadas', fila, 'insert');
-    if (res.ok) {
-      this.invalidarCache('Llegadas');
-      actualizarEnSegundoPlano(
-        this.actualizarCarroza(d.placa, {
-          estado: 'Disponible',
-          kilometraje_actual: parseInt(d.km_ingreso) || 0
-        }).then((r) => { this.invalidarCache('carrozas'); return r; }),
-        'actualizarCarroza tras guardarLlegada'
-      );
-    }
-    return res;
+    return conLock('guardarLlegada', async () => {
+      const fila = {
+        id:             'L-' + Date.now(),
+        fecha:          fechaHoy(),
+        hora_ingreso:   d.hora_ingreso   || '',
+        placa:          d.placa          || '',
+        km_ingreso:     d.km_ingreso     || '',
+        total_km:       d.total_km       || '',
+        estado_entrega: d.estado_entrega || '',
+        observaciones:  d.observaciones  || '',
+        recibido_por:   d.recibido_por   || '',
+        created_at:     new Date().toISOString(),
+      };
+      const res = await gasWrite('Llegadas', fila, 'insert');
+      if (res.ok) {
+        DB.invalidarCache('Llegadas');
+        actualizarEnSegundoPlano(
+          DB.actualizarCarroza(d.placa, {
+            estado: 'Disponible',
+            kilometraje_actual: parseInt(d.km_ingreso) || 0
+          }).then((r) => { DB.invalidarCache('carrozas'); return r; }),
+          'actualizarCarroza tras guardarLlegada'
+        );
+      }
+      return res;
+    });
   },
 
   // ── GUARDAR AVERÍA ─────────────────────────────────────────
   async guardarAveria(d) {
-    if (this._isSavingAveria) return { ok: false, error: 'Ya hay un proceso en curso' };
-    this._isSavingAveria = true;
-    try {
+    return conLock('guardarAveria', async () => {
       const fila = {
         id:                   'AV-' + Date.now(),
         reportado_por:        d.reportado_por       || '',
@@ -370,7 +434,7 @@ const DB = {
       };
       const res = await gasWrite('Averias', fila, 'insert');
       if (res.ok) {
-        this.invalidarCache('Averias');
+        DB.invalidarCache('Averias');
         const h        = new Date();
         const fechaISO = h.getFullYear() + '-' +
                          (h.getMonth()+1).toString().padStart(2,'0') + '-' +
@@ -389,24 +453,19 @@ const DB = {
           estado_orden:         'pendiente',
         };
 
-        // Secundarios (estado carroza + orden de mantenimiento): en segundo plano
         actualizarEnSegundoPlano(
-          this.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' })
-            .then((r) => { this.invalidarCache('carrozas'); return r; }),
+          DB.actualizarCarroza(d.placa_vehiculo, { estado: 'En Taller' })
+            .then((r) => { DB.invalidarCache('carrozas'); return r; }),
           'actualizarCarroza tras guardarAveria'
         );
         actualizarEnSegundoPlano(
           gasWrite('mantenimientos', filaMant, 'insert')
-            .then((r) => { this.invalidarCache('mantenimientos'); return r; }),
+            .then((r) => { DB.invalidarCache('mantenimientos'); return r; }),
           'crear orden de mantenimiento tras guardarAveria'
         );
       }
       return res;
-    } catch(e) {
-      return { ok: false, error: e.message };
-    } finally {
-      this._isSavingAveria = false;
-    }
+    });
   },
 
   async actualizarCarroza(placa, campos) {
