@@ -1,9 +1,11 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v11.1
+ *  CONECTOR J.R. CARROZAS — db.js  v11.2
  *  + Caché en memoria con TTL
  *  + Deduplicación de requests en vuelo
- *  + Timeout de 15s en cada fetch (evita quedarse colgado)
+ *  + Timeout LARGO en escrituras (60s, con 1 reintento a 90s)
+ *    -> evita "signal is aborted without reason" al subir fotos
+ *  + Timeout corto en lecturas (15s)
  *  + Warm-up secuencial al cargar
  * ══════════════════════════════════════════════════════════
  */
@@ -32,16 +34,27 @@ function fechaHoy() {
 }
 
 // ── TIMEOUT HELPER ─────────────────────────────────────────
+// Da un mensaje legible en vez de "signal is aborted without reason"
 function fetchConTimeout(url, opciones, ms) {
   if (ms === undefined) ms = 15000;
   if (opciones === undefined) opciones = {};
   const controller = new AbortController();
-  const timer = setTimeout(function() { controller.abort(); }, ms);
+  const timer = setTimeout(function() {
+    controller.abort(new Error('TIMEOUT_' + ms + 'ms'));
+  }, ms);
   return fetch(url, Object.assign({}, opciones, { signal: controller.signal }))
+    .catch(function(err) {
+      if (err.name === 'AbortError' || (controller.signal.aborted)) {
+        const e = new Error('El servidor tardó demasiado en responder (más de ' + Math.round(ms/1000) + 's). Verifica tu conexión e intenta nuevamente.');
+        e.isTimeout = true;
+        throw e;
+      }
+      throw err;
+    })
     .finally(function() { clearTimeout(timer); });
 }
 
-// ── CACHÉ EN MEMORIA ───────────────────────────────────────
+// ── CACHÉ EN MEMORIA (solo lecturas) ──────────────────────
 const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
 const CACHE_TTL = 60000;   // 60 segundos
@@ -58,7 +71,7 @@ async function gasGet(sheetName) {
   // 2. Si ya hay un fetch en curso para esta hoja, reutilizarlo
   if (_inflight[key]) return _inflight[key];
 
-  // 3. Lanzar fetch con timeout de 15 segundos
+  // 3. Lanzar fetch con timeout de 15 segundos (lecturas son livianas, no llevan fotos)
   _inflight[key] = (async () => {
     try {
       const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
@@ -80,29 +93,51 @@ async function gasGet(sheetName) {
   return _inflight[key];
 }
 
-async function gasWrite(sheetName, payload, action, idCol, idValue) {
-  if (action   === undefined) action   = 'insert';
-  if (idCol    === undefined) idCol    = '';
-  if (idValue  === undefined) idValue  = '';
+// ── ESCRITURA con timeout largo + 1 reintento automático ──
+// Las escrituras pueden traer fotos en base64 (payload grande),
+// por eso necesitan mucho más margen que una simple lectura.
+async function gasWriteIntento(sheetName, payload, action, idCol, idValue, ms) {
   const urlParams = new URLSearchParams({ sheetName: resolveSheet(sheetName), action });
   if (idCol)   urlParams.set('idCol',   idCol);
   if (idValue) urlParams.set('idValue', idValue);
   const url = `${URL_GAS}?${urlParams}`;
+
+  const resp = await fetchConTimeout(url, {
+    method:  'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(payload),
+  }, ms);
+
+  if (!resp.ok) { return { ok: false, error: `HTTP ${resp.status}` }; }
+  const text = await resp.text();
+  let json;
+  try { json = JSON.parse(text); }
+  catch(e) { return { ok: false, error: 'Respuesta no JSON: ' + text.substring(0, 200) }; }
+  if (json.ok === false) { return { ok: false, error: json.error || 'Error desconocido' }; }
+  return { ok: true, data: json };
+}
+
+async function gasWrite(sheetName, payload, action, idCol, idValue) {
+  if (action   === undefined) action   = 'insert';
+  if (idCol    === undefined) idCol    = '';
+  if (idValue  === undefined) idValue  = '';
+
   try {
-    const resp = await fetchConTimeout(url, {
-      method:  'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify(payload),
-    }, 20000);
-    if (!resp.ok) { console.error(`gasWrite HTTP ${resp.status}`); return { ok: false, error: `HTTP ${resp.status}` }; }
-    const text = await resp.text();
-    let json;
-    try { json = JSON.parse(text); }
-    catch(e) { return { ok: false, error: 'Respuesta no JSON: ' + text.substring(0, 200) }; }
-    if (json.ok === false) { console.error(`gasWrite error:`, json.error); return { ok: false, error: json.error || 'Error desconocido' }; }
-    return { ok: true, data: json };
-  } catch(err) {
+    // Intento 1: 60 segundos (suficiente para payloads con fotos en la mayoría de redes)
+    return await gasWriteIntento(sheetName, payload, action, idCol, idValue, 60000);
+  } catch (err) {
+    if (err.isTimeout) {
+      console.warn(`gasWrite ${sheetName}: timeout en intento 1, reintentando con más tiempo…`);
+      try {
+        // Intento 2: 90 segundos
+        const res = await gasWriteIntento(sheetName, payload, action, idCol, idValue, 90000);
+        return res;
+      } catch (err2) {
+        console.error('gasWrite excepción (reintento):', err2);
+        return { ok: false, error: err2.message };
+      }
+    }
     console.error('gasWrite excepción:', err);
     return { ok: false, error: err.message };
   }
