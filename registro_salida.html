@@ -187,7 +187,18 @@
                     <option value="Valle Sur">Valle Sur</option>
                     <option value="C/ Marca">Cundinamarca</option>
                     <option value="Tolima Norte">Tolima Norte</option>
-                    <option value="Valle Centro Palmira">Valle Centro Palmira</option>
+                    <option value="FUSA">Fusagasugá</option>
+                    <option value="COMODIN">Comodín</option>
+                    <option value="CARTAGO">Cartago</option>
+                    <option value="POPAYAN">Popayán</option>
+                    <option value="GARZON">Garzón</option>
+                    <option value="MEDELLIN">Medellín</option>
+                    <option value="NEIVA">Neiva</option>
+                    <option value="PALMIRA">Palmira</option>
+                    <option value="TULUA">Tuluá</option>
+                    <option value="BARRANQUILLA">Barranquilla</option>
+                    <option value="LIBANO">Líbano</option>
+                    <option value="GIRARDOT">Girardot</option>
                 </select>
             </div>
         </div>
@@ -344,6 +355,14 @@
             .trim();
     }
 
+    // ── SEDES/REGIONALES VÁLIDAS (debe coincidir con flota.html) ──
+    const SEDES_VALIDAS = new Set([
+        'Risaralda','Antioquia','Caldas','Quindío','Valle Norte','Valle Centro',
+        'Valle Sur','C/ Marca','Tolima Norte','FUSA','COMODIN','CARTAGO',
+        'POPAYAN','GARZON','MEDELLIN','NEIVA','PALMIRA','TULUA',
+        'BARRANQUILLA','LIBANO','GIRARDOT'
+    ].map(normalizar));
+
     // ══════════════════════════════════════════════
     //  VERIFICAR PARÁMETROS URL (apoyo pre-cargado)
     // ══════════════════════════════════════════════
@@ -445,10 +464,15 @@
             flotaCompleta = data || [];
 
             const flotaFiltrada = flotaCompleta.filter(c => {
-                // sede_intercambio tiene prioridad solo si está rellena (no vacía ni null)
+                // sede_intercambio tiene prioridad solo si está rellena Y es una sede/regional
+                // válida. Algunas filas antiguas tienen ahí nombres de talleres
+                // (p.ej. "TECNIGARAGE", "RENDON") en vez de una sede real — eso
+                // ocultaba la carroza de TODAS las regionales. Si no es una sede
+                // reconocida, se ignora y se usa sede_asignada.
                 const sedeIntercambio = (c.sede_intercambio || '').trim();
                 const sedeAsignada    = (c.sede_asignada    || '').trim();
-                const ubicacion       = sedeIntercambio !== '' ? sedeIntercambio : sedeAsignada;
+                const intercambioValido = sedeIntercambio !== '' && SEDES_VALIDAS.has(normalizar(sedeIntercambio));
+                const ubicacion = intercambioValido ? sedeIntercambio : sedeAsignada;
 
                 // Comparación normalizada: sin tildes, sin distinción de mayúsculas/espacios
                 return normalizar(ubicacion) === regionalNorm;
@@ -534,23 +558,17 @@
 
         validarCompatibilidad();
 
-        // ── VERIFICACIÓN DE DUPLICIDAD POR ID_SALIDA ──
+        // ── VERIFICACIÓN DE DUPLICIDAD (placa con salida activa hoy, sin regreso aún) ──
         if (!modoEdicion) {
-            const hoy = new Date().toISOString().split('T')[0];
-            const idSalidaHoy = `${placaSeleccionada}_${hoy}`;
-
             try {
-                const resTraslados = await DB.obtenerTrasladosRecientes(100);
-                if (resTraslados.ok && resTraslados.data) {
-                    const duplicado = resTraslados.data.find(t => t.id_salida === idSalidaHoy);
-                    if (duplicado) {
-                        registroDuplicadoId = duplicado.id_salida;
-                        document.getElementById('dup-desc').innerHTML = `
-                            Ya existe un registro de salida para hoy con el ID: <b>${idSalidaHoy}</b>.<br>
-                            Conductor: ${duplicado.conductor || 'N/A'}`;
-                        document.getElementById('banner-duplicado').style.display = 'block';
-                        return;
-                    }
+                const dup = await DB.verificarDuplicadoSalida(placaSeleccionada);
+                if (dup && dup.existe) {
+                    registroDuplicadoId = dup.id_salida;
+                    document.getElementById('dup-desc').innerHTML = `
+                        Ya existe un registro de salida activo hoy para esta placa (ID: <b>${dup.id_salida}</b>).<br>
+                        Conductor: ${(dup.detalle && dup.detalle.conductor) || 'N/A'}`;
+                    document.getElementById('banner-duplicado').style.display = 'block';
+                    return;
                 }
             } catch(e) {
                 console.warn('No se pudo verificar duplicados:', e);
@@ -760,6 +778,12 @@
             if (modoEdicion && registroExistenteId) {
                 res = await DB.actualizarTraslado(registroExistenteId, datosFinales);
             } else {
+                // Re-verificación final justo antes de insertar (evita duplicados si
+                // el usuario cambió de placa muy rápido o hay otra pestaña abierta)
+                const dupFinal = await DB.verificarDuplicadoSalida(datosFinales.placa);
+                if (dupFinal && dupFinal.existe) {
+                    throw new Error('Ya existe un registro de salida activo hoy para esta placa (ID: ' + dupFinal.id_salida + '). Recarga la página e intenta editar ese registro.');
+                }
                 res = await DB.guardarTraslado(datosFinales);
                 if (res && res.ok) {
                     registroExistenteId = datosFinales.placa + '_' + new Date().toISOString().slice(0,10);
