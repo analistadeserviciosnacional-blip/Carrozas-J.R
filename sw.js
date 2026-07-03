@@ -1,6 +1,11 @@
-// sw.js - Service Worker Oficial J.R. v6.0
-const CACHE_NAME = 'jr-carrozas-v6';
+// sw.js - Service Worker Oficial J.R. v6.1
+// FIX: se excluyen del Service Worker las peticiones hacia la API de
+// Google Apps Script (script.google.com / script.googleusercontent.com).
+// Antes, el listener de 'fetch' interceptaba TODO, incluidas esas llamadas,
+// lo que causaba timeouts/cuelgues en db.js que no ocurrían al probar
+// la URL directamente en una pestaña (porque ahí no hay SW de por medio).
 
+const CACHE_NAME = 'jr-carrozas-v6';
 // Lista de archivos para funcionar offline
 // He quitado el icon-192.png temporalmente para que no te dé el error 404
 const urlsToCache = [
@@ -13,6 +18,13 @@ const urlsToCache = [
   'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
   'https://cdn.jsdelivr.net/npm/sweetalert2@11'
+];
+
+// Dominios que NUNCA deben pasar por el Service Worker (API en vivo).
+// Si algún día cambias de backend, agrega aquí el nuevo dominio.
+const DOMINIOS_EXCLUIDOS = [
+  'script.google.com',
+  'script.googleusercontent.com',
 ];
 
 // Instalación: Guarda los archivos en caché
@@ -48,7 +60,17 @@ self.addEventListener('activate', event => {
 });
 
 // Estrategia: Primero Red, si falla, busca en Caché
+// PERO: si la petición es hacia un dominio excluido (la API de Google
+// Apps Script), la dejamos pasar de largo SIN interceptar, para que
+// viaje exactamente igual que si el Service Worker no existiera.
 self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+
+  const esDominioExcluido = DOMINIOS_EXCLUIDOS.some(d => url.hostname === d || url.hostname.endsWith('.' + d));
+  if (esDominioExcluido) {
+    return; // No se llama a respondWith(): el navegador maneja el fetch normalmente
+  }
+
   event.respondWith(
     fetch(event.request).catch(() => {
       return caches.match(event.request);
