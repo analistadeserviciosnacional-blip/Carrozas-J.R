@@ -348,28 +348,9 @@
         actualizarBoton();
 
         try {
-            const res = await DB.obtenerTrasladosRecientes(300);
-            const todos = res.data || [];
-
-            // 1. FILTRADO DE PLACA
-            const deEstaPlaca = todos.filter(r => {
-                const pBase = String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
-                const pSel  = String(placaSeleccionada).replace(/[^A-Z0-9]/gi, '').toUpperCase();
-                return pBase === pSel;
-            });
-
-            // 2. ORDENAR CRONOLÓGICAMENTE (Convirtiendo DD/MM/AAAA a AAAA/MM/DD para comparar)
-            const activo = deEstaPlaca.sort((a, b) => {
-                const procesarFecha = (f) => {
-                    if(!f) return '00000000';
-                    const partes = f.split('/');
-                    if(partes.length === 3) return partes[2] + partes[1] + partes[0]; // Retorna AAAAMMDD
-                    return f;
-                };
-                const fechaA = procesarFecha(a.fecha) + (a.hora_de_salida || '');
-                const fechaB = procesarFecha(b.fecha) + (b.hora_de_salida || '');
-                return fechaB.localeCompare(fechaA); // El más reciente primero
-            })[0];
+            const res = await DB.obtenerTrasladoActivoPorPlaca(placaSeleccionada);
+            if (!res.ok) throw new Error(res.error || 'Error de conexión');
+            const activo = res.data;
 
             banner.style.display = 'none';
 
