@@ -40,6 +40,26 @@ function fechaHoy() {
          h.getFullYear();
 }
 
+// ── CLAVE DE ORDEN CRONOLÓGICO REAL ───────────────────────
+// Convierte fecha "DD/MM/AAAA" (+ hora opcional "HH:MM") en un
+// número AAAAMMDDHHMM comparable. Antes se ordenaba con
+// localeCompare sobre el texto tal cual, lo cual es incorrecto
+// para fechas en formato DD/MM (p.ej. "12/01/2026" ordenaba
+// como más reciente que "05/07/2026" por comparación de texto).
+function claveOrden(registro) {
+  const f = String((registro && registro.fecha) || '').trim();
+  const partes = f.split('/');
+  let aaaammdd = '00000000';
+  if (partes.length === 3) {
+    const dd = partes[0].padStart(2, '0');
+    const mm = partes[1].padStart(2, '0');
+    const aaaa = partes[2].length === 4 ? partes[2] : ('20' + partes[2]).slice(-4);
+    aaaammdd = aaaa + mm + dd;
+  }
+  const hora = String((registro && (registro.hora_de_salida || registro.hora_ingreso || '')) || '').replace(':', '').padStart(4, '0');
+  return parseInt(aaaammdd + hora, 10) || 0;
+}
+
 // ── TIMEOUT HELPER ─────────────────────────────────────────
 function fetchConTimeout(url, opciones, ms) {
   if (ms === undefined) ms = 15000;
@@ -325,9 +345,34 @@ const DB = {
     if (limite === undefined) limite = 50;
     try {
       let data = await gasGet('Traslado');
-      data.sort(function(a,b) { return String(b.fecha||'').localeCompare(String(a.fecha||'')); });
+      data.sort(function(a,b) { return claveOrden(b) - claveOrden(a); });
       return { ok: true, data: data.slice(0, limite) };
     } catch(e) { return { ok: false, data: [], error: e.message }; }
+  },
+
+  // ── BUSCAR EL TRASLADO ACTIVO (AÚN NO REGRESA) DE UNA PLACA ─
+  // No depende de límites de filas ni de un orden de texto: trae
+  // TODA la hoja, filtra por placa + sin hora_de_ingreso, y ordena
+  // por fecha/hora real (no alfabética) para tomar el más reciente.
+  async obtenerTrasladoActivoPorPlaca(placa) {
+    try {
+      if (!placa) return { ok: true, data: null };
+      const pSel = String(placa).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+      const rows = await gasGet('Traslado');
+
+      const abiertos = rows.filter(function(r) {
+        const pBase = String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        const sinRegreso = (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '');
+        return pBase === pSel && sinRegreso;
+      });
+
+      if (abiertos.length === 0) return { ok: true, data: null };
+
+      abiertos.sort(function(a, b) { return claveOrden(b) - claveOrden(a); });
+      return { ok: true, data: abiertos[0] };
+    } catch (e) {
+      return { ok: false, data: null, error: e.message };
+    }
   },
 
   async obtenerTodasAverias(limite) {
