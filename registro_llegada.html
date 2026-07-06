@@ -43,6 +43,16 @@
         .km-sub.warn  { color: #d97706; }
         .km-sub.err   { color: #dc2626; }
 
+        /* ── KM SALIDA EDITABLE ── */
+        #km_salida_display.editado {
+            background: #fff7ed !important;
+            border-color: #fb923c !important;
+            color: #c2410c !important;
+        }
+        .km-salida-hint {
+            font-size: 10px; color: #94a3b8; margin: -8px 0 12px; line-height: 1.4;
+        }
+
         /* ── BANNER ESPERAR ── */
         #banner-esperar {
             display: none;
@@ -140,11 +150,15 @@
                 <input type="time" id="hora_ingreso">
             </div>
             <div>
-                <label>KM de Salida (automático)</label>
-                <input type="number" id="km_salida_display" readonly
+                <label>KM de Salida (automático — editable)</label>
+                <input type="number" id="km_salida_display"
                     placeholder="— se carga al elegir placa"
+                    oninput="corregirKmSalida()"
                     style="background:#eefff4; font-weight:bold; color:#15803d;">
             </div>
+        </div>
+        <div class="km-salida-hint" id="km-salida-hint" style="display:none;">
+            ✏️ Puedes corregir este valor si el KM automático no es el correcto.
         </div>
         <div class="grid-2">
             <div>
@@ -241,6 +255,10 @@
     // null = no iniciado, 'cargando' = en proceso, 'ok' = listo, 'sin-dato' = no encontrado
     let estadoCargaKM = null;
 
+    // Bandera: true si el usuario corrigió manualmente el KM de salida
+    // (porque el automático estaba mal, en 0, o no se encontró)
+    window._kmSalidaCorregidoManual = false;
+
     // ── INIT ──────────────────────────────────────────────
     window.onload = async () => {
         const sesionData = localStorage.getItem('usuario_sesion');
@@ -321,13 +339,18 @@
         const card    = document.getElementById('total-km-card');
         const banner  = document.getElementById('banner-esperar');
         const campoKM = document.getElementById('km_ingreso');
+        const kmSalidaInput = document.getElementById('km_salida_display');
+        const kmSalidaHint  = document.getElementById('km-salida-hint');
 
         // Resetear valores
         window._kmSalidaActivo  = 0;
         window._idSalidaActivo  = '';
+        window._kmSalidaCorregidoManual = false;
         document.getElementById('total_km').value = '';
         document.getElementById('total-km-display').innerText = '— KM';
-        document.getElementById('km_salida_display').value = '';
+        kmSalidaInput.value = '';
+        kmSalidaInput.classList.remove('editado');
+        kmSalidaHint.style.display = 'none';
         document.getElementById('km_ingreso').value = '';
 
         if (!placaSeleccionada) {
@@ -365,29 +388,53 @@
                 
                 if (kmSal > 0) {
                     subInfo.innerText = `✅ Salida encontrada: ${kmSal.toLocaleString()} KM (${activo.fecha || ''})`;
-                    document.getElementById('km_salida_display').value = kmSal;
+                    kmSalidaInput.value = kmSal;
                     card.className = 'total-km-card listo';
                 } else {
-                    subInfo.innerText = '⚠️ Registro hallado pero sin KM (aparece como 0)';
+                    subInfo.innerText = '⚠️ Registro hallado pero sin KM (aparece como 0) — puedes escribirlo manualmente';
                     card.className = 'total-km-card error';
                 }
             } else {
                 estadoCargaKM = 'sin-dato';
-                subInfo.innerText = '⚠️ No se encontró el registro de salida para ' + placaSeleccionada;
+                subInfo.innerText = '⚠️ No se encontró el registro de salida para ' + placaSeleccionada + ' — escribe el KM de salida manualmente';
                 card.className = 'total-km-card';
             }
         } catch(e) {
             console.error("Error crítico:", e);
             banner.style.display = 'none';
             estadoCargaKM = 'sin-dato';
-            subInfo.innerText = '❌ Error de conexión con la base de datos';
+            subInfo.innerText = '❌ Error de conexión con la base de datos — escribe el KM de salida manualmente';
             card.className = 'total-km-card error';
         }
 
         campoKM.disabled = false;
         campoKM.placeholder = 'Ej: 155280';
         campoKM.style.cssText = '';
+        kmSalidaHint.style.display = 'block';
         actualizarBoton();
+    }
+
+    // ── CORREGIR KM DE SALIDA MANUALMENTE ─────────────────
+    // Se dispara cuando el usuario edita el campo "KM de Salida (automático)".
+    // Útil cuando el sistema no encontró el traslado, lo encontró vacío,
+    // o el conductor detecta que el valor traído no es el correcto.
+    function corregirKmSalida() {
+        const kmSalidaInput = document.getElementById('km_salida_display');
+        const subInfo = document.getElementById('km-sub-info');
+        const val = parseFloat(kmSalidaInput.value) || 0;
+
+        window._kmSalidaActivo = val;
+        window._kmSalidaCorregidoManual = true;
+        kmSalidaInput.classList.add('editado');
+
+        if (val > 0) {
+            subInfo.innerText = '✏️ KM de salida corregido manualmente';
+            estadoCargaKM = 'ok';
+        } else {
+            estadoCargaKM = 'sin-dato';
+        }
+
+        calcularTotal();
     }
 
     // ── CÁLCULO TOTAL KM ──────────────────────────────────
@@ -471,6 +518,12 @@
             'averia':  'Con Avería 🔧'
         }[estadoSeleccionado];
 
+        // Si el KM de salida fue corregido manualmente, se deja constancia
+        // en observaciones para trazabilidad (auditoría posterior).
+        const notaCorreccion = window._kmSalidaCorregidoManual
+            ? ' [KM salida corregido manualmente a: ' + window._kmSalidaActivo + ']'
+            : '';
+
         datosFinales = {
             placa,
             hora_ingreso:   hora,
@@ -478,7 +531,7 @@
             km_salida_ref:  window._kmSalidaActivo || '',
             total_km:       document.getElementById('total_km').value || '',
             estado_entrega: etiquetaEstado,
-            observaciones:  document.getElementById('observaciones').value,
+            observaciones:  document.getElementById('observaciones').value + notaCorreccion,
             recibido_por:   document.getElementById('recibido_por').value,
         };
 
