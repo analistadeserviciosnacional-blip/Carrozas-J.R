@@ -1,6 +1,9 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.2
+ *  CONECTOR J.R. CARROZAS — db.js  v12.3
+ *  + 🆕 v12.3: guardarLlegada ahora incluye id_salida en la fila,
+ *    para poder rastrear qué Llegada corresponde a qué Traslado
+ *    (trazabilidad / auditoría de desfaces de KM).
  *  + Repuesta la capa de compatibilidad con Supabase
  *    (DB.supabase.from(...)) — otras páginas (dashboard,
  *    panel_coordinador, panel_conductor) sí la necesitaban.
@@ -505,6 +508,7 @@ const DB = {
     return conLock('guardarLlegada', async () => {
       const fila = {
         id:             'L-' + Date.now(),
+        id_salida:      d.id_salida      || '',   // 🆕 trazabilidad: enlaza con el Traslado de origen
         fecha:          fechaHoy(),
         hora_ingreso:   d.hora_ingreso   || '',
         placa:          d.placa          || '',
