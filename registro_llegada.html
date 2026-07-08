@@ -547,17 +547,17 @@
             setStep('step-carroza', 'ok', '⚠️ Carroza: se omitió (no crítico)');
         }
 
-        // Paso 2: Registro llegada
+     // Paso 2: Registro llegada
         setStep('step-llegada', 'act', '⏳ Guardando registro de llegada...');
         try {
             const res = await DB.guardarLlegada(datosFinales);
             if (!res.ok) throw new Error(res.error || 'Error al guardar');
 
+            // ✅ La Llegada YA quedó guardada en este punto. A partir de aquí,
+            // cerrar el Traslado es un paso secundario: si falla, NO debe
+            // mostrar error ni invitar a "reintentar" (eso duplicaría la Llegada).
             if (window._idSalidaActivo) {
-                await DB.actualizar('Traslado',
-                    { km__ingreso: parseInt(kmI), hora_de_ingreso: hora },
-                    'id_salida', window._idSalidaActivo
-                );
+                cerrarTrasladoConReintento(window._idSalidaActivo, kmI, hora);
             }
 
             setStep('step-llegada', 'ok', '✅ Llegada registrada correctamente');
@@ -568,6 +568,32 @@
             setStep('step-llegada', 'err', '❌ Error: ' + e.message);
             btn.disabled = false;
             btn.innerText = '🏁 REINTENTAR';
+        }
+    } // ← 🆕 CIERRE que faltaba de finalizarServicio()
+
+    // ── CERRAR TRASLADO CON REINTENTO EN SEGUNDO PLANO ──── 🆕 función que faltaba
+    // La Llegada ya está guardada cuando esto se llama. Si el cierre
+    // del Traslado (poner hora_de_ingreso y km__ingreso) falla por
+    // timeout u otro error, se reintenta solo, sin bloquear al usuario
+    // ni mostrarle un error que lo lleve a presionar "REINTENTAR"
+    // (eso volvería a insertar una Llegada duplicada).
+    async function cerrarTrasladoConReintento(idSalida, kmI, hora, intento) {
+        if (intento === undefined) intento = 1;
+        try {
+            await DB.actualizar('Traslado',
+                { km__ingreso: parseInt(kmI), hora_de_ingreso: hora },
+                'id_salida', idSalida
+            );
+            console.log('✅ Traslado ' + idSalida + ' cerrado correctamente (intento ' + intento + ')');
+        } catch(e) {
+            console.warn('⚠️ No se pudo cerrar el Traslado ' + idSalida + ' (intento ' + intento + '):', e.message);
+            if (intento < 3) {
+                setTimeout(function() {
+                    cerrarTrasladoConReintento(idSalida, kmI, hora, intento + 1);
+                }, 4000 * intento);
+            } else {
+                console.error('❌ El Traslado ' + idSalida + ' quedó SIN CERRAR tras 3 intentos. Revisar manualmente.');
+            }
         }
     }
 
