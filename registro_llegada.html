@@ -526,6 +526,7 @@
 
         datosFinales = {
             placa,
+            id_salida:      window._idSalidaActivo || '',   // 🆕 trazabilidad con el Traslado (enlaza esta Llegada con su Salida)
             hora_ingreso:   hora,
             km_ingreso:     kmI,
             km_salida_ref:  window._kmSalidaActivo || '',
@@ -547,7 +548,7 @@
             setStep('step-carroza', 'ok', '⚠️ Carroza: se omitió (no crítico)');
         }
 
-     // Paso 2: Registro llegada
+        // Paso 2: Registro llegada
         setStep('step-llegada', 'act', '⏳ Guardando registro de llegada...');
         try {
             const res = await DB.guardarLlegada(datosFinales);
@@ -569,9 +570,9 @@
             btn.disabled = false;
             btn.innerText = '🏁 REINTENTAR';
         }
-    } // ← 🆕 CIERRE que faltaba de finalizarServicio()
+    }
 
-    // ── CERRAR TRASLADO CON REINTENTO EN SEGUNDO PLANO ──── 🆕 función que faltaba
+    // ── CERRAR TRASLADO CON REINTENTO EN SEGUNDO PLANO ────
     // La Llegada ya está guardada cuando esto se llama. Si el cierre
     // del Traslado (poner hora_de_ingreso y km__ingreso) falla por
     // timeout u otro error, se reintenta solo, sin bloquear al usuario
