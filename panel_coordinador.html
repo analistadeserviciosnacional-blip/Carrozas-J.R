@@ -93,7 +93,7 @@
             font-weight: bold; 
         }
 
-        /* ── GRID DE MENÚ (6 BOTONES) ── */
+        /* ── GRID DE MENÚ ── */
         .menu-conductor { 
             display: grid; 
             grid-template-columns: 1fr 1fr; 
@@ -147,6 +147,12 @@
         .pill-ruta { color: #3b82f6; background: #eff6ff; }
         .pill-taller { color: var(--rojo); background: #fef2f2; }
         .pill-pendiente { color: #f59e0b; background: #fff7ed; }
+
+        /* ── ⛽ NUEVO: BARRA DE COMBUSTIBLE ESTIMADO ── */
+        .fuel-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 5px; }
+        .fuel-bar-mini { width: 60px; height: 6px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+        .fuel-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+        .fuel-pct { font-size: 10px; font-weight: 800; }
 
         /* ── NOTIFICACIÓN PUSH (OVERLAY) ── */
         .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998; }
@@ -216,6 +222,7 @@
         <a href="taller.html" class="card-condu"><i>🔧</i><span>Taller</span></a>
         <a href="flota.html" class="card-condu"><i>🚗</i><span>Gestión Flota</span></a>
         <a href="reporte_averia.html" class="card-condu"><i>⚠️</i><span>Reportar Avería</span></a>
+        <a href="tanqueo.html" class="card-condu" style="border-color: var(--naranja);"><i>⛽</i><span>Tanqueos</span></a>
         <a href="dashboard.html" class="card-condu"><i>📊</i><span>Admin</span></a>
     </div>
 
@@ -233,6 +240,12 @@
     <div class="monitor-mini">
         <h2>Traslados Recientes <a href="dashboard.html" class="btn-ver-todo">ADMIN</a></h2>
         <table><tbody id="tabla-traslados"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
+    </div>
+
+    <!-- ⛽ NUEVO: TANQUEOS RECIENTES ⛽ -->
+    <div class="monitor-mini">
+        <h2>Tanqueos Recientes <a href="tanqueo.html" class="btn-ver-todo">VER TODO</a></h2>
+        <table><tbody id="tabla-tanqueos"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
     </div>
 
     <div class="monitor-mini">
@@ -264,7 +277,7 @@
         document.getElementById('txt-nombre').innerText = "Hola, " + (userSesion.nombre || "Cesar Augusto Hincapie Prieto");
         document.getElementById('txt-reg-desc').innerText = "📍 Regional: " + (userSesion.regional || "Quindío");
 
-        await Promise.all([cargarApoyos(), cargarAverias(), cargarTraslados(), cargarFlota(), verificarBadges()]);
+        await Promise.all([cargarApoyos(), cargarAverias(), cargarTraslados(), cargarTanqueos(), cargarFlota(), verificarBadges()]);
         activarRealtime();
     };
 
@@ -289,12 +302,72 @@
         t.innerHTML = data.map(tr => `<tr><td><b>${tr.placa}</b></td><td style="text-align:right; font-size:11px;">${tr.origen} ➔ ${tr.destino}</td></tr>`).join('');
     }
 
+    // ⛽ NUEVO: cargar últimos 3 tanqueos de la regional del coordinador
+    async function cargarTanqueos() {
+        const { data } = await DB.supabase.from('tanqueo').select('*').eq('regional', userSesion.regional).order('created_at', {ascending:false}).limit(3);
+        const t = document.getElementById('tabla-tanqueos');
+        if (!data || data.length === 0) { t.innerHTML = '<tr><td>Sin tanqueos registrados.</td></tr>'; return; }
+        t.innerHTML = data.map(tq => `
+            <tr>
+                <td>
+                    <b>${tq.carroza || tq.placa}</b><br>
+                    <small>${tq.estacion_servicio || ''} · ${tq.ciudad || ''}</small>
+                </td>
+                <td style="text-align:right;">
+                    <b>${tq.galones || 0} gal</b><br>
+                    <small style="color:#64748b;">$${Number(tq.valor_total||0).toLocaleString('es-CO')}</small>
+                </td>
+            </tr>`).join('');
+    }
+
+    // ⛽ NUEVO: cálculo de combustible estimado restante por carroza
+    // Fórmula: galones restantes = galones del último tanqueo - (km recorridos desde ese tanqueo / rendimiento)
+    // Requiere en la hoja/tabla "carrozas": km_actual, rendimiento_km_gal, capacidad_tanque_galones
+    function calcularCombustible(carroza, tanqueos) {
+        const rendimiento = Number(carroza.rendimiento_km_gal) || 30; // km por galón (valor por defecto si falta)
+        const capacidad = Number(carroza.capacidad_tanque_galones) || 15; // galones (valor por defecto si falta)
+        const kmActual = Number(carroza.km_actual) || 0;
+
+        const ultimo = (tanqueos || [])
+            .filter(t => norm(t.placa) === norm(carroza.placa))
+            .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
+
+        if (!ultimo) return { porcentaje: null, color: '#94a3b8', texto: 'Sin datos' };
+
+        const galonesLlenado = Number(ultimo.galones) || 0;
+        const kmEnTanqueo = Number(ultimo.kilometraje) || kmActual;
+        const kmRecorridos = Math.max(0, kmActual - kmEnTanqueo);
+        const galonesConsumidos = kmRecorridos / rendimiento;
+        const galonesRestantes = Math.max(0, galonesLlenado - galonesConsumidos);
+
+        let porcentaje = Math.round((galonesRestantes / capacidad) * 100);
+        porcentaje = Math.min(100, Math.max(0, porcentaje));
+
+        const color = porcentaje <= 25 ? '#ef4444' : (porcentaje <= 50 ? '#f59e0b' : '#10b981');
+        return { porcentaje, color, texto: porcentaje + '%' };
+    }
+
     async function cargarFlota() {
-        const { data } = await DB.supabase.from('carrozas').select('*').order('placa');
+        const { data: carrozas } = await DB.supabase.from('carrozas').select('*').order('placa');
+        const { data: tanqueos } = await DB.supabase.from('tanqueo').select('*').order('created_at', {ascending:false});
+
         const t = document.getElementById('tabla-flota');
-        t.innerHTML = data.map(c => {
+        t.innerHTML = (carrozas || []).map(c => {
             let cls = c.estado.includes('Taller') ? 'pill-taller' : c.estado.includes('Disponible') ? 'pill-disponible' : 'pill-ruta';
-            return `<tr><td><b>${c.placa}</b></td><td style="text-align:right;"><span class="status-pill ${cls}">● ${c.estado}</span></td></tr>`;
+            const comb = calcularCombustible(c, tanqueos);
+            const fuelHtml = comb.porcentaje === null
+                ? `<small style="color:#94a3b8;">⛽ sin registro</small>`
+                : `<div class="fuel-wrap">
+                       <span class="fuel-pct" style="color:${comb.color};">⛽ ${comb.texto}</span>
+                       <div class="fuel-bar-mini"><div class="fuel-fill" style="width:${comb.porcentaje}%; background:${comb.color};"></div></div>
+                   </div>`;
+            return `<tr>
+                        <td><b>${c.placa}</b></td>
+                        <td style="text-align:right;">
+                            <span class="status-pill ${cls}">● ${c.estado}</span>
+                            ${fuelHtml}
+                        </td>
+                    </tr>`;
         }).join('');
     }
 
