@@ -1,16 +1,30 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.3
- *  + 🆕 v12.3: guardarLlegada ahora incluye id_salida en la fila,
- *    para poder rastrear qué Llegada corresponde a qué Traslado
- *    (trazabilidad / auditoría de desfaces de KM).
+ *  CONECTOR J.R. CARROZAS — db.js  v12.4
+ *  + 🆕 v12.4: Módulo de Tanqueo (guardarTanqueo / obtenerTanqueos)
+ *    con los campos reales del formulario (Ciudad, N° factura,
+ *    Foto de la tirilla, etc.)
+ *  + 🆕 v12.4: Medidor de combustible por carroza. Se asume que cada
+ *    tanqueo llena el tanque (práctica normal en la flota), así que:
+ *      - Al guardar un Tanqueo → combustible_galones vuelve al 100%
+ *        (capacidad_galones) y se calcula el rendimiento real
+ *        (km recorridos desde el tanqueo anterior ÷ galones).
+ *      - Al guardar una Llegada → se descuenta del tanque el consumo
+ *        estimado de ESE viaje (km del viaje ÷ rendimiento conocido
+ *        de la carroza, o 25 km/gal por defecto si aún no hay historial).
+ *    Así, en la salida siguiente, el conductor ve cuánto combustible
+ *    le queda antes de salir.
+ *  + 🆕 v12.4: obtenerEstadoCarroza(placa) — combina combustible,
+ *    alerta de rendimiento (🟢/🟡/🔴) y estado del próximo cambio de
+ *    aceite (usando la hoja "mantenimientos") en un solo objeto, listo
+ *    para pintar un panel de estado en el formulario de salida.
  *  + Repuesta la capa de compatibilidad con Supabase
  *    (DB.supabase.from(...)) — otras páginas (dashboard,
  *    panel_coordinador, panel_conductor) sí la necesitaban.
  *  + Anti-duplicados: antes de reintentar un INSERT por timeout,
  *    verifica si la fila ya quedó guardada — si ya existe, NO
  *    vuelve a insertar.
- *  + Bloqueo contra doble click en guardarTraslado/Llegada/Averia.
+ *  + Bloqueo contra doble click en guardarTraslado/Llegada/Averia/Tanqueo.
  *  + Guardado directo: confirma apenas la escritura principal
  *    responde OK, sin esperar a las actualizaciones secundarias.
  *  + Caché en memoria con TTL para lecturas
@@ -32,6 +46,7 @@ const SHEET_MAP = {
   'solicitud_apoyo':      'solicitud_apoyo',
   'notificaciones_apoyo': 'notificaciones_apoyo',
   'config':               'config',
+  'Tanqueo':              'Tanqueo',
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
@@ -60,6 +75,21 @@ function claveOrden(registro) {
     aaaammdd = aaaa + mm + dd;
   }
   const hora = String((registro && (registro.hora_de_salida || registro.hora_ingreso || '')) || '').replace(':', '').padStart(4, '0');
+  return parseInt(aaaammdd + hora, 10) || 0;
+}
+
+// ── MISMA IDEA, PERO PARA LA HOJA "Tanqueo" (encabezados en MAYÚSCULA) ──
+function claveOrdenTanqueo(registro) {
+  const f = String((registro && registro.FECHA) || '').trim();
+  const partes = f.split('/');
+  let aaaammdd = '00000000';
+  if (partes.length === 3) {
+    const dd = partes[0].padStart(2, '0');
+    const mm = partes[1].padStart(2, '0');
+    const aaaa = partes[2].length === 4 ? partes[2] : ('20' + partes[2]).slice(-4);
+    aaaammdd = aaaa + mm + dd;
+  }
+  const hora = String((registro && registro.HORA) || '').replace(':', '').padStart(4, '0');
   return parseInt(aaaammdd + hora, 10) || 0;
 }
 
@@ -163,7 +193,7 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
   if (idValue  === undefined) idValue  = '';
 
   const checkCol = (action === 'insert')
-    ? (payload.id_salida !== undefined ? 'id_salida' : (payload.id !== undefined ? 'id' : null))
+    ? (payload.id_salida !== undefined ? 'id_salida' : (payload.id !== undefined ? 'id' : (payload.ID !== undefined ? 'ID' : null)))
     : null;
   const checkVal = checkCol ? payload[checkCol] : null;
 
@@ -226,6 +256,40 @@ async function conLock(nombre, fn) {
   } finally {
     delete _locks[nombre];
   }
+}
+
+// ══════════════════════════════════════════════════════════
+//  🆕 v12.4 — COMBUSTIBLE Y RENDIMIENTO
+// ══════════════════════════════════════════════════════════
+
+// Capacidad de tanque asumida si la carroza no tiene su propia
+// "capacidad_galones" registrada. Ajustable por vehículo: basta con
+// escribir el valor real en la columna "capacidad_galones" de la
+// hoja "carrozas" (se crea sola la primera vez que se use).
+const CAPACIDAD_TANQUE_DEFAULT = 55;
+
+// Rendimiento (km/galón) que se asume ANTES de tener un primer
+// tanqueo histórico para calcular el real.
+const RENDIMIENTO_DEFAULT = 25;
+
+// Semáforo de rendimiento, según lo pedido:
+//   🟢 > 25 km/galón   → normal
+//   🟡 20–25 km/galón  → medio, vigilar
+//   🔴 < 20 km/galón   → alto consumo (posible fuga, mala conducción,
+//                        problema mecánico o robo de combustible)
+function nivelRendimiento(kmPorGalon) {
+  const v = Number(kmPorGalon) || 0;
+  if (v <= 0) return { nivel: 'sin_datos', emoji: '⚪', texto: 'Sin datos suficientes todavía' };
+  if (v > 25)  return { nivel: 'verde',    emoji: '🟢', texto: 'Rendimiento normal' };
+  if (v >= 20) return { nivel: 'amarillo', emoji: '🟡', texto: 'Consumo medio — vigilar' };
+  return          { nivel: 'rojo',     emoji: '🔴', texto: 'Consumo alto — posible fuga, mala conducción, falla mecánica o robo de combustible' };
+}
+
+function nivelTanque(porcentaje) {
+  const p = Number(porcentaje) || 0;
+  if (p > 50) return '🟢';
+  if (p > 20) return '🟡';
+  return '🔴';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -396,6 +460,161 @@ const DB = {
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.4 — TANQUEO
+  // ══════════════════════════════════════════════════════════
+
+  // ── GUARDAR TANQUEO ─────────────────────────────────────────
+  // d: { carroza, placa, conductor, estacion_servicio, ciudad,
+  //      kilometraje, galones, valor_galon, valor_total,
+  //      numero_factura, foto_tirilla (base64), observaciones, hora }
+  async guardarTanqueo(d) {
+    return conLock('guardarTanqueo', async () => {
+      try {
+        const pSel = String(d.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+        // 1) Buscar el tanqueo anterior de esta misma placa, para poder
+        //    calcular el rendimiento REAL (km recorridos ÷ galones cargados).
+        const historico = await gasGet('Tanqueo');
+        const anteriores = historico
+          .filter(r => String(r.PLACA || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === pSel)
+          .sort((a, b) => claveOrdenTanqueo(b) - claveOrdenTanqueo(a));
+        const anterior = anteriores[0] || null;
+
+        const kmActual = parseFloat(d.kilometraje) || 0;
+        const galones  = parseFloat(d.galones) || 0;
+        let kmRecorridos = '';
+        let rendimiento  = '';
+        let alertaTexto  = '';
+
+        if (anterior && parseFloat(anterior.KILOMETRAJE) > 0 && kmActual > parseFloat(anterior.KILOMETRAJE)) {
+          kmRecorridos = kmActual - parseFloat(anterior.KILOMETRAJE);
+          if (galones > 0) {
+            rendimiento = Math.round((kmRecorridos / galones) * 10) / 10;
+            alertaTexto = nivelRendimiento(rendimiento).texto;
+          }
+        }
+
+        const fila = {
+          ID:                   '', // Code.gs asigna el consecutivo TQ-00001
+          FECHA:                fechaHoy(),
+          HORA:                 d.hora || new Date().toTimeString().slice(0, 5),
+          CARROZA:              d.carroza || '',
+          PLACA:                d.placa || '',
+          CONDUCTOR:            d.conductor || '',
+          ESTACION_SERVICIO:    d.estacion_servicio || '',
+          CIUDAD:               d.ciudad || '',
+          KILOMETRAJE:          kmActual,
+          GALONES:              galones,
+          VALOR_GALON:          d.valor_galon || '',
+          VALOR_TOTAL:          d.valor_total || '',
+          NUMERO_FACTURA:       d.numero_factura || '',
+          FOTO_TIRILLA:         d.foto_tirilla || '',
+          OBSERVACIONES:        d.observaciones || '',
+          KM_RECORRIDOS:        kmRecorridos,
+          RENDIMIENTO_KM_GALON: rendimiento,
+          ALERTA_RENDIMIENTO:   alertaTexto,
+        };
+
+        const res = await gasWrite('Tanqueo', fila, 'insert');
+
+        if (res.ok) {
+          DB.invalidarCache('Tanqueo');
+
+          // 2) Se asume que cada tanqueo llena el tanque → el medidor
+          //    de esa carroza vuelve al 100% de su capacidad, y se
+          //    guarda el rendimiento recién calculado para usarlo
+          //    en el descuento de las próximas llegadas.
+          actualizarEnSegundoPlano((async () => {
+            const estado = await DB.obtenerEstadoCarroza(d.placa);
+            const capacidad = (estado.ok && estado.capacidad_galones) || CAPACIDAD_TANQUE_DEFAULT;
+            const r = await DB.actualizarCarroza(d.placa, {
+              kilometraje_actual:        kmActual,
+              combustible_galones:       capacidad,
+              ultimo_rendimiento_km_gal: rendimiento || '',
+            });
+            DB.invalidarCache('carrozas');
+            return r;
+          })(), 'actualizarCarroza tras guardarTanqueo');
+        }
+
+        return Object.assign({}, res, {
+          km_recorridos: kmRecorridos,
+          rendimiento_km_galon: rendimiento,
+          alerta_rendimiento: rendimiento ? nivelRendimiento(rendimiento) : null,
+        });
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    });
+  },
+
+  async obtenerTanqueos(limite) {
+    if (limite === undefined) limite = 50;
+    try {
+      let data = await gasGet('Tanqueo');
+      data.sort((a, b) => claveOrdenTanqueo(b) - claveOrdenTanqueo(a));
+      return { ok: true, data: data.slice(0, limite) };
+    } catch (e) { return { ok: false, data: [], error: e.message }; }
+  },
+
+  // ── ESTADO ACTUAL DE UNA CARROZA (combustible + aceite + rendimiento) ──
+  // Pensado para pintar un panel de estado tanto en el formulario de
+  // Tanqueo como en el de Salida (Traslado), para que el conductor vea
+  // de un vistazo cómo está la carroza antes de salir.
+  async obtenerEstadoCarroza(placa) {
+    try {
+      const [flota, mants] = await Promise.all([gasGet('carrozas'), gasGet('mantenimientos')]);
+      const pSel = String(placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+      const carroza = flota.find(r => String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === pSel);
+      if (!carroza) return { ok: false, error: 'Carroza no encontrada' };
+
+      const capacidad = parseFloat(carroza.capacidad_galones) || CAPACIDAD_TANQUE_DEFAULT;
+      // Si nunca se ha registrado combustible para esta carroza, asumimos
+      // que arranca llena (mejor que asumir 0 y disparar falsas alarmas).
+      const combustible = (carroza.combustible_galones !== undefined && String(carroza.combustible_galones).trim() !== '')
+        ? parseFloat(carroza.combustible_galones)
+        : capacidad;
+      const porcentaje = Math.max(0, Math.min(100, Math.round((combustible / capacidad) * 100)));
+
+      const rendimientoUltimo = parseFloat(carroza.ultimo_rendimiento_km_gal) || 0;
+      const alertaRendimiento = nivelRendimiento(rendimientoUltimo);
+
+      // Próximo cambio de aceite: última orden de mantenimiento tipo
+      // "aceite" para esta placa que tenga un km_proximo_cambio registrado.
+      const ordenesAceite = mants
+        .filter(m => String(m.placa || '').toUpperCase() === String(carroza.placa || '').toUpperCase()
+                  && /aceite/i.test(m.tipo_servicio || '')
+                  && Number(m.km_proximo_cambio) > 0)
+        .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
+
+      const kmActual = Number(carroza.kilometraje_actual) || 0;
+      let estadoAceite = { texto: 'Sin registro de cambio de aceite', emoji: '⚪', faltan: null };
+      if (ordenesAceite.length) {
+        const proximoCambioKm = Number(ordenesAceite[0].km_proximo_cambio);
+        const faltan = proximoCambioKm - kmActual;
+        if (faltan <= 0)        estadoAceite = { texto: `Cambio de aceite VENCIDO (hace ${Math.abs(faltan)} km)`, emoji: '🔴', faltan };
+        else if (faltan <= 500) estadoAceite = { texto: `Próximo cambio de aceite en ${faltan} km`, emoji: '🟡', faltan };
+        else                    estadoAceite = { texto: `Aceite al día (${faltan} km restantes)`, emoji: '🟢', faltan };
+      }
+
+      return {
+        ok: true,
+        placa: carroza.placa,
+        combustible_galones: Math.round(combustible * 10) / 10,
+        capacidad_galones: capacidad,
+        porcentaje_combustible: porcentaje,
+        nivel_combustible: nivelTanque(porcentaje),
+        rendimiento_ultimo_km_gal: rendimientoUltimo || null,
+        alerta_rendimiento: alertaRendimiento,
+        kilometraje_actual: kmActual,
+        estado_aceite: estadoAceite,
+      };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  },
+
   // ── GUARDAR TRASLADO ───────────────────────────────────────
   async guardarTraslado(d) {
     return conLock('guardarTraslado', async () => {
@@ -504,11 +723,15 @@ const DB = {
   },
 
   // ── GUARDAR LLEGADA ────────────────────────────────────────
+  // 🆕 v12.4: además de registrar la llegada, descuenta del tanque de
+  // la carroza el combustible estimado que consumió ESE viaje
+  // (km del viaje ÷ rendimiento conocido de la carroza, o el valor
+  // por defecto si todavía no hay historial de tanqueos).
   async guardarLlegada(d) {
     return conLock('guardarLlegada', async () => {
       const fila = {
         id:             'L-' + Date.now(),
-        id_salida:      d.id_salida      || '',   // 🆕 trazabilidad: enlaza con el Traslado de origen
+        id_salida:      d.id_salida      || '',   // trazabilidad: enlaza con el Traslado de origen
         fecha:          fechaHoy(),
         hora_ingreso:   d.hora_ingreso   || '',
         placa:          d.placa          || '',
@@ -522,13 +745,22 @@ const DB = {
       const res = await gasWrite('Llegadas', fila, 'insert');
       if (res.ok) {
         DB.invalidarCache('Llegadas');
-        actualizarEnSegundoPlano(
-          DB.actualizarCarroza(d.placa, {
+        actualizarEnSegundoPlano((async () => {
+          const estadoPrevio = await DB.obtenerEstadoCarroza(d.placa);
+          const rendimiento = (estadoPrevio.ok && estadoPrevio.rendimiento_ultimo_km_gal) || RENDIMIENTO_DEFAULT;
+          const combustiblePrevio = estadoPrevio.ok ? estadoPrevio.combustible_galones : CAPACIDAD_TANQUE_DEFAULT;
+          const totalKm = parseFloat(d.total_km) || 0;
+          const consumoEstimado = totalKm / rendimiento;
+          const nuevoCombustible = Math.max(0, Math.round((combustiblePrevio - consumoEstimado) * 10) / 10);
+
+          const r = await DB.actualizarCarroza(d.placa, {
             estado: 'Disponible',
-            kilometraje_actual: parseInt(d.km_ingreso) || 0
-          }).then((r) => { DB.invalidarCache('carrozas'); return r; }),
-          'actualizarCarroza tras guardarLlegada'
-        );
+            kilometraje_actual: parseInt(d.km_ingreso) || 0,
+            combustible_galones: nuevoCombustible,
+          });
+          DB.invalidarCache('carrozas');
+          return r;
+        })(), 'actualizarCarroza tras guardarLlegada');
       }
       return res;
     });
@@ -648,7 +880,7 @@ window.DB = DB;
     const ping = await DB.testConexion();
     if (ping.ok) {
       console.log('🟢 API J.R. conectada:', ping.mensaje);
-      const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos'];
+      const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo'];
       for (let i = 0; i < hojas.length; i++) {
         await gasGet(hojas[i]);
         await new Promise(function(r) { setTimeout(r, 300); });
