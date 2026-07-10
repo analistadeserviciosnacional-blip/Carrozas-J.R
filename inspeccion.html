@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Inspección Vehicular — J.R. Carrozas</title>
+<style>
+  :root{
+    --bg:#eef3fb;
+    --card:#ffffff;
+    --field:#f3f7fd;
+    --line:#c9daf2;
+    --blue:#1d55c9;
+    --blue-soft:#2f6fed;
+    --blue-deep:#123a8a;
+    --text:#16233d;
+    --muted:#647089;
+    --green:#1f9d5c;
+    --amber:#b9790a;
+    --red:#c73a34;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:Arial, "Segoe UI", sans-serif;
+    min-height:100vh;
+    padding:18px 14px 60px;
+  }
+  
+  .nav-row{
+    max-width:900px; margin:0 auto 16px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .btn-volver, .btn-historial{
+    color:var(--blue); text-decoration:none; font-size:14px; font-weight:700;
+    background:none; border:none; cursor:pointer; padding:6px 2px;
+  }
+
+  .card{
+    max-width:900px; margin:0 auto 20px;
+    background:var(--card);
+    border:2px solid var(--blue);
+    border-radius:14px;
+    padding:28px 30px 30px;
+    box-shadow:0 6px 24px -12px rgba(29,85,201,.25);
+  }
+  .card h1{
+    text-align:center; font-size:22px; letter-spacing:.03em;
+    color:var(--blue-deep); margin:0 0 26px; font-weight:700;
+  }
+
+  .section-title{
+    background: var(--field);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blue-deep);
+    margin: 25px 0 15px;
+    border-left: 4px solid var(--blue);
+    text-transform: uppercase;
+  }
+
+  .row2, .row3{display:grid; gap:18px;}
+  .row2{grid-template-columns: 1fr 1fr;}
+  .row3{grid-template-columns: 1fr 1fr 1fr;}
+  @media (max-width:620px){ 
+    .row2, .row3{grid-template-columns:1fr;} 
+  }
+
+  .field{margin-bottom:15px;}
+  .field label{
+    display:block; font-size:11px; font-weight:700; letter-spacing:.04em;
+    color:var(--muted); text-transform:uppercase; margin-bottom:5px;
+  }
+  .field .req{color:var(--red);}
+  
+  input, select, textarea{
+    width:100%; background:var(--field); border:1px solid var(--line);
+    color:var(--text); border-radius:8px; padding:10px 12px; font-size:14px;
+    font-family:inherit; outline:none;
+  }
+  input:focus, select:focus, textarea:focus{ border-color:var(--blue); box-shadow:0 0 0 3px rgba(29,85,201,.12); }
+  
+  /* Estilo especial para los selectores de estado (Bueno/Malo/NA) */
+  .status-select{ font-weight: 600; }
+  .status-select.ok{ color: var(--green); }
+  .status-select.fail{ color: var(--red); }
+
+  .config-box{
+    background:#fff9e6; border:1px solid var(--amber); border-radius:10px;
+    padding:16px 18px; margin-bottom:22px;
+  }
+  
+  button.submit{
+    width:100%; padding:16px; border:none; border-radius:10px;
+    background:var(--blue); color:#ffffff; font-weight:700; font-size:16px;
+    letter-spacing:.03em; text-transform:uppercase; cursor:pointer; margin-top:20px;
+  }
+  
+  .hidden { display: none; }
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:6px; font-size:11px;
+    color:var(--muted); margin-left:10px;
+  }
+  .status-pill .dot{width:7px; height:7px; border-radius:50%; background:var(--muted);}
+  .status-pill.on .dot{background:var(--green);}
+</style>
+</head>
+<body>
+
+  <div class="nav-row">
+    <button class="btn-volver" type="button" onclick="history.back()">← Volver</button>
+    <div style="display:flex; align-items:center;">
+      <span class="status-pill" id="pillConexion"><span class="dot"></span><span>En línea</span></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h1>📋 Inspección de Vehículo</h1>
+
+    <form id="formInspeccion">
+      
+      <!-- ── DATOS GENERALES ── -->
+      <div class="row2">
+        <div class="field">
+          <label>Tipo de Inspección <span class="req">*</span></label>
+          <select id="TIPO_INSPECCION" required onchange="toggleInspeccion()">
+            <option value="COMPLETA">Inspección Completa (Mañana/Primer uso)</option>
+            <option value="CONFIRMACION">Solo Confirmar Estado OK (Uso posterior)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Placa <span class="req">*</span></label>
+          <select id="PLACA" required>
+            <option value="">— Seleccione —</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="confirmacionMsg" class="config-box hidden">
+        <p style="margin:0; font-size:14px; color:#856404;">
+          <strong>Nota:</strong> Al elegir "Confirmar Estado OK", declaras que el vehículo se encuentra en las mismas condiciones óptimas reportadas en la inspección de la mañana. Solo debes actualizar kilometraje y firmas.
+        </p>
+      </div>
+
+      <div class="row3">
+        <div class="field"><label>Fecha</label><input type="text" id="FECHA" readonly></div>
+        <div class="field"><label>Hora</label><input type="time" id="HORA"></div>
+        <div class="field"><label>Kilometraje <span class="req">*</span></label><input type="number" id="KILOMETRAJE" required></div>
+      </div>
+
+      <div class="row2">
+        <div class="field"><label>Regional</label><input type="text" id="REGIONAL"></div>
+        <div class="field"><label>Sede</label><input type="text" id="SEDE"></div>
+      </div>
+
+      <div class="row2">
+        <div class="field"><label>Conductor <span class="req">*</span></label><input type="text" id="CONDUCTOR" required></div>
+        <div class="field"><label>Inspector</label><input type="text" id="INSPECTOR"></div>
+      </div>
+
+      <!-- SECCIÓN QUE SE OCULTA SI ES SOLO CONFIRMACIÓN -->
+      <div id="seccionDetalle">
+        
+        <div class="section-title">💡 Luces y Sistema Eléctrico</div>
+        <div class="row3">
+            <div class="field"><label>Estacionamiento</label><select id="LUCES_ESTACIONAMIENTO" class="status-select"><option value="B">BUENO</option><option value="M">MALO</option><option value="NA">N/A</option></select></div>
+            <div class="field"><label>Bajas</label><select id="LUCES_BAJAS" class="status-select"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Altas</label><select id="LUCES_ALTAS" class="status-select"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Freno</label><select id="LUCES_FRENO" class="status-select"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Reversa</label><select id="LUCES_REVERSA" class="status-select"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Emergencia</label><select id="LUCES_EMERGENCIA" class="status-select"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+        </div>
+
+        <div class="section-title">🔧 Mecánica y Fluidos</div>
+        <div class="row3">
+            <div class="field"><label>Nivel Combustible</label><select id="NIVEL_COMBUSTIBLE"><option value="E">E (Vacío)</option><option value="1/4">1/4</option><option value="1/2">1/2</option><option value="3/4">3/4</option><option value="F">F (Lleno)</option></select></div>
+            <div class="field"><label>Aceite Motor</label><select id="ACEITE_MOTOR"><option value="B">OPTIMO</option><option value="M">BAJO</option></select></div>
+            <div class="field"><label>Refrigerante</label><select id="REFRIGERANTE"><option value="B">OPTIMO</option><option value="M">BAJO</option></select></div>
+            <div class="field"><label>Líquido Frenos</label><select id="LIQUIDO_FRENOS"><option value="B">OPTIMO</option><option value="M">BAJO</option></select></div>
+            <div class="field"><label>Batería</label><select id="BATERIA"><option value="B">BUENO</option><option value="M">REVISAR</option></select></div>
+            <div class="field"><label>Freno de Mano</label><select id="FRENO_MANO"><option value="B">FUNCIONA</option><option value="M">FALLA</option></select></div>
+        </div>
+
+        <div class="section-title">🚗 Llantas (Presión y Estado)</div>
+        <div class="row3">
+            <div class="field"><label>Delantera Der.</label><select id="LLANTA_DELANTERA_DERECHA"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Delantera Izq.</label><select id="LLANTA_DELANTERA_IZQUIERDA"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Trasera Der.</label><select id="LLANTA_TRASERA_DERECHA"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Trasera Izq.</label><select id="LLANTA_TRASERA_IZQUIERDA"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Repuesto</label><select id="LLANTA_REPUESTO"><option value="B">BUENO</option><option value="M">MALO</option><option value="NA">N/A</option></select></div>
+        </div>
+
+        <div class="section-title">📦 Kit de Seguridad y Documentos</div>
+        <div class="row2">
+            <div class="field"><label>Extintor (Vigencia)</label><select id="EXTINTOR"><option value="VIGENTE">VIGENTE</option><option value="VENCIDO">VENCIDO</option></select></div>
+            <div class="field"><label>Botiquín</label><select id="BOTIQUIN"><option value="COMPLETO">COMPLETO</option><option value="INCOMPLETO">INCOMPLETO</option></select></div>
+        </div>
+        <div class="row3">
+            <div class="field"><label>SOAT</label><select id="SOAT"><option value="VIGENTE">VIGENTE</option><option value="POR_VENCER">POR VENCER</option></select></div>
+            <div class="field"><label>Tecnomecánica</label><select id="TECNOMECANICA"><option value="VIGENTE">VIGENTE</option><option value="VENCIDO">VENCIDO</option></select></div>
+            <div class="field"><label>Tarjeta Propiedad</label><select id="TARJETA_PROPIEDAD"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+        </div>
+
+        <div class="section-title">⚰️ Equipamiento Funerario</div>
+        <div class="row3">
+            <div class="field"><label>Planchón</label><select id="PLANCHON"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Cureña</label><select id="CUREÑA"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
+            <div class="field"><label>Compartimiento</label><select id="COMPARTIMIENTO_FUNERARIO"><option value="B">LIMPIO</option><option value="M">SUCIO/MALO</option></select></div>
+        </div>
+
+        <div class="section-title">🖼️ Estado Exterior (Pintura/Vidrios)</div>
+        <div class="row2">
+            <div class="field"><label>Carrocería Gral.</label><select id="CARROCERIA"><option value="B">SIN GOLPES</option><option value="M">CON GOLPES</option></select></div>
+            <div class="field"><label>Parabrisas</label><select id="PARABRISAS"><option value="B">OK</option><option value="M">FISURA/ROTO</option></select></div>
+        </div>
+      </div> <!-- Fin sección detalle -->
+
+      <div class="section-title">📝 Finalización</div>
+      <div class="field">
+        <label>Observaciones Generales / Novedades</label>
+        <textarea id="OBSERVACIONES_GENERALES" placeholder="Escriba aquí si detectó algún ruido o falla nueva..."></textarea>
+      </div>
+
+      <div class="row2">
+        <div class="field"><label>Firma Conductor (Nombre)</label><input type="text" id="FIRMA_CONDUCTOR" placeholder="Escriba su nombre como firma"></div>
+        <div class="field"><label>Estado Inspección</label>
+            <select id="ESTADO_INSPECCION">
+                <option value="APROBADO">✅ APROBADO</option>
+                <option value="RECHAZADO">❌ RECHAZADO (Requiere Taller)</option>
+            </select>
+        </div>
+      </div>
+
+      <button class="submit" id="btnGuardar" type="button" onclick="guardarInspeccion()">Guardar Inspección</button>
+      <div id="msg" style="text-align:center; margin-top:15px; font-weight:700;"></div>
+
+    </form>
+  </div>
+
+  <script>
+    // Fecha y hora automática
+    window.onload = function() {
+        const ahora = new Date();
+        document.getElementById('FECHA').value = ahora.toLocaleDateString('es-CO');
+        document.getElementById('HORA').value = ahora.toTimeString().slice(0,5);
+        
+        // Simulación de carga de placas
+        const placas = ["JRX-123 (Carroza 1)", "KLM-456 (Carroza 2)", "FUN-789 (Furgón)"];
+        const sel = document.getElementById('PLACA');
+        placas.forEach(p => {
+            let opt = document.createElement('option');
+            opt.value = p.split(' ')[0];
+            opt.textContent = p;
+            sel.appendChild(opt);
+        });
+    }
+
+    // FUNCIÓN CLAVE: Ocultar o mostrar campos según tipo de inspección
+    function toggleInspeccion() {
+        const tipo = document.getElementById('TIPO_INSPECCION').value;
+        const seccionDetalle = document.getElementById('seccionDetalle');
+        const confirmacionMsg = document.getElementById('confirmacionMsg');
+
+        if (tipo === 'CONFIRMACION') {
+            seccionDetalle.classList.add('hidden');
+            confirmacionMsg.classList.remove('hidden');
+        } else {
+            seccionDetalle.classList.remove('hidden');
+            confirmacionMsg.classList.add('hidden');
+        }
+    }
+
+    async function guardarInspeccion() {
+        const btn = document.getElementById('btnGuardar');
+        const msg = document.getElementById('msg');
+        
+        // Validación básica
+        if(!document.getElementById('PLACA').value || !document.getElementById('CONDUCTOR').value){
+            msg.style.color = "red";
+            msg.textContent = "Error: Placa y Conductor son obligatorios.";
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Procesando...";
+        msg.textContent = "";
+
+        // Aquí iría el envío a tu base de datos (DB.js o similar)
+        console.log("Enviando datos...");
+
+        setTimeout(() => {
+            msg.style.color = "green";
+            msg.textContent = "✅ Inspección guardada con éxito.";
+            btn.textContent = "Guardar Inspección";
+            btn.disabled = false;
+            // Limpiar o redirigir
+        }, 1500);
+    }
+  </script>
+</body>
+</html>
