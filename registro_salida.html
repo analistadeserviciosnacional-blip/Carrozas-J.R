@@ -228,6 +228,7 @@
         </div>
 
         <div class="alerta-vehiculo" id="alerta-vehiculo"></div>
+        <div class="alerta-vehiculo" id="alerta-combustible"></div>
 
         <!-- ── KIT DE CARRETERA ── -->
         <div class="section-title">🧰 Kit de Carretera</div>
@@ -280,31 +281,6 @@
         <div class="grid-2">
             <div><label>Hora Salida</label><input type="time" id="hora_salida"></div>
             <div><label>KM Salida</label><input type="number" id="km_s"></div>
-        </div>
-
-        <div class="section-title">Control de Combustible y Aceite</div>
-        <div class="grid-2">
-            <div>
-                <label>Nivel de Combustible (Salida)</label>
-                <select id="nivel_combustible_salida">
-                    <option value="">Seleccionar...</option>
-                    <option value="Lleno">🟢 Lleno</option>
-                    <option value="3/4">🟢 3/4</option>
-                    <option value="1/2">🟡 Media (1/2)</option>
-                    <option value="1/4">🟠 1/4</option>
-                    <option value="Reserva">🔴 Reserva</option>
-                </select>
-            </div>
-            <div>
-                <label>Nivel de Aceite (Salida)</label>
-                <select id="nivel_aceite_salida">
-                    <option value="">Seleccionar...</option>
-                    <option value="Óptimo">🟢 Óptimo</option>
-                    <option value="Bajo">🟡 Bajo</option>
-                    <option value="Necesita Cambio">🟠 Necesita Cambio</option>
-                    <option value="Crítico">🔴 Crítico</option>
-                </select>
-            </div>
         </div>
 
         <div class="section-title">Evidencias Fotográficas</div>
@@ -430,8 +406,6 @@
             if (reg.destino)                  document.getElementById('destino').value         = reg.destino;
             if (reg.hora_de_salida)           document.getElementById('hora_salida').value     = reg.hora_de_salida;
             if (reg.km__salida)               document.getElementById('km_s').value            = reg.km__salida;
-            if (reg.nivel_combustible_salida) document.getElementById('nivel_combustible_salida').value = reg.nivel_combustible_salida;
-            if (reg.nivel_aceite_salida)      document.getElementById('nivel_aceite_salida').value      = reg.nivel_aceite_salida;
             if (reg.observaciones)            document.getElementById('observaciones').value   = reg.observaciones;
             if (reg.coordinador_en_turno)     document.getElementById('nombre-coordinador').value = reg.coordinador_en_turno;
             if (reg.kit_carretera)            seleccionarKit(reg.kit_carretera);
@@ -573,10 +547,10 @@
             registroDuplicadoId = null;
         }
 
-        if (!placaSeleccionada) { alertaEl.style.display = 'none'; return; }
+        if (!placaSeleccionada) { alertaEl.style.display = 'none'; document.getElementById('alerta-combustible').style.display = 'none'; return; }
 
         const veh = flotaCompleta.find(c => c.placa === placaSeleccionada);
-        if (!veh) { alertaEl.style.display = 'none'; return; }
+        if (!veh) { alertaEl.style.display = 'none'; document.getElementById('alerta-combustible').style.display = 'none'; return; }
 
         const estado   = (veh.estado || '').trim();
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
@@ -612,6 +586,7 @@
                     <div class="av-bloqueo">🚫 RESTRICCIÓN DE SALIDA</div>
                 </div>`;
             document.getElementById('km_s').value = '';
+            document.getElementById('alerta-combustible').style.display = 'none';
             return;
         }
 
@@ -669,6 +644,34 @@
 
         } catch(e) {
             console.error('Error analizando aceite:', e);
+        }
+
+        // ── ESTADO AUTOMÁTICO DE COMBUSTIBLE ──
+        // Se calcula solo (igual que el aceite): sube al 100% cuando se
+        // registra un Tanqueo y baja según los KM recorridos en cada viaje
+        // (guardarLlegada lo descuenta automáticamente). Aquí solo se muestra.
+        const combEl = document.getElementById('alerta-combustible');
+        try {
+            const est = await DB.obtenerEstadoCarroza(placaSeleccionada);
+            if (est.ok) {
+                let clase = 'al-dia', titulo = est.nivel_combustible + ' COMBUSTIBLE OK';
+                if (est.porcentaje_combustible <= 20) { clase = 'mant-vencido'; titulo = est.nivel_combustible + ' COMBUSTIBLE BAJO'; }
+                else if (est.porcentaje_combustible <= 50) { clase = 'mant-proximo'; titulo = est.nivel_combustible + ' COMBUSTIBLE MEDIO'; }
+
+                combEl.className = `alerta-vehiculo ${clase}`;
+                combEl.innerHTML = `
+                    <div class="av-titulo">${titulo}</div>
+                    <div class="av-msg">${est.combustible_galones} / ${est.capacidad_galones} gal (${est.porcentaje_combustible}%)</div>
+                    <div class="km-progreso-wrap">
+                        <div class="km-progreso-bar" style="width: ${est.porcentaje_combustible}%; background: ${est.porcentaje_combustible > 50 ? '#10b981' : est.porcentaje_combustible > 20 ? '#f59e0b' : '#ef4444'};"></div>
+                    </div>`;
+                combEl.style.display = 'block';
+            } else {
+                combEl.style.display = 'none';
+            }
+        } catch(e) {
+            console.error('Error consultando combustible:', e);
+            combEl.style.display = 'none';
         }
     }
 
@@ -787,8 +790,6 @@
             destino:       document.getElementById('destino').value,
             hora_salida:   document.getElementById('hora_salida').value,
             km_salida:     document.getElementById('km_s').value,
-            nivel_combustible_salida: document.getElementById('nivel_combustible_salida').value,
-            nivel_aceite_salida:      document.getElementById('nivel_aceite_salida').value,
             kit_carretera: kitSeleccionado,
             coordinador:   document.getElementById('nombre-coordinador').value || 'Coordinador',
             observaciones: document.getElementById('observaciones').value,
@@ -866,8 +867,6 @@
             '*Origen:* ' + (datosFinales.origen || '---') + '\n' +
             '*Destino:* ' + (datosFinales.destino || '---') + '\n' +
             '*KM Salida:* ' + datosFinales.km_salida + '\n' +
-            '*Combustible Salida:* ' + (datosFinales.nivel_combustible_salida || '---') + '\n' +
-            '*Aceite Salida:* ' + (datosFinales.nivel_aceite_salida || '---') + '\n' +
             '*Kit Carretera:* ' + datosFinales.kit_carretera + '\n' +
             '*Conductor:* ' + datosFinales.conductor + '\n' +
             '*Teléfono:* ' + (datosFinales.nnum_telefono || '---') + '\n' +
