@@ -203,6 +203,9 @@
     .pill-servicio, .pill-ruta { color: #3b82f6; background: #eff6ff; }
     .pill-taller { color: var(--rojo); background: #fef2f2; }
     .pill-otro { color: var(--gris); background: #f1f5f9; }
+    .pill-vencido { color: #fff; background: var(--rojo); }
+    .pill-proximo { color: #92400e; background: #fef3c7; }
+    .pill-al-dia { color: #10b981; background: #ecfdf5; }
 
     .fuel-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 5px; }
     .fuel-bar-mini { width: 60px; height: 6px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
@@ -517,6 +520,15 @@
      DB.obtenerFlota() / DB.obtenerTrasladosRecientes() / DB.obtenerTodasAverias()
      DB.obtenerMantenimientos() / DB.obtenerTanqueos() / DB.obtenerEstadoCarroza(placa)
    Este archivo debe vivir en la misma carpeta que db.js.
+
+   🆕 v2: "Averías en Curso" y "Mantenimientos Pendientes / Documentación"
+   ahora se alimentan directamente de la hoja "carrozas" (Parque Automotor),
+   que es la que se sincroniza con el proceso de Parque Automotor, usando
+   las columnas: ultimo_hallazgo_*, historial_*, doc_tipo_proximo_vencer,
+   doc_fecha_proximo_vencer, doc_dias_para_vencer, estado_parque_automotor,
+   dias_en_taller_parque. La documentación se cruza además con la hoja
+   "Inspeccion_Vehiculo" (SOAT_ESTADO/VENCE/OBS, TECNOMECANICA_*,
+   POLIZA_TODO_RIESGO_*) tomando la inspección más reciente por placa.
    ========================================================================== */
 
 const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -524,7 +536,7 @@ const fmtNum = n => new Intl.NumberFormat('es-CO').format(Math.round(n || 0));
 const fmtCOP = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n || 0);
 
 let userSesion = {};
-let FLOTA = [], TRASLADOS = [], AVERIAS = [], MANTENIMIENTOS = [], TANQUEOS = [];
+let FLOTA = [], TRASLADOS = [], AVERIAS = [], MANTENIMIENTOS = [], TANQUEOS = [], INSPECCIONES = [];
 let ESTADOS_VEHICULO = [];
 let charts = {};
 let vmCharts = {};
@@ -584,6 +596,15 @@ function sumaCampo(lista, campo){
 }
 function normEstado(e){ return String(e||'').trim().toLowerCase(); }
 
+// Días de diferencia (fechaStr - hoy). Positivo = falta por vencer, negativo = ya venció.
+function diasHasta(fechaStr){
+    const d = parseDDMMAAAA(fechaStr);
+    if(!d) return null;
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    d.setHours(0,0,0,0);
+    return Math.round((d - hoy) / 86400000);
+}
+
 const ESTADO_INFO = {
     'disponible': {label:'Disponible', pill:'pill-disponible'},
     'en servicio': {label:'En servicio', pill:'pill-servicio'},
@@ -596,19 +617,26 @@ function estadoPill(estado){
     const info = estadoInfo(estado);
     return `<span class="status-pill ${info.pill}">${info.label}</span>`;
 }
+function pillVencimiento(dias){
+    if(dias === null || dias === undefined) return '<span class="status-pill pill-otro">SIN FECHA</span>';
+    if(dias < 0) return `<span class="status-pill pill-vencido">VENCIDO ${Math.abs(dias)}d</span>`;
+    if(dias <= 30) return `<span class="status-pill pill-proximo">${dias}d restantes</span>`;
+    return `<span class="status-pill pill-al-dia">${dias}d</span>`;
+}
 
 /* ==========================================================================
    CARGA DE DATOS
    ========================================================================== */
 async function cargarDatos(){
-    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo');
+    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo','Inspeccion_Vehiculo');
 
-    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes] = await Promise.all([
+    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes, inspRes] = await Promise.all([
         DB.obtenerFlota(),
         DB.obtenerTrasladosRecientes(1000),
         DB.obtenerTodasAverias(500),
         DB.obtenerMantenimientos(1000),
         DB.obtenerTanqueos(1000),
+        DB.supabase.from('Inspeccion_Vehiculo').select(),
     ]);
 
     FLOTA          = flotaRes.data || [];
@@ -616,10 +644,84 @@ async function cargarDatos(){
     AVERIAS        = averiasRes.data || [];
     MANTENIMIENTOS = mantRes.data || [];
     TANQUEOS       = tanqueosRes.data || [];
+    INSPECCIONES   = (inspRes && inspRes.data) || [];
 
     ESTADOS_VEHICULO = await Promise.all(
         FLOTA.map(c => DB.obtenerEstadoCarroza(c.placa).catch(()=>({ok:false})))
     );
+}
+
+/* ── Última inspección registrada por placa (para cruzar SOAT/Tecnomecánica/Póliza) ── */
+function ultimaInspeccionPorPlaca(placa){
+    const pSel = String(placa||'').replace(/[^A-Z0-9]/gi,'').toUpperCase();
+    const propias = INSPECCIONES.filter(i => String(i.PLACA||'').replace(/[^A-Z0-9]/gi,'').toUpperCase() === pSel);
+    if(!propias.length) return null;
+    propias.sort((a,b)=> String(b.created_at || b.FECHA || '').localeCompare(String(a.created_at || a.FECHA || '')));
+    return propias[0];
+}
+
+/* ==========================================================================
+   DOCUMENTACIÓN — el documento más próximo a vencer de cada carroza,
+   combinando la hoja "carrozas" (doc_tipo_proximo_vencer / doc_fecha_proximo_vencer)
+   con la última inspección vehicular (SOAT / Tecnomecánica / Póliza Todo Riesgo).
+   ========================================================================== */
+function documentoMasUrgente(carroza){
+    const candidatos = [];
+
+    if(carroza.doc_fecha_proximo_vencer){
+        const dias = diasHasta(carroza.doc_fecha_proximo_vencer);
+        candidatos.push({
+            tipo: carroza.doc_tipo_proximo_vencer || 'Documento',
+            fecha: carroza.doc_fecha_proximo_vencer,
+            dias: dias !== null ? dias : (parseFloat(carroza.doc_dias_para_vencer) || null),
+            obs: '',
+            fuente: 'parque_automotor',
+        });
+    }
+
+    const insp = ultimaInspeccionPorPlaca(carroza.placa);
+    if(insp){
+        [
+            {tipo:'SOAT', vence: insp.SOAT_VENCE, obs: insp.SOAT_OBS, estado: insp.SOAT_ESTADO},
+            {tipo:'Tecnomecánica', vence: insp.TECNOMECANICA_VENCE, obs: insp.TECNOMECANICA_OBS, estado: insp.TECNOMECANICA_ESTADO},
+            {tipo:'Póliza Todo Riesgo', vence: insp.POLIZA_TODO_RIESGO_VENCE, obs: insp.POLIZA_TODO_RIESGO_OBS, estado: insp.POLIZA_TODO_RIESGO_ESTADO},
+        ].forEach(doc => {
+            if(doc.vence){
+                const dias = diasHasta(doc.vence);
+                if(dias !== null){
+                    candidatos.push({ tipo: doc.tipo, fecha: doc.vence, dias, obs: doc.obs || '', fuente: 'inspeccion', estado: doc.estado });
+                }
+            }
+        });
+    }
+
+    if(!candidatos.length) return null;
+    candidatos.sort((a,b)=> (a.dias===null?9999:a.dias) - (b.dias===null?9999:b.dias));
+    return candidatos[0];
+}
+
+/* ==========================================================================
+   AVERÍAS EN CURSO — según hallazgo/historial de la hoja "carrozas"
+   (Parque Automotor), no la hoja "Averias" del formulario de conductores.
+   ========================================================================== */
+function averiaActivaDeCarroza(carroza){
+    const estadoHallazgo = normEstado(carroza.ultimo_hallazgo_estado);
+    const tieneHallazgoAbierto = !!(carroza.ultimo_hallazgo_clasificacion || carroza.ultimo_hallazgo_detalle) && estadoHallazgo !== 'ejecutado';
+    const estadoParque = normEstado(carroza.estado_parque_automotor);
+    const enTallerOTaller = ['taller','pintura','novedad'].includes(estadoParque);
+
+    if(!tieneHallazgoAbierto && !enTallerOTaller) return null;
+
+    return {
+        placa: carroza.placa,
+        clasificacion: carroza.ultimo_hallazgo_clasificacion || (enTallerOTaller ? (carroza.estado_parque_automotor || 'Novedad') : 'Novedad'),
+        detalle: carroza.historial_novedad_completa || carroza.ultimo_hallazgo_detalle || carroza.observaciones || 'Sin detalle registrado',
+        fecha: carroza.ultimo_hallazgo_fecha || carroza.historial_fecha || '',
+        taller: carroza.historial_taller_nombre || carroza.sede_parque_automotor || '',
+        estadoHallazgo: carroza.ultimo_hallazgo_estado || carroza.estado_parque_automotor || '',
+        diasEnTaller: carroza.dias_en_taller_parque || '',
+        pendiente: tieneHallazgoAbierto,
+    };
 }
 
 /* ==========================================================================
@@ -634,9 +736,9 @@ function calcularKPIs(){
     const enServicio  = FLOTA.filter(c => normEstado(c.estado)==='en servicio').length;
     const enTaller    = FLOTA.filter(c => normEstado(c.estado)==='en taller').length;
 
-    const mantPendientes = MANTENIMIENTOS.filter(m => normEstado(m.estado_orden)==='pendiente');
-    const averiaOrdenes  = mantPendientes.filter(m => /^avería/i.test(m.tipo_servicio||''));
-    const mantProgramado = mantPendientes.filter(m => !/^avería/i.test(m.tipo_servicio||''));
+    const averiasActivasFlota = FLOTA.map(averiaActivaDeCarroza).filter(Boolean);
+    const documentosUrgentes  = FLOTA.map(c => ({placa:c.placa, doc: documentoMasUrgente(c)}))
+        .filter(x => x.doc && x.doc.dias !== null && x.doc.dias <= 30);
 
     const trasladosHoy = TRASLADOS.filter(t => t.fecha === hoy).length;
     const trasladosMes = TRASLADOS.filter(t => esMismoMes(t.fecha, ref)).length;
@@ -663,12 +765,12 @@ function calcularKPIs(){
 
     return {
         total, disponibles, enServicio, enTaller,
-        averiasActivas: averiaOrdenes.length, mantProgramado: mantProgramado.length,
+        averiasActivas: averiasActivasFlota.length, mantProgramado: documentosUrgentes.length,
         trasladosHoy, trasladosMes,
         combustibleHoy, combustibleMes, gastoCombustibleHoy, gastoCombustibleMes,
         kmTotal, kmPromedio, rendimientoProm, valorMantenimiento,
         aceiteVencido, aceiteProximo, tanqueBajo,
-        alertasCriticas: averiaOrdenes.length + aceiteVencido + tanqueBajo,
+        alertasCriticas: averiasActivasFlota.length + documentosUrgentes.filter(x=>x.doc.dias<0).length + aceiteVencido + tanqueBajo,
     };
 }
 
@@ -709,7 +811,7 @@ const KPI_DEFS = (k)=>{
         {label:'En servicio', value:k.enServicio, icon:'🛣️', trend:tT},
         {label:'En taller', value:k.enTaller, icon:'🔧', trend:flat},
         {label:'Averías activas', value:k.averiasActivas, icon:'⚠️', trend:flat},
-        {label:'Mantenimiento programado', value:k.mantProgramado, icon:'🗓️', trend:flat},
+        {label:'Documentos por vencer (≤30d)', value:k.mantProgramado, icon:'🗓️', trend:flat},
         {label:'Traslados hoy', value:k.trasladosHoy, icon:'🏁', trend:tT},
         {label:'Traslados del mes', value:k.trasladosMes, icon:'📅', trend:tT},
         {label:'Combustible hoy (gal)', value:k.combustibleHoy, icon:'⛽', trend:tC, decimal:true},
@@ -848,7 +950,7 @@ function actualizarGraficos(){
     charts.rankingKm.update();
 
     const porTipo = {};
-    AVERIAS.forEach(a=>{ const t = a.tipo_falla || 'Sin clasificar'; porTipo[t] = (porTipo[t]||0)+1; });
+    FLOTA.map(averiaActivaDeCarroza).filter(Boolean).forEach(a=>{ const t = a.clasificacion || 'Sin clasificar'; porTipo[t] = (porTipo[t]||0)+1; });
     const tiposOrdenados = Object.entries(porTipo).sort((a,b)=>b[1]-a[1]).slice(0,6);
     charts.averias.data.labels = tiposOrdenados.map(t=>t[0]);
     charts.averias.data.datasets[0].data = tiposOrdenados.map(t=>t[1]);
@@ -878,16 +980,18 @@ function setupChartTabs(){
 }
 
 /* ==========================================================================
-   LISTAS DE MONITOREO (averías, traslados, tanqueos, mantenimientos)
+   LISTAS DE MONITOREO (averías, traslados, tanqueos, documentación)
    ========================================================================== */
 function renderListas(){
-    // Averías recientes (activas)
-    const averiasActivas = [...AVERIAS].sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0)).slice(0,4);
+    // Averías en curso — desde la hoja "carrozas" (Parque Automotor)
+    const averiasActivas = FLOTA.map(averiaActivaDeCarroza).filter(Boolean)
+        .sort((a,b)=> (diasHasta(b.fecha)||-9999) - (diasHasta(a.fecha)||-9999))
+        .slice(0,6);
     const tAv = document.getElementById('tabla-averias');
     tAv.innerHTML = averiasActivas.length ? averiasActivas.map(av => `
-        <tr><td><b>${av.placa_vehiculo||'—'}</b><br><small>${av.tipo_falla||'—'}</small></td>
-        <td style="text-align:right; font-size:11px;">${av.created_at ? new Date(av.created_at).toLocaleDateString('es-CO') : '—'}</td></tr>`).join('')
-        : '<tr><td style="text-align:center;">Sin averías reportadas.</td></tr>';
+        <tr><td><b>${av.placa||'—'}</b><br><small>${av.clasificacion||'—'}${av.taller ? ' · '+av.taller : ''}</small></td>
+        <td style="text-align:right; font-size:11px;">${av.fecha || '—'}<br><small style="color:var(--gris);">${av.pendiente ? 'Pendiente' : (av.estadoHallazgo||'')}</small></td></tr>`).join('')
+        : '<tr><td style="text-align:center;">Sin averías reportadas en el parque automotor.</td></tr>';
 
     // Traslados recientes
     const trasladosRec = [...TRASLADOS].sort((a,b)=>(parseDDMMAAAA(b.fecha)||0)-(parseDDMMAAAA(a.fecha)||0)).slice(0,4);
@@ -905,13 +1009,16 @@ function renderListas(){
         <td style="text-align:right;"><b>${tq.GALONES||0} gal</b><br><small style="color:#64748b;">${fmtCOP(tq.VALOR_TOTAL)}</small></td></tr>`).join('')
         : '<tr><td style="text-align:center;">Sin tanqueos registrados.</td></tr>';
 
-    // Mantenimientos pendientes
-    const mantPend = MANTENIMIENTOS.filter(m => normEstado(m.estado_orden)==='pendiente').slice(0,4);
+    // Documentación / mantenimientos pendientes — doc_fecha_proximo_vencer + Inspeccion_Vehiculo
+    const docsUrgentes = FLOTA.map(c => ({placa: c.placa, doc: documentoMasUrgente(c)}))
+        .filter(x => x.doc && x.doc.dias !== null)
+        .sort((a,b)=> a.doc.dias - b.doc.dias)
+        .slice(0,4);
     const tMa = document.getElementById('tabla-mantenimientos');
-    tMa.innerHTML = mantPend.length ? mantPend.map(m => `
-        <tr><td><b>${m.placa||'—'}</b><br><small>${m.tipo_servicio||'—'}</small></td>
-        <td style="text-align:right; font-size:11px;">${m.fecha||'—'}</td></tr>`).join('')
-        : '<tr><td style="text-align:center;">Sin mantenimientos pendientes.</td></tr>';
+    tMa.innerHTML = docsUrgentes.length ? docsUrgentes.map(x => `
+        <tr><td><b>${x.placa||'—'}</b><br><small>${x.doc.tipo||'—'}</small></td>
+        <td style="text-align:right;">${pillVencimiento(x.doc.dias)}<br><small style="color:var(--gris);">${x.doc.fecha||'—'}</small></td></tr>`).join('')
+        : '<tr><td style="text-align:center;">Sin documentos próximos a vencer.</td></tr>';
 }
 
 /* ==========================================================================
@@ -975,6 +1082,9 @@ async function abrirPanelCarroza(placa){
     const mantVeh = MANTENIMIENTOS.filter(m => String(m.placa||'').toUpperCase() === placa.toUpperCase())
         .sort((a,b)=> String(b.fecha||'').localeCompare(String(a.fecha||''))).slice(0,6);
 
+    const averiaParque = carroza ? averiaActivaDeCarroza(carroza) : null;
+    const docUrgente = carroza ? documentoMasUrgente(carroza) : null;
+
     document.getElementById('vmSub').textContent = carroza ? `${carroza.regional || 'Regional no registrada'} · ${estadoInfo(carroza.estado).label}` : '—';
 
     const body = document.getElementById('vmBody');
@@ -984,6 +1094,17 @@ async function abrirPanelCarroza(placa){
             <div class="vm-stat"><div class="lbl">Combustible</div><div class="val">${estado.ok ? estado.nivel_combustible+' '+estado.porcentaje_combustible+'%' : '—'}</div></div>
             <div class="vm-stat"><div class="lbl">Rendimiento</div><div class="val">${estado.ok && estado.rendimiento_ultimo_km_gal ? estado.rendimiento_ultimo_km_gal.toFixed(1)+' km/gal' : 'Sin datos'}</div></div>
             <div class="vm-stat"><div class="lbl">Aceite</div><div class="val" style="font-size:12.5px;">${estado.ok ? estado.estado_aceite.emoji+' '+estado.estado_aceite.texto : '—'}</div></div>
+        </div>
+
+        <div class="vm-section">
+            <h4>Parque Automotor</h4>
+            ${carroza ? `<ul class="vm-list">
+                <li><span>Estado</span><span>${carroza.estado_parque_automotor || 'Sin registro'} · ${carroza.sede_parque_automotor || 'Sin sede'}</span></li>
+                ${carroza.dias_en_taller_parque ? `<li><span>Días en taller</span><span>${carroza.dias_en_taller_parque}</span></li>` : ''}
+                ${averiaParque ? `<li><span>${averiaParque.clasificacion}</span><span>${averiaParque.pendiente ? '⚠️ Pendiente' : (averiaParque.estadoHallazgo||'')}</span></li>` : ''}
+                ${averiaParque ? `<li><span colspan="2" style="max-width:100%;">${averiaParque.detalle}</span></li>` : ''}
+                ${docUrgente ? `<li><span>${docUrgente.tipo}</span><span>${pillVencimiento(docUrgente.dias)}</span></li>` : ''}
+            </ul>` : '<div class="vm-empty">Sin datos de parque automotor para esta placa.</div>'}
         </div>
 
         <div class="vm-chart-card"><h4>Km recorridos</h4><div class="chart-box"><canvas id="vmChartKm"></canvas></div></div>
@@ -998,7 +1119,7 @@ async function abrirPanelCarroza(placa){
             ${tanqueosVeh.length ? `<ul class="vm-list">${tanqueosVeh.map(t=>`<li><span>${t.FECHA} · ${t.GALONES||0} gal · ${t.ESTACION_SERVICIO||'—'}</span><span>${fmtCOP(t.VALOR_TOTAL)}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin tanqueos registrados.</div>'}
         </div>
         <div class="vm-section">
-            <h4>Últimas averías</h4>
+            <h4>Últimas averías (formulario conductores)</h4>
             ${averiasVeh.length ? `<ul class="vm-list">${averiasVeh.map(a=>`<li><span>${a.tipo_falla||'—'} · ${a.descripcion_sintomas||''}</span><span>${a.reportado_por||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin averías registradas.</div>'}
         </div>
         <div class="vm-section">
@@ -1029,13 +1150,23 @@ function cerrarPanelCarroza(){
 
 /* ---------- Alertas (push-notif) ---------- */
 function mostrarAlertas(){
-    const averiaOrdenes = MANTENIMIENTOS.filter(m => normEstado(m.estado_orden)==='pendiente' && /^avería/i.test(m.tipo_servicio||''));
+    const averiasParque = FLOTA.map(averiaActivaDeCarroza).filter(Boolean);
+    const docsVencidos = FLOTA.map(c => ({placa:c.placa, doc: documentoMasUrgente(c)}))
+        .filter(x => x.doc && x.doc.dias !== null && x.doc.dias < 0);
+    const docsProximos = FLOTA.map(c => ({placa:c.placa, doc: documentoMasUrgente(c)}))
+        .filter(x => x.doc && x.doc.dias !== null && x.doc.dias >= 0 && x.doc.dias <= 15);
     const aceite = ESTADOS_VEHICULO.filter(e => e.ok && e.estado_aceite && e.estado_aceite.emoji==='🔴');
     const tanqueBajo = ESTADOS_VEHICULO.filter(e => e.ok && e.nivel_combustible==='🔴');
 
     let html = '';
-    if(averiaOrdenes.length){
-        html += `<div class="push-alert-section"><h4>Órdenes de avería pendientes (${averiaOrdenes.length})</h4><ul>${averiaOrdenes.map(m=>`<li><b>${m.placa}</b> — ${m.tipo_servicio}</li>`).join('')}</ul></div>`;
+    if(averiasParque.length){
+        html += `<div class="push-alert-section"><h4>Averías / novedades activas (${averiasParque.length})</h4><ul>${averiasParque.map(a=>`<li><b>${a.placa}</b> — ${a.clasificacion}</li>`).join('')}</ul></div>`;
+    }
+    if(docsVencidos.length){
+        html += `<div class="push-alert-section"><h4>Documentos vencidos (${docsVencidos.length})</h4><ul>${docsVencidos.map(x=>`<li><b>${x.placa}</b> — ${x.doc.tipo} (venció hace ${Math.abs(x.doc.dias)}d)</li>`).join('')}</ul></div>`;
+    }
+    if(docsProximos.length){
+        html += `<div class="push-alert-section"><h4>Documentos próximos a vencer (${docsProximos.length})</h4><ul>${docsProximos.map(x=>`<li><b>${x.placa}</b> — ${x.doc.tipo} (${x.doc.dias}d)</li>`).join('')}</ul></div>`;
     }
     if(aceite.length){
         html += `<div class="push-alert-section"><h4>Cambio de aceite vencido (${aceite.length})</h4><ul>${aceite.map(e=>`<li><b>${e.placa}</b></li>`).join('')}</ul></div>`;
@@ -1043,7 +1174,7 @@ function mostrarAlertas(){
     if(tanqueBajo.length){
         html += `<div class="push-alert-section"><h4>Tanque en nivel bajo (${tanqueBajo.length})</h4><ul>${tanqueBajo.map(e=>`<li><b>${e.placa}</b></li>`).join('')}</ul></div>`;
     }
-    if(!averiaOrdenes.length && !aceite.length && !tanqueBajo.length){
+    if(!averiasParque.length && !docsVencidos.length && !docsProximos.length && !aceite.length && !tanqueBajo.length){
         html = '<div class="push-empty-alert">No hay alertas críticas en este momento. ✅</div>';
     }
 
@@ -1063,15 +1194,23 @@ function datasetFlotaExport(){
     const filtro = norm(document.getElementById('fleetSearch').value || '');
     return FLOTA.map((c, i) => ({ c, est: ESTADOS_VEHICULO[i] || {} }))
         .filter(({c}) => !filtro || norm(c.placa).includes(filtro) || norm(c.regional).includes(filtro) || norm(c.estado).includes(filtro))
-        .map(({c, est}) => ({
-            Placa: c.placa || '',
-            Regional: c.regional || '',
-            Estado: c.estado || '',
-            Kilometraje_Km: c.kilometraje_actual || 0,
-            Combustible_Pct: est.ok ? est.porcentaje_combustible : '',
-            Rendimiento_Km_Gal: est.ok && est.rendimiento_ultimo_km_gal ? Number(est.rendimiento_ultimo_km_gal.toFixed(1)) : '',
-            Estado_Aceite: est.ok && est.estado_aceite ? est.estado_aceite.texto : '',
-        }));
+        .map(({c, est}) => {
+            const doc = documentoMasUrgente(c);
+            const av = averiaActivaDeCarroza(c);
+            return {
+                Placa: c.placa || '',
+                Regional: c.regional || '',
+                Estado: c.estado || '',
+                Estado_Parque_Automotor: c.estado_parque_automotor || '',
+                Kilometraje_Km: c.kilometraje_actual || 0,
+                Combustible_Pct: est.ok ? est.porcentaje_combustible : '',
+                Rendimiento_Km_Gal: est.ok && est.rendimiento_ultimo_km_gal ? Number(est.rendimiento_ultimo_km_gal.toFixed(1)) : '',
+                Estado_Aceite: est.ok && est.estado_aceite ? est.estado_aceite.texto : '',
+                Averia_Activa: av ? av.clasificacion : '',
+                Documento_Mas_Urgente: doc ? doc.tipo : '',
+                Documento_Dias: doc ? doc.dias : '',
+            };
+        });
 }
 function datasetTraslados(){
     return TRASLADOS.map(t => ({
@@ -1087,17 +1226,32 @@ function datasetTanqueos(){
     }));
 }
 function datasetAverias(){
-    return AVERIAS.map(a => ({
-        Placa: a.placa_vehiculo || '', Tipo_Falla: a.tipo_falla || '',
-        Descripcion: a.descripcion_sintomas || '', Reportado_Por: a.reportado_por || '',
-        Fecha: a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '',
+    // Averías del Parque Automotor (hoja "carrozas") + hoja "Averias" del formulario de conductores
+    const deParque = FLOTA.map(averiaActivaDeCarroza).filter(Boolean).map(a => ({
+        Placa: a.placa || '', Origen: 'Parque Automotor', Clasificacion: a.clasificacion || '',
+        Detalle: a.detalle || '', Estado: a.pendiente ? 'PENDIENTE' : (a.estadoHallazgo||''),
+        Fecha: a.fecha || '', Taller_Sede: a.taller || '',
     }));
+    const deFormulario = AVERIAS.map(a => ({
+        Placa: a.placa_vehiculo || '', Origen: 'Formulario conductor', Clasificacion: a.tipo_falla || '',
+        Detalle: a.descripcion_sintomas || '', Estado: '', Fecha: a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '',
+        Taller_Sede: a.reportado_por || '',
+    }));
+    return [...deParque, ...deFormulario];
 }
 function datasetMantenimientos(){
-    return MANTENIMIENTOS.map(m => ({
-        Placa: m.placa || '', Tipo_Servicio: m.tipo_servicio || '', Estado_Orden: m.estado_orden || '',
-        Fecha: m.fecha || '', Taller: m.taller || '', Costo: m.costo || 0,
+    // Documentación por vencer (SOAT/Tecnomecánica/Póliza + doc_fecha_proximo_vencer) + hoja "mantenimientos"
+    const documentos = FLOTA.map(c => ({placa:c.placa, doc: documentoMasUrgente(c)}))
+        .filter(x => x.doc)
+        .map(x => ({
+            Placa: x.placa, Tipo: x.doc.tipo, Fecha_Vence: x.doc.fecha || '',
+            Dias: x.doc.dias !== null ? x.doc.dias : '', Observaciones: x.doc.obs || '',
+        }));
+    const ordenes = MANTENIMIENTOS.map(m => ({
+        Placa: m.placa || '', Tipo: m.tipo_servicio || '', Fecha_Vence: m.fecha || '',
+        Dias: '', Observaciones: `${m.estado_orden||''} · ${m.taller||''} · ${fmtCOP(m.costo)}`,
     }));
+    return [...documentos, ...ordenes];
 }
 function obtenerDataset(key){
     switch(key){
