@@ -259,6 +259,13 @@
     // (porque el automático estaba mal, en 0, o no se encontró)
     window._kmSalidaCorregidoManual = false;
 
+    // 🆕 Umbral de sospecha para el Total KM de un servicio. Por encima de
+    // esto se exige confirmación explícita antes de guardar — así un KM
+    // mal digitado no daña silenciosamente el cálculo automático de
+    // aceite y combustible de la carroza.
+    const UMBRAL_KM_SOSPECHOSO = 800;
+    window._totalKmSospechoso = false;
+
     // ── INIT ──────────────────────────────────────────────
     window.onload = async () => {
         const sesionData = localStorage.getItem('usuario_sesion');
@@ -450,13 +457,27 @@
             if (total >= 0) {
                 display.innerText = total.toLocaleString('es-CO') + ' KM';
                 hidden.value = total.toFixed(1);
-                card.classList.add('listo');
                 card.classList.remove('error');
+
+                // 🆕 Aviso de KM sospechosamente alto (posible error de digitación
+                // en el KM de salida o de llegada). No bloquea, pero exige
+                // confirmación explícita al guardar.
+                if (total > UMBRAL_KM_SOSPECHOSO) {
+                    window._totalKmSospechoso = true;
+                    document.getElementById('km-sub-info').innerHTML =
+                        '⚠️ KM muy alto (' + total.toLocaleString('es-CO') + '). Verifica el KM de salida antes de guardar.';
+                    card.classList.add('error');
+                    card.classList.remove('listo');
+                } else {
+                    window._totalKmSospechoso = false;
+                    card.classList.add('listo');
+                }
             } else {
                 display.innerText = '⚠️ KM menor al de salida';
                 hidden.value = '';
                 card.classList.add('error');
                 card.classList.remove('listo');
+                window._totalKmSospechoso = false;
             }
         } else {
             display.innerText = '— KM';
@@ -506,6 +527,25 @@
                 '¿Deseas continuar de todas formas?'
             );
             if (!conf) return;
+        }
+
+        // 🆕 Confirmación obligatoria si el Total KM es sospechosamente alto.
+        // Esto evita que un KM de salida o llegada mal digitado dañe
+        // silenciosamente el cálculo automático de aceite y combustible.
+        if (window._totalKmSospechoso) {
+            const totalActual = document.getElementById('total_km').value;
+            const conf = confirm(
+                '🚨 EL TOTAL KM ES MUY ALTO: ' + Number(totalActual).toLocaleString('es-CO') + ' km\n\n' +
+                'Esto puede deberse a un error al escribir el KM de salida o el KM de llegada.\n\n' +
+                'Si guardas así, este valor va a afectar el cálculo automático de combustible ' +
+                'y el control de cambio de aceite de la carroza.\n\n' +
+                '¿Es correcto? (Solo confirma si en verdad fue un trayecto muy largo, ' +
+                'como un Traslado Nacional)'
+            );
+            if (!conf) {
+                alert('Revisa y corrige el "KM de Salida (automático — editable)" o el "KM al Llegar" antes de guardar.');
+                return;
+            }
         }
 
         btn.disabled  = true;
@@ -558,7 +598,16 @@
             // cerrar el Traslado es un paso secundario: si falla, NO debe
             // mostrar error ni invitar a "reintentar" (eso duplicaría la Llegada).
             if (window._idSalidaActivo) {
-                cerrarTrasladoConReintento(window._idSalidaActivo, kmI, hora);
+                cerrarTrasladoConReintento(
+                    window._idSalidaActivo, kmI, hora,
+                    undefined,
+                    // 🆕 Si el KM de salida fue corregido manualmente en esta
+                    // pantalla, se envía para que se corrija también en el
+                    // Traslado original — así el dato queda arreglado en la
+                    // fuente (no solo anotado como texto), y el cálculo de
+                    // aceite/combustible de próximos servicios usa el KM real.
+                    window._kmSalidaCorregidoManual ? window._kmSalidaActivo : null
+                );
             }
 
             setStep('step-llegada', 'ok', '✅ Llegada registrada correctamente');
@@ -596,19 +645,23 @@
     // timeout u otro error, se reintenta solo, sin bloquear al usuario
     // ni mostrarle un error que lo lleve a presionar "REINTENTAR"
     // (eso volvería a insertar una Llegada duplicada).
-    async function cerrarTrasladoConReintento(idSalida, kmI, hora, intento) {
+    // 🆕 kmSalidaCorregido: si no es null, también corrige km__salida en
+    // el Traslado — así la corrección queda en la fuente de datos real,
+    // no solo como nota de texto en observaciones.
+    async function cerrarTrasladoConReintento(idSalida, kmI, hora, intento, kmSalidaCorregido) {
         if (intento === undefined) intento = 1;
         try {
-            await DB.actualizar('Traslado',
-                { km__ingreso: parseInt(kmI), hora_de_ingreso: hora },
-                'id_salida', idSalida
-            );
+            const payload = { km__ingreso: parseInt(kmI), hora_de_ingreso: hora };
+            if (kmSalidaCorregido !== null && kmSalidaCorregido !== undefined && kmSalidaCorregido > 0) {
+                payload.km__salida = parseInt(kmSalidaCorregido);
+            }
+            await DB.actualizar('Traslado', payload, 'id_salida', idSalida);
             console.log('✅ Traslado ' + idSalida + ' cerrado correctamente (intento ' + intento + ')');
         } catch(e) {
             console.warn('⚠️ No se pudo cerrar el Traslado ' + idSalida + ' (intento ' + intento + '):', e.message);
             if (intento < 3) {
                 setTimeout(function() {
-                    cerrarTrasladoConReintento(idSalida, kmI, hora, intento + 1);
+                    cerrarTrasladoConReintento(idSalida, kmI, hora, intento + 1, kmSalidaCorregido);
                 }, 4000 * intento);
             } else {
                 console.error('❌ El Traslado ' + idSalida + ' quedó SIN CERRAR tras 3 intentos. Revisar manualmente.');
