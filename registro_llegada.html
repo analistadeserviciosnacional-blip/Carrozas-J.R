@@ -174,16 +174,6 @@
 
         <label>Total KM Recorridos</label>
 
-        <div class="section-title">⛽ Nivel de Combustible al Llegar</div>
-        <select id="nivel_combustible_llegada">
-            <option value="">Seleccionar...</option>
-            <option value="Lleno">🟢 Lleno</option>
-            <option value="3/4">🟢 3/4</option>
-            <option value="1/2">🟡 Media (1/2)</option>
-            <option value="1/4">🟠 1/4</option>
-            <option value="Reserva">🔴 Reserva</option>
-        </select>
-
         <!-- BANNER: cargando datos de salida -->
         <div id="banner-esperar">
             <div class="esp-titulo">⏳ Cargando datos de salida...</div>
@@ -541,7 +531,6 @@
             km_ingreso:     kmI,
             km_salida_ref:  window._kmSalidaActivo || '',
             total_km:       document.getElementById('total_km').value || '',
-            nivel_combustible_llegada: document.getElementById('nivel_combustible_llegada').value,
             estado_entrega: etiquetaEstado,
             observaciones:  document.getElementById('observaciones').value + notaCorreccion,
             recibido_por:   document.getElementById('recibido_por').value,
@@ -576,6 +565,24 @@
             btn.innerText = '✓ SERVICIO FINALIZADO';
             btn.style.background = '#16a34a';
             document.getElementById('bloque-wa').style.display = 'block';
+
+            // ── COMBUSTIBLE ACTUALIZADO (informativo) ──
+            // guardarLlegada ya descontó los galones estimados según los KM
+            // recorridos; aquí solo consultamos el resultado para mostrarlo.
+            try {
+                const est = await DB.obtenerEstadoCarroza(placa);
+                if (est.ok) {
+                    datosFinales.combustible_resultante =
+                        `${est.nivel_combustible} ${est.combustible_galones}/${est.capacidad_galones} gal (${est.porcentaje_combustible}%)`;
+                    const box = document.getElementById('total-km-card');
+                    if (box) {
+                        const info = document.createElement('div');
+                        info.style.cssText = 'margin-top:10px; font-size:13px; color:#166534; font-weight:700;';
+                        info.innerText = '⛽ Combustible actual: ' + datosFinales.combustible_resultante;
+                        box.appendChild(info);
+                    }
+                }
+            } catch(e) { console.warn('No se pudo consultar combustible actualizado:', e); }
         } catch(e) {
             setStep('step-llegada', 'err', '❌ Error: ' + e.message);
             btn.disabled = false;
@@ -627,8 +634,8 @@
             '*Hora Llegada:* '   + datosFinales.hora_ingreso   + '\n' +
             '*KM Ingreso:* '     + parseInt(datosFinales.km_ingreso).toLocaleString('es-CO') + '\n' +
             '*Total KM:* '       + totalKM                     + '\n' +
-            '*Combustible Llegada:* ' + (datosFinales.nivel_combustible_llegada || '---') + '\n' +
             '*Estado Entrega:* ' + datosFinales.estado_entrega + '\n' +
+            (datosFinales.combustible_resultante ? '*Combustible Actual:* ' + datosFinales.combustible_resultante + '\n' : '') +
             '*Recibido Por:* '   + datosFinales.recibido_por   + '\n\n' +
             '📝 *Observaciones:* ' + (datosFinales.observaciones || 'Sin novedades') + '\n\n' +
             '✅ *Servicio completado exitosamente* 🙏';
