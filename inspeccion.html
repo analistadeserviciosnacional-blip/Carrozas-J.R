@@ -12,7 +12,7 @@
   }
   *{box-sizing:border-box; font-family: 'Segoe UI', Arial, sans-serif;}
   body{ background:var(--bg); color:var(--text); margin:0; padding:18px 14px 60px; }
-  
+
   .nav-row{ max-width:1100px; margin:0 auto 16px; display:flex; justify-content:space-between; align-items:center; }
   .btn-volver{ color:var(--blue); text-decoration:none; font-size:14px; font-weight:700; background:none; border:none; cursor:pointer; }
 
@@ -27,20 +27,36 @@
     background: var(--blue-deep); padding: 10px 12px; border-radius: 6px;
     font-size: 13px; font-weight: 700; color: #fff;
     margin: 25px 0 15px; text-transform: uppercase; letter-spacing: 1px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .section-title .badge{
+    background:rgba(255,255,255,.18); padding:2px 8px; border-radius:20px; font-size:11px;
   }
 
   .grid-form{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-  
+
   .field label{ display:block; font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
   input, select, textarea{
     width:100%; background:var(--field); border:1px solid var(--line);
     border-radius:8px; padding:8px 10px; font-size:13px; outline:none;
   }
-  input:focus, select:focus{ border-color:var(--blue); box-shadow: 0 0 0 3px rgba(29,85,201,0.1); }
+  input:focus, select:focus, textarea:focus{ border-color:var(--blue); box-shadow: 0 0 0 3px rgba(29,85,201,0.1); }
   input:read-only{ background:#e9edf7; color:#555; }
 
   .config-box{ background:#fff9e6; border:1px solid var(--amber); border-radius:10px; padding:15px; margin-bottom:20px; color:#856404; font-size:13px;}
-  
+  .info-box{ background:#eaf3ff; border:1px solid var(--blue-soft); border-radius:10px; padding:12px 15px; margin-bottom:15px; color:var(--blue-deep); font-size:13px; }
+
+  /* Panel de estado del vehículo (combustible / rendimiento / aceite) */
+  #panelEstado{
+    display:none; margin:10px 0 20px; background:#f8fafd; border:1px solid var(--line);
+    border-radius:10px; padding:14px 16px;
+  }
+  #panelEstado.show{ display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:12px; }
+  .estado-item-panel{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .estado-item-panel .titulo{ font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:700; margin-bottom:4px; }
+  .estado-item-panel .valor{ font-size:14px; font-weight:700; }
+  .estado-item-panel .sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+
   button.submit{
     width:100%; padding:18px; border:none; border-radius:12px;
     background:var(--blue); color:#ffffff; font-weight:700; font-size:16px;
@@ -48,13 +64,32 @@
   }
   button.submit:disabled{ opacity: 0.5; cursor: wait; }
 
-  .hidden { display: none; }
+  .hidden { display: none !important; }
   #msg{ text-align:center; margin-top:15px; font-weight:bold; }
-  
-  /* Selects de estado (Bueno/Malo) */
-  select.estado-item{ font-weight: bold; }
-  option[value="B"] { color: var(--green); }
-  option[value="M"] { color: var(--red); }
+
+  /* ── Filas de checklist (Estado + Observación) ─────────── */
+  .check-list{ display:flex; flex-direction:column; gap:8px; }
+  .check-row{
+    display:grid; grid-template-columns: 1.3fr 1fr 1.4fr; gap:10px; align-items:center;
+    background:var(--field); border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+  }
+  .check-row .item-label{ font-size:13px; font-weight:600; }
+  .check-row select{ font-weight:700; }
+  .check-row select[data-val="BUENO"], .check-row select[data-val="VIGENTE"]{ color:var(--green); }
+  .check-row select[data-val="REGULAR"]{ color:var(--amber); }
+  .check-row select[data-val="MALO"], .check-row select[data-val="VENCIDO"]{ color:var(--red); }
+  .check-row select[data-val="NA"]{ color:var(--muted); }
+  .check-row input.obs{ font-size:12px; }
+  .check-row input.fecha-vence{ font-size:12px; }
+
+  .doc-row{ grid-template-columns: 1.1fr 1fr 1fr 1.2fr; }
+
+  @media (max-width:680px){
+    .check-row, .doc-row{ grid-template-columns: 1fr; }
+    .check-row .item-label{ margin-bottom:2px; }
+  }
+
+  .resumen-alertas{ margin-top:10px; font-size:12px; color:var(--red); font-weight:700; }
 </style>
 </head>
 <body>
@@ -68,13 +103,13 @@
     <h1>📋 Inspección de Vehículo Completa</h1>
 
     <form id="formInspeccion">
-      
+
       <!-- GRUPO 1: GENERALES -->
       <div class="section-title">1. Información de Identificación</div>
       <div class="grid-form">
         <div class="field">
           <label>Tipo de Inspección</label>
-          <select id="TIPO_INSPECCION" onchange="toggleModo()">
+          <select id="TIPO_INSPECCION" onchange="toggleModo(true)">
             <option value="COMPLETA">COMPLETA (Mañana / Inicio)</option>
             <option value="CONFIRMACION">CONFIRMACIÓN (Uso posterior - OK)</option>
           </select>
@@ -85,10 +120,10 @@
             <option value="">— Seleccione —</option>
           </select>
         </div>
-        <div class="field"><label>Carroza / Nombre</label><input type="text" id="CARROZA" readonly></div>
-        <div class="field"><label>Marca</label><input type="text" id="MARCA" readonly></div>
-        <div class="field"><label>Modelo</label><input type="text" id="MODELO" readonly></div>
+        <div class="field"><label>Vehículo (Modelo)</label><input type="text" id="MODELO" readonly></div>
         <div class="field"><label>Año</label><input type="text" id="AÑO" readonly></div>
+        <div class="field"><label>Tipo de Servicio</label><input type="text" id="TIPO_VEHICULO" readonly></div>
+        <div class="field"><label>Conductor Asignado (Ficha)</label><input type="text" id="CONDUCTOR_ASIGNADO" readonly></div>
         <div class="field"><label>Fecha</label><input type="text" id="FECHA" readonly></div>
         <div class="field"><label>Hora</label><input type="time" id="HORA"></div>
         <div class="field"><label>Kilometraje <span style="color:red">*</span></label><input type="number" id="KILOMETRAJE" required placeholder="Ej: 154200"></div>
@@ -96,111 +131,54 @@
         <div class="field"><label>Sede</label><input type="text" id="SEDE" placeholder="Lugar de inspección"></div>
       </div>
 
+      <!-- Panel de estado automático (combustible / rendimiento / aceite) -->
+      <div id="panelEstado"></div>
+
+      <div id="bannerAutoConfirma" class="info-box hidden"></div>
       <div id="bannerConfirma" class="config-box hidden">
         <strong>MODO CONFIRMACIÓN:</strong> Se asume que el vehículo está en buen estado según la inspección previa. Solo actualice KM y novedades si las hay.
       </div>
 
       <!-- SECCIÓN QUE SE OCULTA SI ES SOLO CONFIRMACIÓN -->
       <div id="camposDetallados">
-        
-        <div class="section-title">2. Niveles y Luces</div>
+
+        <div class="section-title">2. Niveles de Combustible</div>
         <div class="grid-form">
           <div class="field"><label>Nivel Combustible</label><select id="NIVEL_COMBUSTIBLE"><option value="F">F (Lleno)</option><option value="3/4">3/4</option><option value="1/2">1/2</option><option value="1/4">1/4</option><option value="E">E (Reserva)</option></select></div>
           <div class="field"><label>Último Tanqueo (Km)</label><input type="number" id="ULTIMO_TANQUEO"></div>
-          <div class="field"><label>Luces Estacionamiento</label><select id="LUCES_ESTACIONAMIENTO" class="estado-item"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
-          <div class="field"><label>Luces Bajas</label><select id="LUCES_BAJAS" class="estado-item"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
-          <div class="field"><label>Luces Altas</label><select id="LUCES_ALTAS" class="estado-item"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
-          <div class="field"><label>Luces Freno</label><select id="LUCES_FRENO" class="estado-item"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
-          <div class="field"><label>Luces Reversa</label><select id="LUCES_REVERSA" class="estado-item"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
-          <div class="field"><label>Direccional Der.</label><select id="DIRECCIONAL_DERECHA" class="estado-item"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
-          <div class="field"><label>Direccional Izq.</label><select id="DIRECCIONAL_IZQUIERDA" class="estado-item"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
-          <div class="field"><label>Luces Emergencia</label><select id="LUCES_EMERGENCIA" class="estado-item"><option value="B">BUENO</option><option value="M">MALO</option></select></div>
         </div>
 
-        <div class="section-title">3. Frenos, Llantas y Motor</div>
-        <div class="grid-form">
-          <div class="field"><label>Freno de Mano</label><select id="FRENO_MANO"><option value="B">OK</option><option value="M">FALLA</option></select></div>
-          <div class="field"><label>Pedal Freno</label><select id="PEDAL_FRENO"><option value="B">OK</option><option value="M">FALLA</option></select></div>
-          <div class="field"><label>Líquido Frenos</label><select id="LIQUIDO_FRENOS"><option value="B">OK</option><option value="M">BAJO</option></select></div>
-          <div class="field"><label>Llanta Del. Der.</label><select id="LLANTA_DELANTERA_DERECHA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Llanta Del. Izq.</label><select id="LLANTA_DELANTERA_IZQUIERDA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Llanta Tras. Der.</label><select id="LLANTA_TRASERA_DERECHA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Llanta Tras. Izq.</label><select id="LLANTA_TRASERA_IZQUIERDA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Llanta Repuesto</label><select id="LLANTA_REPUESTO"><option value="B">B</option><option value="M">M</option><option value="NA">N/A</option></select></div>
-          <div class="field"><label>Presión Aire</label><select id="PRESION_LLANTAS"><option value="B">OK</option><option value="M">BAJA</option></select></div>
-          <div class="field"><label>Aceite Motor</label><select id="ACEITE_MOTOR"><option value="B">OK</option><option value="M">BAJO</option></select></div>
-          <div class="field"><label>Refrigerante</label><select id="REFRIGERANTE"><option value="B">OK</option><option value="M">BAJO</option></select></div>
-          <div class="field"><label>Liq. Dirección</label><select id="LIQUIDO_DIRECCION"><option value="B">OK</option><option value="M">BAJO</option></select></div>
-          <div class="field"><label>Liq. Lavaparabrisas</label><select id="LIQUIDO_LAVAPARABRISAS"><option value="B">OK</option><option value="M">VACIO</option></select></div>
-          <div class="field"><label>Batería</label><select id="BATERIA"><option value="B">OK</option><option value="M">MALA</option></select></div>
-          <div class="field"><label>Correas</label><select id="CORREAS"><option value="B">OK</option><option value="M">DESGASTE</option></select></div>
-          <div class="field"><label>Mangueras</label><select id="MANGUERAS"><option value="B">OK</option><option value="M">FUGAS</option></select></div>
-        </div>
+        <div class="section-title">3. Sistema de Luces</div>
+        <div id="sec-luces" class="check-list"></div>
 
-        <div class="section-title">4. Cabina y Accesorios</div>
-        <div class="grid-form">
-          <div class="field"><label>Limpiaparabrisas</label><select id="LIMPIAPARABRISAS"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Espejo Interior</label><select id="ESPEJO_INTERIOR"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Espejo Derecho</label><select id="ESPEJO_DERECHO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Espejo Izquierdo</label><select id="ESPEJO_IZQUIERDO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Bocina (Pito)</label><select id="BOCINA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Aire Acondicionado</label><select id="AIRE_ACONDICIONADO"><option value="B">B</option><option value="M">M</option><option value="NA">NA</option></select></div>
-          <div class="field"><label>Calefacción</label><select id="CALEFACCION"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Radio</label><select id="RADIO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Encendedor/Carga</label><select id="ENCENDEDOR"><option value="B">B</option><option value="M">M</option></select></div>
-        </div>
+        <div class="section-title">4. Sistema de Frenos</div>
+        <div id="sec-frenos" class="check-list"></div>
 
-        <div class="section-title">5. Seguridad y Documentos</div>
-        <div class="grid-form">
-          <div class="field"><label>Extintor</label><select id="EXTINTOR"><option value="VIGENTE">VIGENTE</option><option value="VENCIDO">VENCIDO</option></select></div>
-          <div class="field"><label>Botiquín</label><select id="BOTIQUIN"><option value="COMPLETO">COMPLETO</option><option value="INCOMPLETO">INCOMPLETO</option></select></div>
-          <div class="field"><label>Gato</label><select id="GATO"><option value="SI">SI</option><option value="NO">NO</option></select></div>
-          <div class="field"><label>Cruceta</label><select id="CRUCETA"><option value="SI">SI</option><option value="NO">NO</option></select></div>
-          <div class="field"><label>Triángulos</label><select id="TRIANGULOS"><option value="SI">SI</option><option value="NO">NO</option></select></div>
-          <div class="field"><label>Herramientas</label><select id="HERRAMIENTAS"><option value="SI">SI</option><option value="NO">NO</option></select></div>
-          <div class="field"><label>Chaleco Reflectivo</label><select id="CHALECO_REFLECTIVO"><option value="SI">SI</option><option value="NO">NO</option></select></div>
-          <div class="field"><label>Taco Bloqueo</label><select id="TACO_BLOQUEO"><option value="SI">SI</option><option value="NO">NO</option></select></div>
-          <div class="field"><label>SOAT</label><select id="SOAT"><option value="VIGENTE">VIGENTE</option><option value="VENCIDO">VENCIDO</option></select></div>
-          <div class="field"><label>Tecnomecánica</label><select id="TECNOMECANICA"><option value="VIGENTE">VIGENTE</option><option value="VENCIDO">VENCIDO</option></select></div>
-          <div class="field"><label>Póliza Todo Riesgo</label><select id="POLIZA_TODO_RIESGO"><option value="VIGENTE">VIGENTE</option><option value="VENCIDO">VENCIDO</option></select></div>
-          <div class="field"><label>Tarjeta Propiedad</label><select id="TARJETA_PROPIEDAD"><option value="SI">SI</option><option value="NO">NO</option></select></div>
-        </div>
+        <div class="section-title">5. Neumáticos</div>
+        <div id="sec-neumaticos" class="check-list"></div>
 
-        <div class="section-title">6. Exterior y Carrocería</div>
-        <div class="grid-form">
-          <div class="field"><label>Capó</label><select id="CAPO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Techo</label><select id="TECHO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Parabrisas</label><select id="PARABRISAS"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Vidrio Delantero</label><select id="VIDRIO_DELANTERO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Vidrio Trasero</label><select id="VIDRIO_TRASERO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Puerta Del. Der.</label><select id="PUERTA_DELANTERA_DERECHA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Puerta Del. Izq.</label><select id="PUERTA_DELANTERA_IZQUIERDA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Puerta Tras. Der.</label><select id="PUERTA_TRASERA_DERECHA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Puerta Tras. Izq.</label><select id="PUERTA_TRASERA_IZQUIERDA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Parachoques Del.</label><select id="PARACHOQUES_DELANTERO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Parachoques Tras.</label><select id="PARACHOQUES_TRASERO"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Guardabarros</label><select id="GUARDABARROS"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Pintura Gral.</label><select id="PINTURA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Carrocería</label><select id="CARROCERIA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Tubo Escape</label><select id="TUBO_ESCAPE"><option value="B">B</option><option value="M">M</option></select></div>
-        </div>
+        <div class="section-title">6. Niveles y Motor</div>
+        <div id="sec-motor" class="check-list"></div>
 
-        <div class="section-title">7. Equipamiento Funerario</div>
-        <div class="grid-form">
-          <div class="field"><label>Cojinería</label><select id="COGINERIA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Planchón</label><select id="PLANCHON"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Cureña</label><select id="CUREÑA"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>División</label><select id="DIVISION"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Pasacintas</label><select id="PASACINTAS"><option value="B">B</option><option value="M">M</option></select></div>
-          <div class="field"><label>Compartimiento</label><select id="COMPARTIMIENTO_FUNERARIO"><option value="B">B</option><option value="M">M</option></select></div>
-        </div>
+        <div class="section-title">7. Documentos y Vigencias <span class="badge">Con fecha de vencimiento</span></div>
+        <div id="sec-documentos" class="check-list"></div>
+
+        <div class="section-title">8. Accesorios y Cabina</div>
+        <div id="sec-accesorios" class="check-list"></div>
+
+        <div class="section-title">9. Exterior y Carrocería</div>
+        <div id="sec-carroceria" class="check-list"></div>
+
+        <div class="section-title">10. Equipamiento Funerario</div>
+        <div id="sec-funerario" class="check-list"></div>
 
       </div> <!-- FIN CAMPOS DETALLADOS -->
 
-      <div class="section-title">8. Cierre de Inspección</div>
+      <div class="section-title">11. Cierre de Inspección</div>
+      <div id="resumenAlertas" class="resumen-alertas"></div>
       <div class="field">
         <label>Observaciones Generales / Novedades</label>
-        <textarea id="OBSERVACIONES_GENERALES" placeholder="Escriba aquí cualquier novedad o detalle encontrado..."></textarea>
+        <textarea id="OBSERVACIONES_GENERALES" placeholder="Escriba aquí cualquier novedad o detalle encontrado..." rows="3"></textarea>
       </div>
 
       <div class="grid-form">
@@ -228,8 +206,161 @@
   <script>
     let flotaGlobal = [];
 
+    // ══════════════════════════════════════════════════════
+    // DEFINICIÓN DE CHECKLISTS (basado en la ficha en papel)
+    // Cada ítem se guarda como <ID>_ESTADO y <ID>_OBS
+    // ══════════════════════════════════════════════════════
+    const OPCIONES_ESTADO = [
+      { v:'BUENO',   t:'✅ BUENO' },
+      { v:'REGULAR', t:'🟡 REGULAR' },
+      { v:'MALO',    t:'🔴 MALO' },
+      { v:'NA',      t:'N/A — No aplica' },
+    ];
+    const OPCIONES_VIGENCIA = [
+      { v:'VIGENTE', t:'✅ VIGENTE' },
+      { v:'VENCIDO', t:'🔴 VENCIDO' },
+      { v:'NA',      t:'N/A — No aplica' },
+    ];
+
+    const SECCIONES = {
+      'sec-luces': [
+        ['LUCES_ESTACIONAMIENTO','Luces de estacionamiento'],
+        ['LUCES_BAJAS','Luces bajas'],
+        ['LUCES_ALTAS','Luces altas'],
+        ['LUCES_FRENO','Luces de freno'],
+        ['LUCES_REVERSA','Luz de marcha atrás / reversa'],
+        ['DIRECCIONAL_DERECHA','Direccional derecha'],
+        ['DIRECCIONAL_IZQUIERDA','Direccional izquierda'],
+        ['LUCES_EMERGENCIA','Luces de emergencia'],
+      ],
+      'sec-frenos': [
+        ['FRENO_MANO','Freno de mano'],
+        ['PEDAL_FRENO','Pedal de freno'],
+        ['LIQUIDO_FRENOS','Líquido de frenos'],
+      ],
+      'sec-neumaticos': [
+        ['LLANTA_DELANTERA_DERECHA','Llanta delantera derecha'],
+        ['LLANTA_DELANTERA_IZQUIERDA','Llanta delantera izquierda'],
+        ['LLANTA_TRASERA_DERECHA','Llanta trasera derecha'],
+        ['LLANTA_TRASERA_IZQUIERDA','Llanta trasera izquierda'],
+        ['LLANTA_REPUESTO','Llanta de repuesto'],
+        ['PRESION_LLANTAS','Nivel de aire / presión'],
+      ],
+      'sec-motor': [
+        ['ACEITE_MOTOR','Aceite motor'],
+        ['REFRIGERANTE','Agua radiador / refrigerante'],
+        ['MANGUERAS','Mangueras'],
+        ['CORREAS','Correas'],
+        ['BATERIA','Batería / agua batería'],
+        ['LIQUIDO_DIRECCION','Líquido de dirección'],
+        ['LIQUIDO_LAVAPARABRISAS','Líquido lavaparabrisas'],
+      ],
+      'sec-accesorios': [
+        ['LIMPIAPARABRISAS','Limpiaparabrisas'],
+        ['CINTURON_SEGURIDAD','Cinturón de seguridad'],
+        ['ESPEJO_INTERIOR','Espejo interior'],
+        ['ESPEJO_DERECHO','Espejo lateral derecho'],
+        ['ESPEJO_IZQUIERDO','Espejo lateral izquierdo'],
+        ['BOCINA','Bocina / pito de retroceso'],
+        ['ANTENA','Antena'],
+        ['AIRE_ACONDICIONADO','Aire acondicionado'],
+        ['CALEFACCION','Calefacción'],
+        ['RADIO','Radio'],
+        ['ENCENDEDOR','Encendedor / puerto de carga'],
+        ['BOTIQUIN','Botiquín (completo)'],
+        ['GATO','Gato'],
+        ['CRUCETA','Cruceta'],
+        ['TRIANGULOS','Triángulos'],
+        ['HERRAMIENTAS','Herramientas'],
+        ['CHALECO_REFLECTIVO','Chaleco reflectivo'],
+        ['TACO_BLOQUEO','Taco de bloqueo'],
+        ['TARJETA_PROPIEDAD','Tarjeta de propiedad'],
+      ],
+      'sec-carroceria': [
+        ['CAPO','Capó'],
+        ['TECHO','Techo'],
+        ['PARABRISAS','Parabrisas'],
+        ['VIDRIO_DELANTERO','Vidrio delantero'],
+        ['VIDRIO_TRASERO','Vidrio trasero'],
+        ['PUERTA_DELANTERA_DERECHA','Puerta delantera derecha'],
+        ['PUERTA_DELANTERA_IZQUIERDA','Puerta delantera izquierda'],
+        ['PUERTA_TRASERA_DERECHA','Puerta trasera derecha'],
+        ['PUERTA_TRASERA_IZQUIERDA','Puerta trasera izquierda'],
+        ['PARACHOQUES_DELANTERO','Parachoques delantero'],
+        ['PARACHOQUES_TRASERO','Parachoques trasero'],
+        ['GUARDABARROS','Guardabarros'],
+        ['QUINTA_RUEDA','Quinta rueda'],
+        ['PINTURA','Pintura general'],
+        ['CARROCERIA','Carrocería (golpes / rayones)'],
+        ['TUBO_ESCAPE','Tubo de escape'],
+        ['LIMPIEZA_GENERAL','Limpieza general'],
+      ],
+      'sec-funerario': [
+        ['COGINERIA','Cojinería'],
+        ['PLANCHON','Planchón'],
+        ['CUREÑA','Cureña'],
+        ['DIVISION','División'],
+        ['PASACINTAS','Pasacintas'],
+        ['COMPARTIMIENTO_FUNERARIO','Compartimiento funerario / bandeja'],
+      ],
+    };
+
+    // Documentos con vigencia + fecha de vencimiento
+    const DOCUMENTOS = [
+      ['SOAT','SOAT / Seguro Obligatorio'],
+      ['TECNOMECANICA','Tecnomecánica / Revisión Técnica'],
+      ['POLIZA_TODO_RIESGO','Póliza Todo Riesgo / Seguro a Terceros'],
+      ['EXTINTOR','Extintor'],
+    ];
+
+    function crearFilaChecklist(id, label) {
+      const row = document.createElement('div');
+      row.className = 'check-row';
+      const opts = OPCIONES_ESTADO.map(o => `<option value="${o.v}">${o.t}</option>`).join('');
+      row.innerHTML = `
+        <div class="item-label">${label}</div>
+        <select id="${id}_ESTADO" class="estado-item" onchange="this.setAttribute('data-val', this.value); marcarAlerta()" data-val="BUENO">${opts}</select>
+        <input type="text" class="obs" id="${id}_OBS" placeholder="Observación (opcional)">
+      `;
+      row.querySelector('select').setAttribute('data-val','BUENO');
+      return row;
+    }
+
+    function crearFilaDocumento(id, label) {
+      const row = document.createElement('div');
+      row.className = 'check-row doc-row';
+      const opts = OPCIONES_VIGENCIA.map(o => `<option value="${o.v}">${o.t}</option>`).join('');
+      row.innerHTML = `
+        <div class="item-label">${label}</div>
+        <select id="${id}_ESTADO" class="estado-item" onchange="this.setAttribute('data-val', this.value); marcarAlerta()" data-val="VIGENTE">${opts}</select>
+        <input type="date" class="fecha-vence" id="${id}_VENCE" title="Fecha de vencimiento">
+        <input type="text" class="obs" id="${id}_OBS" placeholder="Observación (opcional)">
+      `;
+      row.querySelector('select').setAttribute('data-val','VIGENTE');
+      return row;
+    }
+
+    function construirChecklists() {
+      Object.keys(SECCIONES).forEach(contId => {
+        const cont = document.getElementById(contId);
+        SECCIONES[contId].forEach(([id, label]) => cont.appendChild(crearFilaChecklist(id, label)));
+      });
+      const contDocs = document.getElementById('sec-documentos');
+      DOCUMENTOS.forEach(([id, label]) => contDocs.appendChild(crearFilaDocumento(id, label)));
+    }
+
+    // Cuenta cuántos ítems quedaron en REGULAR/MALO/VENCIDO para avisar antes de guardar
+    function marcarAlerta() {
+      const malos = Array.from(document.querySelectorAll('.estado-item'))
+        .filter(s => s.value === 'MALO' || s.value === 'VENCIDO' || s.value === 'REGULAR');
+      const div = document.getElementById('resumenAlertas');
+      if (malos.length === 0) { div.textContent = ''; return; }
+      div.textContent = `⚠️ ${malos.length} ítem(s) marcados en Regular/Malo/Vencido — revise las observaciones antes de guardar.`;
+    }
+
     window.onload = async () => {
-      // 1. Obtener sesión para Conductor y Regional
+      construirChecklists();
+
       const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
       if (!sesion) { window.location.href = 'index.html'; return; }
 
@@ -238,38 +369,103 @@
       document.getElementById('FECHA').value = new Date().toLocaleDateString('es-CO');
       document.getElementById('HORA').value = new Date().toTimeString().slice(0,5);
 
-      // 2. Cargar Flota real
       try {
-        const res = await DB.obtenerFlota(); 
+        const res = await DB.obtenerFlota();
         if (res.ok) {
           flotaGlobal = res.data;
           const sel = document.getElementById('PLACA');
           flotaGlobal.forEach(v => {
             let opt = document.createElement('option');
             opt.value = v.placa;
-            opt.textContent = v.placa + (v.carroza ? ' — ' + v.carroza : '');
+            opt.textContent = v.placa + (v.modelo ? ' — ' + v.modelo : '');
             sel.appendChild(opt);
           });
+          // Si el conductor tiene placa asignada en su usuario, la preseleccionamos
+          if (sesion.placa_asignada) {
+            sel.value = sesion.placa_asignada;
+            if (sel.value) llenarDatosVehiculo();
+          }
         }
       } catch(e) { console.error("Error cargando flota", e); }
     };
 
-    function llenarDatosVehiculo() {
+    async function llenarDatosVehiculo() {
       const placa = document.getElementById('PLACA').value;
       const v = flotaGlobal.find(item => item.placa === placa);
-      if (v) {
-        document.getElementById('CARROZA').value = v.carroza || '';
-        document.getElementById('MARCA').value = v.marca || '';
-        document.getElementById('MODELO').value = v.modelo || '';
-        document.getElementById('AÑO').value = v.año || '';
+      const panel = document.getElementById('panelEstado');
+
+      if (!v) { panel.classList.remove('show'); panel.innerHTML=''; return; }
+
+      // Autocompletar con las columnas REALES de la hoja "carrozas"
+      document.getElementById('MODELO').value = v.modelo || '';
+      document.getElementById('AÑO').value = v.anio || '';
+      document.getElementById('TIPO_VEHICULO').value = v.tipo_vehiculo || '';
+      document.getElementById('CONDUCTOR_ASIGNADO').value = v.conductor_asignado || '—';
+      if (v.sede_asignada && !document.getElementById('SEDE').value) {
+        document.getElementById('SEDE').value = v.sede_asignada.trim();
       }
+      const kmInput = document.getElementById('KILOMETRAJE');
+      if (v.kilometraje_actual) {
+        kmInput.placeholder = `Último registrado: ${Number(v.kilometraje_actual).toLocaleString('es-CO')} km`;
+        kmInput.min = v.kilometraje_actual;
+      }
+
+      // Panel de estado (combustible / rendimiento / aceite) — usa DB.obtenerEstadoCarroza,
+      // que ya existe en db.js pero no se estaba usando en este formulario.
+      panel.innerHTML = '<div class="estado-item-panel"><div class="titulo">Estado del vehículo</div><div class="valor">Cargando…</div></div>';
+      panel.classList.add('show');
+      try {
+        const estado = await DB.obtenerEstadoCarroza(placa);
+        if (estado.ok) {
+          panel.innerHTML = `
+            <div class="estado-item-panel">
+              <div class="titulo">Combustible</div>
+              <div class="valor">${estado.nivel_combustible} ${estado.porcentaje_combustible}%</div>
+              <div class="sub">${estado.combustible_galones} / ${estado.capacidad_galones} gal aprox.</div>
+            </div>
+            <div class="estado-item-panel">
+              <div class="titulo">Rendimiento</div>
+              <div class="valor">${estado.alerta_rendimiento.emoji} ${estado.rendimiento_ultimo_km_gal ? estado.rendimiento_ultimo_km_gal + ' km/gal' : 'Sin datos'}</div>
+              <div class="sub">${estado.alerta_rendimiento.texto}</div>
+            </div>
+            <div class="estado-item-panel">
+              <div class="titulo">Aceite motor</div>
+              <div class="valor">${estado.estado_aceite.emoji} ${estado.estado_aceite.faltan !== null ? estado.estado_aceite.faltan + ' km' : 'N/D'}</div>
+              <div class="sub">${estado.estado_aceite.texto}</div>
+            </div>
+            <div class="estado-item-panel">
+              <div class="titulo">Kilometraje registrado</div>
+              <div class="valor">${estado.kilometraje_actual.toLocaleString('es-CO')} km</div>
+            </div>
+          `;
+        } else {
+          panel.classList.remove('show'); panel.innerHTML='';
+        }
+      } catch(e) { panel.classList.remove('show'); panel.innerHTML=''; }
+
+      // Verificar si ya existe una inspección OK hoy → sugerir modo Confirmación
+      // (usa DB.verificarInspeccionHoy, ya definida en db.js pero sin uso previo)
+      const banner = document.getElementById('bannerAutoConfirma');
+      try {
+        const check = await DB.verificarInspeccionHoy(placa);
+        if (check && check.existe) {
+          banner.classList.remove('hidden');
+          banner.innerHTML = `ℹ️ Ya existe una inspección completa hoy para esta placa. Se sugiere modo <strong>CONFIRMACIÓN</strong> — puede cambiarlo si necesita hacer la inspección completa de nuevo.`;
+          document.getElementById('TIPO_INSPECCION').value = 'CONFIRMACION';
+          toggleModo(false);
+        } else {
+          banner.classList.add('hidden');
+          document.getElementById('TIPO_INSPECCION').value = 'COMPLETA';
+          toggleModo(false);
+        }
+      } catch(e) { banner.classList.add('hidden'); }
     }
 
     function toggleModo() {
       const modo = document.getElementById('TIPO_INSPECCION').value;
       const seccion = document.getElementById('camposDetallados');
       const banner = document.getElementById('bannerConfirma');
-      
+
       if (modo === 'CONFIRMACION') {
         seccion.classList.add('hidden');
         banner.classList.remove('hidden');
@@ -282,8 +478,7 @@
     async function guardarInspeccion() {
       const btn = document.getElementById('btnGuardar');
       const msg = document.getElementById('msg');
-      
-      // Validación básica
+
       const placa = document.getElementById('PLACA').value;
       const km = document.getElementById('KILOMETRAJE').value;
       const firma = document.getElementById('FIRMA_CONDUCTOR').value;
@@ -296,19 +491,16 @@
       btn.disabled = true;
       btn.textContent = 'Enviando a Google Sheets...';
 
-      // Capturar todos los campos automáticamente
       const form = document.getElementById('formInspeccion');
       const dataFinal = {};
-      
-      // Generamos un ID único basado en tiempo
       dataFinal['ID'] = Date.now();
-      
+
       form.querySelectorAll('input, select, textarea').forEach(el => {
         if (el.id) dataFinal[el.id] = el.value;
       });
 
       try {
-        const res = await DB.guardarInspeccion(dataFinal); 
+        const res = await DB.guardarInspeccion(dataFinal);
         if (res.ok) {
           msg.innerHTML = '<p style="color:green; text-align:center;">✅ Inspección guardada con éxito.</p>';
           setTimeout(() => location.href = 'panel_conductor.html', 2500);
