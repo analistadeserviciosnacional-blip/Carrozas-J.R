@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.R. — Panel Parque Automotor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+    :root {
+        --azul: #001a70;
+        --azul-2: #0d3fb8;
+        --celeste: #e3f2fd;
+        --blanco: #ffffff;
+        --rojo: #ef4444;
+        --verde: #10b981;
+        --naranja: #f59e0b;
+        --gris: #64748b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        background: var(--celeste);
+        font-family: 'DM Sans', sans-serif;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* ── HEADER ── */
+    header {
+        width: 100%;
+        max-width: 600px;
+        background: var(--blanco);
+        padding: 20px;
+        border-radius: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        box-sizing: border-box;
+    }
+
+    .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .btn-bell {
+        position: relative; width: 38px; height: 38px; border-radius: 12px;
+        background: var(--celeste); border: none; cursor: pointer; font-size: 17px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .btn-salir {
+        background: #fee2e2;
+        color: var(--rojo);
+        padding: 8px 15px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: bold;
+        border: none;
+        cursor: pointer;
+    }
+
+    /* ── BIENVENIDA ── */
+    .welcome-box { width: 100%; max-width: 600px; text-align: center; margin-bottom: 25px; }
+    .welcome-box h1 { color: var(--azul); font-size: 24px; margin: 0; line-height: 1.2; }
+    .welcome-box p { color: var(--gris); font-size: 14px; margin-top: 5px; }
+    .welcome-box .clock { color: var(--azul); font-weight: 700; font-size: 13px; margin-top: 6px; }
+
+    /* ── TARJETA PRINCIPAL ── */
+    .monitor-mini {
+        width: 100%;
+        max-width: 600px;
+        background: var(--blanco);
+        border-radius: 25px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        box-sizing: border-box;
+        margin-bottom: 20px;
+    }
+
+    .monitor-mini h2 {
+        font-size: 15px;
+        color: var(--azul);
+        margin-top: 0;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-transform: uppercase;
+        font-weight: 700;
+    }
+
+    .btn-ver-todo {
+        background: var(--celeste);
+        color: var(--azul);
+        font-size: 10px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        border: none;
+        cursor: pointer;
+    }
+
+    /* ── CENTRO DE CONTROL EN VIVO ── */
+    .cc-card {
+        background: linear-gradient(135deg, var(--azul) 0%, var(--azul-2) 100%);
+        color: #fff;
+    }
+    .cc-card h2 { color: #cfe0ff; }
+    .cc-pulse-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .cc-pulse { width: 9px; height: 9px; border-radius: 50%; background: #34D399; animation: ccPulse 1.8s infinite; }
+    @keyframes ccPulse {
+        0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,.55); }
+        70% { box-shadow: 0 0 0 9px rgba(52,211,153,0); }
+    }
+    .cc-pulse-row span.txt { font-size: 12px; color: #cfe0ff; font-weight: 600; }
+    .cc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .cc-stat { background: rgba(255,255,255,.08); border-radius: 14px; padding: 10px 8px; text-align: center; }
+    .cc-stat .num { font-size: 20px; font-weight: 800; line-height: 1; }
+    .cc-stat .lbl { font-size: 9.5px; color: #b9cdf5; text-transform: uppercase; margin-top: 4px; font-weight: 700; letter-spacing: .2px; }
+    .cc-alert-btn {
+        margin-top: 14px; width: 100%; background: rgba(239,68,68,.18); border: 1.5px solid rgba(252,165,165,.4);
+        color: #fecaca; border-radius: 14px; padding: 11px; font-weight: 800; font-size: 12.5px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+
+    /* ── ETIQUETAS DE GRUPO DE MENÚ (Operación / Mantenimiento / Gestión) ── */
+    .menu-group-label {
+        width: 100%; max-width: 600px; font-size: 11px; text-transform: uppercase;
+        letter-spacing: .6px; color: var(--gris); font-weight: 800; margin: 4px 4px 10px;
+    }
+
+    /* ── GRID DE MENÚ ── */
+    .menu-conductor {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        width: 100%;
+        max-width: 600px;
+        margin-bottom: 25px;
+    }
+
+    .card-condu {
+        background: var(--blanco);
+        padding: 25px 10px;
+        border-radius: 25px;
+        text-align: center;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        transition: 0.3s;
+        border: 1.5px solid transparent;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        color: inherit;
+    }
+    .card-condu:active { transform: scale(0.95); background: #f0f7ff; border-color: var(--azul); }
+    .card-condu i { font-size: 35px; display: block; margin-bottom: 10px; font-style: normal; }
+    .card-condu span { color: var(--azul); font-weight: bold; text-transform: uppercase; font-size: 11px; }
+
+    .badge-rojo {
+        display: none; position: absolute; top: -10px; right: -10px;
+        background: linear-gradient(135deg, #dc2626, #ef4444);
+        color: white; font-size: 14px; font-weight: 900;
+        min-width: 30px; height: 30px; border-radius: 15px;
+        align-items: center; justify-content: center;
+        border: 2.5px solid white; animation: badgePulse 1.5s ease infinite; z-index: 10;
+    }
+    @keyframes badgePulse {
+        0%,100% { transform: scale(1); box-shadow: 0 3px 10px rgba(220,38,38,0.5); }
+        50% { transform: scale(1.18); box-shadow: 0 4px 20px rgba(220,38,38,0.8); }
+    }
+
+    /* ── KPIs (mini chips) ── */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .kpi-chip { background: var(--celeste); border-radius: 16px; padding: 12px 12px 10px; }
+    .kpi-top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .kpi-chip .ic { font-size: 18px; }
+    .kpi-chip .trend { font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 8px; }
+    .trend-up { color: var(--verde); background: #d1fae5; }
+    .trend-down { color: var(--rojo); background: #fee2e2; }
+    .trend-flat { color: var(--gris); background: #e2e8f0; }
+    .kpi-chip .val { font-size: 17px; font-weight: 800; color: var(--azul); line-height: 1.1; }
+    .kpi-chip .lbl { font-size: 10.5px; color: var(--gris); font-weight: 600; margin-top: 2px; }
+
+    /* ── CHARTS ── */
+    .chart-box { position: relative; height: 210px; }
+    .chart-sub { font-size: 11px; color: var(--gris); margin: -8px 0 12px; }
+
+    /* ── TABLAS Y PILLS ── */
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 12px 5px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    .status-pill { font-weight: bold; font-size: 10px; padding: 4px 8px; border-radius: 8px; text-transform: uppercase; }
+    .pill-disponible { color: #10b981; background: #ecfdf5; }
+    .pill-servicio, .pill-ruta { color: #3b82f6; background: #eff6ff; }
+    .pill-taller { color: var(--rojo); background: #fef2f2; }
+    .pill-otro { color: var(--gris); background: #f1f5f9; }
+
+    .fuel-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 5px; }
+    .fuel-bar-mini { width: 60px; height: 6px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+    .fuel-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+    .fuel-pct { font-size: 10px; font-weight: 800; }
+
+    /* ── LISTA DE FLOTA (buscador + tarjetas) ── */
+    .fleet-search {
+        width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
+        background: var(--celeste); color: var(--azul); font-family: 'DM Sans', sans-serif;
+        font-size: 13px; font-weight: 600; margin-bottom: 14px;
+    }
+    .fleet-search::placeholder { color: #6b8bd6; }
+    .fleet-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 12px 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer;
+    }
+    .fleet-row:last-child { border-bottom: none; }
+    .fleet-row:active { background: #f5f9ff; }
+    .fleet-left b { color: var(--azul); font-size: 14px; }
+    .fleet-left .sub { font-size: 11px; color: var(--gris); margin-top: 2px; }
+    .fleet-right { text-align: right; }
+    .fleet-empty { text-align: center; color: var(--gris); font-size: 13px; padding: 20px 0; }
+
+    /* ── EXPORTAR REPORTES ── */
+    .export-select {
+        width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
+        background: var(--celeste); color: var(--azul); font-family: 'DM Sans', sans-serif;
+        font-size: 13px; font-weight: 700; margin-bottom: 12px; appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23001a70' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+        background-repeat: no-repeat; background-position: right 14px center;
+    }
+    .export-hint { font-size: 11px; color: var(--gris); margin: -6px 0 12px; }
+    .export-actions { display: flex; gap: 10px; }
+    .btn-export {
+        flex: 1; padding: 13px; border-radius: 14px; border: none; font-weight: 800;
+        font-size: 12.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .btn-export:active { transform: scale(0.96); }
+    .btn-csv { background: var(--celeste); color: var(--azul); }
+    .btn-excel { background: #d1fae5; color: #047857; }
+
+    /* ── NOTIFICACIÓN PUSH (OVERLAY) ── */
+    .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998; }
+    .push-overlay.visible { display: block; }
+
+    @keyframes slideDown { from{opacity:0;transform:translateY(-30px) scale(0.95);} to{opacity:1;transform:none;} }
+    .push-notif {
+        display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: calc(100% - 32px); max-width: 460px; background: #0f172a; border-radius: 24px;
+        padding: 24px 20px 20px; z-index: 9999; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        border: 1.5px solid #1e3a5f; animation: slideDown 0.4s cubic-bezier(.22,1,.36,1);
+        max-height: 82vh; overflow-y: auto;
+    }
+    .push-notif.visible { display: block; }
+    .push-barra-top { width: 40px; height: 4px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981); border-radius: 4px; margin: 0 auto 18px; }
+    .push-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .push-icono { width: 44px; height: 44px; border-radius: 14px; background: var(--azul); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .push-app-name { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; }
+    .push-titulo { font-size: 18px; font-weight: 800; color: #f1f5f9; margin-bottom: 8px; }
+    .push-body { font-size: 13.5px; color: #94a3b8; line-height: 1.7; margin-bottom: 20px; }
+    .push-body b { color: #e2e8f0; }
+    .push-btn-ver { width: 100%; padding: 15px; border: none; border-radius: 14px; background: var(--verde); color: white; font-weight: 800; font-size: 15px; cursor: pointer; }
+    .push-alert-section { margin-bottom: 14px; }
+    .push-alert-section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .3px; color: #fca5a5; margin: 0 0 6px; }
+    .push-alert-section ul { list-style: none; margin: 0; padding: 0; }
+    .push-alert-section li { font-size: 13px; color: #cbd5e1; padding: 6px 0; border-bottom: 1px solid #1e293b; }
+    .push-alert-section li:last-child { border-bottom: none; }
+    .push-empty-alert { text-align: center; color: #64748b; font-size: 13px; padding: 10px 0; }
+
+    /* ── PANEL INDIVIDUAL DE CARROZA (mismo lenguaje push/monitor) ── */
+    .veh-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998; }
+    .veh-overlay.visible { display: block; }
+    .veh-sheet {
+        display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
+        width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+        background: var(--celeste); border-radius: 26px 26px 0 0; z-index: 9999;
+        box-shadow: 0 -10px 40px rgba(0,0,0,.3); padding-bottom: 24px;
+        animation: slideDown .35s cubic-bezier(.22,1,.36,1);
+    }
+    .veh-sheet.visible { display: block; }
+    .veh-sheet-head {
+        position: sticky; top: 0; background: var(--azul); color: #fff; z-index: 2;
+        padding: 20px 20px 16px; border-radius: 26px 26px 0 0;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .veh-sheet-head h2 { margin: 0; font-size: 19px; font-weight: 800; }
+    .veh-sheet-head .sub { font-size: 12px; color: #b9cdf5; margin-top: 3px; }
+    .veh-sheet-head button {
+        width: 34px; height: 34px; border-radius: 10px; border: none; background: rgba(255,255,255,.15);
+        color: #fff; font-size: 15px; cursor: pointer;
+    }
+    .veh-sheet-body { padding: 18px 20px 4px; }
+    .vm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .vm-stat { background: #fff; border-radius: 14px; padding: 12px 14px; }
+    .vm-stat .lbl { font-size: 10px; color: var(--gris); text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px; font-weight: 700; }
+    .vm-stat .val { font-weight: 800; font-size: 15px; color: var(--azul); }
+    .vm-chart-card { background: #fff; border-radius: 16px; padding: 12px; margin-bottom: 12px; }
+    .vm-chart-card .chart-box { height: 160px; }
+    .vm-chart-card h4 { margin: 0 0 8px; font-size: 11.5px; color: var(--gris); text-transform: uppercase; font-weight: 700; }
+    .vm-section { background: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+    .vm-section h4 { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--azul); margin: 0 0 8px; }
+    .vm-list { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+    .vm-list li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    .vm-list li:last-child { border-bottom: none; }
+    .vm-list li span:last-child { text-align: right; color: var(--gris); flex-shrink: 0; }
+    .vm-empty { font-size: 12px; color: var(--gris); padding: 6px 0; }
+
+    /* ── SCROLL DE GRÁFICOS (tabs) ── */
+    .chart-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
+    .chart-tab {
+        flex-shrink: 0; padding: 7px 14px; border-radius: 10px; background: var(--celeste); color: var(--azul);
+        font-size: 11.5px; font-weight: 700; cursor: pointer; border: 1.5px solid transparent; white-space: nowrap;
+    }
+    .chart-tab.active { background: var(--azul); color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- ── SISTEMA DE NOTIFICACIÓN PUSH: ALERTAS CRÍTICAS ── -->
+<div class="push-overlay" id="push-overlay" onclick="cerrarPush()"></div>
+<div class="push-notif" id="push-notif">
+    <div class="push-barra-top"></div>
+    <div class="push-header">
+        <div class="push-icono">🚨</div>
+        <div class="push-app-info"><div class="push-app-name">J.R. Carrozas</div></div>
+    </div>
+    <div class="push-titulo">Alertas Críticas</div>
+    <div id="push-alertas-body"></div>
+    <button class="push-btn-ver" onclick="cerrarPush()">Entendido</button>
+</div>
+
+<!-- ── PANEL INDIVIDUAL DE CARROZA (bottom sheet) ── -->
+<div class="veh-overlay" id="veh-overlay" onclick="cerrarPanelCarroza()"></div>
+<div class="veh-sheet" id="veh-sheet">
+    <div class="veh-sheet-head">
+        <div>
+            <h2 id="vmPlaca">—</h2>
+            <div class="sub" id="vmSub">—</div>
+        </div>
+        <button onclick="cerrarPanelCarroza()">✕</button>
+    </div>
+    <div class="veh-sheet-body" id="vmBody">
+        <div style="text-align:center;padding:40px 0;color:var(--gris);">Cargando información de la carroza...</div>
+    </div>
+</div>
+
+<header>
+    <div class="logo-small">J.R. PARQUE AUTOMOTOR</div>
+    <div class="header-actions">
+        <button class="btn-bell" onclick="mostrarAlertas()" title="Alertas">
+            🔔
+            <div id="badge-alertas" class="badge-rojo" style="top:-6px; right:-6px; min-width:20px; height:20px; font-size:10px;">0</div>
+        </button>
+        <button onclick="cerrarSesion()" class="btn-salir">SALIR</button>
+    </div>
+</header>
+
+<div class="welcome-box">
+    <h1 id="txt-nombre">Hola...</h1>
+    <p>Vista 360° de la flota — sincronizado con Google Sheets</p>
+    <div class="clock" id="clockTxt">—</div>
+</div>
+
+<!-- ── CENTRO DE CONTROL EN TIEMPO REAL ── -->
+<div class="monitor-mini cc-card">
+    <div class="cc-pulse-row">
+        <span class="cc-pulse"></span>
+        <span class="txt">CENTRO DE CONTROL EN TIEMPO REAL</span>
+    </div>
+    <div class="cc-grid">
+        <div class="cc-stat"><div class="num" id="ccDisponibles">—</div><div class="lbl">Disponibles</div></div>
+        <div class="cc-stat"><div class="num" id="ccServicio">—</div><div class="lbl">En servicio</div></div>
+        <div class="cc-stat"><div class="num" id="ccTaller">—</div><div class="lbl">En taller</div></div>
+        <div class="cc-stat"><div class="num" id="ccCombustibleHoy">—</div><div class="lbl">Galones hoy</div></div>
+        <div class="cc-stat"><div class="num" id="ccTrasladosHoy">—</div><div class="lbl">Traslados hoy</div></div>
+        <div class="cc-stat"><div class="num" id="ccAlertas">—</div><div class="lbl">Alertas activas</div></div>
+    </div>
+    <button class="cc-alert-btn" onclick="mostrarAlertas()">🚨 <span id="ccAlertTxt">0 alertas críticas</span></button>
+</div>
+
+<!-- ── MENÚ DE ACCESOS — mismo agrupamiento que el sidebar original ── -->
+<div class="menu-group-label">Operación</div>
+<div class="menu-conductor">
+    <a href="flota.html" class="card-condu"><i>🚐</i><span>Carrozas</span></a>
+    <a href="conductores.html" class="card-condu"><i>🧑‍✈️</i><span>Conductores</span></a>
+    <a href="registro_llegada.html" class="card-condu"><i>🏁</i><span>Traslados</span></a>
+    <a href="entrega_vehiculo.html" class="card-condu"><i>📝</i><span>Entrega Vehículos</span></a>
+</div>
+
+<div class="menu-group-label">Mantenimiento</div>
+<div class="menu-conductor">
+    <a href="tanqueo.html" class="card-condu" style="border-color:var(--naranja);"><i>⛽</i><span>Combustible</span></a>
+    <a href="mis_averias.html" class="card-condu" style="border-color:var(--rojo);">
+        <div id="badge-averias" class="badge-rojo">0</div>
+        <i>⚠️</i><span>Averías</span>
+    </a>
+    <a href="mantenimientos.html" class="card-condu"><i>🔧</i><span>Mantenimientos</span></a>
+    <a href="documentacion.html" class="card-condu"><i>📄</i><span>Documentación</span></a>
+</div>
+
+<div class="menu-group-label">Gestión</div>
+<div class="menu-conductor">
+    <a href="indicadores.html" class="card-condu"><i>📊</i><span>Indicadores</span></a>
+    <a href="reportes.html" class="card-condu"><i>📁</i><span>Reportes</span></a>
+    <a href="configuracion.html" class="card-condu"><i>⚙️</i><span>Configuración</span></a>
+</div>
+
+<!-- ── KPIs ── -->
+<div class="monitor-mini">
+    <h2>Indicadores Clave</h2>
+    <div class="kpi-grid" id="kpiGrid"></div>
+</div>
+
+<!-- ── GRÁFICOS ── -->
+<div class="monitor-mini">
+    <h2>Indicadores Operativos</h2>
+    <div class="chart-tabs" id="chartTabs">
+        <div class="chart-tab active" data-chart="combustible">Combustible 12m</div>
+        <div class="chart-tab" data-chart="disponibilidad">Disponibilidad</div>
+        <div class="chart-tab" data-chart="ranking">Ranking Km</div>
+        <div class="chart-tab" data-chart="averias">Averías</div>
+        <div class="chart-tab" data-chart="regional">Traslados x Regional</div>
+    </div>
+    <div id="chart-combustible"><div class="chart-sub">Galones consumidos vs. valor gastado</div><div class="chart-box"><canvas id="chartCombustible12m"></canvas></div></div>
+    <div id="chart-disponibilidad" style="display:none;"><div class="chart-sub">Estado actual de la flota</div><div class="chart-box"><canvas id="chartDisponibilidad"></canvas></div></div>
+    <div id="chart-ranking" style="display:none;"><div class="chart-sub">Top carrozas por kilometraje</div><div class="chart-box"><canvas id="chartRankingKm"></canvas></div></div>
+    <div id="chart-averias" style="display:none;"><div class="chart-sub">Últimos 90 días</div><div class="chart-box"><canvas id="chartAverias"></canvas></div></div>
+    <div id="chart-regional" style="display:none;"><div class="chart-sub">Mes en curso</div><div class="chart-box"><canvas id="chartTrasladosRegional"></canvas></div></div>
+</div>
+
+<!-- ── LISTAS DE MONITOREO ── -->
+<div class="monitor-mini">
+    <h2>Averías en Curso <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a></h2>
+    <table><tbody id="tabla-averias"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
+</div>
+
+<div class="monitor-mini">
+    <h2>Traslados Recientes <a href="registro_llegada.html" class="btn-ver-todo">VER TODO</a></h2>
+    <table><tbody id="tabla-traslados"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
+</div>
+
+<div class="monitor-mini">
+    <h2>Tanqueos Recientes <a href="tanqueo.html" class="btn-ver-todo">VER TODO</a></h2>
+    <table><tbody id="tabla-tanqueos"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
+</div>
+
+<div class="monitor-mini">
+    <h2>Mantenimientos Pendientes <a href="mantenimientos.html" class="btn-ver-todo">VER TODO</a></h2>
+    <table><tbody id="tabla-mantenimientos"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
+</div>
+
+<!-- ── FLOTA COMPLETA ── -->
+<div class="monitor-mini">
+    <h2>Estado de Flota General</h2>
+    <input type="text" class="fleet-search" id="fleetSearch" placeholder="Buscar placa, regional o estado...">
+    <div id="fleetList"><div class="fleet-empty">Cargando flota...</div></div>
+</div>
+
+<!-- ── EXPORTAR REPORTES ── -->
+<div class="monitor-mini">
+    <h2>Exportar Reportes</h2>
+    <select class="export-select" id="exportDataset">
+        <option value="flota">Flota (con filtro actual del buscador)</option>
+        <option value="traslados">Traslados</option>
+        <option value="tanqueos">Tanqueos</option>
+        <option value="averias">Averías</option>
+        <option value="mantenimientos">Mantenimientos</option>
+    </select>
+    <div class="export-hint">Si eliges "Flota", se descarga solo lo que esté filtrado en el buscador de arriba.</div>
+    <div class="export-actions">
+        <button class="btn-export btn-csv" onclick="exportarDatos('csv')">⬇️ CSV</button>
+        <button class="btn-export btn-excel" onclick="exportarDatos('excel')">⬇️ Excel</button>
+    </div>
+</div>
+
+<!-- FOOTER -->
+<div class="monitor-mini" style="text-align:center; margin-bottom:30px;">
+    <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase;">Diseñado & Desarrollado por</div>
+    <div style="font-size:15px; font-weight:800; color:#001a70; margin-top:4px;">Zaider J. Buitrago A.</div>
+    <div style="font-size:10px; color:#a5b4fc; font-weight:700; margin-top:7px;">J.R. CARROZAS © 2026</div>
+</div>
+
+<!-- Conector real de la app (mismo que usan panel_conductor / panel_coordinador / dashboard) -->
+<script src="db.js"></script>
+<script>
+/* ==========================================================================
+   PANEL DEL PARQUE AUTOMOTOR — misma piel visual de panel_coordinador.html
+   Usa el mismo objeto DB que dashboard.html:
+     DB.obtenerFlota() / DB.obtenerTrasladosRecientes() / DB.obtenerTodasAverias()
+     DB.obtenerMantenimientos() / DB.obtenerTanqueos() / DB.obtenerEstadoCarroza(placa)
+   Este archivo debe vivir en la misma carpeta que db.js.
+   ========================================================================== */
+
+const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const fmtNum = n => new Intl.NumberFormat('es-CO').format(Math.round(n || 0));
+const fmtCOP = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n || 0);
+
+let userSesion = {};
+let FLOTA = [], TRASLADOS = [], AVERIAS = [], MANTENIMIENTOS = [], TANQUEOS = [];
+let ESTADOS_VEHICULO = [];
+let charts = {};
+let vmCharts = {};
+
+/* ---------- Sesión + saludo ---------- */
+window.onload = async () => {
+    const sesionRaw = localStorage.getItem('usuario_sesion');
+    if (sesionRaw) {
+        userSesion = JSON.parse(sesionRaw);
+        document.getElementById('txt-nombre').innerText = "Hola, " + (userSesion.nombre || "Supervisor de Flota");
+    } else {
+        document.getElementById('txt-nombre').innerText = "Panel de Flota";
+    }
+
+    tickClock(); setInterval(tickClock, 1000);
+    buildCharts();
+    setupChartTabs();
+    setupFleetSearch();
+
+    try {
+        await refrescarTodo();
+    } catch (err) {
+        console.error('Error cargando datos de la flota:', err);
+        document.getElementById('fleetList').innerHTML = '<div class="fleet-empty">No se pudo conectar con la hoja. Verifica que db.js esté en la misma carpeta.</div>';
+    }
+
+    setInterval(refrescarTodo, 60000);
+};
+
+function tickClock(){
+    const d = new Date();
+    document.getElementById('clockTxt').textContent = d.toLocaleDateString('es-CO',{weekday:'long', day:'2-digit', month:'long'}) + ' · ' + d.toLocaleTimeString('es-CO');
+}
+
+function cerrarSesion(){ localStorage.clear(); window.location.href = "index.html"; }
+
+/* ---------- Fechas ---------- */
+function hoyDDMMAAAA(){
+    const h = new Date();
+    return h.getDate().toString().padStart(2,'0') + '/' + (h.getMonth()+1).toString().padStart(2,'0') + '/' + h.getFullYear();
+}
+function parseDDMMAAAA(str){
+    if(!str) return null;
+    const p = String(str).trim().split('/');
+    if(p.length !== 3) return null;
+    const dd = parseInt(p[0],10), mm = parseInt(p[1],10), aaaa = parseInt(p[2].length===4?p[2]:('20'+p[2]).slice(-4),10);
+    if(!dd || !mm || !aaaa) return null;
+    return new Date(aaaa, mm-1, dd);
+}
+function esMismoMes(fechaStr, ref){
+    const d = parseDDMMAAAA(fechaStr);
+    return d && d.getMonth()===ref.getMonth() && d.getFullYear()===ref.getFullYear();
+}
+function sumaCampo(lista, campo){
+    return lista.reduce((acc,r)=> acc + (parseFloat(r[campo]) || 0), 0);
+}
+function normEstado(e){ return String(e||'').trim().toLowerCase(); }
+
+const ESTADO_INFO = {
+    'disponible': {label:'Disponible', pill:'pill-disponible'},
+    'en servicio': {label:'En servicio', pill:'pill-servicio'},
+    'en taller': {label:'En taller', pill:'pill-taller'},
+};
+function estadoInfo(estado){
+    return ESTADO_INFO[normEstado(estado)] || {label: estado || 'Sin estado', pill:'pill-otro'};
+}
+function estadoPill(estado){
+    const info = estadoInfo(estado);
+    return `<span class="status-pill ${info.pill}">${info.label}</span>`;
+}
+
+/* ==========================================================================
+   CARGA DE DATOS
+   ========================================================================== */
+async function cargarDatos(){
+    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo');
+
+    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes] = await Promise.all([
+        DB.obtenerFlota(),
+        DB.obtenerTrasladosRecientes(1000),
+        DB.obtenerTodasAverias(500),
+        DB.obtenerMantenimientos(1000),
+        DB.obtenerTanqueos(1000),
+    ]);
+
+    FLOTA          = flotaRes.data || [];
+    TRASLADOS      = trasladosRes.data || [];
+    AVERIAS        = averiasRes.data || [];
+    MANTENIMIENTOS = mantRes.data || [];
+    TANQUEOS       = tanqueosRes.data || [];
+
+    ESTADOS_VEHICULO = await Promise.all(
+        FLOTA.map(c => DB.obtenerEstadoCarroza(c.placa).catch(()=>({ok:false})))
+    );
+}
+
+/* ==========================================================================
+   KPIs
+   ========================================================================== */
+function calcularKPIs(){
+    const hoy = hoyDDMMAAAA();
+    const ref = new Date();
+
+    const total       = FLOTA.length;
+    const disponibles = FLOTA.filter(c => normEstado(c.estado)==='disponible').length;
+    const enServicio  = FLOTA.filter(c => normEstado(c.estado)==='en servicio').length;
+    const enTaller    = FLOTA.filter(c => normEstado(c.estado)==='en taller').length;
+
+    const mantPendientes = MANTENIMIENTOS.filter(m => normEstado(m.estado_orden)==='pendiente');
+    const averiaOrdenes  = mantPendientes.filter(m => /^avería/i.test(m.tipo_servicio||''));
+    const mantProgramado = mantPendientes.filter(m => !/^avería/i.test(m.tipo_servicio||''));
+
+    const trasladosHoy = TRASLADOS.filter(t => t.fecha === hoy).length;
+    const trasladosMes = TRASLADOS.filter(t => esMismoMes(t.fecha, ref)).length;
+
+    const tanqueosHoy = TANQUEOS.filter(t => t.FECHA === hoy);
+    const tanqueosMes = TANQUEOS.filter(t => esMismoMes(t.FECHA, ref));
+
+    const combustibleHoy = sumaCampo(tanqueosHoy, 'GALONES');
+    const combustibleMes = sumaCampo(tanqueosMes, 'GALONES');
+    const gastoCombustibleHoy = sumaCampo(tanqueosHoy, 'VALOR_TOTAL');
+    const gastoCombustibleMes = sumaCampo(tanqueosMes, 'VALOR_TOTAL');
+
+    const kmTotal    = sumaCampo(FLOTA, 'kilometraje_actual');
+    const kmPromedio = total ? kmTotal/total : 0;
+
+    const rendimientos = TANQUEOS.map(t=>parseFloat(t.RENDIMIENTO_KM_GALON)).filter(v=>v>0);
+    const rendimientoProm = rendimientos.length ? rendimientos.reduce((a,b)=>a+b,0)/rendimientos.length : 0;
+
+    const valorMantenimiento = sumaCampo(MANTENIMIENTOS, 'costo');
+
+    const aceiteVencido  = ESTADOS_VEHICULO.filter(e => e.ok && e.estado_aceite && e.estado_aceite.emoji==='🔴').length;
+    const aceiteProximo  = ESTADOS_VEHICULO.filter(e => e.ok && e.estado_aceite && e.estado_aceite.emoji==='🟡').length;
+    const tanqueBajo     = ESTADOS_VEHICULO.filter(e => e.ok && e.nivel_combustible==='🔴').length;
+
+    return {
+        total, disponibles, enServicio, enTaller,
+        averiasActivas: averiaOrdenes.length, mantProgramado: mantProgramado.length,
+        trasladosHoy, trasladosMes,
+        combustibleHoy, combustibleMes, gastoCombustibleHoy, gastoCombustibleMes,
+        kmTotal, kmPromedio, rendimientoProm, valorMantenimiento,
+        aceiteVencido, aceiteProximo, tanqueBajo,
+        alertasCriticas: averiaOrdenes.length + aceiteVencido + tanqueBajo,
+    };
+}
+
+function serieDias(lista, campoFecha, campoValor, n){
+    if(n===undefined) n = 14;
+    const dias = [];
+    for(let i=n-1;i>=0;i--){
+        const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-i);
+        dias.push(d);
+    }
+    return dias.map(d=>{
+        const key = d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
+        const filas = lista.filter(r => String(r[campoFecha]||'').trim() === key);
+        return campoValor ? sumaCampo(filas, campoValor) : filas.length;
+    });
+}
+function tendencia(serie){
+    if(serie.length < 4) return {pct:0, dir:'flat'};
+    const mitad = Math.floor(serie.length/2);
+    const antes = serie.slice(0,mitad).reduce((a,b)=>a+b,0);
+    const despues = serie.slice(mitad).reduce((a,b)=>a+b,0);
+    if(antes===0 && despues===0) return {pct:0, dir:'flat'};
+    if(antes===0) return {pct:100, dir:'up'};
+    const pct = Math.round(((despues-antes)/antes)*100);
+    return {pct, dir: pct>0?'up':(pct<0?'down':'flat')};
+}
+
+const KPI_DEFS = (k)=>{
+    const sTraslados   = serieDias(TRASLADOS, 'fecha');
+    const sCombustible = serieDias(TANQUEOS, 'FECHA', 'GALONES');
+    const sGasto       = serieDias(TANQUEOS, 'FECHA', 'VALOR_TOTAL');
+    const tT = tendencia(sTraslados), tC = tendencia(sCombustible), tG = tendencia(sGasto);
+    const flat = {pct:0, dir:'flat'};
+
+    return [
+        {label:'Total de carrozas', value:k.total, icon:'🚐', trend:flat},
+        {label:'Disponibles', value:k.disponibles, icon:'✅', trend:flat},
+        {label:'En servicio', value:k.enServicio, icon:'🛣️', trend:tT},
+        {label:'En taller', value:k.enTaller, icon:'🔧', trend:flat},
+        {label:'Averías activas', value:k.averiasActivas, icon:'⚠️', trend:flat},
+        {label:'Mantenimiento programado', value:k.mantProgramado, icon:'🗓️', trend:flat},
+        {label:'Traslados hoy', value:k.trasladosHoy, icon:'🏁', trend:tT},
+        {label:'Traslados del mes', value:k.trasladosMes, icon:'📅', trend:tT},
+        {label:'Combustible hoy (gal)', value:k.combustibleHoy, icon:'⛽', trend:tC, decimal:true},
+        {label:'Combustible del mes (gal)', value:k.combustibleMes, icon:'⛽', trend:tC, decimal:true},
+        {label:'Gasto combustible hoy', value:k.gastoCombustibleHoy, icon:'💰', trend:tG, money:true},
+        {label:'Gasto combustible del mes', value:k.gastoCombustibleMes, icon:'💰', trend:tG, money:true},
+        {label:'Km recorridos (flota)', value:k.kmTotal, icon:'🛞', trend:flat},
+        {label:'Promedio Km por carroza', value:k.kmPromedio, icon:'📏', trend:flat},
+        {label:'Rendimiento prom. Km/Gal', value:k.rendimientoProm, icon:'📈', trend:flat, decimal:true},
+        {label:'Valor en mantenimiento', value:k.valorMantenimiento, icon:'🔩', trend:flat, money:true},
+        {label:'Aceite vencido/próximo', value:k.aceiteVencido + k.aceiteProximo, icon:'🛢️', trend:flat},
+        {label:'Tanques en nivel bajo', value:k.tanqueBajo, icon:'🔋', trend:flat},
+    ];
+};
+
+function renderKPIs(kpis){
+    const grid = document.getElementById('kpiGrid');
+    grid.innerHTML = '';
+    KPI_DEFS(kpis).forEach(k=>{
+        const dispVal = k.money ? fmtCOP(k.value) : (k.decimal ? (k.value||0).toFixed(1) : fmtNum(k.value));
+        const dir = k.trend.dir;
+        const trendCls = dir==='up' ? 'trend-up' : (dir==='down' ? 'trend-down' : 'trend-flat');
+        const trendArrow = dir==='up' ? '↑' : (dir==='down' ? '↓' : '·');
+        const trendTxt = dir==='flat' ? 'estable' : `${trendArrow} ${Math.abs(k.trend.pct)}%`;
+        const chip = document.createElement('div');
+        chip.className = 'kpi-chip';
+        chip.innerHTML = `
+            <div class="kpi-top-row">
+                <span class="ic">${k.icon}</span>
+                <span class="trend ${trendCls}">${trendTxt}</span>
+            </div>
+            <div class="val">${dispVal}</div>
+            <div class="lbl">${k.label}</div>`;
+        grid.appendChild(chip);
+    });
+}
+
+function renderControlCenter(kpis){
+    document.getElementById('ccDisponibles').textContent = kpis.disponibles;
+    document.getElementById('ccServicio').textContent = kpis.enServicio;
+    document.getElementById('ccTaller').textContent = kpis.enTaller;
+    document.getElementById('ccCombustibleHoy').textContent = fmtNum(kpis.combustibleHoy);
+    document.getElementById('ccTrasladosHoy').textContent = kpis.trasladosHoy;
+    document.getElementById('ccAlertas').textContent = kpis.alertasCriticas;
+    document.getElementById('ccAlertTxt').textContent = `${kpis.alertasCriticas} alertas críticas`;
+
+    const badgeAlertas = document.getElementById('badge-alertas');
+    if (kpis.alertasCriticas > 0) { badgeAlertas.style.display='flex'; badgeAlertas.innerText = kpis.alertasCriticas; }
+    else { badgeAlertas.style.display='none'; }
+
+    const badgeAverias = document.getElementById('badge-averias');
+    if (kpis.averiasActivas > 0) { badgeAverias.style.display='flex'; badgeAverias.innerText = kpis.averiasActivas; }
+    else { badgeAverias.style.display='none'; }
+}
+
+/* ==========================================================================
+   GRÁFICOS (Chart.js) — paleta azul/celeste
+   ========================================================================== */
+function ultimos12Meses(){
+    const out = [];
+    const ref = new Date();
+    for(let i=11;i>=0;i--){
+        const d = new Date(ref.getFullYear(), ref.getMonth()-i, 1);
+        out.push({label: d.toLocaleDateString('es-CO',{month:'short'}), mes:d.getMonth(), anio:d.getFullYear()});
+    }
+    return out;
+}
+
+function buildCharts(){
+    Chart.defaults.font.family = "'DM Sans',sans-serif";
+    Chart.defaults.color = '#64748b';
+
+    charts.combustible = new Chart(document.getElementById('chartCombustible12m'), {
+        type:'line',
+        data:{ labels:[], datasets:[
+            {label:'Galones', data:[], borderColor:'#001a70', backgroundColor:'rgba(0,26,112,.10)', fill:true, tension:.35, yAxisID:'y'},
+            {label:'Costo (COP)', data:[], borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.08)', fill:true, tension:.35, yAxisID:'y1'}
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
+            plugins:{legend:{position:'bottom', labels:{boxWidth:9, boxHeight:9, usePointStyle:true, font:{size:10}}}},
+            scales:{
+                y:{position:'left', grid:{color:'rgba(0,26,112,.06)'}, ticks:{callback:v=>fmtNum(v), font:{size:9}}},
+                y1:{position:'right', grid:{display:false}, ticks:{callback:v=>'$'+fmtNum(v/1e6)+'M', font:{size:9}}},
+                x:{grid:{display:false}, ticks:{font:{size:9}}}
+            }
+        }
+    });
+
+    charts.disponibilidad = new Chart(document.getElementById('chartDisponibilidad'), {
+        type:'doughnut',
+        data:{ labels:['Disponible','En servicio','En taller'],
+            datasets:[{data:[0,0,0], backgroundColor:['#10b981','#3b82f6','#ef4444'], borderWidth:0}]},
+        options:{responsive:true, maintainAspectRatio:false, cutout:'68%',
+            plugins:{legend:{position:'bottom', labels:{boxWidth:9,boxHeight:9,usePointStyle:true, font:{size:10.5}}}}}
+    });
+
+    charts.rankingKm = new Chart(document.getElementById('chartRankingKm'), { type:'bar',
+        data:{ labels:[], datasets:[{data:[], backgroundColor:'#001a70', borderRadius:6}]},
+        options:{indexAxis:'y', responsive:true, maintainAspectRatio:false,
+            plugins:{legend:{display:false}},
+            scales:{x:{grid:{color:'rgba(0,26,112,.06)'}, ticks:{callback:v=>fmtNum(v), font:{size:9}}}, y:{grid:{display:false}, ticks:{font:{size:10}}}}}
+    });
+
+    charts.averias = new Chart(document.getElementById('chartAverias'), { type:'pie',
+        data:{ labels:[], datasets:[{data:[], backgroundColor:['#ef4444','#f59e0b','#3b82f6','#64748b','#94a3b8','#8b5cf6'], borderWidth:0}]},
+        options:{responsive:true, maintainAspectRatio:false,
+            plugins:{legend:{position:'bottom', labels:{boxWidth:9,boxHeight:9,usePointStyle:true, font:{size:9.5}}}}}
+    });
+
+    charts.trasladosRegional = new Chart(document.getElementById('chartTrasladosRegional'), { type:'bar',
+        data:{ labels:[], datasets:[{data:[], backgroundColor:'#10b981', borderRadius:6}]},
+        options:{responsive:true, maintainAspectRatio:false,
+            plugins:{legend:{display:false}},
+            scales:{y:{grid:{color:'rgba(0,26,112,.06)'}, ticks:{font:{size:9}}}, x:{grid:{display:false}, ticks:{font:{size:9}}}}}
+    });
+}
+
+function actualizarGraficos(){
+    const meses = ultimos12Meses();
+    const galonesPorMes = meses.map(m => sumaCampo(TANQUEOS.filter(t=>{ const d=parseDDMMAAAA(t.FECHA); return d && d.getMonth()===m.mes && d.getFullYear()===m.anio; }), 'GALONES'));
+    const costoPorMes   = meses.map(m => sumaCampo(TANQUEOS.filter(t=>{ const d=parseDDMMAAAA(t.FECHA); return d && d.getMonth()===m.mes && d.getFullYear()===m.anio; }), 'VALOR_TOTAL'));
+    charts.combustible.data.labels = meses.map(m=>m.label);
+    charts.combustible.data.datasets[0].data = galonesPorMes;
+    charts.combustible.data.datasets[1].data = costoPorMes;
+    charts.combustible.update();
+
+    const disponibles = FLOTA.filter(c => normEstado(c.estado)==='disponible').length;
+    const enServicio  = FLOTA.filter(c => normEstado(c.estado)==='en servicio').length;
+    const enTaller    = FLOTA.filter(c => normEstado(c.estado)==='en taller').length;
+    charts.disponibilidad.data.datasets[0].data = [disponibles, enServicio, enTaller];
+    charts.disponibilidad.update();
+
+    const topKm = [...FLOTA].sort((a,b)=>(parseFloat(b.kilometraje_actual)||0)-(parseFloat(a.kilometraje_actual)||0)).slice(0,6);
+    charts.rankingKm.data.labels = topKm.map(c=>c.placa);
+    charts.rankingKm.data.datasets[0].data = topKm.map(c=>parseFloat(c.kilometraje_actual)||0);
+    charts.rankingKm.update();
+
+    const porTipo = {};
+    AVERIAS.forEach(a=>{ const t = a.tipo_falla || 'Sin clasificar'; porTipo[t] = (porTipo[t]||0)+1; });
+    const tiposOrdenados = Object.entries(porTipo).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    charts.averias.data.labels = tiposOrdenados.map(t=>t[0]);
+    charts.averias.data.datasets[0].data = tiposOrdenados.map(t=>t[1]);
+    charts.averias.update();
+
+    const ref = new Date();
+    const trasladosMes = TRASLADOS.filter(t=>esMismoMes(t.fecha, ref));
+    const porRegional = {};
+    trasladosMes.forEach(t=>{ const r = t.regional || 'Sin regional'; porRegional[r] = (porRegional[r]||0)+1; });
+    const regionalesOrdenadas = Object.entries(porRegional).sort((a,b)=>b[1]-a[1]);
+    charts.trasladosRegional.data.labels = regionalesOrdenadas.map(r=>r[0]);
+    charts.trasladosRegional.data.datasets[0].data = regionalesOrdenadas.map(r=>r[1]);
+    charts.trasladosRegional.update();
+}
+
+function setupChartTabs(){
+    const tabs = document.querySelectorAll('.chart-tab');
+    const panels = { combustible:'chart-combustible', disponibilidad:'chart-disponibilidad', ranking:'chart-ranking', averias:'chart-averias', regional:'chart-regional' };
+    tabs.forEach(tab=>{
+        tab.addEventListener('click', ()=>{
+            tabs.forEach(t=>t.classList.remove('active'));
+            tab.classList.add('active');
+            Object.values(panels).forEach(id => document.getElementById(id).style.display = 'none');
+            document.getElementById(panels[tab.dataset.chart]).style.display = 'block';
+        });
+    });
+}
+
+/* ==========================================================================
+   LISTAS DE MONITOREO (averías, traslados, tanqueos, mantenimientos)
+   ========================================================================== */
+function renderListas(){
+    // Averías recientes (activas)
+    const averiasActivas = [...AVERIAS].sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0)).slice(0,4);
+    const tAv = document.getElementById('tabla-averias');
+    tAv.innerHTML = averiasActivas.length ? averiasActivas.map(av => `
+        <tr><td><b>${av.placa_vehiculo||'—'}</b><br><small>${av.tipo_falla||'—'}</small></td>
+        <td style="text-align:right; font-size:11px;">${av.created_at ? new Date(av.created_at).toLocaleDateString('es-CO') : '—'}</td></tr>`).join('')
+        : '<tr><td style="text-align:center;">Sin averías reportadas.</td></tr>';
+
+    // Traslados recientes
+    const trasladosRec = [...TRASLADOS].sort((a,b)=>(parseDDMMAAAA(b.fecha)||0)-(parseDDMMAAAA(a.fecha)||0)).slice(0,4);
+    const tTr = document.getElementById('tabla-traslados');
+    tTr.innerHTML = trasladosRec.length ? trasladosRec.map(tr => `
+        <tr><td><b>${tr.placa||'—'}</b></td>
+        <td style="text-align:right; font-size:11px;">${tr.origen||'—'} ➔ ${tr.destino||'—'}</td></tr>`).join('')
+        : '<tr><td style="text-align:center;">Sin traslados recientes.</td></tr>';
+
+    // Tanqueos recientes
+    const tanqueosRec = [...TANQUEOS].sort((a,b)=>(parseDDMMAAAA(b.FECHA)||0)-(parseDDMMAAAA(a.FECHA)||0)).slice(0,4);
+    const tTq = document.getElementById('tabla-tanqueos');
+    tTq.innerHTML = tanqueosRec.length ? tanqueosRec.map(tq => `
+        <tr><td><b>${tq.PLACA||'—'}</b><br><small>${tq.ESTACION_SERVICIO||''}</small></td>
+        <td style="text-align:right;"><b>${tq.GALONES||0} gal</b><br><small style="color:#64748b;">${fmtCOP(tq.VALOR_TOTAL)}</small></td></tr>`).join('')
+        : '<tr><td style="text-align:center;">Sin tanqueos registrados.</td></tr>';
+
+    // Mantenimientos pendientes
+    const mantPend = MANTENIMIENTOS.filter(m => normEstado(m.estado_orden)==='pendiente').slice(0,4);
+    const tMa = document.getElementById('tabla-mantenimientos');
+    tMa.innerHTML = mantPend.length ? mantPend.map(m => `
+        <tr><td><b>${m.placa||'—'}</b><br><small>${m.tipo_servicio||'—'}</small></td>
+        <td style="text-align:right; font-size:11px;">${m.fecha||'—'}</td></tr>`).join('')
+        : '<tr><td style="text-align:center;">Sin mantenimientos pendientes.</td></tr>';
+}
+
+/* ==========================================================================
+   FLOTA — lista con combustible + búsqueda
+   ========================================================================== */
+function fuelPillFromEstado(est){
+    if(!est || !est.ok || est.porcentaje_combustible == null){
+        return `<small style="color:#94a3b8;">⛽ sin registro</small>`;
+    }
+    const pct = est.porcentaje_combustible;
+    const color = pct <= 25 ? '#ef4444' : (pct <= 50 ? '#f59e0b' : '#10b981');
+    return `<div class="fuel-wrap">
+        <span class="fuel-pct" style="color:${color};">⛽ ${pct}%</span>
+        <div class="fuel-bar-mini"><div class="fuel-fill" style="width:${pct}%; background:${color};"></div></div>
+    </div>`;
+}
+
+function renderFlota(filtro){
+    filtro = norm(filtro || '');
+    const list = document.getElementById('fleetList');
+    const filas = FLOTA.map((c, i) => ({ c, est: ESTADOS_VEHICULO[i] || {} }))
+        .filter(({c}) => !filtro || norm(c.placa).includes(filtro) || norm(c.regional).includes(filtro) || norm(c.estado).includes(filtro));
+
+    if(!filas.length){ list.innerHTML = '<div class="fleet-empty">No se encontraron carrozas.</div>'; return; }
+
+    list.innerHTML = filas.map(({c, est}) => `
+        <div class="fleet-row" onclick="abrirPanelCarroza('${(c.placa||'').replace(/'/g,"")}')">
+            <div class="fleet-left">
+                <b>${c.placa || '—'}</b>
+                <div class="sub">${c.regional || 'Sin regional'} · ${fmtNum(c.kilometraje_actual)} km</div>
+            </div>
+            <div class="fleet-right">
+                ${estadoPill(c.estado)}
+                ${fuelPillFromEstado(est)}
+            </div>
+        </div>`).join('');
+}
+
+function setupFleetSearch(){
+    document.getElementById('fleetSearch').addEventListener('input', (e)=> renderFlota(e.target.value));
+}
+
+/* ==========================================================================
+   PANEL INDIVIDUAL DE CADA CARROZA (bottom sheet)
+   ========================================================================== */
+async function abrirPanelCarroza(placa){
+    document.getElementById('veh-overlay').classList.add('visible');
+    document.getElementById('veh-sheet').classList.add('visible');
+    document.getElementById('vmPlaca').textContent = placa;
+    document.getElementById('vmBody').innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--gris);">Cargando...</div>`;
+
+    const carroza = FLOTA.find(c => String(c.placa||'').toUpperCase() === placa.toUpperCase());
+    const estado  = await DB.obtenerEstadoCarroza(placa);
+
+    const trasladosVeh = TRASLADOS.filter(t => String(t.placa||'').toUpperCase() === placa.toUpperCase())
+        .sort((a,b)=> (parseDDMMAAAA(b.fecha)||0) - (parseDDMMAAAA(a.fecha)||0)).slice(0,6);
+    const tanqueosVeh = TANQUEOS.filter(t => String(t.PLACA||'').toUpperCase() === placa.toUpperCase())
+        .sort((a,b)=> (parseDDMMAAAA(b.FECHA)||0) - (parseDDMMAAAA(a.FECHA)||0)).slice(0,8);
+    const averiasVeh = AVERIAS.filter(a => String(a.placa_vehiculo||'').toUpperCase() === placa.toUpperCase())
+        .sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0)).slice(0,6);
+    const mantVeh = MANTENIMIENTOS.filter(m => String(m.placa||'').toUpperCase() === placa.toUpperCase())
+        .sort((a,b)=> String(b.fecha||'').localeCompare(String(a.fecha||''))).slice(0,6);
+
+    document.getElementById('vmSub').textContent = carroza ? `${carroza.regional || 'Regional no registrada'} · ${estadoInfo(carroza.estado).label}` : '—';
+
+    const body = document.getElementById('vmBody');
+    body.innerHTML = `
+        <div class="vm-grid">
+            <div class="vm-stat"><div class="lbl">Kilometraje</div><div class="val">${fmtNum(estado.kilometraje_actual)} km</div></div>
+            <div class="vm-stat"><div class="lbl">Combustible</div><div class="val">${estado.ok ? estado.nivel_combustible+' '+estado.porcentaje_combustible+'%' : '—'}</div></div>
+            <div class="vm-stat"><div class="lbl">Rendimiento</div><div class="val">${estado.ok && estado.rendimiento_ultimo_km_gal ? estado.rendimiento_ultimo_km_gal.toFixed(1)+' km/gal' : 'Sin datos'}</div></div>
+            <div class="vm-stat"><div class="lbl">Aceite</div><div class="val" style="font-size:12.5px;">${estado.ok ? estado.estado_aceite.emoji+' '+estado.estado_aceite.texto : '—'}</div></div>
+        </div>
+
+        <div class="vm-chart-card"><h4>Km recorridos</h4><div class="chart-box"><canvas id="vmChartKm"></canvas></div></div>
+        <div class="vm-chart-card"><h4>Rendimiento Km/Galón</h4><div class="chart-box"><canvas id="vmChartRend"></canvas></div></div>
+
+        <div class="vm-section">
+            <h4>Últimos traslados</h4>
+            ${trasladosVeh.length ? `<ul class="vm-list">${trasladosVeh.map(t=>`<li><span>${t.fecha} · ${t.origen||'—'} → ${t.destino||'—'}</span><span>${t.conductor||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin traslados registrados.</div>'}
+        </div>
+        <div class="vm-section">
+            <h4>Últimos tanqueos</h4>
+            ${tanqueosVeh.length ? `<ul class="vm-list">${tanqueosVeh.map(t=>`<li><span>${t.FECHA} · ${t.GALONES||0} gal · ${t.ESTACION_SERVICIO||'—'}</span><span>${fmtCOP(t.VALOR_TOTAL)}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin tanqueos registrados.</div>'}
+        </div>
+        <div class="vm-section">
+            <h4>Últimas averías</h4>
+            ${averiasVeh.length ? `<ul class="vm-list">${averiasVeh.map(a=>`<li><span>${a.tipo_falla||'—'} · ${a.descripcion_sintomas||''}</span><span>${a.reportado_por||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin averías registradas.</div>'}
+        </div>
+        <div class="vm-section">
+            <h4>Últimos mantenimientos</h4>
+            ${mantVeh.length ? `<ul class="vm-list">${mantVeh.map(m=>`<li><span>${m.fecha} · ${m.tipo_servicio||'—'} · ${m.taller||'—'}</span><span>${fmtCOP(m.costo)}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin mantenimientos registrados.</div>'}
+        </div>
+    `;
+
+    const tanqueosCron = [...tanqueosVeh].reverse();
+    if(vmCharts.km) vmCharts.km.destroy();
+    if(vmCharts.rend) vmCharts.rend.destroy();
+
+    vmCharts.km = new Chart(document.getElementById('vmChartKm'), {
+        type:'line',
+        data:{ labels: tanqueosCron.map(t=>t.FECHA), datasets:[{data: tanqueosCron.map(t=>parseFloat(t.KM_RECORRIDOS)||0), borderColor:'#001a70', backgroundColor:'rgba(0,26,112,.12)', fill:true, tension:.3}]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}, ticks:{font:{size:8}}}, y:{grid:{color:'rgba(0,26,112,.06)'}, ticks:{font:{size:9}}}} }
+    });
+    vmCharts.rend = new Chart(document.getElementById('vmChartRend'), {
+        type:'line',
+        data:{ labels: tanqueosCron.map(t=>t.FECHA), datasets:[{data: tanqueosCron.map(t=>parseFloat(t.RENDIMIENTO_KM_GALON)||0), borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.12)', fill:true, tension:.3}]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}, ticks:{font:{size:8}}}, y:{grid:{color:'rgba(0,26,112,.06)'}, ticks:{font:{size:9}}}} }
+    });
+}
+function cerrarPanelCarroza(){
+    document.getElementById('veh-overlay').classList.remove('visible');
+    document.getElementById('veh-sheet').classList.remove('visible');
+}
+
+/* ---------- Alertas (push-notif) ---------- */
+function mostrarAlertas(){
+    const averiaOrdenes = MANTENIMIENTOS.filter(m => normEstado(m.estado_orden)==='pendiente' && /^avería/i.test(m.tipo_servicio||''));
+    const aceite = ESTADOS_VEHICULO.filter(e => e.ok && e.estado_aceite && e.estado_aceite.emoji==='🔴');
+    const tanqueBajo = ESTADOS_VEHICULO.filter(e => e.ok && e.nivel_combustible==='🔴');
+
+    let html = '';
+    if(averiaOrdenes.length){
+        html += `<div class="push-alert-section"><h4>Órdenes de avería pendientes (${averiaOrdenes.length})</h4><ul>${averiaOrdenes.map(m=>`<li><b>${m.placa}</b> — ${m.tipo_servicio}</li>`).join('')}</ul></div>`;
+    }
+    if(aceite.length){
+        html += `<div class="push-alert-section"><h4>Cambio de aceite vencido (${aceite.length})</h4><ul>${aceite.map(e=>`<li><b>${e.placa}</b></li>`).join('')}</ul></div>`;
+    }
+    if(tanqueBajo.length){
+        html += `<div class="push-alert-section"><h4>Tanque en nivel bajo (${tanqueBajo.length})</h4><ul>${tanqueBajo.map(e=>`<li><b>${e.placa}</b></li>`).join('')}</ul></div>`;
+    }
+    if(!averiaOrdenes.length && !aceite.length && !tanqueBajo.length){
+        html = '<div class="push-empty-alert">No hay alertas críticas en este momento. ✅</div>';
+    }
+
+    document.getElementById('push-alertas-body').innerHTML = html;
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
+function cerrarPush(){
+    document.getElementById('push-overlay').classList.remove('visible');
+    document.getElementById('push-notif').classList.remove('visible');
+}
+
+/* ==========================================================================
+   EXPORTAR REPORTES — CSV y Excel, respetando el filtro de la flota
+   ========================================================================== */
+function datasetFlotaExport(){
+    const filtro = norm(document.getElementById('fleetSearch').value || '');
+    return FLOTA.map((c, i) => ({ c, est: ESTADOS_VEHICULO[i] || {} }))
+        .filter(({c}) => !filtro || norm(c.placa).includes(filtro) || norm(c.regional).includes(filtro) || norm(c.estado).includes(filtro))
+        .map(({c, est}) => ({
+            Placa: c.placa || '',
+            Regional: c.regional || '',
+            Estado: c.estado || '',
+            Kilometraje_Km: c.kilometraje_actual || 0,
+            Combustible_Pct: est.ok ? est.porcentaje_combustible : '',
+            Rendimiento_Km_Gal: est.ok && est.rendimiento_ultimo_km_gal ? Number(est.rendimiento_ultimo_km_gal.toFixed(1)) : '',
+            Estado_Aceite: est.ok && est.estado_aceite ? est.estado_aceite.texto : '',
+        }));
+}
+function datasetTraslados(){
+    return TRASLADOS.map(t => ({
+        Placa: t.placa || '', Fecha: t.fecha || '', Regional: t.regional || '',
+        Origen: t.origen || '', Destino: t.destino || '', Conductor: t.conductor || '',
+    }));
+}
+function datasetTanqueos(){
+    return TANQUEOS.map(t => ({
+        Placa: t.PLACA || '', Fecha: t.FECHA || '', Galones: t.GALONES || 0,
+        Valor_Total: t.VALOR_TOTAL || 0, Estacion_Servicio: t.ESTACION_SERVICIO || '',
+        Km_Recorridos: t.KM_RECORRIDOS || '', Rendimiento_Km_Gal: t.RENDIMIENTO_KM_GALON || '',
+    }));
+}
+function datasetAverias(){
+    return AVERIAS.map(a => ({
+        Placa: a.placa_vehiculo || '', Tipo_Falla: a.tipo_falla || '',
+        Descripcion: a.descripcion_sintomas || '', Reportado_Por: a.reportado_por || '',
+        Fecha: a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '',
+    }));
+}
+function datasetMantenimientos(){
+    return MANTENIMIENTOS.map(m => ({
+        Placa: m.placa || '', Tipo_Servicio: m.tipo_servicio || '', Estado_Orden: m.estado_orden || '',
+        Fecha: m.fecha || '', Taller: m.taller || '', Costo: m.costo || 0,
+    }));
+}
+function obtenerDataset(key){
+    switch(key){
+        case 'flota': return datasetFlotaExport();
+        case 'traslados': return datasetTraslados();
+        case 'tanqueos': return datasetTanqueos();
+        case 'averias': return datasetAverias();
+        case 'mantenimientos': return datasetMantenimientos();
+        default: return [];
+    }
+}
+function toCSV(rows){
+    if(!rows.length) return '';
+    const headers = Object.keys(rows[0]);
+    const esc = v => { const s = (v===null||v===undefined) ? '' : String(v); return '"' + s.replace(/"/g,'""') + '"'; };
+    const lines = [headers.join(',')];
+    rows.forEach(r => lines.push(headers.map(h => esc(r[h])).join(',')));
+    return lines.join('\r\n');
+}
+function descargarBlob(content, filename, mime){
+    const blob = new Blob([content], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+function exportarDatos(formato){
+    const key = document.getElementById('exportDataset').value;
+    const rows = obtenerDataset(key);
+    if(!rows.length){
+        document.getElementById('push-alertas-body').innerHTML = '<div class="push-empty-alert">No hay datos para exportar con el filtro actual.</div>';
+        document.getElementById('push-overlay').classList.add('visible');
+        document.getElementById('push-notif').classList.add('visible');
+        return;
+    }
+    const fecha = hoyDDMMAAAA().replace(/\//g,'-');
+    const nombreBase = `parque_automotor_${key}_${fecha}`;
+    if(formato === 'csv'){
+        descargarBlob('\uFEFF' + toCSV(rows), nombreBase + '.csv', 'text/csv;charset=utf-8;');
+    } else {
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, key.substring(0,31));
+        XLSX.writeFile(wb, nombreBase + '.xlsx');
+    }
+}
+
+/* ==========================================================================
+   INICIALIZACIÓN + AUTO-REFRESCO
+   ========================================================================== */
+async function refrescarTodo(){
+    await cargarDatos();
+    const kpis = calcularKPIs();
+    renderKPIs(kpis);
+    renderControlCenter(kpis);
+    actualizarGraficos();
+    renderListas();
+    renderFlota(document.getElementById('fleetSearch').value);
+}
+</script>
+</body>
+</html>
