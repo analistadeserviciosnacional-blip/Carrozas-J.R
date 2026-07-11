@@ -281,6 +281,7 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
             <option value="">— Selecciona tu Rol —</option>
             <option value="conductor">Conductor</option>
             <option value="coordinador">Coordinador</option>
+            <option value="gestor_flota">Gestor de Flotas JR</option>
             <option value="admin">Administrador</option>
         </select>
         <select id="r-regional" onchange="onCambioRegional()">
@@ -607,6 +608,8 @@ async function login() {
 
             if (rol === 'admin' || rol === 'administrador' || usr === 'admin') {
                 window.location.href = 'dashboard.html';
+            } else if (rol === 'gestor_flota' || rol === 'gestor de flotas jr' || rol === 'gestor de flota jr' || rol === 'gestor flota jr') {
+                window.location.href = 'panel_automotor.html';
             } else if (rol === 'coordinador') {
                 window.location.href = 'panel_coordinador.html';
             } else {
