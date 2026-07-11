@@ -47,6 +47,7 @@ const SHEET_MAP = {
   'notificaciones_apoyo': 'notificaciones_apoyo',
   'config':               'config',
   'Tanqueo':              'Tanqueo',
+  'Inspeccion_Vehiculo':  'Inspeccion_Vehiculo',
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
@@ -636,6 +637,8 @@ const DB = {
         km__salida:             d.km_salida             || '',
         km__ingreso:            '',
         total_km:               '',
+        nivel_combustible_salida: d.nivel_combustible_salida || '',
+        nivel_aceite_salida:      d.nivel_aceite_salida      || '',
         coordinador_en_turno:   d.coordinador           || '',
         observaciones:          d.observaciones         || '',
         imagen1:                d.imagen1               || '',
@@ -677,6 +680,8 @@ const DB = {
           destino:                d.destino       || '',
           hora_de_salida:         d.hora_salida   || '',
           km__salida:             d.km_salida     || '',
+          nivel_combustible_salida: d.nivel_combustible_salida || '',
+          nivel_aceite_salida:      d.nivel_aceite_salida      || '',
           coordinador_en_turno:   d.coordinador   || '',
           observaciones:          d.observaciones || '',
           imagen1:                d.imagen1       || '',
@@ -737,6 +742,7 @@ const DB = {
         placa:          d.placa          || '',
         km_ingreso:     d.km_ingreso     || '',
         total_km:       d.total_km       || '',
+        nivel_combustible_llegada: d.nivel_combustible_llegada || '',
         estado_entrega: d.estado_entrega || '',
         observaciones:  d.observaciones  || '',
         recibido_por:   d.recibido_por   || '',
@@ -868,6 +874,65 @@ const DB = {
     const res = await gasWrite('config', { valor: '' }, 'update', 'clave', 'logo_app');
     if (res.ok) this.invalidarCache('config');
     return res;
+  },
+
+  // ── GUARDAR INSPECCIÓN VEHICULAR ───────────────────────────
+  // Guarda la inspección completa en la hoja "Inspeccion_Vehiculo".
+  // El backend (Code.gs v10.7+) auto-crea la hoja con sus ~80 columnas
+  // la primera vez que se usa. El ID lo asigna Code.gs automáticamente
+  // (prefijo INSP-) si el payload lleva ID vacío o numérico.
+  async guardarInspeccion(datos) {
+    return conLock('guardarInspeccion', async () => {
+      try {
+        // Normalizamos el ID: si viene como timestamp numérico lo borramos
+        // para que Code.gs asigne el consecutivo INSP-XXXXX correcto.
+        const payload = Object.assign({}, datos);
+        if (payload.ID && String(payload.ID).length > 8) {
+          // Es un timestamp de Date.now() — lo descartamos
+          payload.ID = '';
+        }
+        const res = await gasWrite('Inspeccion_Vehiculo', payload, 'insert');
+        if (res.ok) {
+          this.invalidarCache('Inspeccion_Vehiculo');
+          // Si el estado de inspección es NO OPERATIVO → marcar carroza En Taller
+          if (datos.ESTADO_INSPECCION === 'NO OPERATIVO') {
+            actualizarEnSegundoPlano(
+              this.actualizarCarroza(datos.PLACA, { estado: 'En Taller' })
+                .then(r => { this.invalidarCache('carrozas'); return r; }),
+              'actualizarCarroza tras inspeccion NO OPERATIVO'
+            );
+          } else if (datos.KILOMETRAJE) {
+            // Actualizar km de la carroza con el reportado en la inspección
+            actualizarEnSegundoPlano(
+              this.actualizarCarroza(datos.PLACA, {
+                kilometraje_actual: parseInt(datos.KILOMETRAJE) || 0
+              }).then(r => { this.invalidarCache('carrozas'); return r; }),
+              'actualizarCarroza km tras inspeccion'
+            );
+          }
+        }
+        return res;
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    });
+  },
+
+  // ── VERIFICAR INSPECCIÓN HECHA HOY ────────────────────────
+  // Consulta el endpoint especial del GAS (action=checkInspeccionHoy)
+  // que revisa si ya existe una inspección OK para esta placa hoy.
+  // inspeccion.html puede usar esto para mostrar modo CONFIRMACIÓN.
+  async verificarInspeccionHoy(placa) {
+    try {
+      const url = `${URL_GAS}?action=checkInspeccionHoy&placa=${encodeURIComponent(placa)}`;
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 12000);
+      if (!resp.ok) return { existe: false };
+      const json = await resp.json();
+      return json;
+    } catch (e) {
+      console.warn('verificarInspeccionHoy error:', e.message);
+      return { existe: false };
+    }
   },
 
 };
