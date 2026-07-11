@@ -333,7 +333,7 @@
         <div class="push-icono">🚨</div>
         <div class="push-app-info"><div class="push-app-name">J.R. Carrozas</div></div>
     </div>
-    <div class="push-titulo">Alertas Críticas</div>
+    <div class="push-titulo" id="push-titulo-txt">Alertas Críticas</div>
     <div id="push-alertas-body"></div>
     <button class="push-btn-ver" onclick="cerrarPush()">Entendido</button>
 </div>
@@ -399,7 +399,7 @@
 <div class="menu-group-label">Mantenimiento</div>
 <div class="menu-conductor">
     <a href="tanqueo.html" class="card-condu" style="border-color:var(--naranja);"><i>⛽</i><span>Combustible</span></a>
-    <a href="mis_averias.html" class="card-condu" style="border-color:var(--rojo);">
+    <a href="javascript:void(0)" onclick="mostrarAverias()" class="card-condu" style="border-color:var(--rojo);">
         <div id="badge-averias" class="badge-rojo">0</div>
         <i>⚠️</i><span>Averías</span>
     </a>
@@ -439,7 +439,7 @@
 
 <!-- ── LISTAS DE MONITOREO ── -->
 <div class="monitor-mini">
-    <h2>Averías en Curso <a href="mis_averias.html" class="btn-ver-todo">VER TODO</a></h2>
+    <h2>Averías en Curso <button class="btn-ver-todo" onclick="mostrarAverias()">VER TODO</button></h2>
     <table><tbody id="tabla-averias"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
 </div>
 
@@ -1148,8 +1148,39 @@ function cerrarPanelCarroza(){
     document.getElementById('veh-sheet').classList.remove('visible');
 }
 
+/* ---------- Averías de TODA la flota (no solo las del usuario logueado) ----------
+   La página "mis_averias.html" es del conductor y solo muestra lo que reportó
+   ese usuario. Esta vista, en cambio, lista las averías/novedades activas de
+   TODAS las carrozas, tomadas de la hoja "carrozas" (Parque Automotor). ---------- */
+function mostrarAverias(){
+    const averiasParque = FLOTA.map(averiaActivaDeCarroza).filter(Boolean)
+        .sort((a,b)=> (diasHasta(b.fecha)||-9999) - (diasHasta(a.fecha)||-9999));
+
+    document.getElementById('push-titulo-txt').textContent = 'Averías de la Flota';
+    let html = `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${averiasParque.length} carroza(s) con novedad activa</div>`;
+
+    if(!averiasParque.length){
+        html += '<div class="push-empty-alert">No hay averías activas en este momento. ✅</div>';
+    } else {
+        html += `<div class="push-alert-section"><ul>${averiasParque.map(a => `
+            <li>
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <b style="color:#f1f5f9;">${a.placa}</b>
+                    <span style="color:${a.pendiente ? '#fca5a5' : '#94a3b8'};font-size:11px;font-weight:800;text-transform:uppercase;">${a.pendiente ? 'PENDIENTE' : (a.estadoHallazgo||'')}</span>
+                </div>
+                <div style="margin-top:3px;">${a.clasificacion || 'Novedad'}${a.taller ? ' · '+a.taller : ''}${a.fecha ? ' · '+a.fecha : ''}</div>
+                <div style="margin-top:3px;color:#94a3b8;">${a.detalle || ''}</div>
+            </li>`).join('')}</ul></div>`;
+    }
+
+    document.getElementById('push-alertas-body').innerHTML = html;
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
+
 /* ---------- Alertas (push-notif) ---------- */
 function mostrarAlertas(){
+    document.getElementById('push-titulo-txt').textContent = 'Alertas Críticas';
     const averiasParque = FLOTA.map(averiaActivaDeCarroza).filter(Boolean);
     const docsVencidos = FLOTA.map(c => ({placa:c.placa, doc: documentoMasUrgente(c)}))
         .filter(x => x.doc && x.doc.dias !== null && x.doc.dias < 0);
