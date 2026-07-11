@@ -174,6 +174,16 @@
 
         <label>Total KM Recorridos</label>
 
+        <div class="section-title">⛽ Nivel de Combustible al Llegar</div>
+        <select id="nivel_combustible_llegada">
+            <option value="">Seleccionar...</option>
+            <option value="Lleno">🟢 Lleno</option>
+            <option value="3/4">🟢 3/4</option>
+            <option value="1/2">🟡 Media (1/2)</option>
+            <option value="1/4">🟠 1/4</option>
+            <option value="Reserva">🔴 Reserva</option>
+        </select>
+
         <!-- BANNER: cargando datos de salida -->
         <div id="banner-esperar">
             <div class="esp-titulo">⏳ Cargando datos de salida...</div>
@@ -531,6 +541,7 @@
             km_ingreso:     kmI,
             km_salida_ref:  window._kmSalidaActivo || '',
             total_km:       document.getElementById('total_km').value || '',
+            nivel_combustible_llegada: document.getElementById('nivel_combustible_llegada').value,
             estado_entrega: etiquetaEstado,
             observaciones:  document.getElementById('observaciones').value + notaCorreccion,
             recibido_por:   document.getElementById('recibido_por').value,
@@ -616,6 +627,7 @@
             '*Hora Llegada:* '   + datosFinales.hora_ingreso   + '\n' +
             '*KM Ingreso:* '     + parseInt(datosFinales.km_ingreso).toLocaleString('es-CO') + '\n' +
             '*Total KM:* '       + totalKM                     + '\n' +
+            '*Combustible Llegada:* ' + (datosFinales.nivel_combustible_llegada || '---') + '\n' +
             '*Estado Entrega:* ' + datosFinales.estado_entrega + '\n' +
             '*Recibido Por:* '   + datosFinales.recibido_por   + '\n\n' +
             '📝 *Observaciones:* ' + (datosFinales.observaciones || 'Sin novedades') + '\n\n' +
