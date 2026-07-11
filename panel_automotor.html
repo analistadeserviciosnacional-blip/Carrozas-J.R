@@ -490,6 +490,28 @@
 <script src="db.js"></script>
 <script>
 /* ==========================================================================
+   CONTROL DE ACCESO — bloquea la entrada directa por URL.
+   Solo se puede llegar aquí habiendo iniciado sesión desde index.html,
+   que es quien guarda 'usuario_sesion' en localStorage tras un login válido.
+   Se ejecuta de inmediato (fuera de window.onload) para redirigir antes
+   de que el usuario alcance a ver contenido del panel.
+   ========================================================================== */
+(function verificarAccesoPanel(){
+    const sesionRaw = localStorage.getItem('usuario_sesion');
+    if (!sesionRaw) {
+        window.location.replace('index.html');
+        return;
+    }
+    try {
+        JSON.parse(sesionRaw);
+    } catch(e) {
+        localStorage.removeItem('usuario_sesion');
+        window.location.replace('index.html');
+    }
+})();
+</script>
+<script>
+/* ==========================================================================
    PANEL DEL PARQUE AUTOMOTOR — misma piel visual de panel_coordinador.html
    Usa el mismo objeto DB que dashboard.html:
      DB.obtenerFlota() / DB.obtenerTrasladosRecientes() / DB.obtenerTodasAverias()
@@ -514,7 +536,8 @@ window.onload = async () => {
         userSesion = JSON.parse(sesionRaw);
         document.getElementById('txt-nombre').innerText = "Hola, " + (userSesion.nombre || "Supervisor de Flota");
     } else {
-        document.getElementById('txt-nombre').innerText = "Panel de Flota";
+        window.location.replace('index.html');
+        return;
     }
 
     tickClock(); setInterval(tickClock, 1000);
