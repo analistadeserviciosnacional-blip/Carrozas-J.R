@@ -465,6 +465,7 @@
     <h2>Estado de Flota General</h2>
     <input type="text" class="fleet-search" id="fleetSearch" placeholder="Buscar placa, regional o estado...">
     <div id="fleetList"><div class="fleet-empty">Cargando flota...</div></div>
+    <button class="btn-ver-todo" id="btnToggleFlota" style="width:100%; margin-top:10px; padding:10px; display:none;" onclick="toggleFlotaExpandida()">Ver todas las carrozas</button>
 </div>
 
 <!-- ── EXPORTAR REPORTES ── -->
@@ -477,9 +478,15 @@
         <option value="averias">Averías</option>
         <option value="mantenimientos">Mantenimientos</option>
     </select>
-    <input type="text" class="fleet-search" id="exportPlacaFiltro" placeholder="Filtrar por placa (opcional)" style="margin-bottom:8px;">
-    <input type="text" class="fleet-search" id="exportRegionalFiltro" placeholder="Filtrar por regional (opcional)" style="margin-bottom:8px;">
-    <input type="text" class="fleet-search" id="exportConductorFiltro" placeholder="Filtrar por conductor (opcional, solo aplica a Traslados y Averías)" style="margin-bottom:8px;">
+    <select class="export-select" id="exportPlacaFiltro" style="margin-bottom:8px;">
+        <option value="">Todas las placas</option>
+    </select>
+    <select class="export-select" id="exportRegionalFiltro" style="margin-bottom:8px;">
+        <option value="">Todas las regionales</option>
+    </select>
+    <select class="export-select" id="exportConductorFiltro" style="margin-bottom:8px;">
+        <option value="">Todos los conductores</option>
+    </select>
     <div class="export-hint">Los filtros de arriba son opcionales y se combinan entre sí. Si los dejas vacíos, se exporta todo el dataset elegido. "Flota" también respeta el buscador de la lista de flota más arriba.</div>
     <div class="export-actions">
         <button class="btn-export btn-csv" onclick="exportarDatos('csv')">⬇️ CSV</button>
@@ -547,10 +554,11 @@ const fmtNum = n => new Intl.NumberFormat('es-CO').format(Math.round(n || 0));
 const fmtCOP = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n || 0);
 
 let userSesion = {};
-let FLOTA = [], TRASLADOS = [], AVERIAS = [], MANTENIMIENTOS = [], TANQUEOS = [], INSPECCIONES = [];
+let FLOTA = [], TRASLADOS = [], AVERIAS = [], MANTENIMIENTOS = [], TANQUEOS = [], INSPECCIONES = [], USUARIOS = [];
 let ESTADOS_VEHICULO = [];
 let charts = {};
 let vmCharts = {};
+let fleetExpanded = false;
 
 /* ---------- Sesión + saludo ---------- */
 window.onload = async () => {
@@ -671,15 +679,16 @@ function pillVencimiento(dias){
    CARGA DE DATOS
    ========================================================================== */
 async function cargarDatos(){
-    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo','Inspeccion_Vehiculo');
+    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo','Inspeccion_Vehiculo','usuarios');
 
-    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes, inspRes] = await Promise.all([
+    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes, inspRes, usuariosRes] = await Promise.all([
         DB.obtenerFlota(),
         DB.obtenerTrasladosRecientes(1000),
         DB.obtenerTodasAverias(500),
         DB.obtenerMantenimientos(1000),
         DB.obtenerTanqueos(1000),
         DB.supabase.from('Inspeccion_Vehiculo').select(),
+        DB.supabase.from('usuarios').select(),
     ]);
 
     FLOTA          = normalizarFechas(flotaRes.data || [], ['doc_fecha_proximo_vencer','ultimo_hallazgo_fecha','historial_fecha']);
@@ -688,10 +697,24 @@ async function cargarDatos(){
     MANTENIMIENTOS = normalizarFechas(mantRes.data || [], ['fecha']);
     TANQUEOS       = normalizarFechas(tanqueosRes.data || [], ['FECHA']);
     INSPECCIONES   = normalizarFechas((inspRes && inspRes.data) || [], ['SOAT_VENCE','TECNOMECANICA_VENCE','POLIZA_TODO_RIESGO_VENCE']);
+    USUARIOS       = (usuariosRes && usuariosRes.data) || [];
 
     ESTADOS_VEHICULO = await Promise.all(
         FLOTA.map(c => DB.obtenerEstadoCarroza(c.placa).catch(()=>({ok:false})))
     );
+}
+
+// Lista de conductores real y única, tomada de la hoja "usuarios",
+// filtrando solo las filas cuyo rol sea exactamente "conductor".
+// Esta es la ÚNICA fuente de verdad para "quién es conductor" —
+// no se infiere de nombres sueltos escritos en Traslados/Averías,
+// que pueden tener errores de tipeo, mayúsculas distintas, etc.
+function obtenerConductoresUnicos(){
+    const nombres = USUARIOS
+        .filter(u => String(u.rol||'').trim().toLowerCase() === 'conductor')
+        .map(u => String(u.nombre||'').trim())
+        .filter(Boolean);
+    return [...new Set(nombres)].sort((a,b)=> a.localeCompare(b));
 }
 
 /* ── Última inspección registrada por placa (para cruzar SOAT/Tecnomecánica/Póliza) ── */
@@ -1080,15 +1103,39 @@ function fuelPillFromEstado(est){
     </div>`;
 }
 
+// Cuenta cuántos traslados tiene registrados una placa — sirve como métrica
+// de "qué tan movida" es esa carroza dentro de la operación.
+function contarMovimientos(placa){
+    const pSel = String(placa||'').toUpperCase();
+    return TRASLADOS.filter(t => String(t.placa||'').toUpperCase() === pSel).length;
+}
+
 function renderFlota(filtro){
     filtro = norm(filtro || '');
     const list = document.getElementById('fleetList');
-    const filas = FLOTA.map((c, i) => ({ c, est: ESTADOS_VEHICULO[i] || {} }))
+    const btnToggle = document.getElementById('btnToggleFlota');
+
+    let filas = FLOTA.map((c, i) => ({ c, est: ESTADOS_VEHICULO[i] || {} }))
         .filter(({c}) => !filtro || norm(c.placa).includes(filtro) || norm(c.regional).includes(filtro) || norm(c.estado).includes(filtro));
 
-    if(!filas.length){ list.innerHTML = '<div class="fleet-empty">No se encontraron carrozas.</div>'; return; }
+    // Orden por actividad: las carrozas con más traslados registrados primero.
+    filas = filas
+        .map(f => ({...f, movimientos: contarMovimientos(f.c.placa)}))
+        .sort((a,b)=> b.movimientos - a.movimientos);
 
-    list.innerHTML = filas.map(({c, est}) => `
+    if(!filas.length){
+        list.innerHTML = '<div class="fleet-empty">No se encontraron carrozas.</div>';
+        btnToggle.style.display = 'none';
+        return;
+    }
+
+    const haySearch = !!filtro;
+    // Con búsqueda activa se muestran todos los resultados que coinciden;
+    // sin búsqueda, se respeta el estado expandido/colapsado (top 10 por defecto).
+    const mostrarTodas = fleetExpanded || haySearch;
+    const filasAMostrar = mostrarTodas ? filas : filas.slice(0, 10);
+
+    list.innerHTML = filasAMostrar.map(({c, est}) => `
         <div class="fleet-row" onclick="abrirPanelCarroza('${(c.placa||'').replace(/'/g,"")}')">
             <div class="fleet-left">
                 <b>${c.placa || '—'}</b>
@@ -1099,6 +1146,19 @@ function renderFlota(filtro){
                 ${fuelPillFromEstado(est)}
             </div>
         </div>`).join('');
+
+    if(haySearch || filas.length <= 10){
+        btnToggle.style.display = 'none';
+    } else {
+        btnToggle.style.display = 'block';
+        btnToggle.textContent = fleetExpanded ? '▲ Ver solo las 10 más movidas' : `▼ Ver todas las carrozas (${filas.length})`;
+    }
+}
+
+// Alterna entre ver el top 10 de carrozas más movidas y la lista completa.
+function toggleFlotaExpandida(){
+    fleetExpanded = !fleetExpanded;
+    renderFlota(document.getElementById('fleetSearch').value);
 }
 
 function setupFleetSearch(){
@@ -1463,6 +1523,33 @@ function cerrarPush(){
 }
 
 /* ==========================================================================
+   FILTROS DE EXPORTACIÓN — selects poblados con placas, regionales y
+   conductores reales tomados de los datos ya cargados.
+   ========================================================================== */
+function poblarFiltrosExport(){
+    const selPlaca = document.getElementById('exportPlacaFiltro');
+    const selRegional = document.getElementById('exportRegionalFiltro');
+    const selConductor = document.getElementById('exportConductorFiltro');
+    if(!selPlaca || !selRegional || !selConductor) return;
+
+    // Guardamos la selección actual para intentar conservarla tras repoblar
+    // (el panel se refresca solo cada 60s).
+    const valPlacaPrev = selPlaca.value, valRegionalPrev = selRegional.value, valConductorPrev = selConductor.value;
+
+    const placas = [...new Set(FLOTA.map(c => c.placa).filter(Boolean))].sort();
+    const regionales = [...new Set(FLOTA.map(c => c.regional).filter(Boolean))].sort();
+    const conductores = obtenerConductoresUnicos();
+
+    selPlaca.innerHTML = '<option value="">Todas las placas</option>' + placas.map(p => `<option value="${p}">${p}</option>`).join('');
+    selRegional.innerHTML = '<option value="">Todas las regionales</option>' + regionales.map(r => `<option value="${r}">${r}</option>`).join('');
+    selConductor.innerHTML = '<option value="">Todos los conductores</option>' + conductores.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    if(placas.includes(valPlacaPrev)) selPlaca.value = valPlacaPrev;
+    if(regionales.includes(valRegionalPrev)) selRegional.value = valRegionalPrev;
+    if(conductores.includes(valConductorPrev)) selConductor.value = valConductorPrev;
+}
+
+/* ==========================================================================
    EXPORTAR REPORTES — CSV y Excel, respetando el filtro de la flota
    ========================================================================== */
 // Mapa placa -> regional, para poder filtrar por regional incluso en datasets
@@ -1472,7 +1559,7 @@ function regionalDePlaca(placa){
     return c ? (c.regional || '') : '';
 }
 
-// Filtros activos leídos de los 3 campos de la sección Exportar Reportes.
+// Filtros activos leídos de los 3 selects de la sección Exportar Reportes.
 function leerFiltrosExport(){
     return {
         placa: norm(document.getElementById('exportPlacaFiltro').value || ''),
@@ -1633,6 +1720,7 @@ async function refrescarTodo(){
     actualizarGraficos();
     renderListas();
     renderFlota(document.getElementById('fleetSearch').value);
+    poblarFiltrosExport();
 }
 </script>
 </body>
