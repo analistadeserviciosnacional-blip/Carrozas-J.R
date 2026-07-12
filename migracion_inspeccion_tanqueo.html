@@ -151,11 +151,14 @@
       try { JSON.parse(s); } catch(e) { localStorage.removeItem('usuario_sesion'); window.location.replace('index.html'); }
     })();
 
-    // ── Volver a la página de origen real (dashboard o panel_automotor), ──
-    // ── no a una fija ── mismo patrón que ya usa tanqueo.html.
+    // ── Volver a la página de origen real (dashboard o panel_automotor) ──
+    // Navega DIRECTO a la URL del referrer (no usa history.back(), que
+    // depende de toda la pila de navegación de la pestaña y puede saltar
+    // a un punto equivocado si hubo más pasos antes en esa misma pestaña).
     function volver() {
-      if (document.referrer && document.referrer.indexOf(window.location.host) !== -1) {
-        history.back();
+      const ref = document.referrer;
+      if (ref && ref.indexOf(window.location.host) !== -1) {
+        window.location.href = ref;
       } else {
         window.location.href = 'panel_automotor.html';
       }
