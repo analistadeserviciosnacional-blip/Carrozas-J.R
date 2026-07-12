@@ -373,8 +373,9 @@
     campoKM.placeholder = 'Escriba KM al llegar';
     document.getElementById('total-km-card').className = 'total-km-card listo';
     
-    actualizarBoton();
-}
+               actualizarBoton();
+            return;
+        }
 
         try {
             const res = await DB.obtenerTrasladoActivoPorPlaca(placaSeleccionada);
