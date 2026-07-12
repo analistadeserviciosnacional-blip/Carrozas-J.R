@@ -1,23 +1,62 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.4
- *  + 🆕 v12.4: Módulo de Tanqueo (guardarTanqueo / obtenerTanqueos)
- *    con los campos reales del formulario (Ciudad, N° factura,
- *    Foto de la tirilla, etc.)
- *  + 🆕 v12.4: Medidor de combustible por carroza. Se asume que cada
- *    tanqueo llena el tanque (práctica normal en la flota), así que:
+ *  CONECTOR J.R. CARROZAS — db.js  v12.5
+ *
+ *  🆕 CAMBIOS v12.5 (corrección de placas y de Total KM):
+ *
+ *  1) obtenerPlacasConTrasladoActivo()
+ *     Nueva fuente de verdad para el selector "Elija placa..." del
+ *     formulario de Llegada. Antes el selector se armaba filtrando
+ *     la hoja "carrozas" por el campo estado.includes('Servicio'),
+ *     que puede desincronizarse (si una escritura de fondo falla,
+ *     si alguien edita la hoja a mano, etc.).
+ *
+ *     Ahora se construye directamente desde la hoja "Traslado":
+ *       - Se toman las filas SIN hora_de_ingreso (todavía no
+ *         regresaron).
+ *       - Se excluyen las que YA tengan una Llegada guardada con
+ *         ese mismo id_salida (por si el cierre automático del
+ *         Traslado falló tras sus reintentos y quedó "abierto"
+ *         por error, aunque la Llegada sí exista).
+ *       - Si una placa tuviera más de un Traslado abierto (dato
+ *         sucio), se toma el más reciente por fecha/hora real.
+ *
+ *     Así el listado de placas SIEMPRE refleja qué carrozas están
+ *     realmente en servicio y sin llegada registrada — sin
+ *     depender de un campo que puede quedar desfasado.
+ *
+ *  2) guardarLlegada() ahora ESPERA (await) la actualización de
+ *     kilometraje_actual / combustible_galones de la carroza antes
+ *     de responder, y devuelve el resultado confirmado en
+ *     res.estado_carroza_despues.
+ *
+ *     Antes esa escritura se disparaba con actualizarEnSegundoPlano
+ *     (fire-and-forget): si fallaba en silencio, el kilometraje_actual
+ *     de la carroza quedaba desactualizado, y el SIGUIENTE Traslado
+ *     (salida) de esa placa arrancaba con un KM de salida incorrecto
+ *     — esa es la causa raíz de los descuadres de Total KM reportados.
+ *     Ahora, si la actualización falla, queda un error explícito en
+ *     consola (no en silencio) para poder corregirlo a tiempo.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.4 — nada de lo que ya
+ *   funcionaba fue tocado.)
+ *
+ *  ── Historial v12.4 ──
+ *  + Módulo de Tanqueo (guardarTanqueo / obtenerTanqueos) con los
+ *    campos reales del formulario (Ciudad, N° factura, Foto de la
+ *    tirilla, etc.)
+ *  + Medidor de combustible por carroza. Se asume que cada tanqueo
+ *    llena el tanque, así que:
  *      - Al guardar un Tanqueo → combustible_galones vuelve al 100%
  *        (capacidad_galones) y se calcula el rendimiento real
  *        (km recorridos desde el tanqueo anterior ÷ galones).
  *      - Al guardar una Llegada → se descuenta del tanque el consumo
  *        estimado de ESE viaje (km del viaje ÷ rendimiento conocido
- *        de la carroza, o 25 km/gal por defecto si aún no hay historial).
- *    Así, en la salida siguiente, el conductor ve cuánto combustible
- *    le queda antes de salir.
- *  + 🆕 v12.4: obtenerEstadoCarroza(placa) — combina combustible,
- *    alerta de rendimiento (🟢/🟡/🔴) y estado del próximo cambio de
- *    aceite (usando la hoja "mantenimientos") en un solo objeto, listo
- *    para pintar un panel de estado en el formulario de salida.
+ *        de la carroza, o 25 km/gal por defecto si aún no hay
+ *        historial).
+ *  + obtenerEstadoCarroza(placa) — combina combustible, alerta de
+ *    rendimiento (🟢/🟡/🔴) y estado del próximo cambio de aceite
+ *    (usando la hoja "mantenimientos") en un solo objeto.
  *  + Repuesta la capa de compatibilidad con Supabase
  *    (DB.supabase.from(...)) — otras páginas (dashboard,
  *    panel_coordinador, panel_conductor) sí la necesitaban.
@@ -26,7 +65,9 @@
  *    vuelve a insertar.
  *  + Bloqueo contra doble click en guardarTraslado/Llegada/Averia/Tanqueo.
  *  + Guardado directo: confirma apenas la escritura principal
- *    responde OK, sin esperar a las actualizaciones secundarias.
+ *    responde OK, sin esperar a las actualizaciones secundarias
+ *    que no afectan la corrección del dato (p.ej. cierre del
+ *    Traslado, que ahora tiene su propio respaldo por Llegadas).
  *  + Caché en memoria con TTL para lecturas
  *  + Deduplicación de lecturas en vuelo
  *  + Timeout largo en escrituras + 1 reintento automático
@@ -235,6 +276,9 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
 }
 
 // ── ACTUALIZACIÓN SECUNDARIA EN SEGUNDO PLANO ─────────────
+// (Solo para procesos que NO son fuente de verdad para el próximo
+// servicio, p.ej. el cierre "cosmético" del Traslado — el KM real
+// de la carroza ya no depende de esto, ver guardarLlegada v12.5.)
 function actualizarEnSegundoPlano(promesa, etiqueta) {
   promesa
     .then(function(res) {
@@ -260,7 +304,7 @@ async function conLock(nombre, fn) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  🆕 v12.4 — COMBUSTIBLE Y RENDIMIENTO
+//  COMBUSTIBLE Y RENDIMIENTO
 // ══════════════════════════════════════════════════════════
 
 // Capacidad de tanque asumida si la carroza no tiene su propia
@@ -443,6 +487,72 @@ const DB = {
     }
   },
 
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.5 — PLACAS CON TRASLADO ACTIVO (fuente real del selector)
+  // ══════════════════════════════════════════════════════════
+  // Devuelve solo las placas que en este momento están "en la calle":
+  // tienen un registro en la hoja Traslado con hora_de_ingreso vacía
+  // (todavía no regresaron) Y que además NO tengan ya una Llegada
+  // guardada para ese id_salida (por si el cierre automático del
+  // Traslado falló tras sus reintentos y quedó "abierto" por error,
+  // aunque la Llegada sí exista).
+  //
+  // Esto reemplaza la dependencia del campo "estado" de la hoja
+  // carrozas para poblar el selector de placas en Registro de
+  // Llegada: ese campo puede desincronizarse, mientras que la hoja
+  // Traslado es la fuente operativa real de "quién salió y no ha
+  // vuelto".
+  async obtenerPlacasConTrasladoActivo() {
+    try {
+      const [traslados, llegadas, flota] = await Promise.all([
+        gasGet('Traslado'), gasGet('Llegadas'), gasGet('carrozas')
+      ]);
+
+      const idsConLlegada = new Set(
+        llegadas.map(function(l) { return String(l.id_salida || '').trim(); }).filter(Boolean)
+      );
+
+      const abiertos = traslados.filter(function(r) {
+        const sinRegreso = (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '');
+        const yaTieneLlegada = r.id_salida && idsConLlegada.has(String(r.id_salida).trim());
+        return sinRegreso && !yaTieneLlegada;
+      });
+
+      // Si una misma placa tuviera más de un Traslado abierto (dato
+      // sucio / caso raro), se toma el más reciente por fecha/hora real.
+      const porPlaca = {};
+      abiertos.forEach(function(r) {
+        const pBase = String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        if (!pBase) return;
+        if (!porPlaca[pBase] || claveOrden(r) > claveOrden(porPlaca[pBase])) {
+          porPlaca[pBase] = r;
+        }
+      });
+
+      const resultado = Object.keys(porPlaca).map(function(pBase) {
+        const t = porPlaca[pBase];
+        const carroza = flota.find(function(c) {
+          return String(c.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === pBase;
+        });
+        return {
+          placa:            t.placa || '',
+          modelo:           carroza ? (carroza.modelo || '') : '',
+          id_salida:        t.id_salida || '',
+          km_salida:        t.km__salida || t.km_salida || '',
+          fecha:            t.fecha || '',
+          hora_de_salida:   t.hora_de_salida || '',
+          conductor:        t.conductor || '',
+          motivo_de_salida: t.motivo_de_salida || '',
+        };
+      });
+
+      resultado.sort(function(a, b) { return String(a.placa).localeCompare(String(b.placa)); });
+      return { ok: true, data: resultado };
+    } catch (e) {
+      return { ok: false, data: [], error: e.message };
+    }
+  },
+
   async obtenerTodasAverias(limite) {
     if (limite === undefined) limite = 20;
     try {
@@ -462,7 +572,7 @@ const DB = {
   },
 
   // ══════════════════════════════════════════════════════════
-  // 🆕 v12.4 — TANQUEO
+  // TANQUEO
   // ══════════════════════════════════════════════════════════
 
   // ── GUARDAR TANQUEO ─────────────────────────────────────────
@@ -724,10 +834,18 @@ const DB = {
   },
 
   // ── GUARDAR LLEGADA ────────────────────────────────────────
-  // 🆕 v12.4: además de registrar la llegada, descuenta del tanque de
-  // la carroza el combustible estimado que consumió ESE viaje
-  // (km del viaje ÷ rendimiento conocido de la carroza, o el valor
-  // por defecto si todavía no hay historial de tanqueos).
+  // 🆕 v12.5: Además de registrar la llegada, se ESPERA (await) la
+  // actualización de kilometraje_actual y combustible de la carroza
+  // antes de responder. El kilometraje_actual es la fuente de verdad
+  // que usará el SIGUIENTE Traslado (salida) como KM de salida —
+  // por eso ya no puede quedar como una escritura "de segundo plano"
+  // sin garantía: si fallara en silencio, el próximo servicio
+  // arrancaría con un KM de salida incorrecto y el Total KM del
+  // reporte quedaría descuadrado (el error reportado).
+  //
+  // Se descuenta del tanque el combustible estimado que consumió ESE
+  // viaje (km del viaje ÷ rendimiento conocido de la carroza, o el
+  // valor por defecto si todavía no hay historial de tanqueos).
   async guardarLlegada(d) {
     return conLock('guardarLlegada', async () => {
       const fila = {
@@ -744,26 +862,41 @@ const DB = {
         created_at:     new Date().toISOString(),
       };
       const res = await gasWrite('Llegadas', fila, 'insert');
-      if (res.ok) {
-        DB.invalidarCache('Llegadas');
-        actualizarEnSegundoPlano((async () => {
-          const estadoPrevio = await DB.obtenerEstadoCarroza(d.placa);
-          const rendimiento = (estadoPrevio.ok && estadoPrevio.rendimiento_ultimo_km_gal) || RENDIMIENTO_DEFAULT;
-          const combustiblePrevio = estadoPrevio.ok ? estadoPrevio.combustible_galones : CAPACIDAD_TANQUE_DEFAULT;
-          const totalKm = parseFloat(d.total_km) || 0;
-          const consumoEstimado = totalKm / rendimiento;
-          const nuevoCombustible = Math.max(0, Math.round((combustiblePrevio - consumoEstimado) * 10) / 10);
+      if (!res.ok) return res;
 
-          const r = await DB.actualizarCarroza(d.placa, {
-            estado: 'Disponible',
-            kilometraje_actual: parseInt(d.km_ingreso) || 0,
-            combustible_galones: nuevoCombustible,
-          });
+      DB.invalidarCache('Llegadas');
+
+      // ── ACTUALIZACIÓN DE KM/COMBUSTIBLE — AHORA SE ESPERA ──
+      let estadoDespues = { ok: false };
+      try {
+        const estadoPrevio      = await DB.obtenerEstadoCarroza(d.placa);
+        const rendimiento       = (estadoPrevio.ok && estadoPrevio.rendimiento_ultimo_km_gal) || RENDIMIENTO_DEFAULT;
+        const combustiblePrevio = estadoPrevio.ok ? estadoPrevio.combustible_galones : CAPACIDAD_TANQUE_DEFAULT;
+        const totalKm           = parseFloat(d.total_km) || 0;
+        const consumoEstimado   = totalKm / rendimiento;
+        const nuevoCombustible  = Math.max(0, Math.round((combustiblePrevio - consumoEstimado) * 10) / 10);
+        const kmLlegadaNum      = parseInt(d.km_ingreso) || 0;
+
+        const upd = await DB.actualizarCarroza(d.placa, {
+          estado:               'Disponible',
+          kilometraje_actual:   kmLlegadaNum,
+          combustible_galones:  nuevoCombustible,
+        });
+
+        if (upd.ok) {
           DB.invalidarCache('carrozas');
-          return r;
-        })(), 'actualizarCarroza tras guardarLlegada');
+          estadoDespues = await DB.obtenerEstadoCarroza(d.placa);
+        } else {
+          console.error(
+            `❌ La carroza ${d.placa} NO quedó actualizada (km_ingreso=${kmLlegadaNum}) tras guardar la Llegada. ` +
+            `El próximo Traslado de esta placa puede arrancar con un KM de salida incorrecto. Revisar manualmente. Error: ${upd.error}`
+          );
+        }
+      } catch (e) {
+        console.error('Error actualizando carroza tras guardarLlegada:', e.message);
       }
-      return res;
+
+      return Object.assign({}, res, { estado_carroza_despues: estadoDespues });
     });
   },
 
@@ -940,7 +1073,7 @@ window.DB = DB;
     const ping = await DB.testConexion();
     if (ping.ok) {
       console.log('🟢 API J.R. conectada:', ping.mensaje);
-      const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo'];
+      const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo', 'Llegadas'];
       for (let i = 0; i < hojas.length; i++) {
         await gasGet(hojas[i]);
         await new Promise(function(r) { setTimeout(r, 300); });
