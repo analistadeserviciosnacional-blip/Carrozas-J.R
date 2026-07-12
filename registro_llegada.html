@@ -257,6 +257,7 @@
         <div id="progreso-steps">
             <div id="step-carroza">⏳ Actualizando estado de carroza...</div>
             <div id="step-llegada">⏳ Guardando registro de llegada...</div>
+            <div id="step-combustible-registro">⏳ Anexando estado de combustible al registro...</div>
         </div>
 
         <!-- ── CARD: COMBUSTIBLE ANTES/DESPUÉS DEL CIERRE (transparencia) ── -->
@@ -809,6 +810,17 @@
             } catch(e) {
                 console.warn('No se pudo consultar combustible actualizado:', e);
                 mostrarCombustibleDespues(estadoCombustibleAntes, null, datosFinales.total_km);
+            }
+
+            // 🆕 Confirmar en pantalla si el estado de combustible (antes/
+            // después/consumido) quedó guardado en el propio registro de
+            // Llegada — así queda auditable después: se puede abrir la
+            // hoja "Llegadas" y comparar el % con el que salió vs. el %
+            // con el que se cerró, para verificar si el consumo es real.
+            if (res.combustible_guardado_en_registro) {
+                setStep('step-combustible-registro', 'ok', '✅ Estado de combustible guardado en el registro de Llegada');
+            } else {
+                setStep('step-combustible-registro', 'ok', '⚠️ No se pudo anexar el combustible al registro (no crítico — revisa la hoja Llegadas)');
             }
 
             // Llevar la vista hasta el card de combustible para que se note
