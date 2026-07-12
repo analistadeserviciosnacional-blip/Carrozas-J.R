@@ -393,7 +393,7 @@
 <div class="menu-group-label">Operación</div>
 <div class="menu-conductor">
     <a href="flota.html" class="card-condu"><i>🚐</i><span>Carrozas</span></a>
-    <a href="conductores.html" class="card-condu"><i>🧑‍✈️</i><span>Conductores</span></a>
+    <a href="javascript:void(0)" onclick="mostrarConductores()" class="card-condu"><i>🧑‍✈️</i><span>Conductores</span></a>
     <a href="registro_llegada.html" class="card-condu"><i>🏁</i><span>Traslados</span></a>
     <a href="entrega_vehiculo.html" class="card-condu"><i>📝</i><span>Entrega Vehículos</span></a>
 </div>
@@ -550,6 +550,11 @@
    ========================================================================== */
 
 const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+// Normaliza placas para comparar entre distintas hojas (carrozas, Traslado,
+// Tanqueo, Averias, mantenimientos), donde la misma placa puede estar escrita
+// con o sin espacios/guiones ("BRZ 208" vs "BRZ208"). Quita todo lo que no
+// sea letra o número y pasa a mayúsculas — mismo criterio que ya usa db.js.
+const normPlaca = p => String(p||'').replace(/[^A-Z0-9]/gi,'').toUpperCase();
 const fmtNum = n => new Intl.NumberFormat('es-CO').format(Math.round(n || 0));
 const fmtCOP = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n || 0);
 
@@ -1452,6 +1457,33 @@ function mostrarDocumentacion(){
     abrirModalLista('Documentación por Vencer', `${docs.length} documento(s) con fecha registrada`, filas);
 }
 
+/* ---------- Conductores — listado desde la hoja "usuarios" (rol = conductor) ----------
+   Antes esta tarjeta enlazaba a "conductores.html", una página que no existe
+   en el sitio publicado (daba 404). En su lugar, se abre este modal con los
+   conductores reales tomados de la hoja "usuarios", la misma fuente que usa
+   el filtro de conductor en Exportar Reportes. ---------- */
+function mostrarConductores(){
+    const conductores = USUARIOS
+        .filter(u => String(u.rol||'').trim().toLowerCase() === 'conductor')
+        .sort((a,b)=> String(a.nombre||'').localeCompare(String(b.nombre||'')));
+
+    const filas = !conductores.length
+        ? '<div class="push-empty-alert">Sin conductores registrados en la hoja de usuarios.</div>'
+        : `<div class="push-alert-section"><ul>${conductores.map(c => {
+            const placa = String(c.placa_asignada||'').trim();
+            const tienePlaca = placa && normEstado(placa) !== 'ninguna';
+            return `<li>
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <b style="color:#f1f5f9;">${c.nombre || '—'}</b>
+                    <span style="color:#94a3b8;font-size:11px;">${c.telefono || ''}</span>
+                </div>
+                <div style="margin-top:3px;">${c.regional || 'Sin regional'}${tienePlaca ? ' · '+placa : ' · Sin carroza asignada'}</div>
+            </li>`;
+        }).join('')}</ul></div>`;
+
+    abrirModalLista('Conductores', `${conductores.length} conductor(es) registrado(s)`, filas);
+}
+
 /* ---------- Averías de TODA la flota (no solo las del usuario logueado) ----------
    La página "mis_averias.html" es del conductor y solo muestra lo que reportó
    ese usuario. Esta vista, en cambio, lista las averías/novedades activas de
@@ -1555,24 +1587,32 @@ function poblarFiltrosExport(){
 // Mapa placa -> regional, para poder filtrar por regional incluso en datasets
 // (tanqueos, mantenimientos, averías) que no guardan la regional directamente.
 function regionalDePlaca(placa){
-    const c = FLOTA.find(c => String(c.placa||'').toUpperCase() === String(placa||'').toUpperCase());
+    const target = normPlaca(placa);
+    const c = FLOTA.find(c => normPlaca(c.placa) === target);
     return c ? (c.regional || '') : '';
 }
 
 // Filtros activos leídos de los 3 selects de la sección Exportar Reportes.
+// Se devuelven sin normalizar aquí: la normalización correcta (normPlaca para
+// placa, norm para regional/conductor) se aplica dentro de pasaFiltrosExport,
+// comparando ambos lados de la misma forma.
 function leerFiltrosExport(){
     return {
-        placa: norm(document.getElementById('exportPlacaFiltro').value || ''),
-        regional: norm(document.getElementById('exportRegionalFiltro').value || ''),
-        conductor: norm(document.getElementById('exportConductorFiltro').value || ''),
+        placa: document.getElementById('exportPlacaFiltro').value || '',
+        regional: document.getElementById('exportRegionalFiltro').value || '',
+        conductor: document.getElementById('exportConductorFiltro').value || '',
     };
 }
 // aplicables: qué filtros tienen sentido para este dataset (si un filtro no es
 // aplicable, se ignora en vez de excluir todas las filas).
+// La placa se compara normalizada (normPlaca) porque la misma placa puede estar
+// escrita distinto entre hojas (ej. "BRZ 208" en carrozas vs "BRZ208" en
+// Tanqueo/Traslado/Averias) — comparar el texto tal cual hacía que el filtro
+// fallara aunque sí hubiera datos para esa carroza.
 function pasaFiltrosExport({placa, regional, conductor}, aplicables, f){
-    if(aplicables.placa && f.placa && !norm(placa).includes(f.placa)) return false;
-    if(aplicables.regional && f.regional && !norm(regional).includes(f.regional)) return false;
-    if(aplicables.conductor && f.conductor && !norm(conductor).includes(f.conductor)) return false;
+    if(aplicables.placa && f.placa && normPlaca(placa) !== normPlaca(f.placa)) return false;
+    if(aplicables.regional && f.regional && !norm(regional).includes(norm(f.regional))) return false;
+    if(aplicables.conductor && f.conductor && !norm(conductor).includes(norm(f.conductor))) return false;
     return true;
 }
 
