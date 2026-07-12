@@ -340,6 +340,10 @@
     let registroDuplicadoId = null;
     let guardandoActualmente = false;
 
+    // 🆕 Bandera de bloqueo: true = no se puede guardar la salida
+    // (servicio anterior sin cerrar, o vehículo en taller/parque automotor)
+    let salidaBloqueada = false;
+
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
     let dibujando = false;
@@ -353,6 +357,32 @@
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase()
             .trim();
+    }
+
+    // 🆕 Fecha de hoy en formato DD/MM/AAAA (igual que fechaHoy() de db.js)
+    // Se usa para distinguir un traslado "duplicado de hoy" (que ya maneja
+    // el flujo de banner-duplicado) de un traslado de un DÍA ANTERIOR que
+    // nunca se cerró (que es lo que bloqueamos aquí como "servicio sin cerrar").
+    function fechaHoyStr() {
+        const h = new Date();
+        return h.getDate().toString().padStart(2,'0') + '/' +
+               (h.getMonth()+1).toString().padStart(2,'0') + '/' +
+               h.getFullYear();
+    }
+
+    // 🆕 Verifica si la placa tiene un traslado ABIERTO (sin hora_de_ingreso)
+    // de un día DISTINTO a hoy — es decir, un servicio que el conductor
+    // nunca cerró con el Registro de Llegada correspondiente.
+    async function verificarSalidaPendiente(placa) {
+        try {
+            const { ok, data } = await DB.obtenerTrasladoActivoPorPlaca(placa);
+            if (!ok || !data) return null;
+            if (String(data.fecha || '').trim() === fechaHoyStr()) return null; // eso lo maneja el flujo de duplicado
+            return data;
+        } catch(e) {
+            console.warn('No se pudo verificar salida pendiente:', e);
+            return null;
+        }
     }
 
     // ── SEDES/REGIONALES VÁLIDAS (debe coincidir con flota.html) ──
@@ -431,6 +461,7 @@
         modoEdicion          = true;
         registroExistenteId  = id;
         registroDuplicadoId  = null;
+        salidaBloqueada      = false; // en modo edición no aplican los bloqueos de nueva salida
 
         document.getElementById('banner-duplicado').style.display = 'none';
         const bannerEdicion = document.getElementById('banner-edicion');
@@ -455,9 +486,11 @@
         select.innerHTML = '<option value="">Cargando flota...</option>';
 
         try {
+            // 🆕 Se agrega estado_parque_automotor a la consulta: es el campo
+            // que indica si el vehículo está en el Parque Automotor / Taller.
             const { data, error } = await DB.supabase
                 .from('carrozas')
-                .select('placa, modelo, estado, kilometraje_actual, proximo_mantenimiento, tipo_vehiculo, sede_asignada, sede_intercambio')
+                .select('placa, modelo, estado, estado_parque_automotor, kilometraje_actual, proximo_mantenimiento, tipo_vehiculo, sede_asignada, sede_intercambio')
                 .order('placa');
 
             if (error) throw error;
@@ -547,16 +580,84 @@
             registroDuplicadoId = null;
         }
 
-        if (!placaSeleccionada) { alertaEl.style.display = 'none'; document.getElementById('alerta-combustible').style.display = 'none'; return; }
+        if (!placaSeleccionada) {
+            alertaEl.style.display = 'none';
+            document.getElementById('alerta-combustible').style.display = 'none';
+            salidaBloqueada = false;
+            return;
+        }
 
         const veh = flotaCompleta.find(c => c.placa === placaSeleccionada);
-        if (!veh) { alertaEl.style.display = 'none'; document.getElementById('alerta-combustible').style.display = 'none'; return; }
+        if (!veh) {
+            alertaEl.style.display = 'none';
+            document.getElementById('alerta-combustible').style.display = 'none';
+            salidaBloqueada = false;
+            return;
+        }
+
+        // 🆕 Se resetea el bloqueo cada vez que se selecciona una placa nueva
+        salidaBloqueada = false;
 
         const estado   = (veh.estado || '').trim();
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
         document.getElementById('km_s').value = kmActual;
 
         validarCompatibilidad();
+
+        // ══════════════════════════════════════════════
+        // 🆕 1) SERVICIO SIN CERRAR (salida abierta de un día anterior)
+        //    Se le informa al usuario que el conductor de esa salida no
+        //    hizo el Registro de Llegada, y se bloquea la nueva salida
+        //    hasta que se notifique y se cierre ese servicio.
+        // ══════════════════════════════════════════════
+        if (!modoEdicion) {
+            try {
+                const pendiente = await verificarSalidaPendiente(placaSeleccionada);
+                if (pendiente) {
+                    salidaBloqueada = true;
+                    alertaEl.className = 'alerta-vehiculo en-taller';
+                    alertaEl.style.display = 'block';
+                    alertaEl.innerHTML = `
+                        <div style="text-align:center;">
+                            <div class="av-titulo">⚠️ SERVICIO SIN CERRAR</div>
+                            <div class="av-msg">
+                                El conductor <b>${pendiente.conductor || 'N/A'}</b> no realizó el
+                                <b>cierre del servicio</b> (Registro de Llegada) de esta carroza,
+                                correspondiente a la salida del <b>${pendiente.fecha || 'N/A'}</b>
+                                ${pendiente.hora_de_salida ? ' a las <b>' + pendiente.hora_de_salida + '</b>' : ''}.
+                            </div>
+                            <div class="av-bloqueo">🚫 NOTIFICA AL CONDUCTOR PARA QUE REALICE EL CIERRE ANTES DE UNA NUEVA SALIDA</div>
+                        </div>`;
+                    document.getElementById('km_s').value = '';
+                    document.getElementById('alerta-combustible').style.display = 'none';
+                    return;
+                }
+            } catch(e) {
+                console.warn('No se pudo verificar servicio sin cerrar:', e);
+            }
+        }
+
+        // ══════════════════════════════════════════════
+        // 🆕 2) VEHÍCULO EN TALLER (Parque Automotor)
+        //    Se consulta el campo estado_parque_automotor de la hoja
+        //    "carrozas". Si contiene "taller", se bloquea la salida.
+        // ══════════════════════════════════════════════
+        if (!modoEdicion && normalizar(veh.estado_parque_automotor || '').includes('taller')) {
+            salidaBloqueada = true;
+            alertaEl.className = 'alerta-vehiculo en-taller';
+            alertaEl.style.display = 'block';
+            alertaEl.innerHTML = `
+                <div style="text-align:center;">
+                    <div class="av-titulo">🔧 VEHÍCULO EN TALLER</div>
+                    <div class="av-msg">
+                        Este vehículo se encuentra actualmente en el <b>Parque Automotor / Taller</b>.
+                    </div>
+                    <div class="av-bloqueo">🚫 COMUNÍCATE CON EL PARQUE AUTOMOTOR PARA QUE LIBEREN EL VEHÍCULO</div>
+                </div>`;
+            document.getElementById('km_s').value = '';
+            document.getElementById('alerta-combustible').style.display = 'none';
+            return;
+        }
 
         // ── VERIFICACIÓN DE DUPLICIDAD (placa con salida activa hoy, sin regreso aún) ──
         if (!modoEdicion) {
@@ -575,8 +676,9 @@
             }
         }
 
-        // ── BLOQUEO POR TALLER O SERVICIO ACTIVO ──
+        // ── BLOQUEO POR TALLER O SERVICIO ACTIVO (campo "estado" clásico) ──
         if (estado === 'En Taller' || estado === 'En Servicio') {
+            salidaBloqueada = true;
             alertaEl.className = 'alerta-vehiculo en-taller';
             alertaEl.style.display = 'block';
             alertaEl.innerHTML = `
@@ -749,6 +851,17 @@
         const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion'));
 
         if (guardandoActualmente) return;
+
+        // 🆕 Bloqueo duro: no se permite guardar si hay un servicio sin cerrar
+        // o el vehículo está en el Parque Automotor / Taller.
+        if (salidaBloqueada) {
+            Swal.fire(
+                'Salida Bloqueada',
+                'No es posible registrar la salida: el vehículo tiene un servicio anterior sin cerrar o se encuentra en el Parque Automotor / Taller.',
+                'error'
+            );
+            return;
+        }
 
         if (!document.getElementById('placa').value) { Swal.fire('Error', 'Selecciona una placa', 'error'); return; }
         if (!kitSeleccionado) { Swal.fire('Error', 'Selecciona estado del kit', 'error'); return; }
