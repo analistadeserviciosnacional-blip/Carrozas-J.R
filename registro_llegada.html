@@ -472,6 +472,16 @@
         card.className = 'total-km-card cargando';
         actualizarBoton();
 
+        // 🆕 Vista previa del combustible actual — se dispara en paralelo,
+        // no bloquea la carga del KM de salida. Si la carroza no se
+        // encuentra o falla la consulta, simplemente no se muestra nada
+        // (no es crítico, el flujo de KM sigue funcionando igual).
+        DB.obtenerEstadoCarroza(placaSeleccionada)
+            .then(function(estado) {
+                if (estado && estado.ok) mostrarCombustiblePreview(estado);
+            })
+            .catch(function(e) { console.warn('No se pudo cargar el combustible actual:', e); });
+
         try {
             const keyCache = placaSeleccionada.replace(/[^A-Z0-9]/gi, '').toUpperCase();
             let activo = trasladosActivosCache[keyCache] || null;
@@ -633,6 +643,23 @@
         document.getElementById('cc-antes-val').innerText = f.val;
         document.getElementById('cc-antes-sub').innerText = f.sub;
         document.getElementById('cc-detalle').innerText = 'Cerrando el servicio y recalculando el consumo real...';
+    }
+
+    // 🆕 Vista previa del combustible ACTUAL de la carroza — se muestra
+    // apenas se elige la placa, igual que el Total KM, sin tener que
+    // finalizar el servicio para verlo. El bloque "Después" se deja en
+    // "—" hasta que de verdad se cierre el servicio.
+    function mostrarCombustiblePreview(estado) {
+        const card = document.getElementById('combustible-card');
+        card.classList.add('show');
+        card.classList.remove('cc-error');
+        const f = formatoCombustible(estado);
+        document.getElementById('cc-antes-val').innerText = f.val;
+        document.getElementById('cc-antes-sub').innerText = f.sub;
+        document.getElementById('cc-despues-val').innerText = '—';
+        document.getElementById('cc-despues-sub').innerText = '—';
+        document.getElementById('cc-detalle').innerText =
+            'ℹ️ Nivel actual de combustible de la carroza (antes de este servicio). Al finalizar, aquí se mostrará cuánto quedó después.';
     }
 
     function mostrarCombustibleDespues(estAntes, estDespues, totalKmServicio) {
