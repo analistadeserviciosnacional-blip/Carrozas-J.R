@@ -732,13 +732,18 @@
             document.getElementById('bloque-wa').style.display = 'block';
 
             // ── COMBUSTIBLE ACTUALIZADO (verificación real antes/después) ──
-            // guardarLlegada ya descontó los galones estimados según los KM
-            // recorridos; aquí consultamos el resultado REAL contra la base
-            // de datos y lo mostramos comparado con el valor de antes, para
-            // que quede constancia visible y verificable de que el descuento
-            // fue real (seguridad y transparencia del cierre).
+            // db.js v12.5 ya hace `await` de la actualización real de la
+            // carroza y devuelve el estado confirmado directamente en
+            // res.estado_carroza_despues — se usa ese dato tal cual, sin
+            // volver a consultar la base de datos (evita una llamada de red
+            // de más y una segunda fuente de verdad). Solo si por algún
+            // motivo no llegara ese dato (versión antigua de db.js, error
+            // puntual, etc.) se hace la consulta de respaldo por separado.
             try {
-                const estDespues = await DB.obtenerEstadoCarroza(placa);
+                let estDespues = res.estado_carroza_despues;
+                if (!estDespues || !estDespues.ok) {
+                    estDespues = await DB.obtenerEstadoCarroza(placa);
+                }
                 mostrarCombustibleDespues(estadoCombustibleAntes, estDespues, datosFinales.total_km);
                 if (estDespues && estDespues.ok) {
                     datosFinales.combustible_resultante =
