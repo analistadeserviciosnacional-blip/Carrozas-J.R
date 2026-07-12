@@ -403,19 +403,19 @@
         <div id="badge-averias" class="badge-rojo">0</div>
         <i>⚠️</i><span>Averías</span>
     </a>
-    <a href="mantenimientos.html" class="card-condu"><i>🔧</i><span>Mantenimientos</span></a>
-    <a href="documentacion.html" class="card-condu"><i>📄</i><span>Documentación</span></a>
+    <a href="javascript:void(0)" onclick="mostrarMantenimientos()" class="card-condu"><i>🔧</i><span>Mantenimientos</span></a>
+    <a href="javascript:void(0)" onclick="mostrarDocumentacion()" class="card-condu"><i>📄</i><span>Documentación</span></a>
 </div>
 
 <div class="menu-group-label">Gestión</div>
 <div class="menu-conductor">
-    <a href="indicadores.html" class="card-condu"><i>📊</i><span>Indicadores</span></a>
-    <a href="reportes.html" class="card-condu"><i>📁</i><span>Reportes</span></a>
+    <a href="javascript:void(0)" onclick="irASeccion('kpiSection')" class="card-condu"><i>📊</i><span>Indicadores</span></a>
+    <a href="javascript:void(0)" onclick="irASeccion('reportesSection')" class="card-condu"><i>📁</i><span>Reportes</span></a>
     <a href="configuracion.html" class="card-condu"><i>⚙️</i><span>Configuración</span></a>
 </div>
 
 <!-- ── KPIs ── -->
-<div class="monitor-mini">
+<div class="monitor-mini" id="kpiSection">
     <h2>Indicadores Clave</h2>
     <div class="kpi-grid" id="kpiGrid"></div>
 </div>
@@ -444,17 +444,17 @@
 </div>
 
 <div class="monitor-mini">
-    <h2>Traslados Recientes <a href="registro_llegada.html" class="btn-ver-todo">VER TODO</a></h2>
+    <h2>Traslados Recientes <button class="btn-ver-todo" onclick="mostrarTraslados()">VER TODO</button></h2>
     <table><tbody id="tabla-traslados"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
 </div>
 
 <div class="monitor-mini">
-    <h2>Tanqueos Recientes <a href="tanqueo.html" class="btn-ver-todo">VER TODO</a></h2>
+    <h2>Tanqueos Recientes <button class="btn-ver-todo" onclick="mostrarTanqueos()">VER TODO</button></h2>
     <table><tbody id="tabla-tanqueos"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
 </div>
 
 <div class="monitor-mini">
-    <h2>Mantenimientos Pendientes <a href="mantenimientos.html" class="btn-ver-todo">VER TODO</a></h2>
+    <h2>Mantenimientos Pendientes <button class="btn-ver-todo" onclick="mostrarDocumentacion()">VER TODO</button></h2>
     <table><tbody id="tabla-mantenimientos"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
 </div>
 
@@ -466,7 +466,7 @@
 </div>
 
 <!-- ── EXPORTAR REPORTES ── -->
-<div class="monitor-mini">
+<div class="monitor-mini" id="reportesSection">
     <h2>Exportar Reportes</h2>
     <select class="export-select" id="exportDataset">
         <option value="flota">Flota (con filtro actual del buscador)</option>
@@ -1146,6 +1146,107 @@ async function abrirPanelCarroza(placa){
 function cerrarPanelCarroza(){
     document.getElementById('veh-overlay').classList.remove('visible');
     document.getElementById('veh-sheet').classList.remove('visible');
+}
+
+/* ---------- Scroll suave a una sección que ya existe en este mismo panel ---------- */
+function irASeccion(id){
+    const el = document.getElementById(id);
+    if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* ---------- Modal genérico (reutiliza el overlay/push-notif para listados completos) ---------- */
+function abrirModalLista(titulo, subtitulo, filasHtml){
+    document.getElementById('push-titulo-txt').textContent = titulo;
+    let html = '';
+    if(subtitulo) html += `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${subtitulo}</div>`;
+    html += filasHtml;
+    document.getElementById('push-alertas-body').innerHTML = html;
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
+
+/* ---------- Traslados a nivel nacional (listado completo, no el formulario de llegada) ---------- */
+function mostrarTraslados(){
+    const total = TRASLADOS.length;
+    const cap = 150;
+    const lista = [...TRASLADOS].sort((a,b)=> (parseDDMMAAAA(b.fecha)||0) - (parseDDMMAAAA(a.fecha)||0)).slice(0, cap);
+
+    const filas = !lista.length
+        ? '<div class="push-empty-alert">Sin traslados registrados.</div>'
+        : `<div class="push-alert-section"><ul>${lista.map(t => `
+            <li>
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <b style="color:#f1f5f9;">${t.placa || '—'}</b>
+                    <span style="color:#94a3b8;font-size:11px;">${t.fecha || '—'}${t.hora_de_salida ? ' · '+t.hora_de_salida : ''}</span>
+                </div>
+                <div style="margin-top:3px;">${t.origen || '—'} ➔ ${t.destino || '—'}</div>
+                <div style="margin-top:3px;color:#94a3b8;">${t.regional || 'Sin regional'}${t.conductor ? ' · '+t.conductor : ''}</div>
+            </li>`).join('')}</ul></div>`;
+
+    abrirModalLista('Traslados a Nivel Nacional', `${total} traslado(s) registrados${total > cap ? ` · mostrando los ${cap} más recientes` : ''}`, filas);
+}
+
+/* ---------- Tanqueos — listado completo, no el formulario de registro ---------- */
+function mostrarTanqueos(){
+    const total = TANQUEOS.length;
+    const cap = 150;
+    const lista = [...TANQUEOS].sort((a,b)=> (parseDDMMAAAA(b.FECHA)||0) - (parseDDMMAAAA(a.FECHA)||0)).slice(0, cap);
+
+    const filas = !lista.length
+        ? '<div class="push-empty-alert">Sin tanqueos registrados.</div>'
+        : `<div class="push-alert-section"><ul>${lista.map(t => `
+            <li>
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <b style="color:#f1f5f9;">${t.PLACA || '—'}</b>
+                    <span style="color:#94a3b8;font-size:11px;">${t.FECHA || '—'}</span>
+                </div>
+                <div style="margin-top:3px;">${t.GALONES || 0} gal · ${fmtCOP(t.VALOR_TOTAL)}${t.RENDIMIENTO_KM_GALON ? ' · '+Number(t.RENDIMIENTO_KM_GALON).toFixed(1)+' km/gal' : ''}</div>
+                <div style="margin-top:3px;color:#94a3b8;">${t.ESTACION_SERVICIO || 'Sin estación'}${t.CIUDAD ? ' · '+t.CIUDAD : ''}</div>
+            </li>`).join('')}</ul></div>`;
+
+    abrirModalLista('Tanqueos Registrados', `${total} tanqueo(s) registrados${total > cap ? ` · mostrando los ${cap} más recientes` : ''}`, filas);
+}
+
+/* ---------- Órdenes de Mantenimiento (hoja "mantenimientos") ---------- */
+function mostrarMantenimientos(){
+    const total = MANTENIMIENTOS.length;
+    const cap = 150;
+    const lista = [...MANTENIMIENTOS].sort((a,b)=> String(b.fecha||'').localeCompare(String(a.fecha||''))).slice(0, cap);
+
+    const filas = !lista.length
+        ? '<div class="push-empty-alert">Sin órdenes de mantenimiento registradas.</div>'
+        : `<div class="push-alert-section"><ul>${lista.map(m => `
+            <li>
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <b style="color:#f1f5f9;">${m.placa || '—'}</b>
+                    <span style="color:${normEstado(m.estado_orden)==='pendiente' ? '#fca5a5' : '#94a3b8'};font-size:11px;font-weight:800;text-transform:uppercase;">${m.estado_orden || '—'}</span>
+                </div>
+                <div style="margin-top:3px;">${m.tipo_servicio || '—'} · ${m.taller || 'Sin taller'}</div>
+                <div style="margin-top:3px;color:#94a3b8;">${m.fecha || '—'}${m.costo ? ' · '+fmtCOP(m.costo) : ''}</div>
+            </li>`).join('')}</ul></div>`;
+
+    abrirModalLista('Órdenes de Mantenimiento', `${total} orden(es) registrada(s)${total > cap ? ` · mostrando las ${cap} más recientes` : ''}`, filas);
+}
+
+/* ---------- Documentación — SOAT / Tecnomecánica / Póliza / doc próximo a vencer ---------- */
+function mostrarDocumentacion(){
+    const docs = FLOTA.map(c => ({placa: c.placa, doc: documentoMasUrgente(c)}))
+        .filter(x => x.doc && x.doc.dias !== null)
+        .sort((a,b)=> a.doc.dias - b.doc.dias);
+
+    const filas = !docs.length
+        ? '<div class="push-empty-alert">Sin documentos con fecha de vencimiento registrada.</div>'
+        : `<div class="push-alert-section"><ul>${docs.map(x => `
+            <li>
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <b style="color:#f1f5f9;">${x.placa || '—'}</b>
+                    <span style="color:${x.doc.dias < 0 ? '#fca5a5' : (x.doc.dias <= 30 ? '#fcd34d' : '#94a3b8')};font-size:11px;font-weight:800;">${x.doc.dias < 0 ? 'VENCIDO ' + Math.abs(x.doc.dias) + 'd' : x.doc.dias + 'd restantes'}</span>
+                </div>
+                <div style="margin-top:3px;">${x.doc.tipo || 'Documento'} · vence ${x.doc.fecha || '—'}</div>
+                ${x.doc.obs ? `<div style="margin-top:3px;color:#94a3b8;">${x.doc.obs}</div>` : ''}
+            </li>`).join('')}</ul></div>`;
+
+    abrirModalLista('Documentación por Vencer', `${docs.length} documento(s) con fecha registrada`, filas);
 }
 
 /* ---------- Averías de TODA la flota (no solo las del usuario logueado) ----------
