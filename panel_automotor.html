@@ -392,9 +392,9 @@
 <!-- ── MENÚ DE ACCESOS — mismo agrupamiento que el sidebar original ── -->
 <div class="menu-group-label">Operación</div>
 <div class="menu-conductor">
-    <a href="flota.html" class="card-condu"><i>🚐</i><span>Carrozas</span></a>
+    <a href="javascript:void(0)" onclick="irASeccion('flotaSection')" class="card-condu"><i>🚐</i><span>Carrozas</span></a>
     <a href="javascript:void(0)" onclick="mostrarConductores()" class="card-condu"><i>🧑‍✈️</i><span>Conductores</span></a>
-    <a href="registro_llegada.html" class="card-condu"><i>🏁</i><span>Traslados</span></a>
+    <a href="javascript:void(0)" onclick="mostrarTraslados()" class="card-condu"><i>🏁</i><span>Traslados</span></a>
     <a href="entrega_vehiculo.html" class="card-condu"><i>📝</i><span>Entrega Vehículos</span></a>
 </div>
 
@@ -461,7 +461,7 @@
 </div>
 
 <!-- ── FLOTA COMPLETA ── -->
-<div class="monitor-mini">
+<div class="monitor-mini" id="flotaSection">
     <h2>Estado de Flota General</h2>
     <input type="text" class="fleet-search" id="fleetSearch" placeholder="Buscar placa, regional o estado...">
     <div id="fleetList"><div class="fleet-empty">Cargando flota...</div></div>
