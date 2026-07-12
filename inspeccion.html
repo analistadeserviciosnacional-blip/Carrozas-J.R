@@ -216,24 +216,29 @@
   <script>
     let flotaGlobal = [];
 
-    // Regresa a la página de la que realmente vino el usuario
-    // (panel_automotor.html si es admin, panel_conductor.html si es conductor),
-    // en vez de forzar siempre panel_conductor.html.
+    // Normaliza texto igual que en index.html (sin tildes, minúsculas)
+    const norm = s => (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Regresa al panel correcto según el ROL guardado en la sesión —
+    // exactamente el mismo mapeo que usa index.html al hacer login,
+    // para que "Volver al Panel" funcione igual sin importar el rol:
+    //   admin / administrador          -> dashboard.html
+    //   gestor_flota (Gestor de Flotas)-> panel_automotor.html
+    //   coordinador                    -> panel_coordinador.html
+    //   cualquier otro (conductor)     -> panel_conductor.html
     function volverPanel() {
-      const ref = document.referrer;
-      // Si hay una página anterior en el mismo sitio, usamos el historial real.
-      if (ref && ref.indexOf(location.origin) === 0 && window.history.length > 1) {
-        window.history.back();
+      const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
+      const rol = norm(sesion && sesion.rol);
+      const usr = norm(sesion && sesion.usuario);
+
+      if (rol === 'admin' || rol === 'administrador' || usr === 'admin') {
+        window.location.href = 'dashboard.html';
+      } else if (rol === 'gestor_flota' || rol === 'gestor de flotas jr' || rol === 'gestor de flota jr' || rol === 'gestor flota jr') {
+        window.location.href = 'panel_automotor.html';
+      } else if (rol === 'coordinador') {
+        window.location.href = 'panel_coordinador.html';
       } else {
-        // Sin referencia válida (ej. se abrió el link directo): usamos el panel
-        // según el rol guardado en la sesión, si existe; si no, conductor por defecto.
-        const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
-        const rol = sesion && (sesion.rol || sesion.tipo || sesion.perfil);
-        if (rol && String(rol).toLowerCase().includes('admin')) {
-          window.location.href = 'panel_automotor.html';
-        } else {
-          window.location.href = 'panel_conductor.html';
-        }
+        window.location.href = 'panel_conductor.html';
       }
     }
 
