@@ -117,6 +117,33 @@
         #progreso-steps div.ok  { color: #15803d; font-weight: 700; }
         #progreso-steps div.err { color: #dc2626; font-weight: 700; }
         #progreso-steps div.act { color: #004a99; font-weight: 700; }
+
+        /* ── CARD COMBUSTIBLE TRAS EL CIERRE ── */
+        .combustible-card {
+            display: none;
+            border-radius: 14px; padding: 16px 18px;
+            margin: 4px 0 14px; border: 2px solid #93c5fd;
+            background: #eff6ff;
+        }
+        .combustible-card.show { display: block; }
+        .combustible-card .cc-titulo {
+            font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+            color: #1d4ed8; display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+        }
+        .combustible-card .cc-comparativa {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        .combustible-card .cc-bloque { text-align: center; }
+        .combustible-card .cc-bloque .cc-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; }
+        .combustible-card .cc-bloque .cc-val { font-size: 22px; font-weight: 800; color: #1e3a8a; line-height: 1.15; }
+        .combustible-card .cc-bloque .cc-sub { font-size: 10.5px; color: #64748b; }
+        .combustible-card .cc-flecha { font-size: 20px; color: #93c5fd; }
+        .combustible-card .cc-detalle {
+            margin-top: 10px; font-size: 12px; color: #1d4ed8; background: #dbeafe;
+            border-radius: 10px; padding: 8px 10px; font-weight: 600;
+        }
+        .combustible-card.cc-error { border-color: #fca5a5; background: #fef2f2; }
+        .combustible-card.cc-error .cc-titulo { color: #b91c1c; }
     </style>
 </head>
 <body>
@@ -230,6 +257,25 @@
         <div id="progreso-steps">
             <div id="step-carroza">⏳ Actualizando estado de carroza...</div>
             <div id="step-llegada">⏳ Guardando registro de llegada...</div>
+        </div>
+
+        <!-- ── CARD: COMBUSTIBLE ANTES/DESPUÉS DEL CIERRE (transparencia) ── -->
+        <div class="combustible-card" id="combustible-card">
+            <div class="cc-titulo">⛽ Combustible — Confirmación del Cierre</div>
+            <div class="cc-comparativa">
+                <div class="cc-bloque">
+                    <div class="cc-lbl">Antes de cerrar</div>
+                    <div class="cc-val" id="cc-antes-val">—</div>
+                    <div class="cc-sub" id="cc-antes-sub">—</div>
+                </div>
+                <div class="cc-flecha">➔</div>
+                <div class="cc-bloque">
+                    <div class="cc-lbl">Después de cerrar</div>
+                    <div class="cc-val" id="cc-despues-val">—</div>
+                    <div class="cc-sub" id="cc-despues-sub">—</div>
+                </div>
+            </div>
+            <div class="cc-detalle" id="cc-detalle">Calculando el descuento real de combustible...</div>
         </div>
 
         <div class="acciones">
@@ -359,6 +405,7 @@
         kmSalidaInput.classList.remove('editado');
         kmSalidaHint.style.display = 'none';
         document.getElementById('km_ingreso').value = '';
+        ocultarCardCombustible();
 
         if (!placaSeleccionada) {
             estadoCargaKM = null;
@@ -502,6 +549,64 @@
         if (el) { el.className = estado; el.innerText = texto; }
     }
 
+    // ── COMBUSTIBLE ANTES/DESPUÉS (transparencia del cierre) ──────────────
+    function ocultarCardCombustible() {
+        const card = document.getElementById('combustible-card');
+        card.classList.remove('show', 'cc-error');
+        document.getElementById('cc-antes-val').innerText = '—';
+        document.getElementById('cc-antes-sub').innerText = '—';
+        document.getElementById('cc-despues-val').innerText = '—';
+        document.getElementById('cc-despues-sub').innerText = '—';
+        document.getElementById('cc-detalle').innerText = 'Calculando el descuento real de combustible...';
+    }
+
+    function formatoCombustible(est) {
+        if (!est || !est.ok) return { val: 'Sin datos', sub: '' };
+        return {
+            val: (est.porcentaje_combustible != null ? est.porcentaje_combustible + '%' : '—'),
+            sub: (est.combustible_galones != null && est.capacidad_galones != null)
+                ? est.combustible_galones + ' / ' + est.capacidad_galones + ' gal'
+                : (est.nivel_combustible || '')
+        };
+    }
+
+    function mostrarCombustibleAntes(estAntes) {
+        const card = document.getElementById('combustible-card');
+        card.classList.add('show');
+        card.classList.remove('cc-error');
+        const f = formatoCombustible(estAntes);
+        document.getElementById('cc-antes-val').innerText = f.val;
+        document.getElementById('cc-antes-sub').innerText = f.sub;
+        document.getElementById('cc-detalle').innerText = 'Cerrando el servicio y recalculando el consumo real...';
+    }
+
+    function mostrarCombustibleDespues(estAntes, estDespues, totalKmServicio) {
+        const card = document.getElementById('combustible-card');
+        card.classList.add('show');
+        card.classList.remove('cc-error');
+
+        const fD = formatoCombustible(estDespues);
+        document.getElementById('cc-despues-val').innerText = fD.val;
+        document.getElementById('cc-despues-sub').innerText = fD.sub;
+
+        let detalle = '';
+        if (estAntes && estAntes.ok && estDespues && estDespues.ok &&
+            estAntes.combustible_galones != null && estDespues.combustible_galones != null) {
+            const consumidos = (estAntes.combustible_galones - estDespues.combustible_galones);
+            const pctAntes = estAntes.porcentaje_combustible;
+            const pctDespues = estDespues.porcentaje_combustible;
+            detalle = '✅ Se descontaron ' + consumidos.toFixed(1) + ' gal' +
+                (totalKmServicio ? ' por los ' + Number(totalKmServicio).toLocaleString('es-CO') + ' km de este servicio' : '') +
+                '. Nivel real confirmado: ' + pctAntes + '% → ' + pctDespues + '%.';
+        } else if (estDespues && estDespues.ok) {
+            detalle = 'ℹ️ Combustible actualizado y confirmado directamente contra la base de datos.';
+        } else {
+            detalle = '⚠️ No se pudo confirmar el combustible actualizado — revisa manualmente esta carroza.';
+            card.classList.add('cc-error');
+        }
+        document.getElementById('cc-detalle').innerText = detalle;
+    }
+
     // ── FINALIZAR SERVICIO ────────────────────────────────
     async function finalizarServicio() {
         const btn   = document.getElementById('btn-finalizar');
@@ -576,6 +681,17 @@
             recibido_por:   document.getElementById('recibido_por').value,
         };
 
+        // 🆕 Foto ANTES de tocar la carroza — así el card de combustible puede
+        // mostrar la comparación real antes/después y no solo el valor final.
+        // Si esta consulta falla, el cierre continúa igual (no es bloqueante).
+        let estadoCombustibleAntes = null;
+        try {
+            estadoCombustibleAntes = await DB.obtenerEstadoCarroza(placa);
+            if (estadoCombustibleAntes && estadoCombustibleAntes.ok) {
+                mostrarCombustibleAntes(estadoCombustibleAntes);
+            }
+        } catch(e) { console.warn('No se pudo leer combustible antes del cierre:', e); }
+
         // Paso 1: Carroza
         setStep('step-carroza', 'act', '⏳ Actualizando estado de carroza...');
         try {
@@ -615,23 +731,27 @@
             btn.style.background = '#16a34a';
             document.getElementById('bloque-wa').style.display = 'block';
 
-            // ── COMBUSTIBLE ACTUALIZADO (informativo) ──
+            // ── COMBUSTIBLE ACTUALIZADO (verificación real antes/después) ──
             // guardarLlegada ya descontó los galones estimados según los KM
-            // recorridos; aquí solo consultamos el resultado para mostrarlo.
+            // recorridos; aquí consultamos el resultado REAL contra la base
+            // de datos y lo mostramos comparado con el valor de antes, para
+            // que quede constancia visible y verificable de que el descuento
+            // fue real (seguridad y transparencia del cierre).
             try {
-                const est = await DB.obtenerEstadoCarroza(placa);
-                if (est.ok) {
+                const estDespues = await DB.obtenerEstadoCarroza(placa);
+                mostrarCombustibleDespues(estadoCombustibleAntes, estDespues, datosFinales.total_km);
+                if (estDespues && estDespues.ok) {
                     datosFinales.combustible_resultante =
-                        `${est.nivel_combustible} ${est.combustible_galones}/${est.capacidad_galones} gal (${est.porcentaje_combustible}%)`;
-                    const box = document.getElementById('total-km-card');
-                    if (box) {
-                        const info = document.createElement('div');
-                        info.style.cssText = 'margin-top:10px; font-size:13px; color:#166534; font-weight:700;';
-                        info.innerText = '⛽ Combustible actual: ' + datosFinales.combustible_resultante;
-                        box.appendChild(info);
-                    }
+                        `${estDespues.nivel_combustible} ${estDespues.combustible_galones}/${estDespues.capacidad_galones} gal (${estDespues.porcentaje_combustible}%)`;
                 }
-            } catch(e) { console.warn('No se pudo consultar combustible actualizado:', e); }
+            } catch(e) {
+                console.warn('No se pudo consultar combustible actualizado:', e);
+                mostrarCombustibleDespues(estadoCombustibleAntes, null, datosFinales.total_km);
+            }
+
+            // Llevar la vista hasta el card de combustible para que se note
+            // de inmediato, sin que el usuario tenga que buscarlo con scroll.
+            document.getElementById('combustible-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch(e) {
             setStep('step-llegada', 'err', '❌ Error: ' + e.message);
             btn.disabled = false;
