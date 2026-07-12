@@ -87,7 +87,7 @@
 <body>
 
   <div class="nav-row">
-    <button class="btn-volver" onclick="location.href='panel_automotor.html'">← Volver al Panel</button>
+    <button class="btn-volver" onclick="volver()">← Volver al Panel</button>
     <span class="status-pill" id="pillConexion"><span class="dot"></span><span>Conectando…</span></span>
   </div>
 
@@ -150,6 +150,16 @@
       if (!s) { window.location.replace('index.html'); return; }
       try { JSON.parse(s); } catch(e) { localStorage.removeItem('usuario_sesion'); window.location.replace('index.html'); }
     })();
+
+    // ── Volver a la página de origen real (dashboard o panel_automotor), ──
+    // ── no a una fija ── mismo patrón que ya usa tanqueo.html.
+    function volver() {
+      if (document.referrer && document.referrer.indexOf(window.location.host) !== -1) {
+        history.back();
+      } else {
+        window.location.href = 'panel_automotor.html';
+      }
+    }
 
     const CAPACIDAD_DEFAULT = 55; // debe coincidir con CAPACIDAD_TANQUE_DEFAULT de db.js
 
