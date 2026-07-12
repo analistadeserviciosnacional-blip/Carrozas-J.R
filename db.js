@@ -313,6 +313,49 @@ async function conLock(nombre, fn) {
 // hoja "carrozas" (se crea sola la primera vez que se use).
 const CAPACIDAD_TANQUE_DEFAULT = 55;
 
+// ── 🆕 TABLA DE CAPACIDAD DE TANQUE POR MODELO (en galones) ──────────
+// Antes TODAS las carrozas usaban el mismo default (55 gal) sin importar
+// si eran un Chery Yoya (tanque real ~9 gal) o una Van N400 (~13 gal),
+// lo que dañaba el % de combustible mostrado en el cierre de cada
+// servicio. Esta tabla se investigó contra fichas técnicas oficiales /
+// fuentes especializadas por modelo, y se aplica por coincidencia de
+// palabra clave contra el campo "modelo" de la hoja carrozas (sin
+// distinguir mayúsculas/minúsculas). Las reglas se evalúan en orden —
+// la primera coincidencia gana — así que las más específicas van primero.
+//
+// ⚠️ Los valores marcados "estimado" no tienen ficha oficial exacta
+// confirmada; son la mejor referencia disponible para ese tipo de
+// vehículo. Se puede ajustar cualquiera de estos valores editando
+// directamente la columna capacidad_galones de la fila en la hoja
+// carrozas — una vez escrita a mano, esa fila deja de usar esta tabla.
+const CAPACIDAD_POR_MODELO = [
+  { patron: /ssangyong|rodius|stavic/i,              galones: 21.1, fuente: 'SsangYong Rodius/Stavic — tanque 80 L (Wikipedia/ficha oficial)' },
+  { patron: /chevrolet\s*hhr|\bhhr\b/i,               galones: 16.1, fuente: 'Chevrolet HHR — tanque 61 L (fichas técnicas oficiales)' },
+  { patron: /chevrolet\s*(van\s*)?n[34]00|^\s*n400\b/i, galones: 13.2, fuente: 'Chevrolet N300/N400 — tanque 50 L' },
+  { patron: /\bdfsk\b/i,                              galones: 10.6, fuente: 'DFSK C35/C37 — tanque 10.6 gal (ficha DFSK Colombia)' },
+  { patron: /chery/i,                                 galones: 9.2,  fuente: 'Chery QQ/Yoya — tanque 35 L' },
+  { patron: /suzuki\s*ertiga|ertiga/i,                galones: 11.9, fuente: 'Suzuki Ertiga — tanque 45 L (ficha oficial)' },
+  { patron: /volkswagen|saveiro/i,                    galones: 14.5, fuente: 'Volkswagen Saveiro — tanque 55 L (ficha oficial VW)' },
+  { patron: /peugeot\s*partner|partner/i,             galones: 15.9, fuente: 'Peugeot Partner — tanque ~60 L (estimado)' },
+  { patron: /chevrolet\s*luv|\bluv\b/i,               galones: 15.3, fuente: 'Chevrolet LUV (pickup) — tanque ~58 L (estimado)' },
+  { patron: /toyota\s*hilux|hilux/i,                  galones: 18.5, fuente: 'Toyota Hilux — tanque ~70 L (estimado, gen. 1997-2005)' },
+  { patron: /nissan\s*np ?300|np ?300/i,               galones: 21.1, fuente: 'Nissan NP300 — tanque 80 L (ficha oficial)' },
+  { patron: /nissan\s*frontier|frontier/i,            galones: 21.1, fuente: 'Nissan Frontier — tanque ~80 L (estimado, mismo chasis que NP300)' },
+  { patron: /mazda\s*5\b/i,                           galones: 15.9, fuente: 'Mazda 5 — tanque ~60 L (estimado)' },
+  { patron: /mazda\s*b\b|b22cs7/i,                    galones: 15.9, fuente: 'Mazda B (pickup) — tanque ~60 L (estimado)' },
+  { patron: /\brodeo\b/i,                             galones: 18.5, fuente: 'Isuzu Rodeo — tanque ~70 L (estimado)' },
+];
+
+// Devuelve { galones, fuente } si el modelo coincide con alguna regla
+// conocida, o null si no hay coincidencia (se usará CAPACIDAD_TANQUE_DEFAULT).
+function capacidadPorModelo(modelo) {
+  const m = String(modelo || '');
+  for (const regla of CAPACIDAD_POR_MODELO) {
+    if (regla.patron.test(m)) return { galones: regla.galones, fuente: regla.fuente };
+  }
+  return null;
+}
+
 // Rendimiento (km/galón) que se asume ANTES de tener un primer
 // tanqueo histórico para calcular el real.
 const RENDIMIENTO_DEFAULT = 25;
@@ -680,7 +723,13 @@ const DB = {
       const carroza = flota.find(r => String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === pSel);
       if (!carroza) return { ok: false, error: 'Carroza no encontrada' };
 
-      const capacidad = parseFloat(carroza.capacidad_galones) || CAPACIDAD_TANQUE_DEFAULT;
+      // 🆕 Si la fila no tiene capacidad_galones escrita a mano, se busca
+      // en la tabla CAPACIDAD_POR_MODELO por el campo "modelo" de la
+      // carroza; solo si tampoco hay coincidencia se usa el default plano.
+      const capacidadFila = parseFloat(carroza.capacidad_galones) || 0;
+      const matchModelo = capacidadFila > 0 ? null : capacidadPorModelo(carroza.modelo);
+      const capacidad = capacidadFila > 0 ? capacidadFila
+        : (matchModelo ? matchModelo.galones : CAPACIDAD_TANQUE_DEFAULT);
       // Si nunca se ha registrado combustible para esta carroza, asumimos
       // que arranca llena (mejor que asumir 0 y disparar falsas alarmas).
       const combustible = (carroza.combustible_galones !== undefined && String(carroza.combustible_galones).trim() !== '')
@@ -714,6 +763,7 @@ const DB = {
         placa: carroza.placa,
         combustible_galones: Math.round(combustible * 10) / 10,
         capacidad_galones: capacidad,
+        capacidad_origen: capacidadFila > 0 ? 'registrada en carrozas' : (matchModelo ? matchModelo.fuente : 'default genérico (55 gal) — modelo no identificado'),
         porcentaje_combustible: porcentaje,
         nivel_combustible: nivelTanque(porcentaje),
         rendimiento_ultimo_km_gal: rendimientoUltimo || null,
@@ -867,13 +917,18 @@ const DB = {
       DB.invalidarCache('Llegadas');
 
       // ── ACTUALIZACIÓN DE KM/COMBUSTIBLE — AHORA SE ESPERA ──
-      let estadoDespues = { ok: false };
+      let estadoDespues              = { ok: false };
+      let estadoPrevio               = { ok: false };
+      let rendimientoUsado           = RENDIMIENTO_DEFAULT;
+      let carrozaActualizadaOk       = false;
+      let combustibleGuardadoEnRegistro = false;
+
       try {
-        const estadoPrevio      = await DB.obtenerEstadoCarroza(d.placa);
-        const rendimiento       = (estadoPrevio.ok && estadoPrevio.rendimiento_ultimo_km_gal) || RENDIMIENTO_DEFAULT;
+        estadoPrevio = await DB.obtenerEstadoCarroza(d.placa);
+        rendimientoUsado = (estadoPrevio.ok && estadoPrevio.rendimiento_ultimo_km_gal) || RENDIMIENTO_DEFAULT;
         const combustiblePrevio = estadoPrevio.ok ? estadoPrevio.combustible_galones : CAPACIDAD_TANQUE_DEFAULT;
         const totalKm           = parseFloat(d.total_km) || 0;
-        const consumoEstimado   = totalKm / rendimiento;
+        const consumoEstimado   = totalKm / rendimientoUsado;
         const nuevoCombustible  = Math.max(0, Math.round((combustiblePrevio - consumoEstimado) * 10) / 10);
         const kmLlegadaNum      = parseInt(d.km_ingreso) || 0;
 
@@ -882,6 +937,8 @@ const DB = {
           kilometraje_actual:   kmLlegadaNum,
           combustible_galones:  nuevoCombustible,
         });
+
+        carrozaActualizadaOk = !!upd.ok;
 
         if (upd.ok) {
           DB.invalidarCache('carrozas');
@@ -896,7 +953,45 @@ const DB = {
         console.error('Error actualizando carroza tras guardarLlegada:', e.message);
       }
 
-      return Object.assign({}, res, { estado_carroza_despues: estadoDespues });
+      // ── 🆕 ANEXAR AL PROPIO REGISTRO DE LLEGADA EL ESTADO DE
+      //    COMBUSTIBLE (antes / después / consumido / rendimiento usado) ──
+      // Esto queda guardado en la hoja "Llegadas" como una segunda
+      // escritura (update por id), para que el cierre de combustible de
+      // cada servicio sea auditable después — se puede abrir la hoja o
+      // el registro y comparar el % con el que salió vs. el % con el
+      // que se cerró, y así verificar si el consumo reportado es real.
+      try {
+        const consumidoGal = (estadoPrevio.ok && estadoDespues && estadoDespues.ok)
+          ? Math.round((estadoPrevio.combustible_galones - estadoDespues.combustible_galones) * 10) / 10
+          : '';
+
+        const camposCombustible = {
+          combustible_antes_porcentaje:    estadoPrevio.ok ? estadoPrevio.porcentaje_combustible : '',
+          combustible_antes_galones:       estadoPrevio.ok ? estadoPrevio.combustible_galones     : '',
+          combustible_despues_porcentaje:  (estadoDespues && estadoDespues.ok) ? estadoDespues.porcentaje_combustible : '',
+          combustible_despues_galones:     (estadoDespues && estadoDespues.ok) ? estadoDespues.combustible_galones   : '',
+          combustible_consumido_galones:   consumidoGal,
+          capacidad_galones_carroza:       estadoPrevio.ok ? estadoPrevio.capacidad_galones : '',
+          rendimiento_usado_km_gal:        rendimientoUsado,
+          carroza_actualizada:             carrozaActualizadaOk ? 'SI' : 'NO — revisar manualmente',
+        };
+
+        const resCombustible = await gasWrite('Llegadas', camposCombustible, 'update', 'id', fila.id);
+        combustibleGuardadoEnRegistro = !!resCombustible.ok;
+        if (!resCombustible.ok) {
+          console.warn('⚠️ No se pudo anexar el estado de combustible al registro de Llegada ' + fila.id + ':', resCombustible.error);
+        } else {
+          DB.invalidarCache('Llegadas');
+        }
+      } catch (e) {
+        console.warn('⚠️ Error anexando combustible al registro de Llegada:', e.message);
+      }
+
+      return Object.assign({}, res, {
+        estado_carroza_despues: estadoDespues,
+        estado_carroza_antes: estadoPrevio,
+        combustible_guardado_en_registro: combustibleGuardadoEnRegistro,
+      });
     });
   },
 
@@ -956,6 +1051,68 @@ const DB = {
 
   async actualizarCarroza(placa, campos) {
     return await gasWrite('carrozas', campos, 'update', 'placa', placa);
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 🆕 INICIALIZAR capacidad_galones EN TODA LA FLOTA (una sola vez)
+  // ══════════════════════════════════════════════════════════
+  // Recorre la hoja "carrozas" y, para cada placa que NO tenga ya un
+  // valor en capacidad_galones, escribe la capacidad real investigada
+  // en CAPACIDAD_POR_MODELO (o el default de 55 gal si el modelo no
+  // se pudo identificar). Es seguro ejecutarlo varias veces: las filas
+  // que ya tengan un valor (sea porque ya se corrió antes, o porque se
+  // editó a mano) NO se tocan.
+  //
+  // Cómo ejecutarlo una sola vez (por ejemplo desde la consola del
+  // navegador en cualquier pantalla que cargue db.js):
+  //     await DB.inicializarCapacidadesTanque()
+  //
+  // Devuelve un resumen: cuántas se actualizaron, cuántas ya tenían
+  // valor, y cuántas quedaron con el default por no identificar el
+  // modelo (para poder revisarlas y corregirlas a mano si se quiere).
+  async inicializarCapacidadesTanque() {
+    try {
+      const flota = await gasGet('carrozas');
+      const resumen = { actualizadas: [], yaTenian: [], sinModeloIdentificado: [], errores: [] };
+
+      for (const carroza of flota) {
+        const placa = carroza.placa;
+        if (!placa) continue;
+
+        const yaTiene = parseFloat(carroza.capacidad_galones) > 0;
+        if (yaTiene) {
+          resumen.yaTenian.push(placa);
+          continue;
+        }
+
+        const match = capacidadPorModelo(carroza.modelo);
+        const galones = match ? match.galones : CAPACIDAD_TANQUE_DEFAULT;
+
+        try {
+          const res = await DB.actualizarCarroza(placa, { capacidad_galones: galones });
+          if (res.ok) {
+            resumen.actualizadas.push({ placa, modelo: carroza.modelo, galones, fuente: match ? match.fuente : 'default genérico' });
+            if (!match) resumen.sinModeloIdentificado.push({ placa, modelo: carroza.modelo });
+          } else {
+            resumen.errores.push({ placa, error: res.error });
+          }
+        } catch (e) {
+          resumen.errores.push({ placa, error: e.message });
+        }
+      }
+
+      DB.invalidarCache('carrozas');
+      console.log(
+        `✅ Capacidad de tanque inicializada: ${resumen.actualizadas.length} carrozas actualizadas, ` +
+        `${resumen.yaTenian.length} ya tenían valor, ${resumen.errores.length} con error.`
+      );
+      if (resumen.sinModeloIdentificado.length) {
+        console.warn('⚠️ Estas placas quedaron con el default genérico (55 gal) por no reconocer el modelo — revisar si se quiere ajustar a mano:', resumen.sinModeloIdentificado);
+      }
+      return { ok: true, resumen };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
   },
 
   async insertar(hoja, datos) {
