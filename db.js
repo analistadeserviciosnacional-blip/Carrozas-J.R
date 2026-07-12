@@ -1243,3 +1243,4 @@ window.DB = DB;
     console.warn('🔴 Error en warm-up:', e.message);
   }
 })();
+
