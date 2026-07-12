@@ -340,42 +340,41 @@
     }
     
  // ── AL ELEGIR PLACA (VERSIÓN FINAL OPTIMIZADA) ───────────────────────────────────
-    async function alSeleccionarPlaca() {
-        const placaSeleccionada = document.getElementById('placa').value;
-        const subInfo = document.getElementById('km-sub-info');
-        const card    = document.getElementById('total-km-card');
-        const banner  = document.getElementById('banner-esperar');
-        const campoKM = document.getElementById('km_ingreso');
-        const kmSalidaInput = document.getElementById('km_salida_display');
-        const kmSalidaHint  = document.getElementById('km-salida-hint');
+   async function alSeleccionarPlaca() {
+    const select = document.getElementById('placa');
+    const opcion = select.options[select.selectedIndex];
+    const placa = select.value;
+    
+    const kmSalidaInput = document.getElementById('km_salida_display');
+    const subInfo = document.getElementById('km-sub-info');
+    const campoKM = document.getElementById('km_ingreso');
 
-        // Resetear valores
-        window._kmSalidaActivo  = 0;
-        window._idSalidaActivo  = '';
-        window._kmSalidaCorregidoManual = false;
-        document.getElementById('total_km').value = '';
-        document.getElementById('total-km-display').innerText = '— KM';
+    if (!placa) {
+        estadoCargaKM = null;
         kmSalidaInput.value = '';
-        kmSalidaInput.classList.remove('editado');
-        kmSalidaHint.style.display = 'none';
-        document.getElementById('km_ingreso').value = '';
-
-        if (!placaSeleccionada) {
-            estadoCargaKM = null;
-            subInfo.innerText = 'Selecciona la placa para calcular';
-            card.className = 'total-km-card';
-            banner.style.display = 'none';
-            campoKM.disabled = true;
-            actualizarBoton();
-            return;
-        }
-
-        campoKM.disabled = true;
-        campoKM.placeholder = '⏳ Buscando salida...';
-        estadoCargaKM = 'cargando';
-        banner.style.display = 'block';
-        card.className = 'total-km-card cargando';
         actualizarBoton();
+        return;
+    }
+
+    // Leemos los datos que guardamos en los atributos "data-" en el paso anterior
+    const kmSalida = parseFloat(opcion.getAttribute('data-km-salida')) || 0;
+    const idSalida = opcion.getAttribute('data-id-salida');
+
+    window._kmSalidaActivo = kmSalida;
+    window._idSalidaActivo = idSalida;
+    
+    kmSalidaInput.value = kmSalida;
+    kmSalidaInput.classList.remove('editado');
+    estadoCargaKM = 'ok';
+    
+    subInfo.innerText = `✅ Traslado ID: ${idSalida} | KM Salida: ${kmSalida}`;
+    
+    campoKM.disabled = false;
+    campoKM.placeholder = 'Escriba KM al llegar';
+    document.getElementById('total-km-card').className = 'total-km-card listo';
+    
+    actualizarBoton();
+}
 
         try {
             const res = await DB.obtenerTrasladoActivoPorPlaca(placaSeleccionada);
