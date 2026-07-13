@@ -360,8 +360,6 @@
 <script>
     // ✅ URL correcta — la misma que usa db.js y el resto del sistema
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
-    // 🆕 Token del bot de Telegram usado para notificar solicitudes
-    const TELEGRAM_TOKEN = '8635888430:AAHlYMbtXen0C2nK5eqb4XngDvKuQki1SDg';
 
     let sesion = {}, urgencia = 'normal', alcance = 'regional', regionalEspecifica = '', conductoresWA = [], mensajeWA = '', enviados = new Set();
     const REGIONALES = ['Pereira','Risaralda','Quindío','Caldas','Antioquia','Valle Centro','Valle Norte','Valle Sur','C/ Marca','Tolima Norte','Palmira'];
@@ -463,84 +461,23 @@
         return msg;
     }
 
-    // Respaldo por grupo (hoja config_telegram: regional -> chat_id de grupo)
-    async function getChatIdsParaAlcance(datos) {
-        try {
-            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=config_telegram');
-            const config = await resp.json();
-            const norm = s => String(s || '').toLowerCase().trim()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-            const buscar = (regional) => {
-                const fila = config.find(c => norm(c.regional) === norm(regional));
-                return fila ? fila.chat_id : null;
-            };
-
-            if (norm(datos.alcance) === 'nacional') {
-                const id = buscar('Nacional');
-                return id ? [id] : [];
-            } else {
-                const id = buscar(datos.alcance);
-                return id ? [id] : [];
-            }
-        } catch (e) {
-            console.warn('No se pudo cargar config_telegram:', e.message);
-            return [];
-        }
-    }
-
-    // Vinculación individual (hoja telegram_links): conductor -> chat_id personal
-    async function getChatIdsConductoresRegional(alcanceDestino) {
-        try {
-            const [respUsers, respLinks] = await Promise.all([
-                fetch(APPS_SCRIPT_URL + '?sheetName=usuarios'),
-                fetch(APPS_SCRIPT_URL + '?sheetName=telegram_links')
-            ]);
-            const users = await respUsers.json();
-            const links = await respLinks.json();
-
-            const norm = s => String(s || '').toLowerCase().trim()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            const normTel = t => String(t || '').replace(/[^0-9]/g, '').slice(-10);
-
-            const conductores = (Array.isArray(users) ? users : []).filter(u => {
-                const esConductor = norm(u.rol) === 'conductor';
-                const coincideRegional = norm(alcanceDestino) === 'nacional' || norm(u.regional) === norm(alcanceDestino);
-                return esConductor && coincideRegional && u.telefono;
-            });
-
-            const chatIds = [];
-            conductores.forEach(c => {
-                const link = (Array.isArray(links) ? links : []).find(l => normTel(l.telefono) === normTel(c.telefono));
-                if (link && link.chat_id) chatIds.push(link.chat_id);
-            });
-
-            return chatIds;
-        } catch (e) {
-            console.warn('No se pudo resolver conductores/links Telegram:', e.message);
-            return [];
-        }
-    }
-
+    // 🆕 v10.10 — Notifica por Telegram usando el endpoint SEGURO del backend
+    // (action=notificarTelegram). El propio backend resuelve, sin exponer el
+    // token en el navegador, tanto los conductores ya vinculados individualmente
+    // de esa regional (hoja telegram_links) como el grupo de respaldo
+    // (hoja config_telegram), y le manda el mensaje solo a esos destinatarios
+    // — nunca a los de otra regional — salvo que el alcance sea "nacional".
     async function notificarTelegram(datos) {
-        // 1) Chats individuales de conductores ya vinculados
-        const chatIdsConductores = await getChatIdsConductoresRegional(datos.alcance);
-
-        // 2) Grupo de respaldo (config_telegram), por si nadie está vinculado aún
-        const chatIdsGrupo = await getChatIdsParaAlcance(datos);
-
-        const chatIds = [...new Set([...chatIdsConductores, ...chatIdsGrupo])];
-        if (chatIds.length === 0) return;
-
         const texto = generarMensajeTelegram(datos);
-
-        await Promise.all(chatIds.map(chatId =>
-            fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        try {
+            await fetch(APPS_SCRIPT_URL + '?action=notificarTelegram', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: texto, parse_mode: 'HTML' })
-            }).catch(e => console.warn('Error Telegram:', e.message))
-        ));
+                body: JSON.stringify({ regional: datos.alcance, mensaje: texto })
+            });
+        } catch (e) {
+            console.warn('Error Telegram:', e.message);
+        }
     }
 
     function actualizarPreview() {

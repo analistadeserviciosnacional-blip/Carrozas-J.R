@@ -971,7 +971,23 @@
             if (!res || !res.ok) throw new Error(res ? res.error : 'Error desconocido');
 
             setStep('step-traslado', 'ok', modoEdicion ? '✅ Registro actualizado' : '✅ Registro guardado');
-            if (idApoyoCapturado) setStep('step-apoyo', 'ok', '✅ Solicitud vinculada');
+
+            // 🆕 Vincula de verdad la solicitud de apoyo aceptada con esta salida:
+            // marca la solicitud como "en_curso" y guarda la placa que salió a atenderla.
+            // No es crítico: si falla, no bloquea el registro de salida ya guardado.
+            if (idApoyoCapturado) {
+                try {
+                    await DB.actualizar(
+                        'solicitud_apoyo',
+                        { estado: 'en_curso', placa_asignada: datosFinales.placa },
+                        'id',
+                        String(idApoyoCapturado)
+                    );
+                } catch (eApoyo) {
+                    console.warn('No se pudo vincular la solicitud de apoyo:', eApoyo.message);
+                }
+                setStep('step-apoyo', 'ok', '✅ Solicitud vinculada');
+            }
 
             document.getElementById('btn-texto').textContent = modoEdicion ? '✓ ACTUALIZADO EXITOSO' : '✓ GUARDADO EXITOSO';
             btn.style.background = '#25D366';

@@ -448,6 +448,9 @@
             <span>Solicitudes de Apoyo</span>
             <span id="badge-texto" style="display:none; font-size:10px; color:#10b981; font-weight:800;"></span>
         </a>
+        <a id="btn-vincular-tg" href="#" target="_blank" class="card-menu">
+            <i>📲</i><span id="txt-vincular-tg">Vincular Telegram</span>
+        </a>
     </div>
 
     <!-- ── MIS SALIDAS RECIENTES ── -->
@@ -493,6 +496,9 @@
 <script>
     const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
+    // ✅ Misma URL que usa db.js y el resto del sistema
+    const APPS_SCRIPT_URL_TG = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
+
     let userSesion        = {};
     let solicitudActivaId = null;
 
@@ -525,12 +531,42 @@
             cargarResumenAverias(nombre);
             cargarMonitorFlota();
             verificarApoyosPendientes(user);
+            prepararVinculacionTelegram(user);
 
         } catch(e) {
             console.error("Error sesión:", e);
             window.location.href = "index.html";
         }
     };
+
+    // 🆕 Vinculación Telegram — genera el link t.me con el teléfono del
+    // conductor (ya registrado en la hoja "usuarios") para que el bot lo
+    // reconozca automáticamente al abrir /start, y avisa si ya está vinculado.
+    async function prepararVinculacionTelegram(user) {
+        const btn = document.getElementById('btn-vincular-tg');
+        const txt = document.getElementById('txt-vincular-tg');
+        const telefono = String(user.telefono || '').replace(/[^0-9]/g, '');
+
+        if (!telefono) {
+            btn.style.opacity = '0.5';
+            btn.onclick = (e) => { e.preventDefault(); alert('Tu usuario no tiene teléfono registrado. Pide a tu coordinador que lo actualice.'); };
+            return;
+        }
+
+        btn.href = `https://t.me/Jr_alertas_2026_bot?start=${telefono}`;
+
+        try {
+            const resp = await fetch(APPS_SCRIPT_URL_TG + '?sheetName=telegram_links');
+            const links = await resp.json();
+            const norm10 = t => String(t || '').replace(/[^0-9]/g, '').slice(-10);
+            const yaVinculado = (Array.isArray(links) ? links : []).some(l => norm10(l.telefono) === norm10(telefono) && l.chat_id);
+            if (yaVinculado) {
+                txt.textContent = '✅ Telegram Vinculado';
+            }
+        } catch (e) {
+            console.warn('No se pudo verificar vínculo de Telegram:', e.message);
+        }
+    }
 
     // ── MI CARROZA ───────────────────────────────────────────
     async function cargarMiCarroza(user) {
