@@ -272,7 +272,7 @@
             <label>Tipo de Servicio</label>
             <select id="c-tipo">
                 <option value="Servicio Funerario">Servicio Funerario</option>
-                 <option value="Recogida Clínica">Sepelio</option>
+                <option value="Sepelio">Sepelio</option>
                 <option value="Traslado Nacional">Traslado Nacional</option>
                 <option value="Recogida Clínica">Recogida Clínica</option>
                 <option value="Traslado de Emergencia">Traslado de Emergencia</option>
@@ -358,9 +358,11 @@
 <div class="toast" id="toast"></div>
 
 <script>
-    // ✅ FIX 1: URL correcta — la misma que usa db.js y el resto del sistema
+    // ✅ URL correcta — la misma que usa db.js y el resto del sistema
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
-    
+    // 🆕 Token del bot de Telegram usado para notificar solicitudes
+    const TELEGRAM_TOKEN = '8635888430:AAHlYMbtXen0C2nK5eqb4XngDvKuQki1SDg';
+
     let sesion = {}, urgencia = 'normal', alcance = 'regional', regionalEspecifica = '', conductoresWA = [], mensajeWA = '', enviados = new Set();
     const REGIONALES = ['Pereira','Risaralda','Quindío','Caldas','Antioquia','Valle Centro','Valle Norte','Valle Sur','C/ Marca','Tolima Norte','Palmira'];
 
@@ -441,6 +443,106 @@
         return msg;
     }
 
+    // ══════════════════════════════════════════════════════
+    // 🆕 TELEGRAM — mensaje + resolución de destinatarios
+    // ══════════════════════════════════════════════════════
+
+    function generarMensajeTelegram(datos) {
+        const emojiU = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '✅';
+        let msg = `${emojiU} <b>SOLICITUD DE APOYO ${urgencia.toUpperCase()}</b>\n`;
+        msg += `🏢 <b>Regional:</b> ${datos.regional_solicitante}\n`;
+        msg += `👤 <b>Coordinador:</b> ${datos.coordinador}\n`;
+        msg += `🚗 <b>Servicio:</b> ${datos.tipo_servicio}\n`;
+        msg += `🚩 <b>Origen:</b> ${datos.origen}\n`;
+        msg += `🏁 <b>Destino:</b> ${datos.destino}\n`;
+        if (datos.nombre_fallecido) msg += `⚱️ <b>Fallecido:</b> ${datos.nombre_fallecido}\n`;
+        if (datos.fecha_servicio)   msg += `📅 <b>Fecha:</b> ${datos.fecha_servicio}\n`;
+        if (datos.hora_requerida)   msg += `🕒 <b>Hora:</b> ${datos.hora_requerida}\n`;
+        if (datos.observaciones)    msg += `📝 <b>Obs:</b> ${datos.observaciones}\n`;
+        msg += `\n👉 Entra a la app J.R. para aceptar este servicio.`;
+        return msg;
+    }
+
+    // Respaldo por grupo (hoja config_telegram: regional -> chat_id de grupo)
+    async function getChatIdsParaAlcance(datos) {
+        try {
+            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=config_telegram');
+            const config = await resp.json();
+            const norm = s => String(s || '').toLowerCase().trim()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            const buscar = (regional) => {
+                const fila = config.find(c => norm(c.regional) === norm(regional));
+                return fila ? fila.chat_id : null;
+            };
+
+            if (norm(datos.alcance) === 'nacional') {
+                const id = buscar('Nacional');
+                return id ? [id] : [];
+            } else {
+                const id = buscar(datos.alcance);
+                return id ? [id] : [];
+            }
+        } catch (e) {
+            console.warn('No se pudo cargar config_telegram:', e.message);
+            return [];
+        }
+    }
+
+    // Vinculación individual (hoja telegram_links): conductor -> chat_id personal
+    async function getChatIdsConductoresRegional(alcanceDestino) {
+        try {
+            const [respUsers, respLinks] = await Promise.all([
+                fetch(APPS_SCRIPT_URL + '?sheetName=usuarios'),
+                fetch(APPS_SCRIPT_URL + '?sheetName=telegram_links')
+            ]);
+            const users = await respUsers.json();
+            const links = await respLinks.json();
+
+            const norm = s => String(s || '').toLowerCase().trim()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const normTel = t => String(t || '').replace(/[^0-9]/g, '').slice(-10);
+
+            const conductores = (Array.isArray(users) ? users : []).filter(u => {
+                const esConductor = norm(u.rol) === 'conductor';
+                const coincideRegional = norm(alcanceDestino) === 'nacional' || norm(u.regional) === norm(alcanceDestino);
+                return esConductor && coincideRegional && u.telefono;
+            });
+
+            const chatIds = [];
+            conductores.forEach(c => {
+                const link = (Array.isArray(links) ? links : []).find(l => normTel(l.telefono) === normTel(c.telefono));
+                if (link && link.chat_id) chatIds.push(link.chat_id);
+            });
+
+            return chatIds;
+        } catch (e) {
+            console.warn('No se pudo resolver conductores/links Telegram:', e.message);
+            return [];
+        }
+    }
+
+    async function notificarTelegram(datos) {
+        // 1) Chats individuales de conductores ya vinculados
+        const chatIdsConductores = await getChatIdsConductoresRegional(datos.alcance);
+
+        // 2) Grupo de respaldo (config_telegram), por si nadie está vinculado aún
+        const chatIdsGrupo = await getChatIdsParaAlcance(datos);
+
+        const chatIds = [...new Set([...chatIdsConductores, ...chatIdsGrupo])];
+        if (chatIds.length === 0) return;
+
+        const texto = generarMensajeTelegram(datos);
+
+        await Promise.all(chatIds.map(chatId =>
+            fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, text: texto, parse_mode: 'HTML' })
+            }).catch(e => console.warn('Error Telegram:', e.message))
+        ));
+    }
+
     function actualizarPreview() {
         const o = document.getElementById('c-origen').value || '?';
         const d = document.getElementById('c-destino').value || '?';
@@ -500,7 +602,7 @@
                 urgencia:             urgencia
             };
 
-            // ✅ FIX 2: sin mode:'no-cors' + header Content-Type correcto
+            // ✅ sin mode:'no-cors' + header Content-Type correcto
             const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', {
                 method:  'POST',
                 headers: { 'Content-Type': 'text/plain' },
@@ -509,6 +611,8 @@
 
             const result = await resp.json();
             if (!result.ok) throw new Error(result.error || 'Error al guardar');
+
+            notificarTelegram(datos); // 🆕 no lleva await para no bloquear el flujo de WhatsApp
 
             mensajeWA = generarMensajePRO(datos);
             toast('✅ Solicitud ' + nuevoId + ' Creada', '#10b981');
