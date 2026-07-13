@@ -447,6 +447,29 @@ function cerrarModal() {
     solPendiente = null;
 }
 
+// 🆕 Notifica por Telegram (endpoint seguro del backend v10.10 — NO expone el token)
+// No es crítico: si falla, no bloquea el flujo de aceptación.
+async function notificarTelegramAceptacion(s, nombreConductor) {
+    try {
+        var mensaje =
+            '✅ <b>Apoyo Aceptado</b>\n' +
+            '🚩 ' + (s.origen || '---') + '  ➔  🏁 ' + (s.destino || '---') +
+            (s.nombre_fallecido ? '\n⚱️ ' + s.nombre_fallecido : '') +
+            '\n👤 Conductor: ' + nombreConductor;
+
+        await fetch(APPS_SCRIPT_URL + '?action=notificarTelegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                regional: s.regional_solicitante || 'nacional',
+                mensaje: mensaje
+            })
+        });
+    } catch (eT) {
+        console.warn('Telegram (no crítico):', eT.message);
+    }
+}
+
 async function confirmarAceptar() {
     if (!solPendiente) return;
 
@@ -466,7 +489,7 @@ async function confirmarAceptar() {
 
         if (!res || res.ok === false) throw new Error(res && res.error ? res.error : 'Error al actualizar solicitud');
 
-        // Notificación (no crítico)
+        // Notificación interna (no crítico)
         try {
             await DB.insertar('notificaciones_apoyo', {
                 tipo:      'apoyo_aceptado',
@@ -479,6 +502,9 @@ async function confirmarAceptar() {
                 created_at: new Date().toISOString()
             });
         } catch(eN) { console.warn('Notif:', eN.message); }
+
+        // 🆕 Aviso por Telegram de que ya fue aceptada (no crítico)
+        notificarTelegramAceptacion(solPendiente, sesion.nombre);
 
         toast('✅ Apoyo aceptado — abriendo formulario...', '#10b981');
 
