@@ -43,6 +43,7 @@
         }
 
         .logo-small { color: var(--azul); font-weight: bold; font-size: 18px; }
+        .header-acciones { display: flex; align-items: center; gap: 10px; }
         .btn-salir { 
             background: #fee2e2; 
             color: var(--rojo); 
@@ -52,6 +53,116 @@
             font-weight: bold; 
             border: none; 
             cursor: pointer; 
+        }
+
+        /* ── 🆕 CAMPANA DE "SERVICIOS SIN CERRAR" ──
+           Independiente del badge de "Ver Apoyos": tiene su propia
+           fuente de datos (notificaciones_apoyo con tipo='cierre_pendiente')
+           para que nunca se mezclen ambos tipos de aviso en un mismo
+           contador. */
+        .campana-wrap { position: relative; }
+        .btn-campana {
+            position: relative;
+            background: #f1f5f9;
+            border: none;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-campana:active { transform: scale(0.92); }
+        .btn-campana span.icono { font-size: 19px; }
+
+        @keyframes campanaBadgePulse {
+            0%,100% { transform: scale(1); }
+            50%      { transform: scale(1.15); }
+        }
+        .badge-campana {
+            display: none;
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            font-size: 10.5px;
+            font-weight: 900;
+            min-width: 19px;
+            height: 19px;
+            padding: 0 4px;
+            border-radius: 10px;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            animation: campanaBadgePulse 1.6s ease infinite;
+            box-shadow: 0 2px 6px rgba(220,38,38,0.5);
+        }
+
+        .campana-dropdown {
+            display: none;
+            position: absolute;
+            top: 52px;
+            right: 0;
+            width: 300px;
+            max-width: calc(100vw - 40px);
+            max-height: 380px;
+            overflow-y: auto;
+            background: var(--blanco);
+            border-radius: 16px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.16);
+            z-index: 60;
+            border: 1px solid #e2e8f0;
+        }
+        .campana-dropdown.visible { display: block; }
+        .campana-dropdown-header {
+            padding: 14px 16px;
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--azul);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #f1f5f9;
+            position: sticky;
+            top: 0;
+            background: var(--blanco);
+        }
+        .campana-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f8fafc;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .campana-item:last-child { border-bottom: none; }
+        .campana-item:hover { background: #fef2f2; }
+        .campana-item .ci-placa {
+            font-weight: 800;
+            color: #991b1b;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .campana-item .ci-detalle {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+        .campana-item .ci-cta {
+            font-size: 10px;
+            color: #2563eb;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .campana-vacio {
+            padding: 26px 16px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.6;
         }
 
         /* ── BIENVENIDA ── */
@@ -194,7 +305,22 @@
 
     <header>
         <div class="logo-small">J.R. COORDINACIÓN</div>
-        <button onclick="cerrarSesion()" class="btn-salir">SALIR</button>
+        <div class="header-acciones">
+            <!-- 🆕 CAMPANA: servicios sin cerrar (independiente de "Ver Apoyos") -->
+            <div class="campana-wrap" id="campana-wrap">
+                <button class="btn-campana" id="btn-campana" onclick="toggleCampana()" title="Servicios sin cerrar">
+                    <span class="icono">🔔</span>
+                    <span class="badge-campana" id="badge-campana">0</span>
+                </button>
+                <div class="campana-dropdown" id="campana-dropdown">
+                    <div class="campana-dropdown-header">⚠️ Servicios sin cerrar</div>
+                    <div id="campana-lista">
+                        <div class="campana-vacio">Cargando...</div>
+                    </div>
+                </div>
+            </div>
+            <button onclick="cerrarSesion()" class="btn-salir">SALIR</button>
+        </div>
     </header>
 
     <div class="welcome-box">
@@ -264,6 +390,12 @@
     let userSesion = {};
     const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
+    // 🆕 Lista en memoria de notificaciones de "servicio sin cerrar"
+    // vigentes para la campana (ya filtradas por regional/alcance y
+    // cruzadas contra los traslados que siguen realmente abiertos).
+    let notisCierre = [];
+    let intervaloCampana = null;
+
     window.onload = async () => {
         const sesionRaw = localStorage.getItem('usuario_sesion');
         if (!sesionRaw) { window.location.href = "index.html"; return; }
@@ -276,9 +408,110 @@
         document.getElementById('txt-nombre').innerText = "Hola, " + (userSesion.nombre || "Cesar Augusto Hincapie Prieto");
         document.getElementById('txt-reg-desc').innerText = "📍 Regional: " + (userSesion.regional || "Quindío");
 
-        await Promise.all([cargarApoyos(), cargarAverias(), cargarTraslados(), cargarTanqueos(), cargarFlota(), verificarBadges()]);
+        await Promise.all([cargarApoyos(), cargarAverias(), cargarTraslados(), cargarTanqueos(), cargarFlota(), verificarBadges(), cargarNotificacionesCierre()]);
         activarRealtime();
+
+        // 🆕 Polling de la campana de "servicios sin cerrar". Como el
+        // backend es Google Apps Script + Sheets (sin soporte real de
+        // websockets/Realtime), se refresca cada 17s en vez de depender
+        // de un canal en vivo — así el coordinador ve nuevas alertas y
+        // ve desaparecer las que ya se cerraron, sin recargar la página.
+        intervaloCampana = setInterval(cargarNotificacionesCierre, 17000);
     };
+
+    // ══════════════════════════════════════════════
+    // 🆕 CAMPANA — SERVICIOS SIN CERRAR
+    // ══════════════════════════════════════════════
+    // Fuente: notificaciones_apoyo con tipo === 'cierre_pendiente'
+    // (insertadas desde registro_salida.html cuando un conductor pide
+    // apoyo para cerrar un servicio que quedó abierto). Se cruzan
+    // contra los traslados que AÚN están abiertos (DB.obtenerPlacasConTrasladoActivo)
+    // para que la campana se limpie sola en cuanto alguien registre la
+    // Llegada — sin depender de borrar la fila de notificación.
+    async function cargarNotificacionesCierre() {
+        try {
+            const regNorm = norm(userSesion.regional);
+
+            const [{ data: notis }, resAbiertos] = await Promise.all([
+                DB.supabase.from('notificaciones_apoyo').select('*').eq('tipo', 'cierre_pendiente'),
+                DB.obtenerPlacasConTrasladoActivo()
+            ]);
+
+            const idsAbiertos = new Set(
+                (resAbiertos && resAbiertos.ok ? resAbiertos.data : [])
+                    .map(t => String(t.id_salida || '').trim())
+                    .filter(Boolean)
+            );
+
+            const relevantes = (notis || []).filter(n => {
+                const alcanceOk = norm(n.alcance) === 'nacional' || norm(n.regional) === regNorm;
+                if (!alcanceOk) return false;
+                const idSalida = String(n.id_salida_ref || '').trim();
+                // Si no hay id_salida_ref (notificación antigua sin ese campo),
+                // se muestra igual por seguridad — mejor un falso positivo
+                // ocasional que perder de vista un servicio sin cerrar.
+                return idSalida ? idsAbiertos.has(idSalida) : true;
+            });
+
+            relevantes.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+
+            notisCierre = relevantes;
+            renderCampana();
+        } catch (e) {
+            console.warn('No se pudieron cargar las notificaciones de cierre:', e.message);
+        }
+    }
+
+    function renderCampana() {
+        const badge = document.getElementById('badge-campana');
+        const lista = document.getElementById('campana-lista');
+
+        if (notisCierre.length > 0) {
+            badge.style.display = 'flex';
+            badge.innerText = notisCierre.length > 9 ? '9+' : notisCierre.length;
+        } else {
+            badge.style.display = 'none';
+        }
+
+        if (notisCierre.length === 0) {
+            lista.innerHTML = '<div class="campana-vacio">✅ Sin servicios pendientes de cierre.</div>';
+            return;
+        }
+
+        lista.innerHTML = notisCierre.map(n => {
+            const placa = (n.placa || 'N/A');
+            const detalle = [
+                n.conductor ? 'Conductor: ' + n.conductor : '',
+                n.hora_salida ? 'Salió a las ' + n.hora_salida : ''
+            ].filter(Boolean).join(' · ');
+            return `
+                <div class="campana-item" onclick="irARegistrarLlegada('${placa.replace(/'/g, "")}')">
+                    <div class="ci-placa">🚨 ${placa}</div>
+                    <div class="ci-detalle">${detalle || 'Sin más datos del conductor'}</div>
+                    <div class="ci-cta">Tocar para registrar la llegada →</div>
+                </div>`;
+        }).join('');
+    }
+
+    function toggleCampana() {
+        document.getElementById('campana-dropdown').classList.toggle('visible');
+    }
+
+    // Cierra el dropdown al tocar fuera de él
+    document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('campana-wrap');
+        const dropdown = document.getElementById('campana-dropdown');
+        if (wrap && dropdown && !wrap.contains(e.target)) {
+            dropdown.classList.remove('visible');
+        }
+    });
+
+    // Al tocar una notificación, se va directo a registro_llegada.html
+    // con la placa preseleccionada (registro_llegada.html ya sabe leer
+    // el parámetro ?placa= y disparar la carga automática de sus datos).
+    function irARegistrarLlegada(placa) {
+        window.location.href = 'registro_llegada.html?placa=' + encodeURIComponent(placa);
+    }
 
     async function cargarApoyos() {
         const { data } = await DB.supabase.from('solicitud_apoyo').select('*').eq('coordinador', userSesion.nombre).order('created_at',{ascending:false}).limit(3);
