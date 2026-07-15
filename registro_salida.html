@@ -619,6 +619,18 @@
     //  no había forma de detectar "esto ya se insertó" y podía crear
     //  una notificación duplicada. Con el id fijo, el mecanismo
     //  anti-duplicado de gasWrite/existeFila ya funciona también aquí.
+    //
+    //  🆕 v2: se agrega el campo "tipo: 'cierre_pendiente'" más los
+    //  campos sueltos placa / id_salida_ref / conductor / hora_salida /
+    //  fecha_salida. Esto le permite a panel_coordinador.html:
+    //    a) Distinguir estas notificaciones de las de solicitud_apoyo
+    //       (antes todo llegaba mezclado por el mismo canal, sin forma
+    //       de diferenciarlas más que parseando el texto libre).
+    //    b) Saber a qué placa/traslado exacto corresponde cada una, sin
+    //       tener que parsear el id (que antes mezclaba placa + id_salida
+    //       en un solo string separado por guiones — ambiguo si la placa
+    //       trae espacios, p.ej. "HWT 515").
+    //    c) Armar el enlace directo a registro_llegada.html?placa=XXX.
     // ══════════════════════════════════════════════
     async function notificarCoordinadorCierre() {
         if (!pendienteActual) return;
@@ -636,13 +648,19 @@
 
             const { error } = await DB.supabase.from('notificaciones_apoyo').insert({
                 id: idNotificacion,
+                tipo: 'cierre_pendiente',
                 titulo: `⚠️ Servicio sin cerrar — ${placa}`,
                 cuerpo: `La carroza ${placa} tiene un servicio sin cerrar del conductor ` +
                         `${pendienteActual.conductor || 'N/A'} (salida del ${formatearFechaLimpia(pendienteActual.fecha)}` +
                         `${pendienteActual.hora_de_salida ? ' a las ' + formatearHoraLimpia(pendienteActual.hora_de_salida) : ''}). ` +
                         `Se requiere registrar la llegada para poder liberar el vehículo para una nueva salida.`,
                 alcance: 'regional',
-                regional: regional
+                regional: regional,
+                placa: placa,
+                id_salida_ref: pendienteActual.id_salida || '',
+                conductor: pendienteActual.conductor || '',
+                hora_salida: pendienteActual.hora_de_salida || '',
+                fecha_salida: pendienteActual.fecha || ''
             });
 
             if (error) throw error;
