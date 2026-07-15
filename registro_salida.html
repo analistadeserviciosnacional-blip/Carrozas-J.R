@@ -899,6 +899,23 @@
 
         validarCompatibilidad();
 
+        // 🆕 FIX VELOCIDAD: antes "verificarSalidaPendiente" y
+        // "verificarDuplicadoSalida" se esperaban una detrás de otra
+        // (await ... luego await ...), sumando sus tiempos de red.
+        // Como son independientes entre sí, se lanzan juntas con
+        // Promise.all para que corran en paralelo y el resultado esté
+        // listo en el tiempo del más lento de los dos, no de la suma.
+        // El orden de evaluación de los resultados (qué alerta se
+        // muestra primero) se mantiene exactamente igual que antes.
+        let pendienteResult = null;
+        let dupResult = null;
+        if (!modoEdicion) {
+            [pendienteResult, dupResult] = await Promise.all([
+                verificarSalidaPendiente(placaSeleccionada).catch(e => { console.warn('No se pudo verificar servicio sin cerrar:', e); return null; }),
+                DB.verificarDuplicadoSalida(placaSeleccionada).catch(e => { console.warn('No se pudo verificar duplicados:', e); return null; })
+            ]);
+        }
+
         // ══════════════════════════════════════════════
         // 🆕 1) SERVICIO SIN CERRAR (salida abierta de un día anterior)
         //    Se le informa al usuario que el conductor de esa salida no
@@ -918,48 +935,44 @@
         //         toda la página.
         // ══════════════════════════════════════════════
         if (!modoEdicion) {
-            try {
-                const pendiente = await verificarSalidaPendiente(placaSeleccionada);
-                if (pendiente) {
-                    salidaBloqueada = true;
-                    pendienteActual = pendiente;
-                    alertaEl.className = 'alerta-vehiculo en-taller';
-                    alertaEl.style.display = 'block';
-                    alertaEl.innerHTML = `
-                        <div style="text-align:center;">
-                            <div class="av-titulo">⚠️ SERVICIO SIN CERRAR</div>
-                            <div class="av-msg">
-                                El conductor <b>${pendiente.conductor || 'N/A'}</b> no realizó el
-                                <b>cierre del servicio</b> (Registro de Llegada) de esta carroza,
-                                correspondiente a la salida del <b>${formatearFechaLimpia(pendiente.fecha) || 'N/A'}</b>
-                                ${pendiente.hora_de_salida ? ' a las <b>' + formatearHoraLimpia(pendiente.hora_de_salida) + '</b>' : ''}.
-                            </div>
-                            <div class="av-bloqueo">🚫 SE REQUIERE CERRAR EL SERVICIO ANTERIOR ANTES DE UNA NUEVA SALIDA</div>
+            const pendiente = pendienteResult;
+            if (pendiente) {
+                salidaBloqueada = true;
+                pendienteActual = pendiente;
+                alertaEl.className = 'alerta-vehiculo en-taller';
+                alertaEl.style.display = 'block';
+                alertaEl.innerHTML = `
+                    <div style="text-align:center;">
+                        <div class="av-titulo">⚠️ SERVICIO SIN CERRAR</div>
+                        <div class="av-msg">
+                            El conductor <b>${pendiente.conductor || 'N/A'}</b> no realizó el
+                            <b>cierre del servicio</b> (Registro de Llegada) de esta carroza,
+                            correspondiente a la salida del <b>${formatearFechaLimpia(pendiente.fecha) || 'N/A'}</b>
+                            ${pendiente.hora_de_salida ? ' a las <b>' + formatearHoraLimpia(pendiente.hora_de_salida) + '</b>' : ''}.
+                        </div>
+                        <div class="av-bloqueo">🚫 SE REQUIERE CERRAR EL SERVICIO ANTERIOR ANTES DE UNA NUEVA SALIDA</div>
 
-                            <button id="btn-notificar-cierre" onclick="notificarCoordinadorCierre()"
-                                style="width:100%; margin-top:10px; background:#004a99; color:white; border:none;
-                                       border-radius:10px; padding:12px; font-weight:800; font-size:13px; cursor:pointer;">
-                                🔔 Notificar al Coordinador para que cierre el servicio
-                            </button>
+                        <button id="btn-notificar-cierre" onclick="notificarCoordinadorCierre()"
+                            style="width:100%; margin-top:10px; background:#004a99; color:white; border:none;
+                                   border-radius:10px; padding:12px; font-weight:800; font-size:13px; cursor:pointer;">
+                            🔔 Notificar al Coordinador para que cierre el servicio
+                        </button>
 
-                            <div style="font-size:11px; color:#7f1d1d; margin-top:8px; line-height:1.5;">
-                                Si el conductor ya está descansando, el coordinador puede registrar la llegada
-                                por él desde su panel. En cuanto quede cerrado, verifica de nuevo aquí 👇
-                            </div>
+                        <div style="font-size:11px; color:#7f1d1d; margin-top:8px; line-height:1.5;">
+                            Si el conductor ya está descansando, el coordinador puede registrar la llegada
+                            por él desde su panel. En cuanto quede cerrado, verifica de nuevo aquí 👇
+                        </div>
 
-                            <button onclick="alSeleccionarPlaca()"
-                                style="width:100%; margin-top:8px; background:transparent; border:1.5px solid #ef4444;
-                                       color:#ef4444; border-radius:10px; padding:10px; font-weight:700; font-size:12px; cursor:pointer;">
-                                🔄 Ya se cerró, verificar de nuevo
-                            </button>
-                        </div>`;
-                    document.getElementById('km_s').value = '';
-                    document.getElementById('alerta-combustible').style.display = 'none';
-                    ocultarBotonChecklist();
-                    return;
-                }
-            } catch(e) {
-                console.warn('No se pudo verificar servicio sin cerrar:', e);
+                        <button onclick="alSeleccionarPlaca()"
+                            style="width:100%; margin-top:8px; background:transparent; border:1.5px solid #ef4444;
+                                   color:#ef4444; border-radius:10px; padding:10px; font-weight:700; font-size:12px; cursor:pointer;">
+                            🔄 Ya se cerró, verificar de nuevo
+                        </button>
+                    </div>`;
+                document.getElementById('km_s').value = '';
+                document.getElementById('alerta-combustible').style.display = 'none';
+                ocultarBotonChecklist();
+                return;
             }
         }
 
@@ -988,18 +1001,14 @@
 
         // ── VERIFICACIÓN DE DUPLICIDAD (placa con salida activa hoy, sin regreso aún) ──
         if (!modoEdicion) {
-            try {
-                const dup = await DB.verificarDuplicadoSalida(placaSeleccionada);
-                if (dup && dup.existe) {
-                    registroDuplicadoId = dup.id_salida;
-                    document.getElementById('dup-desc').innerHTML = `
-                        Ya existe un registro de salida activo hoy para esta placa (ID: <b>${dup.id_salida}</b>).<br>
-                        Conductor: ${(dup.detalle && dup.detalle.conductor) || 'N/A'}`;
-                    document.getElementById('banner-duplicado').style.display = 'block';
-                    return;
-                }
-            } catch(e) {
-                console.warn('No se pudo verificar duplicados:', e);
+            const dup = dupResult;
+            if (dup && dup.existe) {
+                registroDuplicadoId = dup.id_salida;
+                document.getElementById('dup-desc').innerHTML = `
+                    Ya existe un registro de salida activo hoy para esta placa (ID: <b>${dup.id_salida}</b>).<br>
+                    Conductor: ${(dup.detalle && dup.detalle.conductor) || 'N/A'}`;
+                document.getElementById('banner-duplicado').style.display = 'block';
+                return;
             }
         }
 
@@ -1408,6 +1417,20 @@
 
         if (!document.getElementById('placa').value) { Swal.fire('Error', 'Selecciona una placa', 'error'); return; }
         if (!kitSeleccionado) { Swal.fire('Error', 'Selecciona estado del kit', 'error'); return; }
+
+        // 🆕 CHECKLIST OBLIGATORIO: no se permite guardar la salida si no se
+        // ha completado el Checklist de la Carroza para la placa seleccionada.
+        // No aplica en modo edición (registros antiguos que no pasaron por
+        // este flujo no deben quedar bloqueados al corregirlos).
+        if (!modoEdicion && !checklistCompletadoHoy) {
+            Swal.fire(
+                'Checklist Requerido',
+                'Antes de registrar la salida debes completar el <b>Checklist de la Carroza</b>. Toca el botón "📋 Hacer Checklist de la Carroza" para hacerlo.',
+                'warning'
+            );
+            return;
+        }
+
         if (!sesionUser) { alert('Sesión expirada'); return; }
 
         if (registroDuplicadoId && !modoEdicion) {
