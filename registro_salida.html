@@ -344,6 +344,11 @@
     // (servicio anterior sin cerrar, o vehículo en taller/parque automotor)
     let salidaBloqueada = false;
 
+    // 🆕 Guarda el registro de traslado pendiente (servicio sin cerrar)
+    // detectado para la placa seleccionada, para poder usarlo en la
+    // notificación al coordinador.
+    let pendienteActual = null;
+
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
     let dibujando = false;
@@ -604,6 +609,61 @@
     }
 
     // ══════════════════════════════════════════════
+    //  NOTIFICAR AL COORDINADOR PARA QUE CIERRE EL SERVICIO
+    //  Inserta un registro en 'notificaciones_apoyo', el mismo canal
+    //  que panel_coordinador.html ya escucha en tiempo real (activarRealtime).
+    //
+    //  🆕 FIX: se agrega un "id" determinístico (placa + id_salida del
+    //  traslado pendiente) al payload. Antes el insert no llevaba id,
+    //  así que si el guardado (gasWrite) tenía timeout y reintentaba,
+    //  no había forma de detectar "esto ya se insertó" y podía crear
+    //  una notificación duplicada. Con el id fijo, el mecanismo
+    //  anti-duplicado de gasWrite/existeFila ya funciona también aquí.
+    // ══════════════════════════════════════════════
+    async function notificarCoordinadorCierre() {
+        if (!pendienteActual) return;
+        const btn = document.getElementById('btn-notificar-cierre');
+        const regional = document.getElementById('regional').value;
+        const placa     = document.getElementById('placa').value;
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = '⏳ Enviando notificación...';
+        }
+
+        try {
+            const idNotificacion = 'NOTCIERRE-' + placa + '-' + (pendienteActual.id_salida || Date.now());
+
+            const { error } = await DB.supabase.from('notificaciones_apoyo').insert({
+                id: idNotificacion,
+                titulo: `⚠️ Servicio sin cerrar — ${placa}`,
+                cuerpo: `La carroza ${placa} tiene un servicio sin cerrar del conductor ` +
+                        `${pendienteActual.conductor || 'N/A'} (salida del ${formatearFechaLimpia(pendienteActual.fecha)}` +
+                        `${pendienteActual.hora_de_salida ? ' a las ' + formatearHoraLimpia(pendienteActual.hora_de_salida) : ''}). ` +
+                        `Se requiere registrar la llegada para poder liberar el vehículo para una nueva salida.`,
+                alcance: 'regional',
+                regional: regional
+            });
+
+            if (error) throw error;
+
+            if (btn) {
+                btn.innerText = '✅ Coordinador notificado';
+                btn.style.background = '#25D366';
+            }
+            Swal.fire('Notificación enviada', `Se avisó al coordinador de ${regional} para que gestione el cierre de este servicio.`, 'success');
+
+        } catch (e) {
+            console.error('Error notificando al coordinador:', e);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = '🚫 Reintentar notificación';
+            }
+            Swal.fire('Error', 'No se pudo enviar la notificación. Intenta de nuevo.', 'error');
+        }
+    }
+
+    // ══════════════════════════════════════════════
     //  AL SELECCIONAR PLACA
     // ══════════════════════════════════════════════
     async function alSeleccionarPlaca() {
@@ -620,6 +680,7 @@
             alertaEl.style.display = 'none';
             document.getElementById('alerta-combustible').style.display = 'none';
             salidaBloqueada = false;
+            pendienteActual = null;
             return;
         }
 
@@ -628,11 +689,13 @@
             alertaEl.style.display = 'none';
             document.getElementById('alerta-combustible').style.display = 'none';
             salidaBloqueada = false;
+            pendienteActual = null;
             return;
         }
 
         // 🆕 Se resetea el bloqueo cada vez que se selecciona una placa nueva
         salidaBloqueada = false;
+        pendienteActual = null;
 
         const estado   = (veh.estado || '').trim();
         const kmActual = parseInt(veh.kilometraje_actual) || 0;
@@ -645,12 +708,25 @@
         //    Se le informa al usuario que el conductor de esa salida no
         //    hizo el Registro de Llegada, y se bloquea la nueva salida
         //    hasta que se notifique y se cierre ese servicio.
+        //
+        //    Flujo de recuperación sin depender de que el conductor
+        //    anterior esté disponible:
+        //      a) "🔔 Notificar al Coordinador" → inserta en
+        //         notificaciones_apoyo (tiempo real en panel_coordinador).
+        //      b) El coordinador entra a registro_llegada.html y cierra
+        //         el servicio en nombre del conductor.
+        //      c) "🔄 Ya se cerró, verificar de nuevo" → vuelve a llamar
+        //         alSeleccionarPlaca(), que relee obtenerTrasladoActivoPorPlaca;
+        //         en cuanto exista hora_de_ingreso ya no se considera
+        //         pendiente y el bloqueo desaparece solo, sin recargar
+        //         toda la página.
         // ══════════════════════════════════════════════
         if (!modoEdicion) {
             try {
                 const pendiente = await verificarSalidaPendiente(placaSeleccionada);
                 if (pendiente) {
                     salidaBloqueada = true;
+                    pendienteActual = pendiente;
                     alertaEl.className = 'alerta-vehiculo en-taller';
                     alertaEl.style.display = 'block';
                     alertaEl.innerHTML = `
@@ -662,7 +738,24 @@
                                 correspondiente a la salida del <b>${formatearFechaLimpia(pendiente.fecha) || 'N/A'}</b>
                                 ${pendiente.hora_de_salida ? ' a las <b>' + formatearHoraLimpia(pendiente.hora_de_salida) + '</b>' : ''}.
                             </div>
-                            <div class="av-bloqueo">🚫 NOTIFICA AL CONDUCTOR PARA QUE REALICE EL CIERRE ANTES DE UNA NUEVA SALIDA</div>
+                            <div class="av-bloqueo">🚫 SE REQUIERE CERRAR EL SERVICIO ANTERIOR ANTES DE UNA NUEVA SALIDA</div>
+
+                            <button id="btn-notificar-cierre" onclick="notificarCoordinadorCierre()"
+                                style="width:100%; margin-top:10px; background:#004a99; color:white; border:none;
+                                       border-radius:10px; padding:12px; font-weight:800; font-size:13px; cursor:pointer;">
+                                🔔 Notificar al Coordinador para que cierre el servicio
+                            </button>
+
+                            <div style="font-size:11px; color:#7f1d1d; margin-top:8px; line-height:1.5;">
+                                Si el conductor ya está descansando, el coordinador puede registrar la llegada
+                                por él desde su panel. En cuanto quede cerrado, verifica de nuevo aquí 👇
+                            </div>
+
+                            <button onclick="alSeleccionarPlaca()"
+                                style="width:100%; margin-top:8px; background:transparent; border:1.5px solid #ef4444;
+                                       color:#ef4444; border-radius:10px; padding:10px; font-weight:700; font-size:12px; cursor:pointer;">
+                                🔄 Ya se cerró, verificar de nuevo
+                            </button>
                         </div>`;
                     document.getElementById('km_s').value = '';
                     document.getElementById('alerta-combustible').style.display = 'none';
