@@ -468,9 +468,9 @@
       banner.innerHTML = '⏳ Leyendo datos de la tirilla…';
 
       try {
-        const resp = await fetch(GAS_URL_TIRILLA, {
+        const resp = await fetch(GAS_URL_TIRILLA + '?action=extraerTirilla', {
           method: 'POST',
-          body: JSON.stringify({ action: 'extraerTirilla', imagen: base64 })
+          body: JSON.stringify({ imagen: base64 })
         });
         const r = await resp.json();
         box.classList.remove('leyendo');
