@@ -1,28 +1,57 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.6
+ *  CONECTOR J.R. CARROZAS — db.js  v12.7
  *
- *  🆕 CAMBIOS v12.6 (corrección Forma de pago / Tipo de combustible):
+ *  🆕 CAMBIOS v12.7 (anti-duplicados en SALIDA y LLEGADA):
  *
- *  1) guardarTanqueo(d)
- *     El objeto `fila` que se envía al backend (Code.gs) no incluía
- *     FORMA_PAGO ni TIPO_COMBUSTIBLE, aunque tanqueo.html sí los
- *     capturaba y se los pasaba en `d.forma_pago` / `d.tipo_combustible`.
- *     Resultado: esos dos valores se descartaban en silencio antes de
- *     llegar al fetch, y las columnas FORMA_PAGO / TIPO_COMBUSTIBLE de
- *     la hoja "Tanqueo" quedaban siempre vacías sin importar lo que el
- *     conductor seleccionara en el formulario.
+ *  Problema detectado: en la hoja "Traslado" aparecieron dos filas
+ *  con el MISMO id_salida (S-1783983171345, placa HWT 515) y además
+ *  una tercera fila casi idéntica con id_salida distinto pero mismos
+ *  datos (misma placa, conductor, hora de salida y motivo), 55
+ *  segundos después. Como una de esas filas quedó sin
+ *  hora_de_ingreso, el selector de "Registro de Llegada" seguía
+ *  marcando la placa como "servicio sin cerrar" días después, aunque
+ *  la carroza ya había regresado y vuelto a salir varias veces.
  *
- *     Ahora `fila` incluye:
- *         FORMA_PAGO:       d.forma_pago || '',
- *         TIPO_COMBUSTIBLE: d.tipo_combustible || '',
+ *  Causa: no existía ninguna verificación — ni por placa activa ni
+ *  por contenido — antes de insertar una Salida nueva. Un reintento
+ *  del conductor (por creer que el primer guardado falló) terminaba
+ *  creando una segunda fila de Salida para el mismo viaje real.
  *
- *     Con esto, el filtro de "Forma de pago" del panel de coordinador
- *     (que lee directamente de la columna FORMA_PAGO en TANQUEOS) ya
- *     recibe datos reales.
+ *  Corrección — 2 guardas nuevas antes de CADA guardado:
  *
- *  (Se conserva íntegro todo lo demás de v12.5 — nada de lo que ya
+ *   1) guardarTraslado(d):
+ *      GUARDA 1 — No permite abrir una Salida nueva para una placa
+ *      que YA tiene una Salida activa (sin Llegada registrada). Se
+ *      responde con { ok:false, duplicado:true, tipo:'salida_activa',
+ *      existente:{...} } y un mensaje claro con el id_salida y la
+ *      hora del viaje que sigue abierto, para que el formulario lo
+ *      muestre al usuario en vez de crear un registro nuevo.
+ *
+ *      GUARDA 2 — Si los datos del formulario (placa + conductor +
+ *      fecha + hora_salida + motivo) coinciden EXACTO con un
+ *      Traslado ya existente (esté abierto o cerrado), se asume que
+ *      es un doble envío del mismo formulario y NO se inserta una
+ *      fila nueva — se reutiliza el id_salida existente
+ *      ({ ok:true, data:{yaGuardado:true}, id_salida, duplicado:true }).
+ *
+ *   2) guardarLlegada(d):
+ *      Si ya existe una Llegada guardada con el mismo id_salida, NO
+ *      se vuelve a insertar (evita duplicar el cierre de un mismo
+ *      Traslado por un reintento manual de "Finalizar Servicio" tras
+ *      un timeout que sí había llegado a guardar en el servidor).
+ *      Responde { ok:true, data:{yaGuardado:true}, duplicado:true }.
+ *
+ *  Estas verificaciones siempre leen la hoja SIN caché (se invalida
+ *  antes de consultar), para no dar falsos negativos por datos
+ *  desactualizados en memoria.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.6 — nada de lo que ya
  *   funcionaba fue tocado.)
+ *
+ *  ── Historial v12.6 ──
+ *  + guardarTanqueo(d) ahora sí envía FORMA_PAGO y TIPO_COMBUSTIBLE
+ *    al backend (antes se descartaban en silencio).
  *
  *  ── Historial v12.5 ──
  *  + obtenerPlacasConTrasladoActivo(): nueva fuente de verdad para el
@@ -299,6 +328,63 @@ async function conLock(nombre, fn) {
 }
 
 // ══════════════════════════════════════════════════════════
+// 🆕 v12.7 — GUARDAS ANTI-DUPLICADO (SALIDA Y LLEGADA)
+// ══════════════════════════════════════════════════════════
+// Estas funciones siempre invalidan la caché antes de leer, para no
+// dar un falso "no existe" por datos desactualizados en memoria.
+
+// Busca si la placa YA tiene una Salida activa (sin hora_de_ingreso)
+// en la hoja "Traslado". Se usa para impedir abrir una segunda
+// Salida mientras la anterior sigue abierta.
+async function buscarTrasladoAbiertoPorPlaca(placa) {
+  const pSel = String(placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  if (!pSel) return null;
+  DB.invalidarCache('Traslado');
+  const rows = await gasGet('Traslado');
+  const abiertos = rows.filter(function(r) {
+    const pBase = String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    const sinRegreso = (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '');
+    return pBase === pSel && sinRegreso;
+  });
+  if (!abiertos.length) return null;
+  abiertos.sort(function(a, b) { return claveOrden(b) - claveOrden(a); });
+  return abiertos[0];
+}
+
+// Busca si YA existe un Traslado con exactamente los mismos datos
+// (misma placa + conductor + fecha + hora de salida + motivo), sin
+// importar si sigue abierto o ya se cerró. Esto detecta el caso de
+// un doble envío del formulario de Salida (p.ej. el conductor cree
+// que falló y presiona "Guardar" de nuevo): la segunda vez genera
+// un id_salida distinto (por ser Date.now()) pero el contenido es
+// idéntico — antes esto producía dos filas de Salida para el mismo
+// viaje real, descuadrando el kilometraje y el combustible.
+async function buscarTrasladoDuplicadoPorContenido(d) {
+  DB.invalidarCache('Traslado');
+  const rows = await gasGet('Traslado');
+  const pSel = String(d.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  const norm = function(s) { return String(s || '').trim().toLowerCase(); };
+  return rows.find(function(r) {
+    return String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === pSel &&
+           norm(r.conductor)        === norm(d.conductor) &&
+           norm(r.fecha)            === norm(fechaHoy()) &&
+           norm(r.hora_de_salida)   === norm(d.hora_salida) &&
+           norm(r.motivo_de_salida) === norm(d.motivo);
+  }) || null;
+}
+
+// Busca si YA existe una Llegada guardada para este id_salida — evita
+// duplicar el cierre de un mismo Traslado (p.ej. reintento manual de
+// "Finalizar Servicio" tras un timeout que sí alcanzó a guardar en
+// el servidor, o un doble click que sorteó el bloqueo de la sesión).
+async function buscarLlegadaPorIdSalida(idSalida) {
+  if (!idSalida) return null;
+  DB.invalidarCache('Llegadas');
+  const rows = await gasGet('Llegadas');
+  return rows.find(function(r) { return String(r.id_salida || '').trim() === String(idSalida).trim(); }) || null;
+}
+
+// ══════════════════════════════════════════════════════════
 //  COMBUSTIBLE Y RENDIMIENTO
 // ══════════════════════════════════════════════════════════
 
@@ -507,19 +593,8 @@ const DB = {
   async obtenerTrasladoActivoPorPlaca(placa) {
     try {
       if (!placa) return { ok: true, data: null };
-      const pSel = String(placa).replace(/[^A-Z0-9]/gi, '').toUpperCase();
-      const rows = await gasGet('Traslado');
-
-      const abiertos = rows.filter(function(r) {
-        const pBase = String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
-        const sinRegreso = (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '');
-        return pBase === pSel && sinRegreso;
-      });
-
-      if (abiertos.length === 0) return { ok: true, data: null };
-
-      abiertos.sort(function(a, b) { return claveOrden(b) - claveOrden(a); });
-      return { ok: true, data: abiertos[0] };
+      const activo = await buscarTrasladoAbiertoPorPlaca(placa);
+      return { ok: true, data: activo };
     } catch (e) {
       return { ok: false, data: null, error: e.message };
     }
@@ -777,9 +852,41 @@ const DB = {
     }
   },
 
-  // ── GUARDAR TRASLADO ───────────────────────────────────────
+  // ── GUARDAR TRASLADO (SALIDA) ──────────────────────────────
+  // 🆕 v12.7: dos guardas anti-duplicado ANTES de insertar. Ver el
+  // changelog al inicio del archivo para el detalle de cada una.
   async guardarTraslado(d) {
     return conLock('guardarTraslado', async () => {
+
+      // GUARDA 1 — ¿esta placa ya tiene una Salida activa (sin cerrar)?
+      try {
+        const abierto = await buscarTrasladoAbiertoPorPlaca(d.placa);
+        if (abierto) {
+          return {
+            ok: false,
+            duplicado: true,
+            tipo: 'salida_activa',
+            existente: abierto,
+            error: `La carroza ${d.placa} ya tiene una salida activa sin cerrar ` +
+                   `(${abierto.id_salida}, del ${abierto.fecha} a las ${abierto.hora_de_salida}, ` +
+                   `conductor ${abierto.conductor || 's/d'}). Registra su Llegada antes de abrir una nueva salida.`
+          };
+        }
+      } catch (e) {
+        console.warn('No se pudo verificar si había una salida activa previa (se continúa igual):', e.message);
+      }
+
+      // GUARDA 2 — ¿esta MISMA Salida ya se guardó (doble envío del formulario)?
+      try {
+        const duplicado = await buscarTrasladoDuplicadoPorContenido(d);
+        if (duplicado) {
+          console.warn('Salida duplicada detectada por contenido — se reutiliza el id_salida existente:', duplicado.id_salida);
+          return { ok: true, data: { yaGuardado: true }, id_salida: duplicado.id_salida, duplicado: true };
+        }
+      } catch (e) {
+        console.warn('No se pudo verificar duplicado de salida por contenido (se continúa igual):', e.message);
+      }
+
       const fila = {
         id_salida:              'S-' + Date.now(),
         fecha:                  fechaHoy(),
@@ -818,7 +925,7 @@ const DB = {
           'actualizarCarroza tras guardarTraslado'
         );
       }
-      return res;
+      return res.ok ? Object.assign({}, res, { id_salida: fila.id_salida }) : res;
     });
   },
 
@@ -885,6 +992,10 @@ const DB = {
   },
 
   // ── GUARDAR LLEGADA ────────────────────────────────────────
+  // 🆕 v12.7: antes de insertar, verifica si YA existe una Llegada
+  // guardada para este id_salida — si es así, no vuelve a insertar
+  // (evita duplicar el cierre de un mismo Traslado). Ver changelog.
+  //
   // 🆕 v12.5: Además de registrar la llegada, se ESPERA (await) la
   // actualización de kilometraje_actual y combustible de la carroza
   // antes de responder. El kilometraje_actual es la fuente de verdad
@@ -899,6 +1010,28 @@ const DB = {
   // valor por defecto si todavía no hay historial de tanqueos).
   async guardarLlegada(d) {
     return conLock('guardarLlegada', async () => {
+
+      // GUARDA — ¿ya existe una Llegada para este id_salida?
+      if (d.id_salida) {
+        try {
+          const existente = await buscarLlegadaPorIdSalida(d.id_salida);
+          if (existente) {
+            console.warn('Llegada duplicada detectada — ya existe un registro para este id_salida:', existente.id);
+            return {
+              ok: true,
+              data: { yaGuardado: true },
+              duplicado: true,
+              existente: existente,
+              estado_carroza_despues: { ok: false },
+              estado_carroza_antes: { ok: false },
+              combustible_guardado_en_registro: false,
+            };
+          }
+        } catch (e) {
+          console.warn('No se pudo verificar Llegada duplicada (se continúa igual):', e.message);
+        }
+      }
+
       const fila = {
         id:             'L-' + Date.now(),
         id_salida:      d.id_salida      || '',   // trazabilidad: enlaza con el Traslado de origen
