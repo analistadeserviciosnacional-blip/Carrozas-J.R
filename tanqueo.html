@@ -322,9 +322,14 @@
   <script>
     const $ = (id) => document.getElementById(id);
 
-    // 🆕 URL del backend GAS, usada directamente solo por la lectura
-    // automática de tirillas (extraerTirilla), sin tocar db.js.
-    const GAS_URL_TIRILLA = 'https://script.google.com/macros/s/AKfycbx9wr5Od2WgVF2vSSW93OcMmxDoSXs3PLaE7jo44j4rUFElagX4OKNDRy9mqjPpJZWZ/exec';
+    // 🆕 v10.15 — FIX CRÍTICO: esta URL estaba apuntando a un
+    // despliegue de Apps Script DISTINTO al que usa db.js (URL_GAS).
+    // Por eso, aunque el script se corrigiera y se reimplementara una
+    // y otra vez, la lectura de tirillas seguía fallando con "Falta
+    // sheetName" — estaba llamando siempre al script viejo/desactualizado.
+    // Ahora se usa la MISMA URL que db.js, así los dos módulos quedan
+    // sincronizados y ya no hay dos URLs distintas que mantener a mano.
+    const GAS_URL_TIRILLA = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
 
     let flotaCache = [];
     let fotoBase64 = '';
