@@ -545,6 +545,9 @@
     <select class="export-select" id="exportConductorFiltro" style="margin-bottom:8px;">
         <option value="">Todos los conductores</option>
     </select>
+    <select class="export-select" id="exportFormaPagoFiltro" style="margin-bottom:8px; display:none;">
+        <option value="">Todas las formas de pago</option>
+    </select>
     <div class="export-hint">Los filtros de arriba son opcionales y se combinan entre sí. Si los dejas vacíos, se exporta todo el dataset elegido. El rango de fechas filtra por la fecha de cada registro (traslado, tanqueo, avería o mantenimiento); no aplica al dataset "Flota", que es una foto del estado actual. "Flota" también respeta el buscador de la lista de flota más arriba.</div>
     <div class="export-actions">
         <button class="btn-export btn-csv" onclick="exportarDatos('csv')">⬇️ CSV</button>
@@ -639,6 +642,7 @@ window.onload = async () => {
     setupChartTabs();
     setupFleetSearch();
     setupExportDateInputs();
+    setupExportDatasetToggle();
     setupModalEscKey();
 
     try {
@@ -849,6 +853,17 @@ function obtenerConductoresUnicos(){
         .map(u => String(u.nombre||'').trim())
         .filter(Boolean);
     return [...new Set(nombres)].sort((a,b)=> a.localeCompare(b));
+}
+
+// Lista de formas de pago única y real, tomada directamente de los tanqueos
+// ya cargados (columna FORMA_PAGO en la hoja "Tanqueo"). Se toma de los datos
+// en vez de hardcodear "Efectivo"/"Crédito" para no depender de cómo esté
+// escrito exactamente en la hoja.
+function obtenerFormasPagoUnicas(){
+    const valores = TANQUEOS
+        .map(t => String(t.FORMA_PAGO || '').trim())
+        .filter(Boolean);
+    return [...new Set(valores)].sort((a,b)=> a.localeCompare(b));
 }
 
 /* ── Última inspección registrada por placa (para cruzar SOAT/Tecnomecánica/Póliza) ── */
@@ -1537,7 +1552,7 @@ function mostrarTanqueos(){
                     <b style="color:#f1f5f9;">${t.PLACA || '—'}</b>
                     <span style="color:#94a3b8;font-size:11px;">${t.FECHA || '—'}</span>
                 </div>
-                <div style="margin-top:3px;">${t.GALONES || 0} gal · ${fmtCOP(t.VALOR_TOTAL)}${t.RENDIMIENTO_KM_GALON ? ' · '+Number(t.RENDIMIENTO_KM_GALON).toFixed(1)+' km/gal' : ''}</div>
+                <div style="margin-top:3px;">${t.GALONES || 0} gal · ${fmtCOP(t.VALOR_TOTAL)}${t.RENDIMIENTO_KM_GALON ? ' · '+Number(t.RENDIMIENTO_KM_GALON).toFixed(1)+' km/gal' : ''}${t.FORMA_PAGO ? ' · '+t.FORMA_PAGO : ''}</div>
                 <div style="margin-top:3px;color:#94a3b8;">${t.ESTACION_SERVICIO || 'Sin estación'}${t.CIUDAD ? ' · '+t.CIUDAD : ''}</div>
             </li>`).join('')}</ul></div>`;
 
@@ -1684,31 +1699,36 @@ function cerrarPush(){
 }
 
 /* ==========================================================================
-   FILTROS DE EXPORTACIÓN — selects poblados con placas, regionales y
-   conductores reales tomados de los datos ya cargados, más el rango de
-   fechas (Desde/Hasta) que aplica sobre la fecha de cada registro.
+   FILTROS DE EXPORTACIÓN — selects poblados con placas, regionales,
+   conductores y formas de pago reales tomados de los datos ya cargados,
+   más el rango de fechas (Desde/Hasta) que aplica sobre la fecha de cada
+   registro.
    ========================================================================== */
 function poblarFiltrosExport(){
     const selPlaca = document.getElementById('exportPlacaFiltro');
     const selRegional = document.getElementById('exportRegionalFiltro');
     const selConductor = document.getElementById('exportConductorFiltro');
-    if(!selPlaca || !selRegional || !selConductor) return;
+    const selFormaPago = document.getElementById('exportFormaPagoFiltro');
+    if(!selPlaca || !selRegional || !selConductor || !selFormaPago) return;
 
     // Guardamos la selección actual para intentar conservarla tras repoblar
     // (el panel se refresca solo cada 60s).
-    const valPlacaPrev = selPlaca.value, valRegionalPrev = selRegional.value, valConductorPrev = selConductor.value;
+    const valPlacaPrev = selPlaca.value, valRegionalPrev = selRegional.value, valConductorPrev = selConductor.value, valFormaPagoPrev = selFormaPago.value;
 
     const placas = [...new Set(FLOTA.map(c => c.placa).filter(Boolean))].sort();
     const regionales = [...new Set(FLOTA.map(c => c.regional).filter(Boolean))].sort();
     const conductores = obtenerConductoresUnicos();
+    const formasPago = obtenerFormasPagoUnicas();
 
     selPlaca.innerHTML = '<option value="">Todas las placas</option>' + placas.map(p => `<option value="${p}">${p}</option>`).join('');
     selRegional.innerHTML = '<option value="">Todas las regionales</option>' + regionales.map(r => `<option value="${r}">${r}</option>`).join('');
     selConductor.innerHTML = '<option value="">Todos los conductores</option>' + conductores.map(c => `<option value="${c}">${c}</option>`).join('');
+    selFormaPago.innerHTML = '<option value="">Todas las formas de pago</option>' + formasPago.map(f => `<option value="${f}">${f}</option>`).join('');
 
     if(placas.includes(valPlacaPrev)) selPlaca.value = valPlacaPrev;
     if(regionales.includes(valRegionalPrev)) selRegional.value = valRegionalPrev;
     if(conductores.includes(valConductorPrev)) selConductor.value = valConductorPrev;
+    if(formasPago.includes(valFormaPagoPrev)) selFormaPago.value = valFormaPagoPrev;
 }
 
 // Limita el input "Hasta" para que no permita una fecha anterior a "Desde"
@@ -1727,6 +1747,27 @@ function limpiarFechasExport(){
     if(hasta){ hasta.value = ''; hasta.min = ''; }
 }
 
+// Muestra el filtro de "Forma de pago" únicamente cuando el dataset elegido
+// para exportar es "Tanqueos" (es el único dataset que tiene esa columna).
+// El resto del tiempo permanece oculto y su valor se ignora.
+function actualizarVisibilidadFormaPago(){
+    const dataset = document.getElementById('exportDataset').value;
+    const selFormaPago = document.getElementById('exportFormaPagoFiltro');
+    if(!selFormaPago) return;
+    if(dataset === 'tanqueos'){
+        selFormaPago.style.display = '';
+    } else {
+        selFormaPago.style.display = 'none';
+        selFormaPago.value = '';
+    }
+}
+function setupExportDatasetToggle(){
+    const selDataset = document.getElementById('exportDataset');
+    if(!selDataset) return;
+    selDataset.addEventListener('change', actualizarVisibilidadFormaPago);
+    actualizarVisibilidadFormaPago();
+}
+
 /* ==========================================================================
    EXPORTAR REPORTES — CSV y Excel, respetando el filtro de la flota
    ========================================================================== */
@@ -1740,15 +1781,16 @@ function regionalDePlaca(placa){
 
 // Filtros activos leídos de los selects + rango de fechas de la sección
 // Exportar Reportes. Se devuelven sin normalizar aquí: la normalización
-// correcta (normPlaca para placa, norm para regional/conductor) se aplica
-// dentro de pasaFiltrosExport, comparando ambos lados de la misma forma.
-// fechaDesde/fechaHasta llegan en formato yyyy-mm-dd (tal cual entrega
+// correcta (normPlaca para placa, norm para regional/conductor/forma de pago)
+// se aplica dentro de pasaFiltrosExport, comparando ambos lados de la misma
+// forma. fechaDesde/fechaHasta llegan en formato yyyy-mm-dd (tal cual entrega
 // <input type="date">) o cadena vacía si no se estableció límite.
 function leerFiltrosExport(){
     return {
         placa: document.getElementById('exportPlacaFiltro').value || '',
         regional: document.getElementById('exportRegionalFiltro').value || '',
         conductor: document.getElementById('exportConductorFiltro').value || '',
+        formaPago: document.getElementById('exportFormaPagoFiltro').value || '',
         fechaDesde: document.getElementById('exportFechaDesde').value || '',
         fechaHasta: document.getElementById('exportFechaHasta').value || '',
     };
@@ -1760,24 +1802,25 @@ function leerFiltrosExport(){
 // Tanqueo/Traslado/Averias) — comparar el texto tal cual hacía que el filtro
 // fallara aunque sí hubiera datos para esa carroza. El rango de fechas usa
 // fechaDentroDeRango, que ya sabe interpretar dd/mm/aaaa, ISO o Date.
-function pasaFiltrosExport({placa, regional, conductor, fecha}, aplicables, f){
+function pasaFiltrosExport({placa, regional, conductor, formaPago, fecha}, aplicables, f){
     if(aplicables.placa && f.placa && normPlaca(placa) !== normPlaca(f.placa)) return false;
     if(aplicables.regional && f.regional && !norm(regional).includes(norm(f.regional))) return false;
     if(aplicables.conductor && f.conductor && !norm(conductor).includes(norm(f.conductor))) return false;
+    if(aplicables.formaPago && f.formaPago && norm(formaPago) !== norm(f.formaPago)) return false;
     if(aplicables.fecha && !fechaDentroDeRango(fecha, f.fechaDesde, f.fechaHasta)) return false;
     return true;
 }
 
 function datasetFlotaExport(){
     // "Flota" es una foto del estado actual de cada carroza (no una lista de
-    // eventos con fecha propia), así que el filtro de rango de fechas no
-    // aplica aquí — solo búsqueda de la lista, placa y regional.
+    // eventos con fecha propia), así que el filtro de rango de fechas y el de
+    // forma de pago no aplican aquí — solo búsqueda de la lista, placa y regional.
     const filtroLista = norm(document.getElementById('fleetSearch').value || '');
     const f = leerFiltrosExport();
-    const aplicables = {placa:true, regional:true, conductor:false, fecha:false};
+    const aplicables = {placa:true, regional:true, conductor:false, formaPago:false, fecha:false};
     return FLOTA.map((c, i) => ({ c, est: ESTADOS_VEHICULO[i] || {} }))
         .filter(({c}) => !filtroLista || norm(c.placa).includes(filtroLista) || norm(c.regional).includes(filtroLista) || norm(c.estado).includes(filtroLista))
-        .filter(({c}) => pasaFiltrosExport({placa:c.placa, regional:c.regional, conductor:'', fecha:''}, aplicables, f))
+        .filter(({c}) => pasaFiltrosExport({placa:c.placa, regional:c.regional, conductor:'', formaPago:'', fecha:''}, aplicables, f))
         .map(({c, est}) => {
             const doc = documentoMasUrgente(c);
             const av = averiaActivaDeCarroza(c);
@@ -1798,9 +1841,9 @@ function datasetFlotaExport(){
 }
 function datasetTraslados(){
     const f = leerFiltrosExport();
-    const aplicables = {placa:true, regional:true, conductor:true, fecha:true};
+    const aplicables = {placa:true, regional:true, conductor:true, formaPago:false, fecha:true};
     return TRASLADOS
-        .filter(t => pasaFiltrosExport({placa:t.placa, regional:t.regional, conductor:t.conductor, fecha:t.fecha}, aplicables, f))
+        .filter(t => pasaFiltrosExport({placa:t.placa, regional:t.regional, conductor:t.conductor, formaPago:'', fecha:t.fecha}, aplicables, f))
         .map(t => ({
             Placa: t.placa || '', Fecha: fmtFechaCorta(t.fecha), Hora_Salida: fmtHoraCorta(t.hora_de_salida), Regional: t.regional || '',
             Origen: t.origen || '', Destino: t.destino || '', Conductor: t.conductor || '',
@@ -1808,29 +1851,29 @@ function datasetTraslados(){
 }
 function datasetTanqueos(){
     const f = leerFiltrosExport();
-    const aplicables = {placa:true, regional:true, conductor:false, fecha:true};
+    const aplicables = {placa:true, regional:true, conductor:false, formaPago:true, fecha:true};
     return TANQUEOS
-        .filter(t => pasaFiltrosExport({placa:t.PLACA, regional: regionalDePlaca(t.PLACA), conductor:'', fecha:t.FECHA}, aplicables, f))
+        .filter(t => pasaFiltrosExport({placa:t.PLACA, regional: regionalDePlaca(t.PLACA), conductor:'', formaPago:t.FORMA_PAGO, fecha:t.FECHA}, aplicables, f))
         .map(t => ({
             Placa: t.PLACA || '', Fecha: fmtFechaCorta(t.FECHA), Galones: t.GALONES || 0,
-            Valor_Total: t.VALOR_TOTAL || 0, Estacion_Servicio: t.ESTACION_SERVICIO || '',
+            Valor_Total: t.VALOR_TOTAL || 0, Forma_Pago: t.FORMA_PAGO || '', Estacion_Servicio: t.ESTACION_SERVICIO || '',
             Km_Recorridos: t.KM_RECORRIDOS || '', Rendimiento_Km_Gal: t.RENDIMIENTO_KM_GALON || '',
         }));
 }
 function datasetAverias(){
     const f = leerFiltrosExport();
-    const aplicablesParque = {placa:true, regional:true, conductor:false, fecha:true};
-    const aplicablesFormulario = {placa:true, regional:true, conductor:true, fecha:true};
+    const aplicablesParque = {placa:true, regional:true, conductor:false, formaPago:false, fecha:true};
+    const aplicablesFormulario = {placa:true, regional:true, conductor:true, formaPago:false, fecha:true};
     // Averías del Parque Automotor (hoja "carrozas") + hoja "Averias" del formulario de conductores
     const deParque = FLOTA.map(averiaActivaDeCarroza).filter(Boolean)
-        .filter(a => pasaFiltrosExport({placa:a.placa, regional: regionalDePlaca(a.placa), conductor:'', fecha:a.fecha}, aplicablesParque, f))
+        .filter(a => pasaFiltrosExport({placa:a.placa, regional: regionalDePlaca(a.placa), conductor:'', formaPago:'', fecha:a.fecha}, aplicablesParque, f))
         .map(a => ({
             Placa: a.placa || '', Origen: 'Parque Automotor', Clasificacion: a.clasificacion || '',
             Detalle: a.detalle || '', Estado: a.pendiente ? 'PENDIENTE' : (a.estadoHallazgo||''),
             Fecha: fmtFechaCorta(a.fecha), Taller_Sede: a.taller || '',
         }));
     const deFormulario = AVERIAS
-        .filter(a => pasaFiltrosExport({placa:a.placa_vehiculo, regional: regionalDePlaca(a.placa_vehiculo), conductor:a.reportado_por, fecha:a.created_at}, aplicablesFormulario, f))
+        .filter(a => pasaFiltrosExport({placa:a.placa_vehiculo, regional: regionalDePlaca(a.placa_vehiculo), conductor:a.reportado_por, formaPago:'', fecha:a.created_at}, aplicablesFormulario, f))
         .map(a => ({
             Placa: a.placa_vehiculo || '', Origen: 'Formulario conductor', Clasificacion: a.tipo_falla || '',
             Detalle: a.descripcion_sintomas || '', Estado: '', Fecha: a.created_at ? fmtFechaCorta(new Date(a.created_at)) : '',
@@ -1840,17 +1883,17 @@ function datasetAverias(){
 }
 function datasetMantenimientos(){
     const f = leerFiltrosExport();
-    const aplicables = {placa:true, regional:true, conductor:false, fecha:true};
+    const aplicables = {placa:true, regional:true, conductor:false, formaPago:false, fecha:true};
     // Documentación por vencer (SOAT/Tecnomecánica/Póliza + doc_fecha_proximo_vencer) + hoja "mantenimientos"
     const documentos = FLOTA.map(c => ({placa:c.placa, doc: documentoMasUrgente(c)}))
         .filter(x => x.doc)
-        .filter(x => pasaFiltrosExport({placa:x.placa, regional: regionalDePlaca(x.placa), conductor:'', fecha:x.doc.fecha}, aplicables, f))
+        .filter(x => pasaFiltrosExport({placa:x.placa, regional: regionalDePlaca(x.placa), conductor:'', formaPago:'', fecha:x.doc.fecha}, aplicables, f))
         .map(x => ({
             Placa: x.placa, Tipo: x.doc.tipo, Fecha_Vence: fmtFechaCorta(x.doc.fecha),
             Dias: x.doc.dias !== null ? x.doc.dias : '', Observaciones: x.doc.obs || '',
         }));
     const ordenes = MANTENIMIENTOS
-        .filter(m => pasaFiltrosExport({placa:m.placa, regional: regionalDePlaca(m.placa), conductor:'', fecha:m.fecha}, aplicables, f))
+        .filter(m => pasaFiltrosExport({placa:m.placa, regional: regionalDePlaca(m.placa), conductor:'', formaPago:'', fecha:m.fecha}, aplicables, f))
         .map(m => ({
             Placa: m.placa || '', Tipo: m.tipo_servicio || '', Fecha_Vence: fmtFechaCorta(m.fecha),
             Dias: '', Observaciones: `${m.estado_orden||''} · ${m.taller||''} · ${fmtCOP(m.costo)}`,
