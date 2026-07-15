@@ -319,30 +319,27 @@
   </div>
 
   <script src="db.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
 
     // ══════════════════════════════════════════════════════════
-    // 🆕 v10.16 — LECTURA DE TIRILLAS: AHORA DIRECTO A GEMINI
+    // 🆕 v10.17 — LECTURA DE TIRILLAS: TESSERACT.JS (OCR LOCAL)
     // ══════════════════════════════════════════════════════════
-    // Antes esta pantalla llamaba a un endpoint de Apps Script
-    // (GAS_URL_TIRILLA) que a su vez llamaba a Gemini con
-    // UrlFetchApp. Eso exigía un permiso especial de Apps Script
-    // (scope script.external_request) que nunca quedaba autorizado
-    // de forma estable, y además sufría el bug del redirect 302 que
-    // perdía el parámetro "action" en el POST.
+    // Se abandonó Gemini para esta función: desde junio 2026 Google
+    // solo emite API keys formato "AQ." y esas keys están rotas para
+    // generateContent (error ACCESS_TOKEN_TYPE_UNSUPPORTED) — es un
+    // bug de la plataforma de Google, reportado por decenas de
+    // desarrolladores, sin fecha de arreglo. No depende de nuestra
+    // configuración ni de la cuenta usada.
     //
-    // Ahora el navegador le habla DIRECTO a la API de Gemini, sin
-    // pasar por Apps Script para nada de esto. Apps Script sigue
-    // haciendo solo lo que ya hacía bien: Sheets, Drive, Telegram.
-    //
-    // Consíguela en https://aistudio.google.com/apikey (gratis).
-    // Recomendado: en AI Studio, restringe esta key para que solo
-    // funcione desde tu dominio de GitHub Pages (Configuración de
-    // la key → Restricciones de aplicación → Sitios web →
-    // analistadeserviciosnacional-blip.github.io/*).
-    const GEMINI_API_KEY = 'AQ.Ab8RN6I01jZw7t8QZv4_-RYOdlOEzKaXKZQnKbtVAQmUrmrRXA';
-
+    // Tesseract.js lee el texto de la imagen 100% en el navegador,
+    // sin ninguna API key, sin backend, sin cuenta de Google. Es
+    // menos preciso que Gemini (no "entiende" cuál número es cuál,
+    // solo extrae texto crudo), así que aquí se aplican patrones
+    // (regex) para intentar ubicar cada campo. SIEMPRE revisa los
+    // datos autocompletados antes de guardar — este OCR es una
+    // ayuda, no un reemplazo de la revisión manual.
     let flotaCache = [];
     let fotoBase64 = '';
 
@@ -473,90 +470,102 @@
       reader.readAsDataURL(file);
     });
 
-    // 🆕 v10.16 — Lee la tirilla llamando a Gemini DIRECTO desde el
-    // navegador (ver nota junto a GEMINI_API_KEY más arriba). Nunca
-    // bloquea el formulario: si falla, solo se avisa y se sigue
-    // llenando a mano como siempre.
+    // ── Lista de placas de la flota, para intentar reconocerlas en el texto OCR ──
+    function buscarPlacaEnTexto(texto) {
+      // Primero intenta encontrar una placa YA REGISTRADA en la flota dentro
+      // del texto leído (más confiable que adivinar un patrón genérico).
+      const limpio = texto.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ');
+      for (const c of flotaCache) {
+        const p = String(c.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        if (!p) continue;
+        if (limpio.replace(/\s+/g, '').includes(p)) return c.placa;
+      }
+      // Si no encontró ninguna conocida, intenta el patrón típico colombiano
+      // de placas particulares/oficiales: 3 letras + 2-3 números.
+      const m = texto.match(/\b[A-Z]{3}\s?-?\s?\d{2,3}\b/i);
+      return m ? m[0].replace(/[\s-]/g, '').toUpperCase() : null;
+    }
+
+    // ── Intenta ubicar cada campo dentro del texto crudo leído por OCR ──
+    function parsearTextoTirilla(texto) {
+      const t = texto.replace(/\r/g, '');
+      const r = {};
+
+      r.placa = buscarPlacaEnTexto(t);
+
+      // Hora HH:MM (24h o con am/pm)
+      const mHora = t.match(/\b([01]?\d|2[0-3]):([0-5]\d)\s*(am|pm|a\.m\.|p\.m\.)?/i);
+      if (mHora) {
+        let hh = parseInt(mHora[1], 10);
+        const mm = mHora[2];
+        const ampm = (mHora[3] || '').toLowerCase();
+        if (ampm.startsWith('p') && hh < 12) hh += 12;
+        if (ampm.startsWith('a') && hh === 12) hh = 0;
+        r.hora = String(hh).padStart(2, '0') + ':' + mm;
+      }
+
+      // Kilometraje: busca "KM" cerca de un número de 4-7 dígitos
+      const mKm = t.match(/K[IÍ]?LO?M?E?T?R?A?J?E?\.?\s*:?\s*([\d.,]{4,9})/i)
+                || t.match(/\bKM\.?\s*:?\s*([\d.,]{4,9})/i);
+      if (mKm) r.kilometraje = mKm[1].replace(/[.,]/g, '');
+
+      // Galones: número decimal cerca de "GAL"
+      const mGal = t.match(/([\d]{1,3}[.,]\d{1,3})\s*GAL/i) || t.match(/GAL\w*\.?\s*:?\s*([\d]{1,3}[.,]\d{1,3})/i);
+      if (mGal) r.galones = mGal[1].replace(',', '.');
+
+      // Valor total: cerca de "TOTAL"
+      const mTotal = t.match(/TOTAL\D{0,10}([\d.,]{4,10})/i);
+      if (mTotal) r.valor_total = mTotal[1].replace(/[.,](?=\d{3}\b)/g, '');
+
+      // Valor por galón: cerca de "VALOR" o "PRECIO" + "GAL"
+      const mVG = t.match(/(?:VALOR|PRECIO)\D{0,15}GAL\D{0,5}([\d.,]{3,8})/i)
+               || t.match(/GAL\D{0,5}(?:VALOR|PRECIO)\D{0,5}([\d.,]{3,8})/i);
+      if (mVG) r.valor_galon = mVG[1].replace(/[.,](?=\d{3}\b)/g, '');
+
+      // Número de factura / remisión
+      const mFac = t.match(/(?:FACTURA|REMISI[OÓ]N|TIRILLA)\D{0,10}([A-Z0-9-]{3,15})/i);
+      if (mFac) r.numero_factura = mFac[1];
+
+      // Forma de pago
+      if (/EFECTIVO|CONTADO/i.test(t)) r.forma_pago = 'Efectivo';
+      else if (/CR[EÉ]DITO/i.test(t)) r.forma_pago = 'Crédito';
+
+      // Tipo de combustible
+      if (/CORRIENTE|EXTRA|GASOLINA/i.test(t)) r.tipo_combustible = 'Gasolina';
+      else if (/ACPM|DIESEL|DI[EÉ]SEL/i.test(t)) r.tipo_combustible = 'Diésel';
+
+      return r;
+    }
+
+    // 🆕 v10.17 — Lee la tirilla con Tesseract.js (OCR 100% local, sin
+    // API key ni backend). Ver nota junto al changelog más arriba.
+    // Nunca bloquea el formulario: si falla o no reconoce nada, solo
+    // se avisa y se sigue llenando a mano como siempre.
     async function autocompletarDesdeTirilla(base64) {
       const box = $('photoBox');
       const banner = $('ocrBanner');
 
       box.classList.add('leyendo');
       banner.className = 'ocr-banner show';
-      banner.innerHTML = '⏳ Leyendo datos de la tirilla…';
+      banner.innerHTML = '⏳ Leyendo datos de la tirilla (puede tardar 10-20 seg)…';
 
       try {
-        const partes = base64.split(',');
-        const mimeMatch = partes[0].match(/data:(image\/[a-zA-Z0-9.+-]+);base64/);
-        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-        const soloDatos = partes[1] || base64;
-
-        const prompt =
-          'Estás leyendo la foto de una tirilla/factura de tanqueo de gasolina de Colombia. ' +
-          'Devuelve ÚNICAMENTE un objeto JSON (sin texto adicional, sin markdown, sin ```), ' +
-          'con EXACTAMENTE estas claves:\n' +
-          '{\n' +
-          '  "placa": string o null (placa del vehículo, ej "HWT515"),\n' +
-          '  "kilometraje": number o null (kilómetros, solo el número, sin puntos ni comas),\n' +
-          '  "tipo_combustible": "Gasolina" | "Diésel" | null ' +
-          '(mapea "Corriente"/"Extra"/"Gasolina" a "Gasolina"; "ACPM"/"Diesel"/"Diésel" a "Diésel"),\n' +
-          '  "galones": number o null (el volumen despachado, solo el número, usa punto decimal),\n' +
-          '  "valor_galon": number o null (precio por galón/litro, solo el número entero, sin puntos ni comas),\n' +
-          '  "valor_total": number o null (total pagado, solo el número entero, sin puntos ni comas),\n' +
-          '  "numero_factura": string o null (número de remisión/factura/tirilla),\n' +
-          '  "estacion_servicio": string o null (nombre del establecimiento o distribuidor),\n' +
-          '  "ciudad": string o null (ciudad, infiérela de la dirección si aparece),\n' +
-          '  "hora": string o null (hora en formato HH:MM 24h, usa la hora de fin/entrega si hay varias),\n' +
-          '  "forma_pago": "Efectivo" | "Crédito" | null ' +
-          '(mapea "Contado"/"Cash"/"Efectivo" a "Efectivo"; "Credito"/"Crédito" a "Crédito")\n' +
-          '}\n' +
-          'Si un dato no aparece claramente en la foto, usa null en ese campo. No inventes valores.';
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
-
-        const resp = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': GEMINI_API_KEY
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: mime, data: soloDatos } }
-              ]
-            }],
-            generationConfig: { responseMimeType: 'application/json' }
-          })
+        const resultado = await Tesseract.recognize(base64, 'spa', {
+          logger: () => {} // silencia el progreso en consola
         });
+        const texto = (resultado && resultado.data && resultado.data.text) || '';
 
         box.classList.remove('leyendo');
 
-        if (!resp.ok) {
-          const errTxt = await resp.text();
+        if (!texto.trim()) {
           banner.className = 'ocr-banner show err';
-          banner.innerHTML = '⚠️ No se pudo leer la tirilla automáticamente (Gemini ' + resp.status + '). Llena los campos manualmente.';
-          console.warn('Gemini error:', errTxt);
+          banner.innerHTML = '⚠️ No se pudo leer texto en la foto. Llena los campos manualmente.';
           return;
         }
 
-        const data = await resp.json();
-        const textoJson = data.candidates && data.candidates[0] && data.candidates[0].content
-          && data.candidates[0].content.parts && data.candidates[0].content.parts[0]
-          ? data.candidates[0].content.parts[0].text
-          : '';
-
-        if (!textoJson) {
-          banner.className = 'ocr-banner show err';
-          banner.innerHTML = '⚠️ No se reconocieron campos en la foto. Llena los campos manualmente.';
-          return;
-        }
-
-        const r = JSON.parse(textoJson);
+        const r = parsearTextoTirilla(texto);
         const camposLlenados = [];
 
-        // Placa → intenta seleccionar la carroza correspondiente
         if (r.placa) {
           const placaNorm = String(r.placa).trim().toUpperCase().replace(/\s+/g,'');
           const sel = $('selCarroza');
@@ -567,32 +576,30 @@
             camposLlenados.push('placa');
           }
         }
-
-        if (r.estacion_servicio) { $('inEstacion').value = r.estacion_servicio; camposLlenados.push('estación'); }
-        if (r.ciudad) { $('inCiudad').value = r.ciudad; camposLlenados.push('ciudad'); }
         if (r.kilometraje) { $('inKilometraje').value = r.kilometraje; $('inKilometraje').dispatchEvent(new Event('input')); camposLlenados.push('kilometraje'); }
         if (r.galones) { $('inGalones').value = r.galones; camposLlenados.push('galones'); }
         if (r.valor_galon) { $('inValorGalon').value = r.valor_galon; camposLlenados.push('valor/galón'); }
+        if (r.valor_total && !r.valor_galon) { /* se recalcula solo si hay galones+valor_galon */ }
         if (r.numero_factura) { $('inFactura').value = r.numero_factura; camposLlenados.push('factura'); }
         if (r.hora) { $('inHora').value = r.hora; camposLlenados.push('hora'); }
-        if (r.forma_pago && ['Efectivo','Crédito'].includes(r.forma_pago)) { $('selFormaPago').value = r.forma_pago; camposLlenados.push('forma de pago'); }
-        if (r.tipo_combustible && ['Gasolina','Diésel'].includes(r.tipo_combustible)) { $('selTipoCombustible').value = r.tipo_combustible; camposLlenados.push('combustible'); }
+        if (r.forma_pago) { $('selFormaPago').value = r.forma_pago; camposLlenados.push('forma de pago'); }
+        if (r.tipo_combustible) { $('selTipoCombustible').value = r.tipo_combustible; camposLlenados.push('combustible'); }
 
         actualizarTotal();
 
         if (camposLlenados.length) {
           banner.className = 'ocr-banner show';
-          banner.innerHTML = '✅ Autocompletado desde la foto: ' + camposLlenados.join(', ') + '. Revisa que todo esté correcto antes de guardar.';
+          banner.innerHTML = '✅ Se detectaron algunos datos: ' + camposLlenados.join(', ') + '. <b>Revisa cuidadosamente</b> — la lectura automática puede tener errores, completa lo que falte.';
         } else {
           banner.className = 'ocr-banner show err';
-          banner.innerHTML = '⚠️ No se reconocieron campos en la foto. Llena los campos manualmente.';
+          banner.innerHTML = '⚠️ No se reconocieron campos claros en la foto. Llena los campos manualmente.';
         }
 
       } catch (err) {
         box.classList.remove('leyendo');
         banner.className = 'ocr-banner show err';
         banner.innerHTML = '⚠️ No se pudo leer la tirilla automáticamente. Llena los campos manualmente.';
-        console.warn('Error leyendo tirilla:', err.message);
+        console.warn('Error leyendo tirilla (Tesseract):', err.message);
       }
     }
 
