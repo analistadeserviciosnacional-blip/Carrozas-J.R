@@ -111,6 +111,15 @@
   .photo-box img{max-width:100%; max-height:220px; border-radius:6px; display:block; margin:0 auto;}
   .photo-box .icon{font-size:24px; display:block; margin-bottom:6px;}
   .photo-box small{display:block; margin-top:4px; color:#96a3ba;}
+  .photo-box.leyendo{border-style:solid; border-color:var(--amber); color:var(--amber); cursor:wait;}
+
+  .ocr-banner{
+    display:none; align-items:flex-start; gap:10px;
+    border-radius:8px; padding:11px 14px; font-size:12.5px; line-height:1.4; margin-top:10px;
+    border:1px solid var(--blue-soft); background:rgba(47,111,237,.08); color:var(--blue-deep);
+  }
+  .ocr-banner.show{display:flex;}
+  .ocr-banner.err{border-color:var(--red); background:rgba(199,58,52,.08); color:#a12d28;}
 
   .alert-banner{
     display:none; align-items:flex-start; gap:10px;
@@ -240,6 +249,25 @@
         </div>
       </div>
 
+      <div class="row2">
+        <div class="field">
+          <label>Forma de pago <span class="req">*</span></label>
+          <select id="selFormaPago" required>
+            <option value="">— Seleccione —</option>
+            <option value="Efectivo">Efectivo</option>
+            <option value="Crédito">Crédito</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tipo de combustible <span class="req">*</span></label>
+          <select id="selTipoCombustible" required>
+            <option value="">— Seleccione —</option>
+            <option value="Gasolina">Gasolina</option>
+            <option value="Diésel">Diésel</option>
+          </select>
+        </div>
+      </div>
+
       <div class="total-box">
         <span class="lbl">Valor total</span>
         <span class="val" id="valTotal">$ 0</span>
@@ -251,9 +279,10 @@
         <label class="photo-box" id="photoBox" for="inputFoto">
           <span class="icon">📷</span>
           Toca para tomar o subir la foto del comprobante
-          <small>Se comprime automáticamente antes de guardar</small>
+          <small>Se lee automáticamente y se comprime antes de guardar</small>
         </label>
         <input type="file" id="inputFoto" accept="image/*" capture="environment" style="display:none">
+        <div class="ocr-banner" id="ocrBanner"></div>
       </div>
 
       <div class="field">
@@ -293,6 +322,10 @@
   <script>
     const $ = (id) => document.getElementById(id);
 
+    // 🆕 URL del backend GAS, usada directamente solo por la lectura
+    // automática de tirillas (extraerTirilla), sin tocar db.js.
+    const GAS_URL_TIRILLA = 'https://script.google.com/macros/s/AKfycbx9wr5Od2WgVF2vSSW93OcMmxDoSXs3PLaE7jo44j4rUFElagX4OKNDRy9mqjPpJZWZ/exec';
+
     let flotaCache = [];
     let fotoBase64 = '';
 
@@ -308,8 +341,10 @@
     function limpiarFormulario() {
       document.getElementById('formTanqueo').reset();
       fotoBase64 = '';
-      $('photoBox').classList.remove('has-img');
-      $('photoBox').innerHTML = '<span class="icon">📷</span>Toca para tomar o subir la foto del comprobante<small>Se comprime automáticamente antes de guardar</small>';
+      $('photoBox').classList.remove('has-img', 'leyendo');
+      $('photoBox').innerHTML = '<span class="icon">📷</span>Toca para tomar o subir la foto del comprobante<small>Se lee automáticamente y se comprime antes de guardar</small>';
+      $('ocrBanner').className = 'ocr-banner';
+      $('ocrBanner').innerHTML = '';
       $('inFecha').value = hoyDDMMAAAA();
       $('inHora').value = new Date().toTimeString().slice(0,5);
       $('valTotal').textContent = '$ 0';
@@ -393,7 +428,7 @@
     $('inGalones').addEventListener('input', actualizarTotal);
     $('inValorGalon').addEventListener('input', actualizarTotal);
 
-    // ── Foto: comprime antes de convertir a base64 ─────
+    // ── Foto: comprime, muestra preview y dispara lectura automática ──
     $('inputFoto').addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -412,11 +447,80 @@
           const box = $('photoBox');
           box.classList.add('has-img');
           box.innerHTML = `<img src="${fotoBase64}" alt="Tirilla">`;
+
+          // 🆕 dispara la lectura automática apenas queda lista la foto
+          autocompletarDesdeTirilla(fotoBase64);
         };
         img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     });
+
+    // 🆕 v10.13 — Lee la tirilla con Gemini y autocompleta los campos.
+    // Nunca bloquea el formulario: si falla, solo se avisa y se sigue
+    // llenando a mano como siempre.
+    async function autocompletarDesdeTirilla(base64) {
+      const box = $('photoBox');
+      const banner = $('ocrBanner');
+
+      box.classList.add('leyendo');
+      banner.className = 'ocr-banner show';
+      banner.innerHTML = '⏳ Leyendo datos de la tirilla…';
+
+      try {
+        const resp = await fetch(GAS_URL_TIRILLA, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'extraerTirilla', imagen: base64 })
+        });
+        const r = await resp.json();
+        box.classList.remove('leyendo');
+
+        if (!r || r.ok === false) {
+          banner.className = 'ocr-banner show err';
+          banner.innerHTML = '⚠️ No se pudo leer la tirilla automáticamente' + (r && r.error ? ' (' + r.error + ')' : '') + '. Llena los campos manualmente.';
+          return;
+        }
+
+        const camposLlenados = [];
+
+        // Placa → intenta seleccionar la carroza correspondiente
+        if (r.placa) {
+          const placaNorm = String(r.placa).trim().toUpperCase().replace(/\s+/g,'');
+          const sel = $('selCarroza');
+          const opcion = Array.from(sel.options).find(o => o.value.trim().toUpperCase().replace(/\s+/g,'') === placaNorm);
+          if (opcion) {
+            sel.value = opcion.value;
+            sel.dispatchEvent(new Event('change'));
+            camposLlenados.push('placa');
+          }
+        }
+
+        if (r.estacion_servicio) { $('inEstacion').value = r.estacion_servicio; camposLlenados.push('estación'); }
+        if (r.ciudad) { $('inCiudad').value = r.ciudad; camposLlenados.push('ciudad'); }
+        if (r.kilometraje) { $('inKilometraje').value = r.kilometraje; $('inKilometraje').dispatchEvent(new Event('input')); camposLlenados.push('kilometraje'); }
+        if (r.galones) { $('inGalones').value = r.galones; camposLlenados.push('galones'); }
+        if (r.valor_galon) { $('inValorGalon').value = r.valor_galon; camposLlenados.push('valor/galón'); }
+        if (r.numero_factura) { $('inFactura').value = r.numero_factura; camposLlenados.push('factura'); }
+        if (r.hora) { $('inHora').value = r.hora; camposLlenados.push('hora'); }
+        if (r.forma_pago && ['Efectivo','Crédito'].includes(r.forma_pago)) { $('selFormaPago').value = r.forma_pago; camposLlenados.push('forma de pago'); }
+        if (r.tipo_combustible && ['Gasolina','Diésel'].includes(r.tipo_combustible)) { $('selTipoCombustible').value = r.tipo_combustible; camposLlenados.push('combustible'); }
+
+        actualizarTotal();
+
+        if (camposLlenados.length) {
+          banner.className = 'ocr-banner show';
+          banner.innerHTML = '✅ Autocompletado desde la foto: ' + camposLlenados.join(', ') + '. Revisa que todo esté correcto antes de guardar.';
+        } else {
+          banner.className = 'ocr-banner show err';
+          banner.innerHTML = '⚠️ No se reconocieron campos en la foto. Llena los campos manualmente.';
+        }
+
+      } catch (err) {
+        box.classList.remove('leyendo');
+        banner.className = 'ocr-banner show err';
+        banner.innerHTML = '⚠️ No se pudo leer la tirilla automáticamente. Llena los campos manualmente.';
+      }
+    }
 
     // ── Validación de km sospechoso (autofill pegado) ──
     $('inKilometraje').addEventListener('input', (e) => {
@@ -465,11 +569,13 @@
         valor_galon:          $('inValorGalon').value,
         valor_total:          $('inValorTotal').value,
         numero_factura:       $('inFactura').value.trim(),
+        forma_pago:           $('selFormaPago').value,
+        tipo_combustible:     $('selTipoCombustible').value,
         foto_tirilla:         fotoBase64,
         observaciones:        $('inObservaciones').value.trim(),
       };
 
-      if (!datos.placa || !datos.conductor || !datos.estacion_servicio || !datos.ciudad || !datos.kilometraje || !datos.galones || !datos.valor_galon) {
+      if (!datos.placa || !datos.conductor || !datos.estacion_servicio || !datos.ciudad || !datos.kilometraje || !datos.galones || !datos.valor_galon || !datos.forma_pago || !datos.tipo_combustible) {
         $('msg').textContent = 'Completa los campos obligatorios (*) antes de guardar.';
         $('msg').className = 'msg err';
         return;
