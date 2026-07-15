@@ -144,6 +144,19 @@
         }
         .combustible-card.cc-error { border-color: #fca5a5; background: #fef2f2; }
         .combustible-card.cc-error .cc-titulo { color: #b91c1c; }
+
+        /* ── BANNER LLEGADA DIRIGIDA (desde la campana del coordinador) ── */
+        #banner-dirigido {
+            display: none;
+            background: #eff6ff;
+            border: 2px solid #93c5fd;
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            font-size: 12px;
+            color: #1d4ed8;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -155,6 +168,9 @@
     </div>
 
     <div class="content">
+
+        <!-- 🆕 BANNER: llegada abierta directamente desde la campana del coordinador -->
+        <div id="banner-dirigido">🔔 Abierto desde la notificación de servicio sin cerrar — placa preseleccionada.</div>
 
         <div class="section-title">Vehículo que Regresa</div>
         <div class="grid-2">
@@ -334,6 +350,35 @@
             now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
 
         await cargarPlacas();
+
+        // ══════════════════════════════════════════════
+        // 🆕 PRESELECCIÓN DESDE LA CAMPANA DEL COORDINADOR
+        // ══════════════════════════════════════════════
+        // Si se llega desde panel_coordinador.html?placa=XXX (clic en un
+        // ítem de la campana "Servicios sin cerrar"), se preselecciona
+        // esa placa en el desplegable y se dispara automáticamente
+        // alSeleccionarPlaca(), para que el coordinador solo tenga que
+        // completar el cierre sin tener que buscarla manualmente.
+        try {
+            const paramsUrl = new URLSearchParams(window.location.search);
+            const placaParam = paramsUrl.get('placa');
+            if (placaParam) {
+                const selectPlaca = document.getElementById('placa');
+                const placaNorm = placaParam.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                const opcion = Array.from(selectPlaca.options).find(o =>
+                    o.value.replace(/[^A-Z0-9]/gi, '').toUpperCase() === placaNorm
+                );
+                if (opcion) {
+                    selectPlaca.value = opcion.value;
+                    document.getElementById('banner-dirigido').style.display = 'block';
+                    await alSeleccionarPlaca();
+                } else {
+                    console.warn('La placa recibida por URL (' + placaParam + ') no está en el selector de salidas activas — puede que ya se haya cerrado.');
+                }
+            }
+        } catch(e) {
+            console.warn('No se pudo preseleccionar la placa desde la URL:', e);
+        }
     };
 
     // ── CARGAR PLACAS (VERSIÓN CORREGIDA) ─────────────────
