@@ -322,14 +322,26 @@
   <script>
     const $ = (id) => document.getElementById(id);
 
-    // 🆕 v10.15 — FIX CRÍTICO: esta URL estaba apuntando a un
-    // despliegue de Apps Script DISTINTO al que usa db.js (URL_GAS).
-    // Por eso, aunque el script se corrigiera y se reimplementara una
-    // y otra vez, la lectura de tirillas seguía fallando con "Falta
-    // sheetName" — estaba llamando siempre al script viejo/desactualizado.
-    // Ahora se usa la MISMA URL que db.js, así los dos módulos quedan
-    // sincronizados y ya no hay dos URLs distintas que mantener a mano.
-    const GAS_URL_TIRILLA = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
+    // ══════════════════════════════════════════════════════════
+    // 🆕 v10.16 — LECTURA DE TIRILLAS: AHORA DIRECTO A GEMINI
+    // ══════════════════════════════════════════════════════════
+    // Antes esta pantalla llamaba a un endpoint de Apps Script
+    // (GAS_URL_TIRILLA) que a su vez llamaba a Gemini con
+    // UrlFetchApp. Eso exigía un permiso especial de Apps Script
+    // (scope script.external_request) que nunca quedaba autorizado
+    // de forma estable, y además sufría el bug del redirect 302 que
+    // perdía el parámetro "action" en el POST.
+    //
+    // Ahora el navegador le habla DIRECTO a la API de Gemini, sin
+    // pasar por Apps Script para nada de esto. Apps Script sigue
+    // haciendo solo lo que ya hacía bien: Sheets, Drive, Telegram.
+    //
+    // Consíguela en https://aistudio.google.com/apikey (gratis).
+    // Recomendado: en AI Studio, restringe esta key para que solo
+    // funcione desde tu dominio de GitHub Pages (Configuración de
+    // la key → Restricciones de aplicación → Sitios web →
+    // analistadeserviciosnacional-blip.github.io/*).
+    const GEMINI_API_KEY = 'PEGA_AQUI_TU_API_KEY';
 
     let flotaCache = [];
     let fotoBase64 = '';
@@ -461,12 +473,9 @@
       reader.readAsDataURL(file);
     });
 
-    // 🆕 v10.14 — Lee la tirilla con Gemini y autocompleta los campos.
-    // FIX: el "action" ahora va DENTRO del body JSON (no en el query
-    // string de la URL), porque Apps Script hace un redirect 302 en
-    // los POST y en ese salto el query string se pierde, causando el
-    // error "Falta sheetName". El body sí viaja intacto.
-    // Nunca bloquea el formulario: si falla, solo se avisa y se sigue
+    // 🆕 v10.16 — Lee la tirilla llamando a Gemini DIRECTO desde el
+    // navegador (ver nota junto a GEMINI_API_KEY más arriba). Nunca
+    // bloquea el formulario: si falla, solo se avisa y se sigue
     // llenando a mano como siempre.
     async function autocompletarDesdeTirilla(base64) {
       const box = $('photoBox');
@@ -477,19 +486,71 @@
       banner.innerHTML = '⏳ Leyendo datos de la tirilla…';
 
       try {
-        const resp = await fetch(GAS_URL_TIRILLA, {
+        const partes = base64.split(',');
+        const mimeMatch = partes[0].match(/data:(image\/[a-zA-Z0-9.+-]+);base64/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        const soloDatos = partes[1] || base64;
+
+        const prompt =
+          'Estás leyendo la foto de una tirilla/factura de tanqueo de gasolina de Colombia. ' +
+          'Devuelve ÚNICAMENTE un objeto JSON (sin texto adicional, sin markdown, sin ```), ' +
+          'con EXACTAMENTE estas claves:\n' +
+          '{\n' +
+          '  "placa": string o null (placa del vehículo, ej "HWT515"),\n' +
+          '  "kilometraje": number o null (kilómetros, solo el número, sin puntos ni comas),\n' +
+          '  "tipo_combustible": "Gasolina" | "Diésel" | null ' +
+          '(mapea "Corriente"/"Extra"/"Gasolina" a "Gasolina"; "ACPM"/"Diesel"/"Diésel" a "Diésel"),\n' +
+          '  "galones": number o null (el volumen despachado, solo el número, usa punto decimal),\n' +
+          '  "valor_galon": number o null (precio por galón/litro, solo el número entero, sin puntos ni comas),\n' +
+          '  "valor_total": number o null (total pagado, solo el número entero, sin puntos ni comas),\n' +
+          '  "numero_factura": string o null (número de remisión/factura/tirilla),\n' +
+          '  "estacion_servicio": string o null (nombre del establecimiento o distribuidor),\n' +
+          '  "ciudad": string o null (ciudad, infiérela de la dirección si aparece),\n' +
+          '  "hora": string o null (hora en formato HH:MM 24h, usa la hora de fin/entrega si hay varias),\n' +
+          '  "forma_pago": "Efectivo" | "Crédito" | null ' +
+          '(mapea "Contado"/"Cash"/"Efectivo" a "Efectivo"; "Credito"/"Crédito" a "Crédito")\n' +
+          '}\n' +
+          'Si un dato no aparece claramente en la foto, usa null en ese campo. No inventes valores.';
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+        const resp = await fetch(url, {
           method: 'POST',
-          body: JSON.stringify({ action: 'extraerTirilla', imagen: base64 })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: mime, data: soloDatos } }
+              ]
+            }],
+            generationConfig: { responseMimeType: 'application/json' }
+          })
         });
-        const r = await resp.json();
+
         box.classList.remove('leyendo');
 
-        if (!r || r.ok === false) {
+        if (!resp.ok) {
+          const errTxt = await resp.text();
           banner.className = 'ocr-banner show err';
-          banner.innerHTML = '⚠️ No se pudo leer la tirilla automáticamente' + (r && r.error ? ' (' + r.error + ')' : '') + '. Llena los campos manualmente.';
+          banner.innerHTML = '⚠️ No se pudo leer la tirilla automáticamente (Gemini ' + resp.status + '). Llena los campos manualmente.';
+          console.warn('Gemini error:', errTxt);
           return;
         }
 
+        const data = await resp.json();
+        const textoJson = data.candidates && data.candidates[0] && data.candidates[0].content
+          && data.candidates[0].content.parts && data.candidates[0].content.parts[0]
+          ? data.candidates[0].content.parts[0].text
+          : '';
+
+        if (!textoJson) {
+          banner.className = 'ocr-banner show err';
+          banner.innerHTML = '⚠️ No se reconocieron campos en la foto. Llena los campos manualmente.';
+          return;
+        }
+
+        const r = JSON.parse(textoJson);
         const camposLlenados = [];
 
         // Placa → intenta seleccionar la carroza correspondiente
@@ -528,6 +589,7 @@
         box.classList.remove('leyendo');
         banner.className = 'ocr-banner show err';
         banner.innerHTML = '⚠️ No se pudo leer la tirilla automáticamente. Llena los campos manualmente.';
+        console.warn('Error leyendo tirilla:', err.message);
       }
     }
 
