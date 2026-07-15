@@ -1,45 +1,40 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.5
+ *  CONECTOR J.R. CARROZAS — db.js  v12.6
  *
- *  🆕 CAMBIOS v12.5 (corrección de placas y de Total KM):
+ *  🆕 CAMBIOS v12.6 (corrección Forma de pago / Tipo de combustible):
  *
- *  1) obtenerPlacasConTrasladoActivo()
- *     Nueva fuente de verdad para el selector "Elija placa..." del
- *     formulario de Llegada. Antes el selector se armaba filtrando
- *     la hoja "carrozas" por el campo estado.includes('Servicio'),
- *     que puede desincronizarse (si una escritura de fondo falla,
- *     si alguien edita la hoja a mano, etc.).
+ *  1) guardarTanqueo(d)
+ *     El objeto `fila` que se envía al backend (Code.gs) no incluía
+ *     FORMA_PAGO ni TIPO_COMBUSTIBLE, aunque tanqueo.html sí los
+ *     capturaba y se los pasaba en `d.forma_pago` / `d.tipo_combustible`.
+ *     Resultado: esos dos valores se descartaban en silencio antes de
+ *     llegar al fetch, y las columnas FORMA_PAGO / TIPO_COMBUSTIBLE de
+ *     la hoja "Tanqueo" quedaban siempre vacías sin importar lo que el
+ *     conductor seleccionara en el formulario.
  *
- *     Ahora se construye directamente desde la hoja "Traslado":
- *       - Se toman las filas SIN hora_de_ingreso (todavía no
- *         regresaron).
- *       - Se excluyen las que YA tengan una Llegada guardada con
- *         ese mismo id_salida (por si el cierre automático del
- *         Traslado falló tras sus reintentos y quedó "abierto"
- *         por error, aunque la Llegada sí exista).
- *       - Si una placa tuviera más de un Traslado abierto (dato
- *         sucio), se toma el más reciente por fecha/hora real.
+ *     Ahora `fila` incluye:
+ *         FORMA_PAGO:       d.forma_pago || '',
+ *         TIPO_COMBUSTIBLE: d.tipo_combustible || '',
  *
- *     Así el listado de placas SIEMPRE refleja qué carrozas están
- *     realmente en servicio y sin llegada registrada — sin
- *     depender de un campo que puede quedar desfasado.
+ *     Con esto, el filtro de "Forma de pago" del panel de coordinador
+ *     (que lee directamente de la columna FORMA_PAGO en TANQUEOS) ya
+ *     recibe datos reales.
  *
- *  2) guardarLlegada() ahora ESPERA (await) la actualización de
- *     kilometraje_actual / combustible_galones de la carroza antes
- *     de responder, y devuelve el resultado confirmado en
- *     res.estado_carroza_despues.
- *
- *     Antes esa escritura se disparaba con actualizarEnSegundoPlano
- *     (fire-and-forget): si fallaba en silencio, el kilometraje_actual
- *     de la carroza quedaba desactualizado, y el SIGUIENTE Traslado
- *     (salida) de esa placa arrancaba con un KM de salida incorrecto
- *     — esa es la causa raíz de los descuadres de Total KM reportados.
- *     Ahora, si la actualización falla, queda un error explícito en
- *     consola (no en silencio) para poder corregirlo a tiempo.
- *
- *  (Se conserva íntegro todo lo demás de v12.4 — nada de lo que ya
+ *  (Se conserva íntegro todo lo demás de v12.5 — nada de lo que ya
  *   funcionaba fue tocado.)
+ *
+ *  ── Historial v12.5 ──
+ *  + obtenerPlacasConTrasladoActivo(): nueva fuente de verdad para el
+ *    selector "Elija placa..." del formulario de Llegada, construida
+ *    directamente desde la hoja "Traslado" (filas sin hora_de_ingreso
+ *    y sin Llegada ya guardada para ese id_salida), en vez de depender
+ *    del campo estado de la hoja "carrozas".
+ *  + guardarLlegada() ahora ESPERA (await) la actualización de
+ *    kilometraje_actual / combustible_galones de la carroza antes de
+ *    responder, y deja un error explícito en consola si falla (antes
+ *    era fire-and-forget y podía fallar en silencio, descuadrando el
+ *    Total KM del siguiente Traslado).
  *
  *  ── Historial v12.4 ──
  *  + Módulo de Tanqueo (guardarTanqueo / obtenerTanqueos) con los
@@ -621,7 +616,8 @@ const DB = {
   // ── GUARDAR TANQUEO ─────────────────────────────────────────
   // d: { carroza, placa, conductor, estacion_servicio, ciudad,
   //      kilometraje, galones, valor_galon, valor_total,
-  //      numero_factura, foto_tirilla (base64), observaciones, hora }
+  //      numero_factura, foto_tirilla (base64), observaciones, hora,
+  //      forma_pago, tipo_combustible }
   async guardarTanqueo(d) {
     return conLock('guardarTanqueo', async () => {
       try {
@@ -668,6 +664,11 @@ const DB = {
           KM_RECORRIDOS:        kmRecorridos,
           RENDIMIENTO_KM_GALON: rendimiento,
           ALERTA_RENDIMIENTO:   alertaTexto,
+          // 🆕 v12.6 — antes faltaban estos dos campos y se descartaban
+          // en silencio, dejando siempre vacías las columnas FORMA_PAGO
+          // y TIPO_COMBUSTIBLE de la hoja "Tanqueo".
+          FORMA_PAGO:           d.forma_pago || '',
+          TIPO_COMBUSTIBLE:     d.tipo_combustible || '',
         };
 
         const res = await gasWrite('Tanqueo', fila, 'insert');
@@ -1243,4 +1244,3 @@ window.DB = DB;
     console.warn('🔴 Error en warm-up:', e.message);
   }
 })();
-
