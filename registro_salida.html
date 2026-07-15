@@ -133,6 +133,49 @@
         #progreso-steps div.ok   { color: #15803d; font-weight: 700; }
         #progreso-steps div.err  { color: #dc2626; font-weight: 700; }
         #progreso-steps div.act  { color: #004a99; font-weight: 700; }
+
+        /* ── 🆕 BOTÓN CHECKLIST DE SALIDA ── */
+        #bloque-checklist { margin: 4px 0 16px; }
+        .btn-checklist {
+            width: 100%; padding: 14px; border: none; border-radius: 14px;
+            font-weight: 800; font-size: 13px; cursor: pointer;
+            background: #eef5ff; color: var(--azul); border: 2px solid #bcdcfb;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; transition: 0.2s;
+        }
+        .btn-checklist:active { transform: scale(0.98); }
+        .btn-checklist.hecho { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+        .checklist-estado { text-align: center; font-size: 11px; color: var(--gris); margin-top: 6px; font-weight: 600; }
+
+        /* ── 🆕 MODAL CHECKLIST ── */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,26,60,0.55);
+            z-index: 9998; align-items: flex-end; justify-content: center;
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal-checklist {
+            background: var(--blanco); width: 100%; max-width: 650px;
+            border-radius: 22px 22px 0 0; max-height: 90vh; display: flex;
+            flex-direction: column; animation: fadeIn 0.25s ease;
+        }
+        .modal-header {
+            padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 2px solid var(--azul-cielo); position: sticky; top: 0; background: var(--blanco);
+            border-radius: 22px 22px 0 0;
+        }
+        .modal-header h3 { font-size: 15px; color: var(--azul); }
+        .modal-cerrar { background: #f1f5f9; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 14px; color: #64748b; cursor: pointer; }
+        .modal-body { padding: 16px 20px; overflow-y: auto; }
+        .modal-footer { padding: 14px 20px; border-top: 2px solid var(--azul-cielo); }
+        .btn-checklist-guardar {
+            width: 100%; padding: 15px; border: none; border-radius: 14px; font-weight: 800;
+            font-size: 14px; cursor: pointer; background: var(--azul); color: white; font-family: inherit;
+        }
+        .checklist-aviso-previo {
+            background: #eef5ff; border: 1.5px dashed #90caf9; border-radius: 12px;
+            padding: 10px 12px; font-size: 11px; color: #004a99; margin-bottom: 14px; font-weight: 600;
+        }
+        #canvas-chk { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 110px; background: #fff; touch-action: none; }
     </style>
 </head>
 <body>
@@ -229,6 +272,15 @@
 
         <div class="alerta-vehiculo" id="alerta-vehiculo"></div>
         <div class="alerta-vehiculo" id="alerta-combustible"></div>
+
+        <!-- ── 🆕 CHECKLIST DE SALIDA ── -->
+        <div id="bloque-checklist" style="display:none;">
+            <button type="button" class="btn-checklist" id="btn-checklist" onclick="abrirChecklist()">
+                <span id="checklist-icono">📋</span>
+                <span id="checklist-texto">Hacer Checklist de la Carroza</span>
+            </button>
+            <div class="checklist-estado" id="checklist-estado"></div>
+        </div>
 
         <!-- ── KIT DE CARRETERA ── -->
         <div class="section-title">🧰 Kit de Carretera</div>
@@ -328,6 +380,100 @@
     </div>
 </div>
 
+<!-- ── 🆕 MODAL CHECKLIST DE SALIDA ── -->
+<div class="modal-overlay" id="modal-checklist-overlay" onclick="cerrarChecklist(event)">
+    <div class="modal-checklist" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="modal-checklist-titulo">📋 Checklist de Carroza</h3>
+            <button type="button" class="modal-cerrar" onclick="cerrarChecklist()">✕</button>
+        </div>
+        <div class="modal-body" id="modal-checklist-body">
+
+            <div id="checklist-previo-aviso" class="checklist-aviso-previo" style="display:none;"></div>
+
+            <div class="section-title" style="margin-top:0;">Estado General</div>
+            <div class="grid-2">
+                <div>
+                    <label>Tipo de Servicio</label>
+                    <select id="chk_tipo_servicio">
+                        <option value="Salida">Salida</option>
+                        <option value="Entrada">Entrada</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Estado del Vehículo</label>
+                    <select id="chk_estado_vehiculo">
+                        <option value="Bueno">Bueno</option>
+                        <option value="Regular">Regular</option>
+                        <option value="Malo">Malo</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-title">Sistemas y Niveles</div>
+            <div class="grid-2">
+                <div>
+                    <label>Sistema de Luces</label>
+                    <select id="chk_luces"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select>
+                </div>
+                <div>
+                    <label>Sistema de Frenos</label>
+                    <select id="chk_frenos"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <label>Nivel de Agua</label>
+                    <select id="chk_agua"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select>
+                </div>
+                <div>
+                    <label>Nivel de Aceite</label>
+                    <select id="chk_aceite"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <label>Nivel de Gasolina</label>
+                    <select id="chk_gasolina"><option value="Lleno">Lleno</option><option value="3/4">3/4</option><option value="1/2">1/2</option><option value="1/4">1/4</option><option value="Reserva">Reserva</option></select>
+                </div>
+                <div>
+                    <label>Llanta de Repuesto</label>
+                    <select id="chk_llanta_repuesto"><option value="Sí">Sí</option><option value="No">No</option></select>
+                </div>
+            </div>
+
+            <div class="section-title">Documentos y Seguridad</div>
+            <div class="grid-2">
+                <div><label>SOAT</label><select id="chk_soat"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+                <div><label>Tecnomecánica</label><select id="chk_tecno"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+            </div>
+            <div class="grid-2">
+                <div><label>Botiquín</label><select id="chk_botiquin"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+                <div><label>Extintor</label><select id="chk_extintor"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+            </div>
+            <div class="grid-2">
+                <div><label>Cinturón de Seguridad</label><select id="chk_cinturon"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+                <div><label>Gato</label><select id="chk_gato"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+            </div>
+            <div class="grid-2">
+                <div><label>Llave de Ruedas</label><select id="chk_llave_ruedas"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+                <div><label>Triángulos</label><select id="chk_triangulos"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+            </div>
+
+            <label>Observaciones del Checklist</label>
+            <textarea id="chk_observaciones" rows="2" placeholder="Novedades encontradas en la revisión..."></textarea>
+
+            <div class="section-title">Firma de Quien Revisa</div>
+            <canvas id="canvas-chk"></canvas>
+            <p onclick="borrarFirmaChk()" style="text-align:right; color:#ff4444; font-size:11px; cursor:pointer; margin-top:5px; font-weight:bold;">✖ BORRAR FIRMA</p>
+
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-checklist-guardar" id="btn-guardar-checklist" onclick="guardarChecklist()">💾 Guardar Checklist</button>
+        </div>
+    </div>
+</div>
+
 <script src="db.js"></script>
 <script>
     let fotosArray       = [];
@@ -348,6 +494,36 @@
     // detectado para la placa seleccionada, para poder usarlo en la
     // notificación al coordinador.
     let pendienteActual = null;
+
+    // ══════════════════════════════════════════════
+    // 🆕 CHECKLIST DE CARROZA (Google Sheets, hoja "Checklist_Salida")
+    // ══════════════════════════════════════════════
+    // 🆕 CORREGIDO: antes había que pegar aquí, a mano, la misma URL de
+    // despliegue (Web App) de Code.gs que ya usa db.js para leer/guardar
+    // en Google Sheets — eso es justamente lo que generaba el error,
+    // porque el placeholder 'PEGA_AQUI_TU_URL_DE_DESPLIEGUE_DE_CODE_GS'
+    // se quedaba sin reemplazar y el fetch fallaba silenciosamente.
+    //
+    // Ahora se reutiliza automáticamente `window.URL_GAS`, que db.js
+    // expone (ver el final de db.js), así que esta URL SIEMPRE queda en
+    // sincronía con la que usan DB.obtenerMantenimientos(),
+    // DB.guardarTraslado(), etc. — sin mantenimiento manual duplicado.
+    //
+    // El operador `||` de respaldo es solo un salvavidas por si algún
+    // día db.js se carga en un orden distinto o se sirve desde una
+    // versión vieja sin el `window.URL_GAS` — así el checklist no
+    // queda roto en silencio, sino que usa la URL real conocida.
+    const APPS_SCRIPT_URL = window.URL_GAS || 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
+
+    let checklistPlacaActual   = '';   // placa para la que está abierto el modal
+    let checklistCompletadoHoy = false; // true si ya se guardó un checklist hoy para esta placa/sesión
+    let guardandoChecklist      = false;
+
+    // Canvas de firma dentro del modal de checklist (independiente del
+    // canvas de "Firma de Responsable" del formulario principal)
+    const canvasChk = document.getElementById('canvas-chk');
+    const ctxChk    = canvasChk.getContext('2d');
+    let dibujandoChk = false;
 
     const canvas = document.getElementById('canvas');
     const ctx    = canvas.getContext('2d');
@@ -699,6 +875,7 @@
             document.getElementById('alerta-combustible').style.display = 'none';
             salidaBloqueada = false;
             pendienteActual = null;
+            ocultarBotonChecklist();
             return;
         }
 
@@ -708,6 +885,7 @@
             document.getElementById('alerta-combustible').style.display = 'none';
             salidaBloqueada = false;
             pendienteActual = null;
+            ocultarBotonChecklist();
             return;
         }
 
@@ -777,6 +955,7 @@
                         </div>`;
                     document.getElementById('km_s').value = '';
                     document.getElementById('alerta-combustible').style.display = 'none';
+                    ocultarBotonChecklist();
                     return;
                 }
             } catch(e) {
@@ -803,6 +982,7 @@
                 </div>`;
             document.getElementById('km_s').value = '';
             document.getElementById('alerta-combustible').style.display = 'none';
+            ocultarBotonChecklist();
             return;
         }
 
@@ -836,8 +1016,13 @@
                 </div>`;
             document.getElementById('km_s').value = '';
             document.getElementById('alerta-combustible').style.display = 'none';
+            ocultarBotonChecklist();
             return;
         }
+
+        // 🆕 Llegados hasta aquí, el vehículo está disponible para salir:
+        // se muestra el botón de checklist para esta placa.
+        mostrarBotonChecklist(placaSeleccionada);
 
         // ── ANÁLISIS DE ACEITE ──
         try {
@@ -984,6 +1169,217 @@
     canvas.addEventListener('touchmove',  mover,   { passive: false });
 
     function borrarFirma() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+    // ══════════════════════════════════════════════
+    // 🆕 CHECKLIST DE CARROZA
+    // ══════════════════════════════════════════════
+    function mostrarBotonChecklist(placa) {
+        checklistPlacaActual = placa;
+        checklistCompletadoHoy = false;
+        document.getElementById('bloque-checklist').style.display = 'block';
+        document.getElementById('btn-checklist').classList.remove('hecho');
+        document.getElementById('checklist-icono').textContent = '📋';
+        document.getElementById('checklist-texto').textContent = 'Hacer Checklist de la Carroza';
+        document.getElementById('checklist-estado').textContent = '';
+    }
+
+    function ocultarBotonChecklist() {
+        checklistPlacaActual = '';
+        document.getElementById('bloque-checklist').style.display = 'none';
+    }
+
+    function marcarChecklistHecho() {
+        checklistCompletadoHoy = true;
+        const btn = document.getElementById('btn-checklist');
+        btn.classList.add('hecho');
+        document.getElementById('checklist-icono').textContent = '✅';
+        document.getElementById('checklist-texto').textContent = 'Checklist Realizado — Editar';
+        document.getElementById('checklist-estado').textContent = 'Guardado correctamente. Puedes volver a abrirlo si necesitas corregir algo.';
+    }
+
+    // Ajusta el tamaño real del canvas de firma del checklist (se hace
+    // cada vez que se abre el modal porque, al estar oculto con
+    // display:none, offsetWidth es 0 mientras no es visible).
+    function resizeCanvasChk() {
+        canvasChk.width  = canvasChk.offsetWidth;
+        canvasChk.height = canvasChk.offsetHeight;
+    }
+    function borrarFirmaChk() { ctxChk.clearRect(0, 0, canvasChk.width, canvasChk.height); }
+
+    const obtenerPosChk = e => {
+        const r = canvasChk.getBoundingClientRect();
+        const scaleX = canvasChk.width  / r.width;
+        const scaleY = canvasChk.height / r.height;
+        return {
+            x: ((e.clientX || e.touches[0].clientX) - r.left) * scaleX,
+            y: ((e.clientY || e.touches[0].clientY) - r.top)  * scaleY
+        };
+    };
+    const iniciarChk = e => { dibujandoChk = true; ctxChk.beginPath(); const p = obtenerPosChk(e); ctxChk.moveTo(p.x, p.y); };
+    const moverChk   = e => { if (!dibujandoChk) return; e.preventDefault(); const p = obtenerPosChk(e); ctxChk.lineTo(p.x, p.y); ctxChk.strokeStyle = '#004a99'; ctxChk.lineWidth = 2; ctxChk.stroke(); };
+    canvasChk.addEventListener('mousedown', iniciarChk); canvasChk.addEventListener('mousemove', moverChk);
+    window.addEventListener('mouseup', () => dibujandoChk = false);
+    canvasChk.addEventListener('touchstart', iniciarChk, { passive: false });
+    canvasChk.addEventListener('touchmove',  moverChk,   { passive: false });
+
+    // Restaura los selects del modal a sus valores por defecto
+    function resetearFormChecklist() {
+        document.getElementById('chk_tipo_servicio').value  = 'Salida';
+        document.getElementById('chk_estado_vehiculo').value = 'Bueno';
+        document.getElementById('chk_luces').value    = 'Bueno';
+        document.getElementById('chk_frenos').value   = 'Bueno';
+        document.getElementById('chk_agua').value     = 'Bueno';
+        document.getElementById('chk_aceite').value   = 'Bueno';
+        document.getElementById('chk_gasolina').value = 'Lleno';
+        document.getElementById('chk_llanta_repuesto').value = 'Sí';
+        document.getElementById('chk_soat').value      = 'Sí';
+        document.getElementById('chk_tecno').value     = 'Sí';
+        document.getElementById('chk_botiquin').value  = 'Sí';
+        document.getElementById('chk_extintor').value  = 'Sí';
+        document.getElementById('chk_cinturon').value  = 'Sí';
+        document.getElementById('chk_gato').value      = 'Sí';
+        document.getElementById('chk_llave_ruedas').value = 'Sí';
+        document.getElementById('chk_triangulos').value   = 'Sí';
+        document.getElementById('chk_observaciones').value = '';
+        borrarFirmaChk();
+    }
+
+    async function abrirChecklist() {
+        if (!checklistPlacaActual) { Swal.fire('Selecciona una placa', 'Primero elige la carroza para hacer el checklist.', 'info'); return; }
+
+        document.getElementById('modal-checklist-titulo').textContent = '📋 Checklist — ' + checklistPlacaActual;
+        resetearFormChecklist();
+        document.getElementById('checklist-previo-aviso').style.display = 'none';
+
+        document.getElementById('modal-checklist-overlay').classList.add('visible');
+        // El canvas necesita medirse cuando YA es visible en pantalla
+        requestAnimationFrame(resizeCanvasChk);
+
+        await cargarUltimoChecklist(checklistPlacaActual);
+    }
+
+    function cerrarChecklist(event) {
+        // Si el clic vino del overlay (fondo), o se llamó sin evento
+        // (botón ✕), se cierra. Si vino de dentro del modal, no hace nada
+        // (el stopPropagation del contenedor ya filtra la mayoría de casos).
+        document.getElementById('modal-checklist-overlay').classList.remove('visible');
+    }
+
+    // Busca el último checklist guardado para esta placa en la hoja de
+    // Google Sheets "Checklist_Salida" y precarga el formulario con esos
+    // datos, para agilizar el registro (el conductor solo corrige lo que
+    // cambió en vez de llenar todo desde cero).
+    async function cargarUltimoChecklist(placa) {
+        const aviso = document.getElementById('checklist-previo-aviso');
+        aviso.style.display = 'block';
+        aviso.innerHTML = '🔄 Buscando el último checklist guardado de esta carroza...';
+
+        try {
+            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=Checklist_Salida');
+            const filas = await resp.json();
+
+            if (!Array.isArray(filas)) throw new Error('Respuesta inesperada del backend');
+
+            const deEstaPlaca = filas.filter(f => normalizar(f.PLACA || '') === normalizar(placa));
+            if (deEstaPlaca.length === 0) {
+                aviso.innerHTML = 'ℹ️ Sin checklist previo para esta carroza. Complétalo desde cero.';
+                return;
+            }
+
+            // El ID es consecutivo (CHK-00001, CHK-00002...), así que el
+            // de mayor número es el más reciente.
+            deEstaPlaca.sort((a, b) => String(b.ID || '').localeCompare(String(a.ID || '')));
+            const ultimo = deEstaPlaca[0];
+
+            const setSel = (id, val) => { if (val) document.getElementById(id).value = val; };
+            setSel('chk_estado_vehiculo', ultimo.ESTADO_VEHICULO);
+            setSel('chk_luces',    ultimo.SISTEMA_DE_LUCES);
+            setSel('chk_frenos',   ultimo.SISTEMA_DE_FRENOS);
+            setSel('chk_agua',     ultimo.NIVEL_AGUA);
+            setSel('chk_aceite',   ultimo.NIVEL_ACEITE);
+            setSel('chk_gasolina', ultimo.NIVEL_GASOLINA);
+            setSel('chk_llanta_repuesto', ultimo.LLANTA_DE_REPUESTO);
+            setSel('chk_soat',      ultimo.SOAT);
+            setSel('chk_tecno',     ultimo.TECNOMECANICA);
+            setSel('chk_botiquin',  ultimo.BOTIQUIN);
+            setSel('chk_extintor',  ultimo.EXTINTOR);
+            setSel('chk_cinturon',  ultimo.CINTURON_DE_SEGURIDAD);
+            setSel('chk_gato',      ultimo.GATO);
+            setSel('chk_llave_ruedas', ultimo.LLAVE_DE_RUEDAS);
+            setSel('chk_triangulos',   ultimo.TRIANGULOS);
+
+            aviso.innerHTML = '✅ Se precargaron los datos del checklist del <b>' + (formatearFechaLimpia(ultimo.FECHA) || 'último registro') + '</b>. Revisa y corrige lo que haya cambiado.';
+        } catch(e) {
+            console.warn('No se pudo cargar el checklist anterior:', e);
+            aviso.innerHTML = '⚠️ No se pudo consultar el historial (revisa la conexión). Puedes llenar el checklist igualmente.';
+        }
+    }
+
+    async function guardarChecklist() {
+        if (guardandoChecklist) return;
+        if (!checklistPlacaActual) { Swal.fire('Error', 'No hay una placa seleccionada.', 'error'); return; }
+
+        const sesionUser = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        const btn = document.getElementById('btn-guardar-checklist');
+        guardandoChecklist = true;
+        btn.disabled = true;
+        btn.textContent = '⏳ Guardando...';
+
+        const ahora = new Date();
+        const horaActual = ahora.getHours().toString().padStart(2,'0') + ':' + ahora.getMinutes().toString().padStart(2,'0');
+
+        const payload = {
+            FECHA:  fechaHoyStr(),
+            PLACA:  checklistPlacaActual,
+            CARROZA: checklistPlacaActual,
+            REGIONAL: document.getElementById('regional').value,
+            CONDUCTOR: sesionUser.nombre || document.getElementById('conductor').value,
+            TIPO_DE_SERVICIO: document.getElementById('chk_tipo_servicio').value,
+            HORA_SALIDA: document.getElementById('chk_tipo_servicio').value === 'Salida' ? horaActual : '',
+            HORA_ENTRADA: document.getElementById('chk_tipo_servicio').value === 'Entrada' ? horaActual : '',
+            KM_SALIDA: document.getElementById('km_s').value || '',
+            KM_ENTRADA: '',
+            KM_RECORRIDOS: '',
+            SISTEMA_DE_LUCES: document.getElementById('chk_luces').value,
+            SISTEMA_DE_FRENOS: document.getElementById('chk_frenos').value,
+            LLANTA_DE_REPUESTO: document.getElementById('chk_llanta_repuesto').value,
+            NIVEL_AGUA: document.getElementById('chk_agua').value,
+            NIVEL_ACEITE: document.getElementById('chk_aceite').value,
+            NIVEL_GASOLINA: document.getElementById('chk_gasolina').value,
+            SOAT: document.getElementById('chk_soat').value,
+            TECNOMECANICA: document.getElementById('chk_tecno').value,
+            BOTIQUIN: document.getElementById('chk_botiquin').value,
+            EXTINTOR: document.getElementById('chk_extintor').value,
+            CINTURON_DE_SEGURIDAD: document.getElementById('chk_cinturon').value,
+            GATO: document.getElementById('chk_gato').value,
+            LLAVE_DE_RUEDAS: document.getElementById('chk_llave_ruedas').value,
+            TRIANGULOS: document.getElementById('chk_triangulos').value,
+            OBSERVACIONES: document.getElementById('chk_observaciones').value,
+            FIRMA_CONDUCTOR: canvasChk.toDataURL(),
+            ESTADO_VEHICULO: document.getElementById('chk_estado_vehiculo').value
+        };
+
+        try {
+            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=Checklist_Salida&action=insert', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            const res = await resp.json();
+            if (!res || !res.ok) throw new Error(res ? res.error : 'Error desconocido al guardar');
+
+            marcarChecklistHecho();
+            cerrarChecklist();
+            Swal.fire('✅ Checklist Guardado', 'El estado de la carroza quedó registrado correctamente.', 'success');
+
+        } catch(e) {
+            console.error('Error guardando checklist:', e);
+            Swal.fire('Error', 'No se pudo guardar el checklist: ' + e.message, 'error');
+        } finally {
+            guardandoChecklist = false;
+            btn.disabled = false;
+            btn.textContent = '💾 Guardar Checklist';
+        }
+    }
 
     function setStep(id, estado, texto) {
         const el = document.getElementById(id);
