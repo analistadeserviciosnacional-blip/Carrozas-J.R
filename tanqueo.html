@@ -456,7 +456,11 @@
       reader.readAsDataURL(file);
     });
 
-    // 🆕 v10.13 — Lee la tirilla con Gemini y autocompleta los campos.
+    // 🆕 v10.14 — Lee la tirilla con Gemini y autocompleta los campos.
+    // FIX: el "action" ahora va DENTRO del body JSON (no en el query
+    // string de la URL), porque Apps Script hace un redirect 302 en
+    // los POST y en ese salto el query string se pierde, causando el
+    // error "Falta sheetName". El body sí viaja intacto.
     // Nunca bloquea el formulario: si falla, solo se avisa y se sigue
     // llenando a mano como siempre.
     async function autocompletarDesdeTirilla(base64) {
@@ -468,9 +472,9 @@
       banner.innerHTML = '⏳ Leyendo datos de la tirilla…';
 
       try {
-        const resp = await fetch(GAS_URL_TIRILLA + '?action=extraerTirilla', {
+        const resp = await fetch(GAS_URL_TIRILLA, {
           method: 'POST',
-          body: JSON.stringify({ imagen: base64 })
+          body: JSON.stringify({ action: 'extraerTirilla', imagen: base64 })
         });
         const r = await resp.json();
         box.classList.remove('leyendo');
