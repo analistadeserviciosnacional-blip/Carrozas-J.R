@@ -210,6 +210,33 @@
 <script>
     const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
+    // ── FORMATEO DE FECHAS ──────────────────────────────
+    // Convierte cualquier valor de fecha (Date, ISO string, "dd/mm/yyyy", etc.)
+    // a un formato legible "dd/mm/yyyy" sin la hora ni el timezone.
+    function formatearFecha(valor) {
+        if (!valor) return '---';
+
+        // Si ya viene como texto tipo "dd/mm/yyyy" lo dejamos tal cual
+        if (typeof valor === 'string' && /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(valor.trim())) {
+            return valor.trim();
+        }
+
+        let fecha = (valor instanceof Date) ? valor : new Date(valor);
+
+        if (isNaN(fecha.getTime())) {
+            // No se pudo interpretar como fecha real: devolvemos el texto original
+            return String(valor);
+        }
+
+        // Usamos los componentes UTC para evitar que el desfase de zona horaria
+        // (guardado como medianoche UTC) recorra la fecha al día anterior/siguiente.
+        const dia   = String(fecha.getUTCDate()).padStart(2, '0');
+        const mes   = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+        const anio  = fecha.getUTCFullYear();
+
+        return dia + '/' + mes + '/' + anio;
+    }
+
     window.onload = async () => {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
         if (!sesion) { window.location.href = "index.html"; return; }
@@ -255,6 +282,7 @@
         if (data && data.length > 0) {
             tbody.innerHTML = data.map(t => {
                 const safeJson = JSON.stringify(t).replace(/"/g, '&quot;');
+                const fechaFormateada = formatearFecha(t.fecha);
                 // Guardar datos de búsqueda en atributos data-*
                 return '<tr' +
                     ' data-placa="' + norm(t.placa) + '"' +
@@ -263,9 +291,9 @@
                     ' data-origen="' + norm(t.origen) + '"' +
                     ' data-destino="' + norm(t.destino) + '"' +
                     ' data-regional="' + norm(t.regional) + '"' +
-                    ' data-fecha="' + norm(t.fecha) + '"' +
+                    ' data-fecha="' + norm(fechaFormateada) + '"' +
                     '>' +
-                    '<td>' + (t.fecha || '---') + '</td>' +
+                    '<td>' + fechaFormateada + '</td>' +
                     '<td><b>' + (t.placa || '---') + '</b></td>' +
                     '<td class="col-modelo">' + (t.nombre_del_fallecido || '---') + '</td>' +
                     '<td style="font-size:11px;">' + (t.origen || '---') + ' ➔ ' + (t.destino || '---') + '</td>' +
@@ -324,16 +352,24 @@
     }
 
     async function cargarAverias() {
-        const { data } = await DB.obtenerTodasAverias();
+        // Fuente: hoja "carrozas" (columna estado_parque_automotor) +
+        // detalle de la novedad en "historial_novedad_completa".
+        const { data, error } = await DB.obtenerAveriasDesdeFlota();
         const div = document.getElementById('lista-averias');
+        if (error) console.warn('cargarAverias:', error);
+
         if (data && data.length > 0) {
-            div.innerHTML = data.map(av =>
-                '<div class="averia-item">' +
-                    '<b>' + (av.placa_vehiculo || '---') + '</b>' +
-                    '<small>' + (av.tipo_falla || '---') + '</small>' +
-                    '<span>' + (av.regional || '') + (av.regional && av.reportado_por ? ' · ' : '') + (av.reportado_por || '') + '</span>' +
-                '</div>'
-            ).join('');
+            div.innerHTML = data.map(av => {
+                const fechaAv  = av.fecha ? formatearFecha(av.fecha) : '';
+                const detalle  = av.observaciones ? (' — ' + av.observaciones) : '';
+                const dias     = (av.dias_en_taller && Number(av.dias_en_taller) > 0) ? (av.dias_en_taller + ' días en taller') : '';
+                const metaInfo = [fechaAv, av.regional, av.reportado_por, dias].filter(Boolean).join(' · ');
+                return '<div class="averia-item">' +
+                        '<b>' + (av.placa_vehiculo || '---') + '</b>' +
+                        '<small>' + (av.tipo_falla || '---') + detalle + '</small>' +
+                        (metaInfo ? '<span>' + metaInfo + '</span>' : '') +
+                    '</div>';
+            }).join('');
         } else {
             div.innerHTML = "<p style='text-align:center; font-size:13px;'>Sin novedades 👍</p>";
         }
@@ -346,7 +382,7 @@
         const mensaje = saludo + "\n\n" +
             "📢 *Reporte de Salida De Carroza*\n\n" +
             "📍 *Regional:* "      + (d.regional              || '---') + "\n" +
-            "📅 *Fecha:* "         + (d.fecha                 || '---') + "\n" +
+            "📅 *Fecha:* "         + formatearFecha(d.fecha) + "\n" +
             "👤 *Coordinador:* "   + (d.coordinador_en_turno  || '---') + "\n" +
             "🕒 *Hora De Salida:* "+ (d.hora_de_salida        || '---') + "\n" +
             "🚗 *Placa:* "         + (d.placa                 || '---') + "\n" +
