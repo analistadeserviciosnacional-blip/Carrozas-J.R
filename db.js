@@ -1,8 +1,35 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.7
+ *  CONECTOR J.R. CARROZAS — db.js  v12.8
  *
- *  🆕 CAMBIOS v12.7 (anti-duplicados en SALIDA y LLEGADA):
+ *  🆕 CAMBIOS v12.8 (alimentar Checklist_Salida desde Llegadas):
+ *
+ *  Ahora, al guardar una Llegada, el sistema busca automáticamente
+ *  el registro de "Checklist_Salida" de esa misma placa que quedó
+ *  pendiente (sin HORA_ENTRADA) y le completa:
+ *      - HORA_ENTRADA   = hora_ingreso de la Llegada
+ *      - KM_ENTRADA     = km_ingreso de la Llegada
+ *      - KM_RECORRIDOS  = total_km de la Llegada
+ *
+ *  No se le pide nada nuevo al conductor: el formulario de "Registro
+ *  de Llegada" sigue funcionando exactamente igual que antes; esta
+ *  actualización ocurre puertas adentro, dentro de guardarLlegada().
+ *
+ *  Cómo se enlaza: se busca por PLACA el Checklist_Salida más
+ *  reciente (por FECHA + HORA_SALIDA) que tenga HORA_ENTRADA vacío —
+ *  el mismo patrón que ya se usaba para detectar Traslados abiertos.
+ *  Si por algún motivo no se encuentra, o falla la escritura, NO se
+ *  bloquea el guardado de la Llegada (que ya se guardó exitosamente
+ *  antes de intentar esto) — solo se deja advertencia en consola y
+ *  en el resultado (`checklist_actualizado: false`) para que la
+ *  pantalla lo pueda mostrar como aviso no crítico.
+ *
+ *  Nueva hoja registrada en SHEET_MAP: 'Checklist_Salida'.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.7 — nada de lo que ya
+ *   funcionaba fue tocado.)
+ *
+ *  ── Historial v12.7 (anti-duplicados en SALIDA y LLEGADA) ──
  *
  *  Problema detectado: en la hoja "Traslado" aparecieron dos filas
  *  con el MISMO id_salida (S-1783983171345, placa HWT 515) y además
@@ -45,9 +72,6 @@
  *  Estas verificaciones siempre leen la hoja SIN caché (se invalida
  *  antes de consultar), para no dar falsos negativos por datos
  *  desactualizados en memoria.
- *
- *  (Se conserva íntegro todo lo demás de v12.6 — nada de lo que ya
- *   funcionaba fue tocado.)
  *
  *  ── Historial v12.6 ──
  *  + guardarTanqueo(d) ahora sí envía FORMA_PAGO y TIPO_COMBUSTIBLE
@@ -113,6 +137,7 @@ const SHEET_MAP = {
   'config':               'config',
   'Tanqueo':              'Tanqueo',
   'Inspeccion_Vehiculo':  'Inspeccion_Vehiculo',
+  'Checklist_Salida':     'Checklist_Salida', // 🆕 v12.8
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
@@ -156,6 +181,23 @@ function claveOrdenTanqueo(registro) {
     aaaammdd = aaaa + mm + dd;
   }
   const hora = String((registro && registro.HORA) || '').replace(':', '').padStart(4, '0');
+  return parseInt(aaaammdd + hora, 10) || 0;
+}
+
+// 🆕 v12.8 — MISMA IDEA, PERO PARA LA HOJA "Checklist_Salida"
+// (encabezados en MAYÚSCULA, y la columna de hora de salida se llama
+// HORA_SALIDA en vez de HORA como en Tanqueo).
+function claveOrdenChecklist(registro) {
+  const f = String((registro && registro.FECHA) || '').trim();
+  const partes = f.split('/');
+  let aaaammdd = '00000000';
+  if (partes.length === 3) {
+    const dd = partes[0].padStart(2, '0');
+    const mm = partes[1].padStart(2, '0');
+    const aaaa = partes[2].length === 4 ? partes[2] : ('20' + partes[2]).slice(-4);
+    aaaammdd = aaaa + mm + dd;
+  }
+  const hora = String((registro && registro.HORA_SALIDA) || '').replace(':', '').padStart(4, '0');
   return parseInt(aaaammdd + hora, 10) || 0;
 }
 
@@ -382,6 +424,30 @@ async function buscarLlegadaPorIdSalida(idSalida) {
   DB.invalidarCache('Llegadas');
   const rows = await gasGet('Llegadas');
   return rows.find(function(r) { return String(r.id_salida || '').trim() === String(idSalida).trim(); }) || null;
+}
+
+// ══════════════════════════════════════════════════════════
+// 🆕 v12.8 — ENLACE CON Checklist_Salida
+// ══════════════════════════════════════════════════════════
+// Busca el Checklist_Salida más reciente de esta placa que todavía NO
+// tenga HORA_ENTRADA (es decir, "pendiente de llegada"). Es la misma
+// idea que buscarTrasladoAbiertoPorPlaca, aplicada a esta hoja, para
+// poder completar HORA_ENTRADA / KM_ENTRADA / KM_RECORRIDOS al cerrar
+// el servicio en "Registro de Llegada" sin pedirle nada nuevo al
+// conductor.
+async function buscarChecklistAbiertoPorPlaca(placa) {
+  const pSel = String(placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  if (!pSel) return null;
+  DB.invalidarCache('Checklist_Salida');
+  const rows = await gasGet('Checklist_Salida');
+  const abiertos = rows.filter(function(r) {
+    const pBase = String(r.PLACA || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    const sinEntrada = (r.HORA_ENTRADA === undefined || r.HORA_ENTRADA === null || String(r.HORA_ENTRADA).trim() === '');
+    return pBase === pSel && sinEntrada;
+  });
+  if (!abiertos.length) return null;
+  abiertos.sort(function(a, b) { return claveOrdenChecklist(b) - claveOrdenChecklist(a); });
+  return abiertos[0];
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1008,6 +1074,10 @@ const DB = {
   // Se descuenta del tanque el combustible estimado que consumió ESE
   // viaje (km del viaje ÷ rendimiento conocido de la carroza, o el
   // valor por defecto si todavía no hay historial de tanqueos).
+  //
+  // 🆕 v12.8: al final, alimenta también Checklist_Salida (HORA_ENTRADA,
+  // KM_ENTRADA, KM_RECORRIDOS) buscando el checklist abierto de esta
+  // placa — ver buscarChecklistAbiertoPorPlaca() más arriba.
   async guardarLlegada(d) {
     return conLock('guardarLlegada', async () => {
 
@@ -1025,6 +1095,7 @@ const DB = {
               estado_carroza_despues: { ok: false },
               estado_carroza_antes: { ok: false },
               combustible_guardado_en_registro: false,
+              checklist_actualizado: false,
             };
           }
         } catch (e) {
@@ -1121,10 +1192,42 @@ const DB = {
         console.warn('⚠️ Error anexando combustible al registro de Llegada:', e.message);
       }
 
+      // ── 🆕 v12.8 — ALIMENTAR Checklist_Salida CON LOS DATOS DE ESTA
+      //    LLEGADA ──
+      // No se pide nada nuevo al conductor: se busca el checklist
+      // abierto de esta placa (el que se llenó a la Salida y aún no
+      // tiene HORA_ENTRADA) y se le completan HORA_ENTRADA, KM_ENTRADA
+      // y KM_RECORRIDOS con lo que ya se guardó en Llegadas.
+      // Si no se encuentra o falla, NO afecta el resto del cierre
+      // (la Llegada ya quedó guardada arriba) — solo queda advertencia
+      // en consola y en el resultado (checklist_actualizado: false).
+      let checklistActualizado = false;
+      try {
+        const checklistAbierto = await buscarChecklistAbiertoPorPlaca(d.placa);
+        if (checklistAbierto && checklistAbierto.ID) {
+          const resChk = await gasWrite('Checklist_Salida', {
+            HORA_ENTRADA:  d.hora_ingreso || '',
+            KM_ENTRADA:    d.km_ingreso   || '',
+            KM_RECORRIDOS: d.total_km     || '',
+          }, 'update', 'ID', checklistAbierto.ID);
+          checklistActualizado = !!resChk.ok;
+          if (resChk.ok) {
+            DB.invalidarCache('Checklist_Salida');
+          } else {
+            console.warn('⚠️ No se pudo actualizar Checklist_Salida (' + checklistAbierto.ID + ') de la placa ' + d.placa + ':', resChk.error);
+          }
+        } else {
+          console.warn('⚠️ No se encontró un Checklist_Salida pendiente para la placa ' + d.placa + ' — no se actualizó HORA_ENTRADA/KM_ENTRADA/KM_RECORRIDOS.');
+        }
+      } catch (e) {
+        console.warn('⚠️ Error actualizando Checklist_Salida tras guardarLlegada:', e.message);
+      }
+
       return Object.assign({}, res, {
         estado_carroza_despues: estadoDespues,
         estado_carroza_antes: estadoPrevio,
         combustible_guardado_en_registro: combustibleGuardadoEnRegistro,
+        checklist_actualizado: checklistActualizado, // 🆕 v12.8
       });
     });
   },
