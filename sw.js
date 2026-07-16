@@ -1,20 +1,37 @@
-// sw.js - Service Worker Oficial J.R. v6.1
+// sw.js - Service Worker Oficial J.R. v7.0
 // FIX: se excluyen del Service Worker las peticiones hacia la API de
 // Google Apps Script (script.google.com / script.googleusercontent.com).
 // Antes, el listener de 'fetch' interceptaba TODO, incluidas esas llamadas,
 // lo que causaba timeouts/cuelgues en db.js que no ocurrían al probar
 // la URL directamente en una pestaña (porque ahí no hay SW de por medio).
+//
+// 🆕 v7.0 — se agregan al caché las pantallas de campo (Salida, Llegada,
+// Tanqueo, Avería, Inspección, Panel del conductor) y el nuevo
+// offline-queue.js, para que la app se pueda ABRIR sin señal y el
+// conductor pueda diligenciar los formularios. El GUARDADO de esos
+// formularios sin señal lo resuelve offline-queue.js (cola local que se
+// sincroniza sola al recuperar conexión) — este archivo solo se encarga
+// de que la pantalla cargue.
 
-const CACHE_NAME = 'jr-carrozas-v6';
+const CACHE_NAME = 'jr-carrozas-v7';
 // Lista de archivos para funcionar offline
 // He quitado el icon-192.png temporalmente para que no te dé el error 404
 const urlsToCache = [
   './',
   './index.html',
   './panel_coordinador.html',
+  './panel_conductor.html',
+  './panel_automotor.html',
   './solicitud_apoyo.html',
   './crear_apoyo.html',
+  './registro_salida.html',
+  './registro_llegada.html',
+  './tanqueo.html',
+  './reporte_averia.html',
+  './inspeccion.html',
   './db.js',
+  './offline-queue.js',
+  './manifest.json',
   'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
   'https://cdn.jsdelivr.net/npm/sweetalert2@11'
