@@ -143,6 +143,35 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
+/* ── POLÍTICA DE TRATAMIENTO DE DATOS ── */
+.politica-check-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    text-align: left; background: #f8fafc; border: 1.5px solid #e2e8f0;
+    border-radius: 14px; padding: 13px 14px; margin-bottom: 14px;
+}
+.politica-check-row input[type="checkbox"] {
+    width: 18px; height: 18px; min-width: 18px; margin: 2px 0 0 0;
+    accent-color: var(--azul); cursor: pointer;
+}
+.politica-check-row label {
+    font-size: 12.5px; color: #475569; line-height: 1.5; cursor: pointer;
+}
+.politica-check-row a {
+    color: var(--azul); font-weight: 700; text-decoration: underline; cursor: pointer;
+}
+.politica-texto {
+    text-align: left; font-size: 13px; color: #334155; line-height: 1.6;
+}
+.politica-texto h3 {
+    font-size: 13.5px; color: var(--texto); margin: 16px 0 6px; font-weight: 700;
+}
+.politica-texto h3:first-child { margin-top: 0; }
+.politica-texto p { margin: 0 0 8px; }
+.politica-texto .politica-aviso {
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+    padding: 10px 12px; font-size: 11.5px; color: #1e40af; margin-bottom: 14px;
+}
+
 /* ── BOTÓN INSTALAR PWA ── */
 #pwa-install-bar {
     display: none;
@@ -309,6 +338,17 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
         <input type="hidden" id="r-placa-nueva">
         <input type="hidden" id="r-modelo-nuevo">
         <div class="separador"></div>
+
+        <!-- ── ACEPTACIÓN POLÍTICA DE TRATAMIENTO DE DATOS ── -->
+        <div class="politica-check-row">
+            <input type="checkbox" id="r-acepta-datos">
+            <label for="r-acepta-datos">
+                He leído y acepto la
+                <a onclick="abrirPolitica(event)">Política de Tratamiento de Datos Personales</a>
+                de Jardines del Renacer. Entiendo que esta autorización aplica aunque sea colaborador de la empresa.
+            </label>
+        </div>
+
         <button class="btn btn-verde" id="btn-registrar" onclick="ejecutarRegistro()">REGISTRARME</button>
         <button class="btn btn-gris"  onclick="cerrarRegistro()">← Volver al inicio</button>
     </div>
@@ -348,6 +388,40 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
             <button onclick="cerrarModalCarroza()" style="flex:1;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:white;color:#64748b;font-weight:700;cursor:pointer;font-family:inherit;">Cancelar</button>
             <button id="btn-confirmar-carroza" onclick="confirmarCarroza()" style="flex:2;padding:12px;border:none;border-radius:10px;background:#004a99;color:white;font-weight:800;cursor:pointer;font-family:inherit;">CONFIRMAR</button>
         </div>
+    </div>
+</div>
+
+<!-- ── MODAL POLÍTICA DE TRATAMIENTO DE DATOS ── -->
+<div class="modal" id="modal-politica">
+    <div class="modal-box" style="max-width:440px;">
+        <h2>📄 Política de Tratamiento de Datos</h2>
+        <p>Jardines del Renacer — J.R. Carrozas</p>
+        <div class="politica-texto">
+            <div class="politica-aviso">
+                ⚠️ Texto base sujeto a revisión del área jurídica / Talento Humano de Jardines del Renacer antes de su publicación definitiva.
+            </div>
+
+            <h3>1. Responsable del tratamiento</h3>
+            <p>Jardines del Renacer, a través del área de Parque Automotor y Servicios, es responsable del tratamiento de los datos personales que usted registra en el sistema J.R. Carrozas.</p>
+
+            <h3>2. ¿Por qué se pide esta autorización si soy colaborador?</h3>
+            <p>La relación laboral no sustituye la autorización para el tratamiento de datos personales. La Ley 1581 de 2012 (Habeas Data) exige una autorización previa, expresa e informada, independientemente de si el titular es cliente, colaborador o contratista.</p>
+
+            <h3>3. Datos que se recolectan</h3>
+            <p>Nombre, cédula, teléfono, rol y regional; datos operativos de cada servicio (origen, destino, kilometraje, fotos, firma digital); y datos del vehículo asignado.</p>
+
+            <h3>4. Finalidad</h3>
+            <p>Gestionar el uso de la flota de carrozas: control de salidas y llegadas, combustible, mantenimiento, inspección vehicular y trazabilidad de cada servicio prestado, incluyendo la identificación del conductor responsable de cada registro.</p>
+
+            <h3>5. Derechos del titular</h3>
+            <p>Usted puede conocer, actualizar, rectificar sus datos y revocar esta autorización en cualquier momento, solicitándolo al área de Parque Automotor y Servicios o a Talento Humano de Jardines del Renacer.</p>
+
+            <h3>6. Vigencia</h3>
+            <p>Los datos se conservarán mientras dure la relación laboral y durante el tiempo adicional que exijan las obligaciones legales o contractuales aplicables.</p>
+        </div>
+        <button class="btn btn-azul" onclick="document.getElementById('modal-politica').classList.remove('open')" style="margin-top:14px;">
+            Cerrar
+        </button>
     </div>
 </div>
 
@@ -630,6 +704,12 @@ async function login() {
 function abrirRegistro() { document.getElementById('modal-registro').classList.add('open'); }
 function cerrarRegistro() { document.getElementById('modal-registro').classList.remove('open'); }
 
+// ── POLÍTICA DE TRATAMIENTO DE DATOS ──────────────────────
+function abrirPolitica(e) {
+    if (e) e.preventDefault();
+    document.getElementById('modal-politica').classList.add('open');
+}
+
 function onCambioRegional() {
     const placaActual = document.getElementById('r-placa').value;
     if (placaActual) limpiarCarroza();
@@ -643,9 +723,15 @@ async function ejecutarRegistro() {
     const password = document.getElementById('r-password').value.trim();
     const rol      = document.getElementById('r-rol').value;
     const regional = document.getElementById('r-regional').value;
+    const aceptaDatos = document.getElementById('r-acepta-datos').checked;
 
     if (!nombre || !usuario || !password || !rol || !regional) {
         alert("Todos los campos marcados con * son obligatorios"); return;
+    }
+
+    if (!aceptaDatos) {
+        alert("Debes aceptar la Política de Tratamiento de Datos Personales para poder registrarte.");
+        return;
     }
 
     const placaExistente = document.getElementById('r-placa').value;
@@ -655,7 +741,14 @@ async function ejecutarRegistro() {
     btn.disabled = true; btn.innerText = "PROCESANDO...";
 
     try {
-        const res = await DB.registrarUsuario({ nombre, usuario, password, telefono, rol, regional, placa_asignada: placaFinal });
+        const res = await DB.registrarUsuario({
+            nombre, usuario, password, telefono, rol, regional, placa_asignada: placaFinal,
+            // 🆕 Trazabilidad de la autorización de tratamiento de datos —
+            // queda registrada con fecha/hora exacta de aceptación, para
+            // poder demostrar el consentimiento si se requiere.
+            acepta_tratamiento_datos: true,
+            fecha_aceptacion_datos: new Date().toISOString(),
+        });
         if (res.ok) {
             if (placaExistente) {
                 await DB.actualizar('carrozas', { conductor_asignado: nombre }, 'placa', placaExistente);
