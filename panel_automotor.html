@@ -303,6 +303,23 @@
     .push-alert-section li:last-child { border-bottom: none; }
     .push-empty-alert { text-align: center; color: #64748b; font-size: 13px; padding: 10px 0; }
 
+    /* Botón "marcar como resuelto" + caja de observación dentro del modal de novedades */
+    .push-btn-resolver {
+        background: rgba(255,255,255,.10); color: #e2e8f0; border: none; border-radius: 10px;
+        padding: 8px 12px; font-size: 11.5px; font-weight: 800; cursor: pointer;
+    }
+    .push-btn-resolver:hover { background: rgba(255,255,255,.18); }
+    .push-btn-resolver:active { transform: scale(0.97); }
+    .push-btn-resolver:disabled { opacity: .6; cursor: default; }
+    .push-obs-textarea {
+        width: 100%; min-height: 60px; border-radius: 10px; border: 1.5px solid #1e3a5f;
+        background: #0b1626; color: #e2e8f0; padding: 8px 10px; font-family: 'DM Sans', sans-serif;
+        font-size: 12.5px; resize: vertical; box-sizing: border-box; margin-top: 8px;
+    }
+    .push-obs-textarea::placeholder { color: #64748b; }
+    .push-obs-hint { font-size: 10.5px; color: #f87171; margin-top: 4px; display: none; }
+    .push-obs-hint.visible { display: block; }
+
     /* Responsive: ventanas push más amplias en tablet / escritorio */
     @media (min-width: 700px){
         .push-notif { max-width: 560px; max-height: 85vh; padding: 28px 26px 24px; }
@@ -602,6 +619,7 @@ const fmtCOP = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'CO
 
 let userSesion = {};
 let FLOTA = [], TRASLADOS = [], AVERIAS = [], MANTENIMIENTOS = [], TANQUEOS = [], INSPECCIONES = [], USUARIOS = [], CHECKLISTS = [];
+let NOVEDADES_RESUELTAS = [];
 let ESTADOS_VEHICULO = [];
 let charts = {};
 let vmCharts = {};
@@ -773,6 +791,12 @@ function pillVencimiento(dias){
    trae el valor esperado ("Bueno" / "Sí") — por ejemplo Sistema de Frenos
    = "Regular" — sin importar que el campo OBSERVACIONES venga vacío.
    Campos sin dato (celda vacía en la hoja) no se evalúan.
+
+   Cada novedad se puede marcar como "resuelta" dejando una observación
+   obligatoria (ej: "Se llevó al taller y se templó la guaya del freno de
+   mano"). Esa resolución se guarda en la tabla de Supabase
+   "checklist_novedades_resueltas" para que quede como registro permanente
+   del parque automotor y visible para todos, no solo en este dispositivo.
    ========================================================================== */
 const CHECKLIST_CAMPOS_OK = {
     SISTEMA_DE_LUCES: ['bueno'],
@@ -823,7 +847,7 @@ function novedadesDeChecklist(registro){
 }
 
 // Todos los checklists (de cualquier placa) que tienen al menos una novedad,
-// ordenados del más reciente al más antiguo.
+// ordenados del más reciente al más antiguo. Incluye resueltos y pendientes.
 function checklistsConNovedad(){
     return CHECKLISTS
         .map(r => ({ registro: r, novedades: novedadesDeChecklist(r) }))
@@ -831,58 +855,183 @@ function checklistsConNovedad(){
         .sort((a,b)=> (parseDDMMAAAA(b.registro.FECHA)||0) - (parseDDMMAAAA(a.registro.FECHA)||0));
 }
 
+// Identificador estable de un registro de checklist, usado para saber si ya
+// tiene una resolución guardada. Usa el id de Supabase si existe; si no,
+// arma uno con placa+fecha+hora+conductor.
+function idChecklist(registro){
+    if(registro.id !== undefined && registro.id !== null) return 'id:' + registro.id;
+    return [registro.PLACA, registro.FECHA, registro.HORA_SALIDA, registro.CONDUCTOR]
+        .map(v => String(v||'').trim()).join('|');
+}
+
+// Set con los checklist_ref que ya tienen una resolución guardada en Supabase.
+function refsResueltos(){
+    return new Set(NOVEDADES_RESUELTAS.map(r => r.checklist_ref));
+}
+
+// Mapa checklist_ref -> registro de resolución (observación, quién y cuándo).
+function mapaResueltos(){
+    const mapa = {};
+    NOVEDADES_RESUELTAS.forEach(r => { mapa[r.checklist_ref] = r; });
+    return mapa;
+}
+
+// Solo las novedades que AÚN NO se han marcado como resueltas.
+// Esta es la que manda tanto en el badge de "Entrega Vehículos" como en el
+// conteo de alertas críticas de la campana: una novedad resuelta con
+// justificación es un problema real ya solucionado, no solo "visto".
+function checklistsConNovedadPendientes(){
+    const resueltos = refsResueltos();
+    return checklistsConNovedad().filter(x => !resueltos.has(idChecklist(x.registro)));
+}
+
+// Novedades que ya se resolvieron, con su observación adjunta (para mostrar
+// como historial dentro del modal de "Entrega Vehículos").
+function checklistsConNovedadResueltos(){
+    const resueltos = refsResueltos();
+    const mapa = mapaResueltos();
+    return checklistsConNovedad()
+        .filter(x => resueltos.has(idChecklist(x.registro)))
+        .map(x => ({ ...x, resolucion: mapa[idChecklist(x.registro)] }))
+        .sort((a,b)=> new Date(b.resolucion?.created_at||0) - new Date(a.resolucion?.created_at||0));
+}
+
 // Actualiza el badge rojo de la tarjeta "Entrega Vehículos" con el número
-// de checklists con alguna novedad pendiente de revisar.
+// de checklists con alguna novedad PENDIENTE por resolver.
 function actualizarBadgeChecklist(){
-    const items = checklistsConNovedad();
+    const items = checklistsConNovedadPendientes();
     const badge = document.getElementById('badge-checklist');
     if(!badge) return;
     if(items.length > 0){ badge.style.display='flex'; badge.innerText = items.length; }
     else { badge.style.display='none'; }
 }
 
-// Tabla resumen (últimos 6) en la sección de "Novedades en Entrega de Vehículos".
+// Tabla resumen (últimos 6, solo pendientes) en la sección de
+// "Novedades en Entrega de Vehículos" del panel principal.
 function renderTablaChecklist(){
     const t = document.getElementById('tabla-checklist');
     if(!t) return;
-    const items = checklistsConNovedad().slice(0,6);
+    const items = checklistsConNovedadPendientes().slice(0,6);
     t.innerHTML = items.length ? items.map(({registro, novedades}) => `
         <tr><td><b>${registro.PLACA||'—'}</b><br><small>${novedades.map(n=>n.campo+': '+n.valor).join(', ')}</small></td>
         <td style="text-align:right; font-size:11px;">${registro.FECHA || '—'}<br><small style="color:var(--gris);">${registro.CONDUCTOR||''}</small></td></tr>`).join('')
-        : '<tr><td style="text-align:center;">Sin novedades en checklists recientes.</td></tr>';
+        : '<tr><td style="text-align:center;">Sin novedades pendientes en checklists recientes.</td></tr>';
 }
+
+// Guarda en memoria los items pendientes que se están mostrando en el modal,
+// para poder referenciarlos por índice desde los botones "Marcar resuelto".
+let _checklistModalPendientes = [];
 
 // Modal completo con todos los checklists con novedad (al hacer clic en el
 // badge de "Entrega Vehículos" o en "VER TODO" de la lista de novedades).
+// Separa Pendientes (con botón para resolver) de Resueltas (historial).
 function mostrarNovedadesChecklist(){
-    const items = checklistsConNovedad();
+    const pendientes = checklistsConNovedadPendientes();
+    const resueltos = checklistsConNovedadResueltos().slice(0,15);
+    _checklistModalPendientes = pendientes;
+
     document.getElementById('push-titulo-txt').textContent = 'Novedades en Entrega de Vehículos';
-    let html = `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${items.length} checklist(s) con alguna novedad</div>`;
-    if(!items.length){
+
+    let html = `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${pendientes.length} pendiente(s) por resolver${resueltos.length ? ' · ' + resueltos.length + ' resuelta(s) recientemente' : ''}</div>`;
+
+    if(!pendientes.length && !resueltos.length){
         html += '<div class="push-empty-alert">No hay novedades registradas en los checklists de entrega. ✅</div>';
     } else {
-        html += `<div class="push-alert-section"><ul>${items.map(({registro, novedades}) => `
-            <li>
-                <div style="display:flex;justify-content:space-between;gap:8px;">
-                    <b style="color:#f1f5f9;">${registro.PLACA || '—'}</b>
-                    <span style="color:#94a3b8;font-size:11px;">${registro.FECHA || '—'}${registro.HORA_SALIDA ? ' · '+registro.HORA_SALIDA : ''}</span>
-                </div>
-                <div style="margin-top:3px;">${novedades.map(n => `${n.campo}: <b style="color:#fcd34d;">${n.valor}</b>`).join(' · ')}</div>
-                <div style="margin-top:3px;color:#94a3b8;">${registro.CONDUCTOR ? 'Conductor: '+registro.CONDUCTOR : ''}${registro.OBSERVACIONES ? ' · Obs: '+registro.OBSERVACIONES : ' · Sin observaciones registradas'}</div>
-            </li>`).join('')}</ul></div>`;
+        if(pendientes.length){
+            html += `<div class="push-alert-section"><h4 style="color:#fca5a5;">Pendientes (${pendientes.length})</h4><ul>` + pendientes.map(({registro, novedades}, i) => `
+                <li>
+                    <div style="display:flex;justify-content:space-between;gap:8px;">
+                        <b style="color:#f1f5f9;">${registro.PLACA || '—'}</b>
+                        <span style="color:#94a3b8;font-size:11px;">${registro.FECHA || '—'}${registro.HORA_SALIDA ? ' · '+registro.HORA_SALIDA : ''}</span>
+                    </div>
+                    <div style="margin-top:3px;">${novedades.map(n => `${n.campo}: <b style="color:#fcd34d;">${n.valor}</b>`).join(' · ')}</div>
+                    <div style="margin-top:3px;color:#94a3b8;">${registro.CONDUCTOR ? 'Conductor: '+registro.CONDUCTOR : ''}${registro.OBSERVACIONES ? ' · Obs: '+registro.OBSERVACIONES : ' · Sin observaciones registradas'}</div>
+                    <div id="resolverBox-${i}" style="margin-top:8px;">
+                        <button class="push-btn-resolver" onclick="mostrarCajaResolver(${i})">✅ Marcar como resuelto</button>
+                    </div>
+                </li>`).join('') + `</ul></div>`;
+        }
+        if(resueltos.length){
+            html += `<div class="push-alert-section"><h4 style="color:#6ee7b7;">Resueltas recientemente</h4><ul>` + resueltos.map(({registro, resolucion}) => `
+                <li>
+                    <div style="display:flex;justify-content:space-between;gap:8px;">
+                        <b style="color:#f1f5f9;">${registro.PLACA || '—'}</b>
+                        <span style="color:#6ee7b7;font-size:11px;font-weight:800;">RESUELTO</span>
+                    </div>
+                    <div style="margin-top:3px;">${resolucion ? resolucion.observacion : ''}</div>
+                    <div style="margin-top:3px;color:#64748b;font-size:11px;">${resolucion && resolucion.resuelto_por ? 'Por: '+resolucion.resuelto_por+' · ' : ''}${resolucion && resolucion.created_at ? fmtFechaCorta(new Date(resolucion.created_at)) : ''}</div>
+                </li>`).join('') + `</ul></div>`;
+        }
     }
+
     document.getElementById('push-alertas-body').innerHTML = html;
     document.getElementById('push-overlay').classList.add('visible');
     document.getElementById('push-notif').classList.add('visible');
+}
+
+// Abre la casilla de texto para escribir la observación de resolución del
+// item con índice i (dentro de _checklistModalPendientes).
+function mostrarCajaResolver(i){
+    const box = document.getElementById('resolverBox-'+i);
+    if(!box) return;
+    box.innerHTML = `
+        <textarea id="obsResolver-${i}" class="push-obs-textarea" placeholder="Ej: Se llevó al taller y se templó la guaya del freno de mano"></textarea>
+        <div class="push-obs-hint" id="obsHint-${i}">Escribe qué se hizo para resolverlo antes de guardar.</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+            <button class="push-btn-resolver" id="btnGuardar-${i}" style="flex:1;background:#10b981;color:#062e21;" onclick="confirmarResolverNovedad(${i})">Guardar</button>
+            <button class="push-btn-resolver" style="flex:1;background:#334155;" onclick="mostrarNovedadesChecklist()">Cancelar</button>
+        </div>`;
+    const ta = document.getElementById('obsResolver-'+i);
+    if(ta) ta.focus();
+}
+
+// Guarda la resolución en Supabase (tabla checklist_novedades_resueltas) y
+// refresca todo el panel para que los badges y listas queden al día.
+async function confirmarResolverNovedad(i){
+    const item = _checklistModalPendientes[i];
+    if(!item) return;
+
+    const textarea = document.getElementById('obsResolver-'+i);
+    const hint = document.getElementById('obsHint-'+i);
+    const observacion = (textarea ? textarea.value : '').trim();
+
+    if(!observacion){
+        if(textarea) textarea.style.borderColor = '#ef4444';
+        if(hint) hint.classList.add('visible');
+        return;
+    }
+
+    const btn = document.getElementById('btnGuardar-'+i);
+    if(btn){ btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+    try{
+        if(!window.DB || !DB.supabase) throw new Error('Conector de base de datos no disponible');
+
+        const { error } = await DB.supabase.from('checklist_novedades_resueltas').insert([{
+            checklist_ref: idChecklist(item.registro),
+            placa: item.registro.PLACA || '',
+            fecha: item.registro.FECHA || '',
+            observacion: observacion,
+            resuelto_por: (userSesion && userSesion.nombre) || '',
+        }]);
+        if(error) throw error;
+
+        await refrescarTodo();
+        mostrarNovedadesChecklist();
+    }catch(err){
+        console.error('Error guardando resolución de novedad de checklist:', err);
+        if(btn){ btn.disabled = false; btn.textContent = 'Guardar'; }
+        if(hint){ hint.textContent = 'No se pudo guardar. Verifica tu conexión e inténtalo de nuevo.'; hint.classList.add('visible'); }
+    }
 }
 
 /* ==========================================================================
    CARGA DE DATOS
    ========================================================================== */
 async function cargarDatos(){
-    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo','Inspeccion_Vehiculo','usuarios','Checklist_Salida');
+    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo','Inspeccion_Vehiculo','usuarios','Checklist_Salida','checklist_novedades_resueltas');
 
-    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes, inspRes, usuariosRes, checklistRes] = await Promise.all([
+    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes, inspRes, usuariosRes, checklistRes, resueltasRes] = await Promise.all([
         DB.obtenerFlota(),
         DB.obtenerTrasladosRecientes(1000),
         DB.obtenerTodasAverias(500),
@@ -891,6 +1040,7 @@ async function cargarDatos(){
         DB.supabase.from('Inspeccion_Vehiculo').select(),
         DB.supabase.from('usuarios').select(),
         DB.supabase.from('Checklist_Salida').select(),
+        DB.supabase.from('checklist_novedades_resueltas').select(),
     ]);
 
     FLOTA          = normalizarFechas(flotaRes.data || [], ['doc_fecha_proximo_vencer','ultimo_hallazgo_fecha','historial_fecha']);
@@ -901,6 +1051,7 @@ async function cargarDatos(){
     INSPECCIONES   = normalizarFechas((inspRes && inspRes.data) || [], ['SOAT_VENCE','TECNOMECANICA_VENCE','POLIZA_TODO_RIESGO_VENCE']);
     USUARIOS       = (usuariosRes && usuariosRes.data) || [];
     CHECKLISTS     = normalizarHoras(normalizarFechas((checklistRes && checklistRes.data) || [], ['FECHA']), ['HORA_SALIDA','HORA_ENTRADA']);
+    NOVEDADES_RESUELTAS = (resueltasRes && resueltasRes.data) || [];
 
     ESTADOS_VEHICULO = await Promise.all(
         FLOTA.map(c => DB.obtenerEstadoCarroza(c.placa).catch(()=>({ok:false})))
@@ -1024,7 +1175,9 @@ function calcularKPIs(){
     const aceiteProximo  = ESTADOS_VEHICULO.filter(e => e.ok && e.estado_aceite && e.estado_aceite.emoji==='🟡').length;
     const tanqueBajo     = ESTADOS_VEHICULO.filter(e => e.ok && e.nivel_combustible==='🔴').length;
 
-    const novedadesChecklist = checklistsConNovedad().length;
+    // Solo cuentan las novedades de checklist PENDIENTES (sin resolver).
+    // Una vez se marca "resuelto" con su observación, deja de sumar aquí.
+    const novedadesChecklist = checklistsConNovedadPendientes().length;
 
     return {
         total, disponibles, enServicio, enTaller,
@@ -1477,8 +1630,10 @@ async function abrirPanelCarroza(placa){
         .sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0)).slice(0,6);
     const mantVeh = MANTENIMIENTOS.filter(m => String(m.placa||'').toUpperCase() === placa.toUpperCase())
         .sort((a,b)=> String(b.fecha||'').localeCompare(String(a.fecha||''))).slice(0,6);
+    const refsResueltosSet = refsResueltos();
     const checklistVeh = checklistsConNovedad()
         .filter(x => String(x.registro.PLACA||'').toUpperCase() === placa.toUpperCase())
+        .map(x => ({ ...x, resuelto: refsResueltosSet.has(idChecklist(x.registro)) }))
         .slice(0,6);
 
     const averiaParque = carroza ? averiaActivaDeCarroza(carroza) : null;
@@ -1511,7 +1666,7 @@ async function abrirPanelCarroza(placa){
 
         <div class="vm-section">
             <h4>Novedades en checklist de entrega</h4>
-            ${checklistVeh.length ? `<ul class="vm-list">${checklistVeh.map(({registro, novedades})=>`<li><span>${registro.FECHA||'—'} · ${novedades.map(n=>n.campo+': '+n.valor).join(', ')}</span><span>${registro.CONDUCTOR||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin novedades en checklists de entrega.</div>'}
+            ${checklistVeh.length ? `<ul class="vm-list">${checklistVeh.map(({registro, novedades, resuelto})=>`<li><span>${registro.FECHA||'—'} · ${novedades.map(n=>n.campo+': '+n.valor).join(', ')}</span><span>${resuelto ? '✅ Resuelto' : '⏳ '+(registro.CONDUCTOR||'—')}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin novedades en checklists de entrega.</div>'}
         </div>
         <div class="vm-section">
             <h4>Últimos traslados</h4>
@@ -1703,7 +1858,9 @@ function mostrarAlertas(){
         .filter(x => x.doc && x.doc.dias !== null && x.doc.dias >= 0 && x.doc.dias <= 15);
     const aceite = ESTADOS_VEHICULO.filter(e => e.ok && e.estado_aceite && e.estado_aceite.emoji==='🔴');
     const tanqueBajo = ESTADOS_VEHICULO.filter(e => e.ok && e.nivel_combustible==='🔴');
-    const novedadesChecklist = checklistsConNovedad();
+    // Solo las novedades de checklist PENDIENTES cuentan como alerta crítica.
+    // Una vez marcadas como resueltas (con su observación), dejan de aparecer aquí.
+    const novedadesChecklist = checklistsConNovedadPendientes();
 
     let html = '';
     if(averiasParque.length){
