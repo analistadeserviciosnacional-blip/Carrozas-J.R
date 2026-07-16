@@ -6,7 +6,7 @@
     <title>J.R. — Control de Taller</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --amarillo: #f59e0b; --rojo: #dc2626; --verde: #10b981; }
+        :root { --azul: #001a70; --celeste: #e3f2fd; --blanco: #ffffff; --amarillo: #f59e0b; --rojo: #dc2626; --verde: #10b981; --cian: #0891b2; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: var(--celeste); font-family: 'DM Sans', sans-serif; padding: 15px; color: #1e293b; }
         .container { max-width: 900px; margin: auto; }
@@ -44,6 +44,24 @@
         .btn-liberar-taller:active { transform: scale(0.97); }
         .btn-liberar-taller:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        /* INSPECCION DE KILOMETRAJE */
+        .card-inspeccion { background: var(--blanco); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 5px solid var(--cian); }
+        .inspeccion-titulo { font-size: 15px; font-weight: 800; color: var(--cian); text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+        .badge-inspeccion { background: #ecfeff; color: var(--cian); font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 8px; text-transform: none; }
+        .inspeccion-sub { font-size: 12px; color: #64748b; margin-bottom: 18px; }
+
+        .info-km-insp { background: #ecfeff; border: 1.5px solid #67e8f9; border-radius: 12px; padding: 11px 14px; font-size: 12px; color: #0e7490; font-weight: 600; margin-bottom: 15px; align-items: center; gap: 10px; }
+
+        .insp-resumen { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 15px; font-size: 13px; color: #1e293b; line-height: 1.8; }
+        .insp-resumen b { color: var(--azul); }
+        .insp-resumen.ok b.vida { color: var(--verde); }
+        .insp-resumen.warn b.vida { color: var(--amarillo); }
+        .insp-resumen.danger b.vida { color: var(--rojo); }
+
+        .btn-registrar-insp { background: var(--cian); color: white; border: none; width: 100%; padding: 15px; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(8,145,178,0.25); font-family: inherit; margin-top: 5px; }
+        .btn-registrar-insp:active { transform: scale(0.98); }
+        .btn-registrar-insp:disabled { opacity: 0.6; cursor: not-allowed; }
+
         /* FORMULARIO */
         h2 { color: var(--azul); text-align: center; font-size: 18px; margin-bottom: 25px; text-transform: uppercase; }
         label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; text-transform: uppercase; }
@@ -80,6 +98,7 @@
         .tp-llantas { background: #ede9fe; color: #5b21b6; }
         .tp-sinc    { background: #ecfdf5; color: #065f46; }
         .tp-averia  { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+        .tp-inspeccion { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; }
         .tp-otro    { background: #f1f5f9; color: #475569; }
 
         .km-prox-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #fffbeb; color: #92400e; white-space: nowrap; }
@@ -108,6 +127,47 @@
         <div id="lista-ordenes">
             <p class="empty">Cargando ordenes...</p>
         </div>
+    </div>
+
+    <!-- INSPECCION DE KILOMETRAJE -->
+    <div class="card-inspeccion" id="seccion-inspeccion">
+        <div class="inspeccion-titulo">
+            Inspeccion de Kilometraje
+            <span class="badge-inspeccion">Actualiza el KM sin generar un servicio</span>
+        </div>
+        <div class="inspeccion-sub">Registra el KM actual del odometro en cualquier momento para saber cuanta vida le queda a la carroza antes del proximo cambio de aceite.</div>
+
+        <div class="grid-2">
+            <div>
+                <label>Placa del Vehiculo *</label>
+                <select id="insp-placa" onchange="alSeleccionarPlacaInspeccion()">
+                    <option value="">Cargando flota...</option>
+                </select>
+            </div>
+            <div>
+                <label>Fecha de Inspeccion *</label>
+                <input type="date" id="insp-fecha">
+            </div>
+        </div>
+
+        <div class="info-km-insp" id="info-km-insp" style="display:none;"></div>
+
+        <label>Kilometraje Actual (odometro) *</label>
+        <input type="number" id="insp-km" placeholder="Ej: 158200" min="0" oninput="calcularVidaRestanteInspeccion()">
+
+        <div class="insp-resumen" id="insp-resumen">Selecciona una placa e ingresa el KM actual para ver la vida restante.</div>
+
+        <div id="insp-manual-wrap" style="display:none;">
+            <label>Proximo Cambio de Aceite Programado (KM) — no hay registro previo, ingresalo tu</label>
+            <input type="number" id="insp-km-proximo-manual" placeholder="Ej: 165000" min="0" oninput="calcularVidaRestanteInspeccion()">
+        </div>
+
+        <label>Observaciones (opcional)</label>
+        <textarea id="insp-obs" rows="2" placeholder="Novedades encontradas en la inspeccion..."></textarea>
+
+        <button type="button" class="btn-registrar-insp" onclick="registrarInspeccion()">
+            REGISTRAR INSPECCION
+        </button>
     </div>
 
     <!-- FORMULARIO MANTENIMIENTO -->
@@ -149,6 +209,21 @@
                 <div>
                     <label>Kilometraje al Servicio *</label>
                     <input type="number" id="km_servicio" required placeholder="Ej: 155000" min="0" oninput="calcularProximoCambio()">
+                </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:8px; margin:-6px 0 15px 2px;">
+                <input type="checkbox" id="km_actual_distinto" onchange="toggleKmActualDistinto()" style="width:auto; margin:0;">
+                <label for="km_actual_distinto" style="margin:0; text-transform:none; font-size:12px; cursor:pointer;">
+                    Estoy registrando un servicio ya realizado (tirilla/fecha anterior) y el KM actual del vehiculo es mayor al del servicio
+                </label>
+            </div>
+
+            <div id="wrap-km-actual-real" style="display:none;">
+                <label>KM Actual del Vehiculo (odometro en este momento) *</label>
+                <input type="number" id="km_actual_real" placeholder="Ej: 371720" min="0">
+                <div style="font-size:11px; color:#64748b; margin:-10px 0 15px 2px;">
+                    Este es el KM con el que quedara el vehiculo registrado en el sistema (el que usa "Salidas"). El KM al Servicio de arriba solo se usa para calcular el proximo cambio.
                 </div>
             </div>
 
@@ -227,10 +302,12 @@
     var editandoID    = null;
     var flotaData     = [];
     var historialData = [];   // cache del historial para edicion segura por indice
+    var inspKmProximoCambio = 0; // cache del proximo cambio de aceite para la placa seleccionada en inspeccion
 
     // ── INIT
     window.onload = async function() {
         document.getElementById('fecha').valueAsDate = new Date();
+        document.getElementById('insp-fecha').valueAsDate = new Date();
         var sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (sesion.nombre) document.getElementById('responsable').value = sesion.nombre;
         document.getElementById('bloque-aceite').style.display = 'block';
@@ -254,22 +331,37 @@
         try {
             var res = await DB.supabase.from('carrozas').select('placa, modelo, kilometraje_actual').order('placa');
             flotaData = res.data || [];
-            var sel = document.getElementById('placa');
+            var opciones;
             if (flotaData.length > 0) {
-                sel.innerHTML = '<option value="">&#8212; Seleccione placa &#8212;</option>' +
+                opciones = '<option value="">&#8212; Seleccione placa &#8212;</option>' +
                     flotaData.map(function(c) {
                         return '<option value="' + c.placa + '">' + c.placa +
                                (c.modelo ? ' - ' + c.modelo : '') + '</option>';
                     }).join('');
             } else {
-                sel.innerHTML = '<option value="">Sin vehiculos registrados</option>';
+                opciones = '<option value="">Sin vehiculos registrados</option>';
             }
+            document.getElementById('placa').innerHTML = opciones;
+            document.getElementById('insp-placa').innerHTML = opciones;
         } catch(e) {
             console.error('Error cargando placas:', e);
         }
     }
 
-    // ── AL SELECCIONAR PLACA
+    // ── MOSTRAR/OCULTAR CAMPO DE KM ACTUAL REAL (cuando el servicio es de fecha anterior)
+    function toggleKmActualDistinto() {
+        var check = document.getElementById('km_actual_distinto').checked;
+        var wrap  = document.getElementById('wrap-km-actual-real');
+        wrap.style.display = check ? 'block' : 'none';
+        if (check) {
+            var kmServicio = document.getElementById('km_servicio').value;
+            document.getElementById('km_actual_real').value = kmServicio || '';
+        } else {
+            document.getElementById('km_actual_real').value = '';
+        }
+    }
+
+    // ── AL SELECCIONAR PLACA (formulario de mantenimiento)
     function alSeleccionarPlaca() {
         var placa  = document.getElementById('placa').value;
         var veh    = flotaData.find(function(c) { return c.placa === placa; });
@@ -282,6 +374,216 @@
             calcularProximoCambio();
         } else {
             infoEl.style.display = 'none';
+        }
+    }
+
+    // ── BUSCAR EL ULTIMO CAMBIO DE ACEITE COMPLETADO DE UNA PLACA
+    async function buscarUltimoCambioAceite(placa) {
+        try {
+            var res = await DB.supabase
+                .from('mantenimientos')
+                .select('km_proximo_cambio, kilometraje_servicio, fecha')
+                .eq('placa', placa)
+                .eq('tipo_servicio', 'Cambio de Aceite')
+                .eq('estado_orden', 'completada')
+                .order('fecha', { ascending: false })
+                .limit(1);
+            if (res.data && res.data.length > 0) return res.data[0];
+            return null;
+        } catch(e) {
+            console.error('Error buscando ultimo cambio de aceite:', e);
+            return null;
+        }
+    }
+
+    // ── BUSCAR LA ULTIMA INSPECCION QUE TENGA UN PROXIMO CAMBIO GUARDADO
+    // (sirve como respaldo cuando la carroza nunca tuvo un "Cambio de Aceite"
+    // registrado formalmente, pero ya se definio manualmente en una inspeccion previa)
+    async function buscarUltimaInspeccionConProximo(placa) {
+        try {
+            var res = await DB.supabase
+                .from('mantenimientos')
+                .select('km_proximo_cambio, kilometraje_servicio, fecha')
+                .eq('placa', placa)
+                .eq('estado_orden', 'inspeccion')
+                .gt('km_proximo_cambio', 0)
+                .order('fecha', { ascending: false })
+                .limit(1);
+            if (res.data && res.data.length > 0) return res.data[0];
+            return null;
+        } catch(e) {
+            console.error('Error buscando inspeccion con proximo cambio:', e);
+            return null;
+        }
+    }
+
+    // ── OBTENER LA MEJOR REFERENCIA DE "PROXIMO CAMBIO" PARA UNA PLACA
+    // 1) el ultimo Cambio de Aceite completado, 2) si no hay, la ultima
+    // inspeccion que ya tenga un proximo cambio guardado manualmente.
+    async function obtenerReferenciaProximoCambio(placa) {
+        var ultimoCambio = await buscarUltimoCambioAceite(placa);
+        if (ultimoCambio && ultimoCambio.km_proximo_cambio) return ultimoCambio;
+        var ultimaInsp = await buscarUltimaInspeccionConProximo(placa);
+        if (ultimaInsp) return ultimaInsp;
+        return null;
+    }
+
+    // ── AL SELECCIONAR PLACA (inspeccion de kilometraje)
+    async function alSeleccionarPlacaInspeccion() {
+        var placa   = document.getElementById('insp-placa').value;
+        var veh     = flotaData.find(function(c) { return c.placa === placa; });
+        var infoEl  = document.getElementById('info-km-insp');
+        var resumen = document.getElementById('insp-resumen');
+
+        if (!veh || !placa) {
+            infoEl.style.display = 'none';
+            inspKmProximoCambio = 0;
+            resumen.className = 'insp-resumen';
+            resumen.innerHTML = 'Selecciona una placa e ingresa el KM actual para ver la vida restante.';
+            return;
+        }
+
+        infoEl.style.display = 'flex';
+        infoEl.textContent = 'Ultimo KM registrado en el sistema: ' +
+            Number(veh.kilometraje_actual || 0).toLocaleString() + ' KM';
+        document.getElementById('insp-km').value = veh.kilometraje_actual || '';
+
+        resumen.className = 'insp-resumen';
+        resumen.innerHTML = 'Consultando el ultimo cambio de aceite...';
+
+        var ref = await obtenerReferenciaProximoCambio(placa);
+        inspKmProximoCambio = (ref && ref.km_proximo_cambio) ? Number(ref.km_proximo_cambio) : 0;
+
+        var manualWrap = document.getElementById('insp-manual-wrap');
+        var manualInput = document.getElementById('insp-km-proximo-manual');
+        if (!inspKmProximoCambio) {
+            manualWrap.style.display = 'block';
+            manualInput.value = '';
+        } else {
+            manualWrap.style.display = 'none';
+            manualInput.value = '';
+        }
+
+        calcularVidaRestanteInspeccion();
+    }
+
+    // ── CALCULAR VIDA RESTANTE (inspeccion de kilometraje)
+    function calcularVidaRestanteInspeccion() {
+        var km      = parseInt(document.getElementById('insp-km').value) || 0;
+        var resumen = document.getElementById('insp-resumen');
+        var placa   = document.getElementById('insp-placa').value;
+
+        if (!placa) {
+            resumen.className = 'insp-resumen';
+            resumen.innerHTML = 'Selecciona una placa e ingresa el KM actual para ver la vida restante.';
+            return;
+        }
+        if (!km) {
+            resumen.className = 'insp-resumen';
+            resumen.innerHTML = 'Ingresa el KM actual del odometro para ver la vida restante.';
+            return;
+        }
+        var manualInput = document.getElementById('insp-km-proximo-manual');
+        var proximoManual = parseInt(manualInput.value) || 0;
+        var proximoEfectivo = inspKmProximoCambio || proximoManual;
+
+        if (!proximoEfectivo) {
+            resumen.className = 'insp-resumen';
+            resumen.innerHTML = 'KM actual a registrar: <b>' + km.toLocaleString() + ' KM</b><br>' +
+                'Esta placa nunca ha tenido un cambio de aceite registrado. Ingresa arriba a que KM esta programado el proximo cambio para poder calcular la vida restante desde ahora.';
+            return;
+        }
+
+        var vidaRestante = proximoEfectivo - km;
+        var estado, clase;
+        if (vidaRestante <= 0) {
+            estado = 'VENCIDO - ya paso el KM del proximo cambio';
+            clase  = 'danger';
+        } else if (vidaRestante <= 500) {
+            estado = 'Proximo a vencer';
+            clase  = 'warn';
+        } else {
+            estado = 'En buen estado';
+            clase  = 'ok';
+        }
+
+        resumen.className = 'insp-resumen ' + clase;
+        resumen.innerHTML =
+            'KM actual a registrar: <b>' + km.toLocaleString() + ' KM</b><br>' +
+            'Proximo cambio de aceite programado a los: <b>' + proximoEfectivo.toLocaleString() + ' KM</b><br>' +
+            'Vida restante: <b class="vida">' + vidaRestante.toLocaleString() + ' KM</b> &mdash; ' + estado;
+    }
+
+    // ── REGISTRAR INSPECCION DE KILOMETRAJE
+    async function registrarInspeccion() {
+        var placa = document.getElementById('insp-placa').value;
+        var km    = parseInt(document.getElementById('insp-km').value) || 0;
+        var fecha = document.getElementById('insp-fecha').value;
+        var obs   = document.getElementById('insp-obs').value.trim();
+
+        if (!placa) { alert('Selecciona una placa'); return; }
+        if (!km)    { alert('Ingresa el kilometraje actual'); return; }
+
+        var veh = flotaData.find(function(c) { return c.placa === placa; });
+        if (veh && km < Number(veh.kilometraje_actual || 0)) {
+            var continuar = confirm(
+                'El KM ingresado (' + km.toLocaleString() + ') es menor al KM actualmente registrado (' +
+                Number(veh.kilometraje_actual).toLocaleString() + '). Deseas continuar de todas formas?'
+            );
+            if (!continuar) return;
+        }
+
+        var btn = document.querySelector('.btn-registrar-insp');
+        btn.disabled = true;
+        btn.textContent = 'GUARDANDO...';
+
+        var sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
+        var proximoManual = parseInt(document.getElementById('insp-km-proximo-manual').value) || 0;
+        var proximoAGuardar = inspKmProximoCambio || proximoManual || 0;
+
+        if (!proximoAGuardar) {
+            var continuarSinProximo = confirm(
+                'No definiste un proximo cambio de aceite para esta placa. La inspeccion se guardara igual, ' +
+                'pero no se podra calcular la vida restante hasta que se registre un cambio de aceite o lo definas manualmente. Continuar?'
+            );
+            if (!continuarSinProximo) {
+                btn.disabled = false;
+                btn.textContent = 'REGISTRAR INSPECCION';
+                return;
+            }
+        }
+
+        var registro = {
+            id:                   'I-' + Date.now(),
+            placa:                placa,
+            fecha:                fecha,
+            tipo_servicio:        'Inspeccion KM',
+            kilometraje_servicio: km,
+            costo:                0,
+            taller:               '-',
+            responsable:          sesion.nombre || '---',
+            observaciones:        obs || 'Inspeccion de rutina de kilometraje.',
+            km_proximo_cambio:    proximoAGuardar,
+            estado_orden:         'inspeccion'
+        };
+
+        try {
+            var res = await DB.supabase.from('mantenimientos').insert([registro]);
+            if (res.error) throw res.error;
+
+            await DB.actualizarCarroza(placa, { kilometraje_actual: km });
+            if (veh) veh.kilometraje_actual = km;
+
+            alert('Inspeccion registrada. KM actual actualizado a ' + km.toLocaleString() + ' KM.');
+
+            document.getElementById('insp-obs').value = '';
+            await cargarHistorial();
+            await alSeleccionarPlacaInspeccion();
+        } catch(e) {
+            alert('Error al registrar la inspeccion: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'REGISTRAR INSPECCION';
         }
     }
 
@@ -343,6 +645,22 @@
         var esAceite   = (tipo === 'Cambio de Aceite');
         var intervalo  = esAceite ? getIntervalo() : 0;
 
+        var esKmDistinto  = document.getElementById('km_actual_distinto').checked;
+        var kmActualReal  = parseInt(document.getElementById('km_actual_real').value) || 0;
+        var kmParaCarroza = (esKmDistinto && kmActualReal > 0) ? kmActualReal : kmServicio;
+
+        if (esKmDistinto && kmActualReal > 0 && kmActualReal < kmServicio) {
+            var continuarKm = confirm(
+                'El KM actual (' + kmActualReal.toLocaleString() + ') que ingresaste es menor al KM del servicio (' +
+                kmServicio.toLocaleString() + '). Deseas continuar de todas formas?'
+            );
+            if (!continuarKm) {
+                btn.disabled    = false;
+                txt.textContent = editandoID ? 'ACTUALIZAR CAMBIOS' : 'GUARDAR MANTENIMIENTO';
+                return;
+            }
+        }
+
         var kmProximo = (esAceite && intervalo > 0 && kmServicio > 0) ? (kmServicio + intervalo) : 0;
 
         var registro = {
@@ -392,7 +710,7 @@
             var proxFecha = new Date(registro.fecha);
             proxFecha.setMonth(proxFecha.getMonth() + 3);
             await DB.actualizarCarroza(placa, {
-                kilometraje_actual:    kmServicio,
+                kilometraje_actual:    kmParaCarroza,
                 ultimo_mantenimiento:  registro.fecha,
                 proximo_mantenimiento: proxFecha.toISOString().split('T')[0],
                 estado:                'Disponible'
@@ -536,14 +854,9 @@
             }
 
             // ── ELIMINAR TARJETA DEL DOM Y RECARGAR CON DELAY ─────────────
-            // Se espera 2.5s para mostrar el feedback y luego se elimina la tarjeta
-            // del DOM directamente sin esperar a Google Sheets (que tarda en reflejar
-            // el cambio). El recargarOrdenesPendientes se hace con delay adicional
-            // de 3s para que Sheets ya tenga el dato actualizado cuando se consulte.
             setTimeout(async function() {
                 ordenEl.remove();
 
-                // Si no quedan tarjetas pendientes, ocultar la seccion
                 var lista     = document.getElementById('lista-ordenes');
                 var restantes = lista.querySelectorAll('.orden-item');
                 if (restantes.length === 0) {
@@ -553,11 +866,8 @@
                     badge.textContent = restantes.length + ' pendiente' + (restantes.length > 1 ? 's' : '');
                 }
 
-                // Recargar historial de inmediato
                 await cargarHistorial();
 
-                // Esperar 3s adicionales antes de recargar ordenes pendientes
-                // para dar tiempo a que Google Sheets refleje el cambio de estado
                 await new Promise(function(r) { setTimeout(r, 3000); });
                 await cargarOrdenesPendientes();
 
@@ -609,17 +919,22 @@
             tbody.innerHTML = res.data.map(function(m, idx) {
                 var tipo = m.tipo_servicio || '';
                 var cls  = 'tp-otro';
-                if (tipo.includes('Aceite'))   cls = 'tp-aceite';
+                if (tipo.includes('Aceite'))      cls = 'tp-aceite';
                 else if (tipo.includes('Freno'))  cls = 'tp-frenos';
                 else if (tipo.includes('Llanta')) cls = 'tp-llantas';
                 else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
+                else if (tipo.includes('nspec'))  cls = 'tp-inspeccion';
                 else if (tipo.includes('veria'))  cls = 'tp-averia';
 
                 var kmServNum = parseInt(m.kilometraje_servicio) || 0;
                 var kmProxNum = parseInt(m.km_proximo_cambio)    || 0;
 
                 var kmProxCell;
-                if (kmProxNum > 0 && kmProxNum > kmServNum) {
+                if (m.estado_orden === 'inspeccion') {
+                    kmProxCell = kmProxNum > 0
+                        ? '<span class="km-prox-badge">' + Number(kmProxNum).toLocaleString() + ' KM</span>'
+                        : '<span style="color:#94a3b8; font-size:11px;">-</span>';
+                } else if (kmProxNum > 0 && kmProxNum > kmServNum) {
                     kmProxCell = '<span class="km-prox-badge">' +
                         Number(kmProxNum).toLocaleString() + ' KM</span>';
                 } else if (kmProxNum > 0 && kmProxNum <= kmServNum) {
@@ -638,6 +953,9 @@
                 } else if (m.estado_orden === 'completada') {
                     estadoPill = '<span style="font-size:10px; background:#ecfdf5; color:#065f46; ' +
                         'padding:2px 6px; border-radius:5px; font-weight:700; margin-right:4px;">CERRADA</span>';
+                } else if (m.estado_orden === 'inspeccion') {
+                    estadoPill = '<span style="font-size:10px; background:#ecfeff; color:#0e7490; ' +
+                        'padding:2px 6px; border-radius:5px; font-weight:700; margin-right:4px;">INSPECCION</span>';
                 }
 
                 return '<tr>' +
@@ -718,6 +1036,9 @@
         document.getElementById('bloque-aceite').style.display = 'block';
         document.getElementById('custom-km-wrap').style.display = 'none';
         document.getElementById('ba-resumen').innerHTML        = 'Ingresa el KM del servicio para ver el calculo.';
+        document.getElementById('km_actual_distinto').checked  = false;
+        document.getElementById('wrap-km-actual-real').style.display = 'none';
+        document.getElementById('km_actual_real').value        = '';
     }
 </script>
 </body>
