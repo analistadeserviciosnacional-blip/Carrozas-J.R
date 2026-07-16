@@ -443,7 +443,10 @@
     <a href="javascript:void(0)" onclick="irASeccion('flotaSection')" class="card-condu"><i>🚐</i><span>Carrozas</span></a>
     <a href="javascript:void(0)" onclick="mostrarConductores()" class="card-condu"><i>🧑‍✈️</i><span>Conductores</span></a>
     <a href="javascript:void(0)" onclick="mostrarTraslados()" class="card-condu"><i>🏁</i><span>Traslados</span></a>
-    <a href="inspeccion.html" class="card-condu"><i>📝</i><span>Entrega Vehículos</span></a>
+    <a href="inspeccion.html" class="card-condu">
+        <div id="badge-checklist" class="badge-rojo" onclick="event.preventDefault(); event.stopPropagation(); mostrarNovedadesChecklist();" style="cursor:pointer;">0</div>
+        <i>📝</i><span>Entrega Vehículos</span>
+    </a>
 </div>
 
 <div class="menu-group-label">Mantenimiento</div>
@@ -490,6 +493,11 @@
 <div class="monitor-mini">
     <h2>Averías en Curso <button class="btn-ver-todo" onclick="mostrarAverias()">VER TODO</button></h2>
     <table><tbody id="tabla-averias"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
+</div>
+
+<div class="monitor-mini">
+    <h2>Novedades en Entrega de Vehículos <button class="btn-ver-todo" onclick="mostrarNovedadesChecklist()">VER TODO</button></h2>
+    <table><tbody id="tabla-checklist"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
 </div>
 
 <div class="monitor-mini">
@@ -565,13 +573,6 @@
 <!-- Conector real de la app (mismo que usan panel_conductor / panel_coordinador / dashboard) -->
 <script src="db.js"></script>
 <script>
-/* ==========================================================================
-   CONTROL DE ACCESO — bloquea la entrada directa por URL.
-   Solo se puede llegar aquí habiendo iniciado sesión desde index.html,
-   que es quien guarda 'usuario_sesion' en localStorage tras un login válido.
-   Se ejecuta de inmediato (fuera de window.onload) para redirigir antes
-   de que el usuario alcance a ver contenido del panel.
-   ========================================================================== */
 (function verificarAccesoPanel(){
     const sesionRaw = localStorage.getItem('usuario_sesion');
     if (!sesionRaw) {
@@ -586,14 +587,6 @@
     }
 })();
 
-/* ==========================================================================
-   BLOQUEO DEL BOTÓN "ATRÁS" DEL NAVEGADOR
-   Evita que, estando en este panel, el botón atrás lleve a una pantalla
-   de otro rol (ej. panel_conductor.html) que quedó en el historial del
-   navegador por una redirección anterior del login. Mientras el usuario
-   esté en este panel, "atrás" no lo saca a ninguna otra pantalla: se
-   vuelve a fijar en esta misma URL.
-   ========================================================================== */
 (function bloquearBotonAtras(){
     history.pushState(null, '', location.href);
     window.addEventListener('popstate', function(){
@@ -602,31 +595,18 @@
 })();
 </script>
 <script>
-/* ==========================================================================
-   PANEL DEL PARQUE AUTOMOTOR — misma piel visual de panel_coordinador.html
-   Usa el mismo objeto DB que dashboard.html:
-     DB.obtenerFlota() / DB.obtenerTrasladosRecientes() / DB.obtenerTodasAverias()
-     DB.obtenerMantenimientos() / DB.obtenerTanqueos() / DB.obtenerEstadoCarroza(placa)
-   Este archivo debe vivir en la misma carpeta que db.js.
-   ========================================================================== */
-
 const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-// Normaliza placas para comparar entre distintas hojas (carrozas, Traslado,
-// Tanqueo, Averias, mantenimientos), donde la misma placa puede estar escrita
-// con o sin espacios/guiones ("BRZ 208" vs "BRZ208"). Quita todo lo que no
-// sea letra o número y pasa a mayúsculas — mismo criterio que ya usa db.js.
 const normPlaca = p => String(p||'').replace(/[^A-Z0-9]/gi,'').toUpperCase();
 const fmtNum = n => new Intl.NumberFormat('es-CO').format(Math.round(n || 0));
 const fmtCOP = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n || 0);
 
 let userSesion = {};
-let FLOTA = [], TRASLADOS = [], AVERIAS = [], MANTENIMIENTOS = [], TANQUEOS = [], INSPECCIONES = [], USUARIOS = [];
+let FLOTA = [], TRASLADOS = [], AVERIAS = [], MANTENIMIENTOS = [], TANQUEOS = [], INSPECCIONES = [], USUARIOS = [], CHECKLISTS = [];
 let ESTADOS_VEHICULO = [];
 let charts = {};
 let vmCharts = {};
 let fleetExpanded = false;
 
-/* ---------- Sesión + saludo ---------- */
 window.onload = async () => {
     const sesionRaw = localStorage.getItem('usuario_sesion');
     if (sesionRaw) {
@@ -662,7 +642,6 @@ function tickClock(){
 
 function cerrarSesion(){ localStorage.clear(); window.location.href = "index.html"; }
 
-/* ---------- Cerrar modales con la tecla Escape, sin tener que hacer scroll ---------- */
 function setupModalEscKey(){
     window.addEventListener('keydown', (e)=>{
         if(e.key !== 'Escape') return;
@@ -671,7 +650,6 @@ function setupModalEscKey(){
     });
 }
 
-/* ---------- Fechas ---------- */
 function hoyDDMMAAAA(){
     const h = new Date();
     return h.getDate().toString().padStart(2,'0') + '/' + (h.getMonth()+1).toString().padStart(2,'0') + '/' + h.getFullYear();
@@ -693,7 +671,6 @@ function sumaCampo(lista, campo){
 }
 function normEstado(e){ return String(e||'').trim().toLowerCase(); }
 
-// Días de diferencia (fechaStr - hoy). Positivo = falta por vencer, negativo = ya venció.
 function diasHasta(fechaStr){
     const d = parseDDMMAAAA(fechaStr);
     if(!d) return null;
@@ -702,10 +679,6 @@ function diasHasta(fechaStr){
     return Math.round((d - hoy) / 86400000);
 }
 
-// Convierte cualquier valor de fecha (objeto Date de JS, ISO string, o texto dd/mm/aaaa)
-// a un texto limpio dd/mm/aaaa. Corrige el caso en que Supabase/Google Sheets
-// entrega la fecha como objeto Date real y termina mostrando algo como
-// "Fri Jul 10 2026 02:00:00 GMT-0500 (hora estándar de Colombia)".
 function fmtFechaCorta(valor){
     if(valor === null || valor === undefined || valor === '') return '';
     if(valor instanceof Date){
@@ -713,19 +686,13 @@ function fmtFechaCorta(valor){
         return valor.getDate().toString().padStart(2,'0') + '/' + (valor.getMonth()+1).toString().padStart(2,'0') + '/' + valor.getFullYear();
     }
     const str = String(valor).trim();
-    if(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(str)) return str; // ya viene como dd/mm/aaaa
+    if(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(str)) return str;
     const d = new Date(str);
     if(!isNaN(d.getTime())){
         return d.getDate().toString().padStart(2,'0') + '/' + (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getFullYear();
     }
     return str;
 }
-// Convierte cualquier valor de HORA (objeto Date de JS, timestamp ISO completo,
-// o texto "HH:mm"/"HH:mm:ss") a un texto limpio "HH:mm". Corrige el caso en que
-// Google Sheets/Supabase entrega una columna de solo-hora como si fuera una
-// fecha completa, resultando en cosas como
-// "Sat Dec 30 1899 16:56:44 GMT-0456 (hora estándar de Colombia)"
-// (1899-12-30 es el "día cero" que usan las hojas de cálculo para horas puras).
 function fmtHoraCorta(valor){
     if(valor === null || valor === undefined || valor === '') return '';
     if(valor instanceof Date){
@@ -733,11 +700,8 @@ function fmtHoraCorta(valor){
         return valor.getHours().toString().padStart(2,'0') + ':' + valor.getMinutes().toString().padStart(2,'0');
     }
     const str = String(valor).trim();
-    // Ya viene como "HH:mm" o "HH:mm:ss"
     const soloHora = str.match(/^(\d{1,2}):(\d{2})(:\d{2})?$/);
     if(soloHora) return soloHora[1].padStart(2,'0') + ':' + soloHora[2];
-    // Texto tipo "Sat Dec 30 1899 16:56:44 GMT-0456 ..." o cualquier ISO/timestamp:
-    // extraemos solo la parte HH:mm:ss si aparece en el texto.
     const conHora = str.match(/(\d{1,2}):(\d{2}):(\d{2})/);
     if(conHora) return conHora[1].padStart(2,'0') + ':' + conHora[2];
     const d = new Date(str);
@@ -746,9 +710,6 @@ function fmtHoraCorta(valor){
     }
     return str;
 }
-// Normaliza en el arreglo cargado los campos de fecha indicados, para que
-// TODO el resto de la app (tablas, orden cronológico, exportación) trabaje
-// siempre con texto dd/mm/aaaa consistente.
 function normalizarFechas(lista, campos){
     (lista||[]).forEach(item=>{
         campos.forEach(campo=>{
@@ -759,8 +720,6 @@ function normalizarFechas(lista, campos){
     });
     return lista;
 }
-// Igual que normalizarFechas, pero para campos de solo-hora (ej. hora_de_salida),
-// dejándolos siempre como texto "HH:mm".
 function normalizarHoras(lista, campos){
     (lista||[]).forEach(item=>{
         campos.forEach(campo=>{
@@ -772,11 +731,6 @@ function normalizarHoras(lista, campos){
     return lista;
 }
 
-// Compara una fecha de registro (texto dd/mm/aaaa, ISO, u objeto Date) contra
-// un rango [desdeISO, hastaISO] proveniente de <input type="date"> (formato
-// yyyy-mm-dd). Si no hay filtro de fechas activo, siempre pasa. Si el registro
-// no tiene fecha reconocible, solo pasa cuando tampoco hay filtro de fechas
-// activo (para no ocultar registros sin fecha cuando no se pidió filtrar).
 function fechaDentroDeRango(valorFecha, desdeISO, hastaISO){
     if(!desdeISO && !hastaISO) return true;
     const texto = fmtFechaCorta(valorFecha);
@@ -814,12 +768,121 @@ function pillVencimiento(dias){
 }
 
 /* ==========================================================================
+   NOVEDADES EN CHECKLIST DE ENTREGA (hoja "Checklist_Salida")
+   Un checklist tiene "novedad" cuando alguno de sus campos de estado no
+   trae el valor esperado ("Bueno" / "Sí") — por ejemplo Sistema de Frenos
+   = "Regular" — sin importar que el campo OBSERVACIONES venga vacío.
+   Campos sin dato (celda vacía en la hoja) no se evalúan.
+   ========================================================================== */
+const CHECKLIST_CAMPOS_OK = {
+    SISTEMA_DE_LUCES: ['bueno'],
+    SISTEMA_DE_FRENOS: ['bueno'],
+    LLANTA_DE_REPUESTO: ['si','sí'],
+    NIVEL_AGUA: ['bueno'],
+    NIVEL_ACEITE: ['bueno'],
+    SOAT: ['si','sí'],
+    TECNOMECANICA: ['si','sí'],
+    BOTIQUIN: ['si','sí'],
+    EXTINTOR: ['si','sí'],
+    CINTURON_DE_SEGURIDAD: ['si','sí'],
+    GATO: ['si','sí'],
+    LLAVE_DE_RUEDAS: ['si','sí'],
+    TRIANGULOS: ['si','sí'],
+    ESTADO_VEHICULO: ['bueno'],
+};
+const CHECKLIST_CAMPOS_LABEL = {
+    SISTEMA_DE_LUCES: 'Sistema de luces',
+    SISTEMA_DE_FRENOS: 'Sistema de frenos',
+    LLANTA_DE_REPUESTO: 'Llanta de repuesto',
+    NIVEL_AGUA: 'Nivel de agua',
+    NIVEL_ACEITE: 'Nivel de aceite',
+    SOAT: 'SOAT',
+    TECNOMECANICA: 'Tecnomecánica',
+    BOTIQUIN: 'Botiquín',
+    EXTINTOR: 'Extintor',
+    CINTURON_DE_SEGURIDAD: 'Cinturón de seguridad',
+    GATO: 'Gato',
+    LLAVE_DE_RUEDAS: 'Llave de ruedas',
+    TRIANGULOS: 'Triángulos',
+    ESTADO_VEHICULO: 'Estado general',
+};
+
+// Devuelve la lista de campos con novedad de un registro de checklist.
+// Un campo vacío/sin dato no se considera novedad (no se puede evaluar).
+function novedadesDeChecklist(registro){
+    const novedades = [];
+    Object.keys(CHECKLIST_CAMPOS_OK).forEach(campo => {
+        const valor = registro[campo];
+        if(valor === undefined || valor === null || String(valor).trim()==='') return;
+        const ok = CHECKLIST_CAMPOS_OK[campo].includes(norm(valor));
+        if(!ok){
+            novedades.push({ campo: CHECKLIST_CAMPOS_LABEL[campo] || campo, valor: String(valor).trim() });
+        }
+    });
+    return novedades;
+}
+
+// Todos los checklists (de cualquier placa) que tienen al menos una novedad,
+// ordenados del más reciente al más antiguo.
+function checklistsConNovedad(){
+    return CHECKLISTS
+        .map(r => ({ registro: r, novedades: novedadesDeChecklist(r) }))
+        .filter(x => x.novedades.length > 0)
+        .sort((a,b)=> (parseDDMMAAAA(b.registro.FECHA)||0) - (parseDDMMAAAA(a.registro.FECHA)||0));
+}
+
+// Actualiza el badge rojo de la tarjeta "Entrega Vehículos" con el número
+// de checklists con alguna novedad pendiente de revisar.
+function actualizarBadgeChecklist(){
+    const items = checklistsConNovedad();
+    const badge = document.getElementById('badge-checklist');
+    if(!badge) return;
+    if(items.length > 0){ badge.style.display='flex'; badge.innerText = items.length; }
+    else { badge.style.display='none'; }
+}
+
+// Tabla resumen (últimos 6) en la sección de "Novedades en Entrega de Vehículos".
+function renderTablaChecklist(){
+    const t = document.getElementById('tabla-checklist');
+    if(!t) return;
+    const items = checklistsConNovedad().slice(0,6);
+    t.innerHTML = items.length ? items.map(({registro, novedades}) => `
+        <tr><td><b>${registro.PLACA||'—'}</b><br><small>${novedades.map(n=>n.campo+': '+n.valor).join(', ')}</small></td>
+        <td style="text-align:right; font-size:11px;">${registro.FECHA || '—'}<br><small style="color:var(--gris);">${registro.CONDUCTOR||''}</small></td></tr>`).join('')
+        : '<tr><td style="text-align:center;">Sin novedades en checklists recientes.</td></tr>';
+}
+
+// Modal completo con todos los checklists con novedad (al hacer clic en el
+// badge de "Entrega Vehículos" o en "VER TODO" de la lista de novedades).
+function mostrarNovedadesChecklist(){
+    const items = checklistsConNovedad();
+    document.getElementById('push-titulo-txt').textContent = 'Novedades en Entrega de Vehículos';
+    let html = `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${items.length} checklist(s) con alguna novedad</div>`;
+    if(!items.length){
+        html += '<div class="push-empty-alert">No hay novedades registradas en los checklists de entrega. ✅</div>';
+    } else {
+        html += `<div class="push-alert-section"><ul>${items.map(({registro, novedades}) => `
+            <li>
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <b style="color:#f1f5f9;">${registro.PLACA || '—'}</b>
+                    <span style="color:#94a3b8;font-size:11px;">${registro.FECHA || '—'}${registro.HORA_SALIDA ? ' · '+registro.HORA_SALIDA : ''}</span>
+                </div>
+                <div style="margin-top:3px;">${novedades.map(n => `${n.campo}: <b style="color:#fcd34d;">${n.valor}</b>`).join(' · ')}</div>
+                <div style="margin-top:3px;color:#94a3b8;">${registro.CONDUCTOR ? 'Conductor: '+registro.CONDUCTOR : ''}${registro.OBSERVACIONES ? ' · Obs: '+registro.OBSERVACIONES : ' · Sin observaciones registradas'}</div>
+            </li>`).join('')}</ul></div>`;
+    }
+    document.getElementById('push-alertas-body').innerHTML = html;
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
+
+/* ==========================================================================
    CARGA DE DATOS
    ========================================================================== */
 async function cargarDatos(){
-    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo','Inspeccion_Vehiculo','usuarios');
+    await DB.prefetch('carrozas','Traslado','Averias','mantenimientos','Tanqueo','Inspeccion_Vehiculo','usuarios','Checklist_Salida');
 
-    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes, inspRes, usuariosRes] = await Promise.all([
+    const [flotaRes, trasladosRes, averiasRes, mantRes, tanqueosRes, inspRes, usuariosRes, checklistRes] = await Promise.all([
         DB.obtenerFlota(),
         DB.obtenerTrasladosRecientes(1000),
         DB.obtenerTodasAverias(500),
@@ -827,6 +890,7 @@ async function cargarDatos(){
         DB.obtenerTanqueos(1000),
         DB.supabase.from('Inspeccion_Vehiculo').select(),
         DB.supabase.from('usuarios').select(),
+        DB.supabase.from('Checklist_Salida').select(),
     ]);
 
     FLOTA          = normalizarFechas(flotaRes.data || [], ['doc_fecha_proximo_vencer','ultimo_hallazgo_fecha','historial_fecha']);
@@ -836,17 +900,13 @@ async function cargarDatos(){
     TANQUEOS       = normalizarFechas(tanqueosRes.data || [], ['FECHA']);
     INSPECCIONES   = normalizarFechas((inspRes && inspRes.data) || [], ['SOAT_VENCE','TECNOMECANICA_VENCE','POLIZA_TODO_RIESGO_VENCE']);
     USUARIOS       = (usuariosRes && usuariosRes.data) || [];
+    CHECKLISTS     = normalizarHoras(normalizarFechas((checklistRes && checklistRes.data) || [], ['FECHA']), ['HORA_SALIDA','HORA_ENTRADA']);
 
     ESTADOS_VEHICULO = await Promise.all(
         FLOTA.map(c => DB.obtenerEstadoCarroza(c.placa).catch(()=>({ok:false})))
     );
 }
 
-// Lista de conductores real y única, tomada de la hoja "usuarios",
-// filtrando solo las filas cuyo rol sea exactamente "conductor".
-// Esta es la ÚNICA fuente de verdad para "quién es conductor" —
-// no se infiere de nombres sueltos escritos en Traslados/Averías,
-// que pueden tener errores de tipeo, mayúsculas distintas, etc.
 function obtenerConductoresUnicos(){
     const nombres = USUARIOS
         .filter(u => String(u.rol||'').trim().toLowerCase() === 'conductor')
@@ -855,10 +915,6 @@ function obtenerConductoresUnicos(){
     return [...new Set(nombres)].sort((a,b)=> a.localeCompare(b));
 }
 
-// Lista de formas de pago única y real, tomada directamente de los tanqueos
-// ya cargados (columna FORMA_PAGO en la hoja "Tanqueo"). Se toma de los datos
-// en vez de hardcodear "Efectivo"/"Crédito" para no depender de cómo esté
-// escrito exactamente en la hoja.
 function obtenerFormasPagoUnicas(){
     const valores = TANQUEOS
         .map(t => String(t.FORMA_PAGO || '').trim())
@@ -866,7 +922,6 @@ function obtenerFormasPagoUnicas(){
     return [...new Set(valores)].sort((a,b)=> a.localeCompare(b));
 }
 
-/* ── Última inspección registrada por placa (para cruzar SOAT/Tecnomecánica/Póliza) ── */
 function ultimaInspeccionPorPlaca(placa){
     const pSel = String(placa||'').replace(/[^A-Z0-9]/gi,'').toUpperCase();
     const propias = INSPECCIONES.filter(i => String(i.PLACA||'').replace(/[^A-Z0-9]/gi,'').toUpperCase() === pSel);
@@ -875,11 +930,6 @@ function ultimaInspeccionPorPlaca(placa){
     return propias[0];
 }
 
-/* ==========================================================================
-   DOCUMENTACIÓN — el documento más próximo a vencer de cada carroza,
-   combinando la hoja "carrozas" (doc_tipo_proximo_vencer / doc_fecha_proximo_vencer)
-   con la última inspección vehicular (SOAT / Tecnomecánica / Póliza Todo Riesgo).
-   ========================================================================== */
 function documentoMasUrgente(carroza){
     const candidatos = [];
 
@@ -915,10 +965,6 @@ function documentoMasUrgente(carroza){
     return candidatos[0];
 }
 
-/* ==========================================================================
-   AVERÍAS EN CURSO — según hallazgo/historial de la hoja "carrozas"
-   (Parque Automotor), no la hoja "Averias" del formulario de conductores.
-   ========================================================================== */
 function averiaActivaDeCarroza(carroza){
     const estadoHallazgo = normEstado(carroza.ultimo_hallazgo_estado);
     const tieneHallazgoAbierto = !!(carroza.ultimo_hallazgo_clasificacion || carroza.ultimo_hallazgo_detalle) && estadoHallazgo !== 'ejecutado';
@@ -978,14 +1024,16 @@ function calcularKPIs(){
     const aceiteProximo  = ESTADOS_VEHICULO.filter(e => e.ok && e.estado_aceite && e.estado_aceite.emoji==='🟡').length;
     const tanqueBajo     = ESTADOS_VEHICULO.filter(e => e.ok && e.nivel_combustible==='🔴').length;
 
+    const novedadesChecklist = checklistsConNovedad().length;
+
     return {
         total, disponibles, enServicio, enTaller,
         averiasActivas: averiasActivasFlota.length, mantProgramado: documentosUrgentes.length,
         trasladosHoy, trasladosMes,
         combustibleHoy, combustibleMes, gastoCombustibleHoy, gastoCombustibleMes,
         kmTotal, kmPromedio, rendimientoProm, valorMantenimiento,
-        aceiteVencido, aceiteProximo, tanqueBajo,
-        alertasCriticas: averiasActivasFlota.length + documentosUrgentes.filter(x=>x.doc.dias<0).length + aceiteVencido + tanqueBajo,
+        aceiteVencido, aceiteProximo, tanqueBajo, novedadesChecklist,
+        alertasCriticas: averiasActivasFlota.length + documentosUrgentes.filter(x=>x.doc.dias<0).length + aceiteVencido + tanqueBajo + novedadesChecklist,
     };
 }
 
@@ -1026,6 +1074,7 @@ const KPI_DEFS = (k)=>{
         {key:'enServicio', label:'En servicio', value:k.enServicio, icon:'🛣️', trend:tT},
         {key:'enTaller', label:'En taller', value:k.enTaller, icon:'🔧', trend:flat},
         {key:'averiasActivas', label:'Averías activas', value:k.averiasActivas, icon:'⚠️', trend:flat},
+        {key:'novedadesChecklist', label:'Novedades en checklist', value:k.novedadesChecklist, icon:'📝', trend:flat},
         {key:'mantProgramado', label:'Documentos por vencer (≤30d)', value:k.mantProgramado, icon:'🗓️', trend:flat},
         {key:'trasladosHoy', label:'Traslados hoy', value:k.trasladosHoy, icon:'🏁', trend:tT},
         {key:'trasladosMes', label:'Traslados del mes', value:k.trasladosMes, icon:'📅', trend:tT},
@@ -1081,6 +1130,8 @@ function renderControlCenter(kpis){
     const badgeAverias = document.getElementById('badge-averias');
     if (kpis.averiasActivas > 0) { badgeAverias.style.display='flex'; badgeAverias.innerText = kpis.averiasActivas; }
     else { badgeAverias.style.display='none'; }
+
+    actualizarBadgeChecklist();
 }
 
 /* ==========================================================================
@@ -1199,7 +1250,6 @@ function setupChartTabs(){
    LISTAS DE MONITOREO (averías, traslados, tanqueos, documentación)
    ========================================================================== */
 function renderListas(){
-    // Averías en curso — desde la hoja "carrozas" (Parque Automotor)
     const averiasActivas = FLOTA.map(averiaActivaDeCarroza).filter(Boolean)
         .sort((a,b)=> (diasHasta(b.fecha)||-9999) - (diasHasta(a.fecha)||-9999))
         .slice(0,6);
@@ -1209,7 +1259,8 @@ function renderListas(){
         <td style="text-align:right; font-size:11px;">${av.fecha || '—'}<br><small style="color:var(--gris);">${av.pendiente ? 'Pendiente' : (av.estadoHallazgo||'')}</small></td></tr>`).join('')
         : '<tr><td style="text-align:center;">Sin averías reportadas en el parque automotor.</td></tr>';
 
-    // Traslados recientes
+    renderTablaChecklist();
+
     const trasladosRec = [...TRASLADOS].sort((a,b)=>(parseDDMMAAAA(b.fecha)||0)-(parseDDMMAAAA(a.fecha)||0)).slice(0,4);
     const tTr = document.getElementById('tabla-traslados');
     tTr.innerHTML = trasladosRec.length ? trasladosRec.map(tr => `
@@ -1217,7 +1268,6 @@ function renderListas(){
         <td style="text-align:right; font-size:11px;">${tr.origen||'—'} ➔ ${tr.destino||'—'}</td></tr>`).join('')
         : '<tr><td style="text-align:center;">Sin traslados recientes.</td></tr>';
 
-    // Tanqueos recientes
     const tanqueosRec = [...TANQUEOS].sort((a,b)=>(parseDDMMAAAA(b.FECHA)||0)-(parseDDMMAAAA(a.FECHA)||0)).slice(0,4);
     const tTq = document.getElementById('tabla-tanqueos');
     tTq.innerHTML = tanqueosRec.length ? tanqueosRec.map(tq => `
@@ -1225,7 +1275,6 @@ function renderListas(){
         <td style="text-align:right;"><b>${tq.GALONES||0} gal</b><br><small style="color:#64748b;">${fmtCOP(tq.VALOR_TOTAL)}</small></td></tr>`).join('')
         : '<tr><td style="text-align:center;">Sin tanqueos registrados.</td></tr>';
 
-    // Documentación / mantenimientos pendientes — doc_fecha_proximo_vencer + Inspeccion_Vehiculo
     const docsUrgentes = FLOTA.map(c => ({placa: c.placa, doc: documentoMasUrgente(c)}))
         .filter(x => x.doc && x.doc.dias !== null)
         .sort((a,b)=> a.doc.dias - b.doc.dias)
@@ -1252,8 +1301,6 @@ function fuelPillFromEstado(est){
     </div>`;
 }
 
-// Cuenta cuántos traslados tiene registrados una placa — sirve como métrica
-// de "qué tan movida" es esa carroza dentro de la operación.
 function contarMovimientos(placa){
     const pSel = String(placa||'').toUpperCase();
     return TRASLADOS.filter(t => String(t.placa||'').toUpperCase() === pSel).length;
@@ -1267,7 +1314,6 @@ function renderFlota(filtro){
     let filas = FLOTA.map((c, i) => ({ c, est: ESTADOS_VEHICULO[i] || {} }))
         .filter(({c}) => !filtro || norm(c.placa).includes(filtro) || norm(c.regional).includes(filtro) || norm(c.estado).includes(filtro));
 
-    // Orden por actividad: las carrozas con más traslados registrados primero.
     filas = filas
         .map(f => ({...f, movimientos: contarMovimientos(f.c.placa)}))
         .sort((a,b)=> b.movimientos - a.movimientos);
@@ -1279,8 +1325,6 @@ function renderFlota(filtro){
     }
 
     const haySearch = !!filtro;
-    // Con búsqueda activa se muestran todos los resultados que coinciden;
-    // sin búsqueda, se respeta el estado expandido/colapsado (top 10 por defecto).
     const mostrarTodas = fleetExpanded || haySearch;
     const filasAMostrar = mostrarTodas ? filas : filas.slice(0, 10);
 
@@ -1304,7 +1348,6 @@ function renderFlota(filtro){
     }
 }
 
-// Alterna entre ver el top 10 de carrozas más movidas y la lista completa.
 function toggleFlotaExpandida(){
     fleetExpanded = !fleetExpanded;
     renderFlota(document.getElementById('fleetSearch').value);
@@ -1347,6 +1390,7 @@ function mostrarDetalleKPI(key, label){
             break;
         }
         case 'averiasActivas': cerrarModalYAbrir(()=>mostrarAverias()); return;
+        case 'novedadesChecklist': cerrarModalYAbrir(()=>mostrarNovedadesChecklist()); return;
         case 'mantProgramado': cerrarModalYAbrir(()=>mostrarDocumentacion()); return;
         case 'valorMantenimiento': cerrarModalYAbrir(()=>mostrarMantenimientos()); return;
         case 'trasladosHoy': {
@@ -1433,6 +1477,9 @@ async function abrirPanelCarroza(placa){
         .sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0)).slice(0,6);
     const mantVeh = MANTENIMIENTOS.filter(m => String(m.placa||'').toUpperCase() === placa.toUpperCase())
         .sort((a,b)=> String(b.fecha||'').localeCompare(String(a.fecha||''))).slice(0,6);
+    const checklistVeh = checklistsConNovedad()
+        .filter(x => String(x.registro.PLACA||'').toUpperCase() === placa.toUpperCase())
+        .slice(0,6);
 
     const averiaParque = carroza ? averiaActivaDeCarroza(carroza) : null;
     const docUrgente = carroza ? documentoMasUrgente(carroza) : null;
@@ -1462,6 +1509,10 @@ async function abrirPanelCarroza(placa){
         <div class="vm-chart-card"><h4>Km recorridos</h4><div class="chart-box"><canvas id="vmChartKm"></canvas></div></div>
         <div class="vm-chart-card"><h4>Rendimiento Km/Galón</h4><div class="chart-box"><canvas id="vmChartRend"></canvas></div></div>
 
+        <div class="vm-section">
+            <h4>Novedades en checklist de entrega</h4>
+            ${checklistVeh.length ? `<ul class="vm-list">${checklistVeh.map(({registro, novedades})=>`<li><span>${registro.FECHA||'—'} · ${novedades.map(n=>n.campo+': '+n.valor).join(', ')}</span><span>${registro.CONDUCTOR||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin novedades en checklists de entrega.</div>'}
+        </div>
         <div class="vm-section">
             <h4>Últimos traslados</h4>
             ${trasladosVeh.length ? `<ul class="vm-list">${trasladosVeh.map(t=>`<li><span>${t.fecha}${t.hora_de_salida ? ' · '+fmtHoraCorta(t.hora_de_salida) : ''} · ${t.origen||'—'} → ${t.destino||'—'}</span><span>${t.conductor||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin traslados registrados.</div>'}
@@ -1500,13 +1551,11 @@ function cerrarPanelCarroza(){
     document.getElementById('veh-sheet').classList.remove('visible');
 }
 
-/* ---------- Scroll suave a una sección que ya existe en este mismo panel ---------- */
 function irASeccion(id){
     const el = document.getElementById(id);
     if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
-/* ---------- Modal genérico (reutiliza el overlay/push-notif para listados completos) ---------- */
 function abrirModalLista(titulo, subtitulo, filasHtml){
     document.getElementById('push-titulo-txt').textContent = titulo;
     let html = '';
@@ -1517,7 +1566,6 @@ function abrirModalLista(titulo, subtitulo, filasHtml){
     document.getElementById('push-notif').classList.add('visible');
 }
 
-/* ---------- Traslados a nivel nacional (listado completo, no el formulario de llegada) ---------- */
 function mostrarTraslados(){
     const total = TRASLADOS.length;
     const cap = 150;
@@ -1538,7 +1586,6 @@ function mostrarTraslados(){
     abrirModalLista('Traslados a Nivel Nacional', `${total} traslado(s) registrados${total > cap ? ` · mostrando los ${cap} más recientes` : ''}`, filas);
 }
 
-/* ---------- Tanqueos — listado completo, no el formulario de registro ---------- */
 function mostrarTanqueos(){
     const total = TANQUEOS.length;
     const cap = 150;
@@ -1559,7 +1606,6 @@ function mostrarTanqueos(){
     abrirModalLista('Tanqueos Registrados', `${total} tanqueo(s) registrados${total > cap ? ` · mostrando los ${cap} más recientes` : ''}`, filas);
 }
 
-/* ---------- Órdenes de Mantenimiento (hoja "mantenimientos") ---------- */
 function mostrarMantenimientos(){
     const total = MANTENIMIENTOS.length;
     const cap = 150;
@@ -1580,7 +1626,6 @@ function mostrarMantenimientos(){
     abrirModalLista('Órdenes de Mantenimiento', `${total} orden(es) registrada(s)${total > cap ? ` · mostrando las ${cap} más recientes` : ''}`, filas);
 }
 
-/* ---------- Documentación — SOAT / Tecnomecánica / Póliza / doc próximo a vencer ---------- */
 function mostrarDocumentacion(){
     const docs = FLOTA.map(c => ({placa: c.placa, doc: documentoMasUrgente(c)}))
         .filter(x => x.doc && x.doc.dias !== null)
@@ -1601,11 +1646,6 @@ function mostrarDocumentacion(){
     abrirModalLista('Documentación por Vencer', `${docs.length} documento(s) con fecha registrada`, filas);
 }
 
-/* ---------- Conductores — listado desde la hoja "usuarios" (rol = conductor) ----------
-   Antes esta tarjeta enlazaba a "conductores.html", una página que no existe
-   en el sitio publicado (daba 404). En su lugar, se abre este modal con los
-   conductores reales tomados de la hoja "usuarios", la misma fuente que usa
-   el filtro de conductor en Exportar Reportes. ---------- */
 function mostrarConductores(){
     const conductores = USUARIOS
         .filter(u => String(u.rol||'').trim().toLowerCase() === 'conductor')
@@ -1628,10 +1668,6 @@ function mostrarConductores(){
     abrirModalLista('Conductores', `${conductores.length} conductor(es) registrado(s)`, filas);
 }
 
-/* ---------- Averías de TODA la flota (no solo las del usuario logueado) ----------
-   La página "mis_averias.html" es del conductor y solo muestra lo que reportó
-   ese usuario. Esta vista, en cambio, lista las averías/novedades activas de
-   TODAS las carrozas, tomadas de la hoja "carrozas" (Parque Automotor). ---------- */
 function mostrarAverias(){
     const averiasParque = FLOTA.map(averiaActivaDeCarroza).filter(Boolean)
         .sort((a,b)=> (diasHasta(b.fecha)||-9999) - (diasHasta(a.fecha)||-9999));
@@ -1658,7 +1694,6 @@ function mostrarAverias(){
     document.getElementById('push-notif').classList.add('visible');
 }
 
-/* ---------- Alertas (push-notif) ---------- */
 function mostrarAlertas(){
     document.getElementById('push-titulo-txt').textContent = 'Alertas Críticas';
     const averiasParque = FLOTA.map(averiaActivaDeCarroza).filter(Boolean);
@@ -1668,10 +1703,14 @@ function mostrarAlertas(){
         .filter(x => x.doc && x.doc.dias !== null && x.doc.dias >= 0 && x.doc.dias <= 15);
     const aceite = ESTADOS_VEHICULO.filter(e => e.ok && e.estado_aceite && e.estado_aceite.emoji==='🔴');
     const tanqueBajo = ESTADOS_VEHICULO.filter(e => e.ok && e.nivel_combustible==='🔴');
+    const novedadesChecklist = checklistsConNovedad();
 
     let html = '';
     if(averiasParque.length){
         html += `<div class="push-alert-section"><h4>Averías / novedades activas (${averiasParque.length})</h4><ul>${averiasParque.map(a=>`<li><b>${a.placa}</b> — ${a.clasificacion}</li>`).join('')}</ul></div>`;
+    }
+    if(novedadesChecklist.length){
+        html += `<div class="push-alert-section"><h4>Novedades en checklist de entrega (${novedadesChecklist.length})</h4><ul>${novedadesChecklist.map(({registro, novedades})=>`<li><b>${registro.PLACA||'—'}</b> — ${novedades.map(n=>n.campo+': '+n.valor).join(', ')}</li>`).join('')}</ul></div>`;
     }
     if(docsVencidos.length){
         html += `<div class="push-alert-section"><h4>Documentos vencidos (${docsVencidos.length})</h4><ul>${docsVencidos.map(x=>`<li><b>${x.placa}</b> — ${x.doc.tipo} (venció hace ${Math.abs(x.doc.dias)}d)</li>`).join('')}</ul></div>`;
@@ -1685,7 +1724,7 @@ function mostrarAlertas(){
     if(tanqueBajo.length){
         html += `<div class="push-alert-section"><h4>Tanque en nivel bajo (${tanqueBajo.length})</h4><ul>${tanqueBajo.map(e=>`<li><b>${e.placa}</b></li>`).join('')}</ul></div>`;
     }
-    if(!averiasParque.length && !docsVencidos.length && !docsProximos.length && !aceite.length && !tanqueBajo.length){
+    if(!averiasParque.length && !docsVencidos.length && !docsProximos.length && !aceite.length && !tanqueBajo.length && !novedadesChecklist.length){
         html = '<div class="push-empty-alert">No hay alertas críticas en este momento. ✅</div>';
     }
 
@@ -1699,10 +1738,7 @@ function cerrarPush(){
 }
 
 /* ==========================================================================
-   FILTROS DE EXPORTACIÓN — selects poblados con placas, regionales,
-   conductores y formas de pago reales tomados de los datos ya cargados,
-   más el rango de fechas (Desde/Hasta) que aplica sobre la fecha de cada
-   registro.
+   FILTROS DE EXPORTACIÓN
    ========================================================================== */
 function poblarFiltrosExport(){
     const selPlaca = document.getElementById('exportPlacaFiltro');
@@ -1711,8 +1747,6 @@ function poblarFiltrosExport(){
     const selFormaPago = document.getElementById('exportFormaPagoFiltro');
     if(!selPlaca || !selRegional || !selConductor || !selFormaPago) return;
 
-    // Guardamos la selección actual para intentar conservarla tras repoblar
-    // (el panel se refresca solo cada 60s).
     const valPlacaPrev = selPlaca.value, valRegionalPrev = selRegional.value, valConductorPrev = selConductor.value, valFormaPagoPrev = selFormaPago.value;
 
     const placas = [...new Set(FLOTA.map(c => c.placa).filter(Boolean))].sort();
@@ -1731,8 +1765,6 @@ function poblarFiltrosExport(){
     if(formasPago.includes(valFormaPagoPrev)) selFormaPago.value = valFormaPagoPrev;
 }
 
-// Limita el input "Hasta" para que no permita una fecha anterior a "Desde"
-// (y viceversa), evitando rangos invertidos por error de tecleo.
 function setupExportDateInputs(){
     const desde = document.getElementById('exportFechaDesde');
     const hasta = document.getElementById('exportFechaHasta');
@@ -1747,9 +1779,6 @@ function limpiarFechasExport(){
     if(hasta){ hasta.value = ''; hasta.min = ''; }
 }
 
-// Muestra el filtro de "Forma de pago" únicamente cuando el dataset elegido
-// para exportar es "Tanqueos" (es el único dataset que tiene esa columna).
-// El resto del tiempo permanece oculto y su valor se ignora.
 function actualizarVisibilidadFormaPago(){
     const dataset = document.getElementById('exportDataset').value;
     const selFormaPago = document.getElementById('exportFormaPagoFiltro');
@@ -1771,20 +1800,12 @@ function setupExportDatasetToggle(){
 /* ==========================================================================
    EXPORTAR REPORTES — CSV y Excel, respetando el filtro de la flota
    ========================================================================== */
-// Mapa placa -> regional, para poder filtrar por regional incluso en datasets
-// (tanqueos, mantenimientos, averías) que no guardan la regional directamente.
 function regionalDePlaca(placa){
     const target = normPlaca(placa);
     const c = FLOTA.find(c => normPlaca(c.placa) === target);
     return c ? (c.regional || '') : '';
 }
 
-// Filtros activos leídos de los selects + rango de fechas de la sección
-// Exportar Reportes. Se devuelven sin normalizar aquí: la normalización
-// correcta (normPlaca para placa, norm para regional/conductor/forma de pago)
-// se aplica dentro de pasaFiltrosExport, comparando ambos lados de la misma
-// forma. fechaDesde/fechaHasta llegan en formato yyyy-mm-dd (tal cual entrega
-// <input type="date">) o cadena vacía si no se estableció límite.
 function leerFiltrosExport(){
     return {
         placa: document.getElementById('exportPlacaFiltro').value || '',
@@ -1795,13 +1816,6 @@ function leerFiltrosExport(){
         fechaHasta: document.getElementById('exportFechaHasta').value || '',
     };
 }
-// aplicables: qué filtros tienen sentido para este dataset (si un filtro no es
-// aplicable, se ignora en vez de excluir todas las filas).
-// La placa se compara normalizada (normPlaca) porque la misma placa puede estar
-// escrita distinto entre hojas (ej. "BRZ 208" en carrozas vs "BRZ208" en
-// Tanqueo/Traslado/Averias) — comparar el texto tal cual hacía que el filtro
-// fallara aunque sí hubiera datos para esa carroza. El rango de fechas usa
-// fechaDentroDeRango, que ya sabe interpretar dd/mm/aaaa, ISO o Date.
 function pasaFiltrosExport({placa, regional, conductor, formaPago, fecha}, aplicables, f){
     if(aplicables.placa && f.placa && normPlaca(placa) !== normPlaca(f.placa)) return false;
     if(aplicables.regional && f.regional && !norm(regional).includes(norm(f.regional))) return false;
@@ -1812,9 +1826,6 @@ function pasaFiltrosExport({placa, regional, conductor, formaPago, fecha}, aplic
 }
 
 function datasetFlotaExport(){
-    // "Flota" es una foto del estado actual de cada carroza (no una lista de
-    // eventos con fecha propia), así que el filtro de rango de fechas y el de
-    // forma de pago no aplican aquí — solo búsqueda de la lista, placa y regional.
     const filtroLista = norm(document.getElementById('fleetSearch').value || '');
     const f = leerFiltrosExport();
     const aplicables = {placa:true, regional:true, conductor:false, formaPago:false, fecha:false};
@@ -1864,7 +1875,6 @@ function datasetAverias(){
     const f = leerFiltrosExport();
     const aplicablesParque = {placa:true, regional:true, conductor:false, formaPago:false, fecha:true};
     const aplicablesFormulario = {placa:true, regional:true, conductor:true, formaPago:false, fecha:true};
-    // Averías del Parque Automotor (hoja "carrozas") + hoja "Averias" del formulario de conductores
     const deParque = FLOTA.map(averiaActivaDeCarroza).filter(Boolean)
         .filter(a => pasaFiltrosExport({placa:a.placa, regional: regionalDePlaca(a.placa), conductor:'', formaPago:'', fecha:a.fecha}, aplicablesParque, f))
         .map(a => ({
@@ -1884,7 +1894,6 @@ function datasetAverias(){
 function datasetMantenimientos(){
     const f = leerFiltrosExport();
     const aplicables = {placa:true, regional:true, conductor:false, formaPago:false, fecha:true};
-    // Documentación por vencer (SOAT/Tecnomecánica/Póliza + doc_fecha_proximo_vencer) + hoja "mantenimientos"
     const documentos = FLOTA.map(c => ({placa:c.placa, doc: documentoMasUrgente(c)}))
         .filter(x => x.doc)
         .filter(x => pasaFiltrosExport({placa:x.placa, regional: regionalDePlaca(x.placa), conductor:'', formaPago:'', fecha:x.doc.fecha}, aplicables, f))
