@@ -175,6 +175,11 @@
             background: #eef5ff; border: 1.5px dashed #90caf9; border-radius: 12px;
             padding: 10px 12px; font-size: 11px; color: #004a99; margin-bottom: 14px; font-weight: 600;
         }
+        .checklist-info-servicio {
+            background: #f8fbff; border: 1.5px solid var(--azul-cielo); border-radius: 12px;
+            padding: 10px 12px; font-size: 12px; color: var(--azul); margin-bottom: 14px; font-weight: 700;
+            display: flex; align-items: center; gap: 8px;
+        }
         #canvas-chk { border: 2px dashed var(--azul-cielo); border-radius: 12px; width: 100%; height: 110px; background: #fff; touch-action: none; }
     </style>
 </head>
@@ -391,23 +396,22 @@
 
             <div id="checklist-previo-aviso" class="checklist-aviso-previo" style="display:none;"></div>
 
+            <!-- 🆕 El "Tipo de Servicio" ya NO se pregunta aparte: se toma
+                 automáticamente del mismo "Motivo Salida" elegido arriba en
+                 el formulario principal (motivo_de_salida), para que quede
+                 registrado igual en ambas hojas (Traslados y Checklist_Salida). -->
+            <div class="checklist-info-servicio" id="checklist-info-servicio">
+                🧾 Tipo de Servicio: <span id="checklist-motivo-mostrado">—</span>
+            </div>
+
             <div class="section-title" style="margin-top:0;">Estado General</div>
-            <div class="grid-2">
-                <div>
-                    <label>Tipo de Servicio</label>
-                    <select id="chk_tipo_servicio">
-                        <option value="Salida">Salida</option>
-                        <option value="Entrada">Entrada</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Estado del Vehículo</label>
-                    <select id="chk_estado_vehiculo">
-                        <option value="Bueno">Bueno</option>
-                        <option value="Regular">Regular</option>
-                        <option value="Malo">Malo</option>
-                    </select>
-                </div>
+            <div>
+                <label>Estado del Vehículo</label>
+                <select id="chk_estado_vehiculo">
+                    <option value="Bueno">Bueno</option>
+                    <option value="Regular">Regular</option>
+                    <option value="Malo">Malo</option>
+                </select>
             </div>
 
             <div class="section-title">Sistemas y Niveles</div>
@@ -1233,7 +1237,9 @@
 
     // Restaura los selects del modal a sus valores por defecto
     function resetearFormChecklist() {
-        document.getElementById('chk_tipo_servicio').value  = 'Salida';
+        // 🆕 "Tipo de Servicio" ya no se resetea como select independiente:
+        // se muestra (solo lectura) igual al Motivo Salida del formulario
+        // principal — ver actualizarMotivoMostradoChecklist().
         document.getElementById('chk_estado_vehiculo').value = 'Bueno';
         document.getElementById('chk_luces').value    = 'Bueno';
         document.getElementById('chk_frenos').value   = 'Bueno';
@@ -1253,11 +1259,22 @@
         borrarFirmaChk();
     }
 
+    // 🆕 Muestra en el modal, en modo solo lectura, el mismo Motivo Salida
+    // elegido en el formulario principal — es lo que se guardará como
+    // TIPO_DE_SERVICIO en la hoja Checklist_Salida, para que quede
+    // registrado igual que motivo_de_salida en la hoja de Traslados.
+    function actualizarMotivoMostradoChecklist() {
+        const motivo = document.getElementById('motivo').value || '—';
+        const span = document.getElementById('checklist-motivo-mostrado');
+        if (span) span.textContent = motivo;
+    }
+
     async function abrirChecklist() {
         if (!checklistPlacaActual) { Swal.fire('Selecciona una placa', 'Primero elige la carroza para hacer el checklist.', 'info'); return; }
 
         document.getElementById('modal-checklist-titulo').textContent = '📋 Checklist — ' + checklistPlacaActual;
         resetearFormChecklist();
+        actualizarMotivoMostradoChecklist();
         document.getElementById('checklist-previo-aviso').style.display = 'none';
 
         document.getElementById('modal-checklist-overlay').classList.add('visible');
@@ -1337,15 +1354,24 @@
         const ahora = new Date();
         const horaActual = ahora.getHours().toString().padStart(2,'0') + ':' + ahora.getMinutes().toString().padStart(2,'0');
 
+        // 🆕 CAMBIOS SOLICITADOS:
+        // 1) TIPO_DE_SERVICIO ahora guarda lo mismo que motivo_de_salida
+        //    (el select "Motivo Salida" del formulario principal), en vez
+        //    del antiguo "Salida"/"Entrada", para que quede registrado
+        //    igual en la hoja de Traslados y en Checklist_Salida.
+        //    Como este formulario es siempre de Registro de Salida, la
+        //    hora se guarda en HORA_SALIDA (HORA_ENTRADA queda vacía).
+        // 2) Se elimina la columna duplicada CARROZA: solo se envía PLACA.
+        const motivoSalida = document.getElementById('motivo').value;
+
         const payload = {
             FECHA:  fechaHoyStr(),
             PLACA:  checklistPlacaActual,
-            CARROZA: checklistPlacaActual,
             REGIONAL: document.getElementById('regional').value,
             CONDUCTOR: sesionUser.nombre || document.getElementById('conductor').value,
-            TIPO_DE_SERVICIO: document.getElementById('chk_tipo_servicio').value,
-            HORA_SALIDA: document.getElementById('chk_tipo_servicio').value === 'Salida' ? horaActual : '',
-            HORA_ENTRADA: document.getElementById('chk_tipo_servicio').value === 'Entrada' ? horaActual : '',
+            TIPO_DE_SERVICIO: motivoSalida,
+            HORA_SALIDA: horaActual,
+            HORA_ENTRADA: '',
             KM_SALIDA: document.getElementById('km_s').value || '',
             KM_ENTRADA: '',
             KM_RECORRIDOS: '',
