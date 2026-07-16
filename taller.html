@@ -399,6 +399,13 @@
     // ── BUSCAR LA ULTIMA INSPECCION QUE TENGA UN PROXIMO CAMBIO GUARDADO
     // (sirve como respaldo cuando la carroza nunca tuvo un "Cambio de Aceite"
     // registrado formalmente, pero ya se definio manualmente en una inspeccion previa)
+    //
+    // CORREGIDO: el wrapper DB.supabase (GASQueryBuilder en db.js) NO
+    // implementa el metodo .gt(), solo .eq()/.is()/.ilike()/.order()/.limit().
+    // Antes se encadenaba .eq(...).eq(...).gt(...) y explotaba con
+    // "DB.supabase.from(...).select(...).eq(...).eq(...).gt is not a function".
+    // Ahora se trae el listado (ya filtrado por placa + estado_orden) y el
+    // filtro de "km_proximo_cambio > 0" se hace en JS del lado del cliente.
     async function buscarUltimaInspeccionConProximo(placa) {
         try {
             var res = await DB.supabase
@@ -406,10 +413,15 @@
                 .select('km_proximo_cambio, kilometraje_servicio, fecha')
                 .eq('placa', placa)
                 .eq('estado_orden', 'inspeccion')
-                .gt('km_proximo_cambio', 0)
                 .order('fecha', { ascending: false })
-                .limit(1);
-            if (res.data && res.data.length > 0) return res.data[0];
+                .limit(20);
+
+            if (res.data && res.data.length > 0) {
+                var conProximo = res.data.filter(function(r) {
+                    return Number(r.km_proximo_cambio) > 0;
+                });
+                if (conProximo.length > 0) return conProximo[0];
+            }
             return null;
         } catch(e) {
             console.error('Error buscando inspeccion con proximo cambio:', e);
@@ -553,11 +565,20 @@
             }
         }
 
+        // CORREGIDO: tipo_servicio ahora se guarda como 'Cambio de Aceite'
+        // (antes era 'Inspeccion KM'). El modal de "Registro de Salida"
+        // calcula el estado de aceite en db.js -> obtenerEstadoCarroza()
+        // filtrando filas de "mantenimientos" con /aceite/i.test(tipo_servicio),
+        // asi que una inspeccion guardada como 'Inspeccion KM' nunca entraba
+        // a ese calculo aunque ya trajera km_proximo_cambio. El campo
+        // estado_orden se mantiene en 'inspeccion' para que el historial de
+        // esta misma pantalla la siga distinguiendo de un cambio de aceite
+        // real hecho en taller (badge INSPECCION vs CERRADA).
         var registro = {
             id:                   'I-' + Date.now(),
             placa:                placa,
             fecha:                fecha,
-            tipo_servicio:        'Inspeccion KM',
+            tipo_servicio:        'Cambio de Aceite',
             kilometraje_servicio: km,
             costo:                0,
             taller:               '-',
@@ -925,6 +946,13 @@
                 else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
                 else if (tipo.includes('nspec'))  cls = 'tp-inspeccion';
                 else if (tipo.includes('veria'))  cls = 'tp-averia';
+
+                // Si es una inspeccion (estado_orden === 'inspeccion'), el pill
+                // de tipo se mantiene visualmente como inspeccion aunque el
+                // tipo_servicio guardado ahora sea 'Cambio de Aceite', para no
+                // perder la distincion visual frente a un cambio de aceite
+                // real hecho en taller.
+                if (m.estado_orden === 'inspeccion') cls = 'tp-inspeccion';
 
                 var kmServNum = parseInt(m.kilometraje_servicio) || 0;
                 var kmProxNum = parseInt(m.km_proximo_cambio)    || 0;
