@@ -1,8 +1,40 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.8
+ *  CONECTOR J.R. CARROZAS — db.js  v12.10
  *
- *  🆕 CAMBIOS v12.8 (alimentar Checklist_Salida desde Llegadas):
+ *  🆕 CAMBIOS v12.10 (Averías Recientes — corrección de fuente):
+ *
+ *  Antes, el panel de "Averías Recientes" del dashboard leía de la
+ *  hoja "Averias" (los reportes creados desde el formulario de
+ *  Avería), pero esa hoja no reflejaba el estado real y actualizado
+ *  del parque automotor, así que el panel aparecía vacío.
+ *
+ *  Se agrega obtenerAveriasDesdeFlota(), que lee la hoja "carrozas" y
+ *  toma todas las filas cuyo campo estado_parque_automotor indique
+ *  una novedad (cualquier valor que no sea "Disponible"/"Operativo"/
+ *  vacío — ver ESTADOS_SIN_NOVEDAD). El detalle de cada novedad
+ *  (descripción, taller, fecha) se toma de las columnas historial_*
+ *  que ya vienen en esa MISMA fila de "carrozas":
+ *      - historial_novedad_completa → detalle de la última novedad
+ *      - historial_taller_nombre    → taller donde está/estuvo
+ *      - historial_fecha            → fecha de esa actualización
+ *      - sede_parque_automotor      → sede donde está la carroza
+ *      - dias_en_taller_parque      → días que lleva en taller
+ *
+ *  (En un intento anterior se asumió por error que
+ *  "historial_novedad_completa" era una hoja aparte que había que
+ *  cruzar por placa — en realidad siempre fue una columna más de
+ *  "carrozas", así que no hace falta ningún cruce entre hojas.)
+ *
+ *  dashboard.html llama a DB.obtenerAveriasDesdeFlota() en vez de
+ *  DB.obtenerTodasAverias() para pintar "Averías Recientes".
+ *  DB.obtenerTodasAverias() se conserva intacta (sigue leyendo de la
+ *  hoja "Averias") por si otra pantalla la sigue usando.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.8 — nada de lo que ya
+ *   funcionaba fue tocado.)
+ *
+ *  ── Historial v12.8 (alimentar Checklist_Salida desde Llegadas) ──
  *
  *  Ahora, al guardar una Llegada, el sistema busca automáticamente
  *  el registro de "Checklist_Salida" de esa misma placa que quedó
@@ -25,9 +57,6 @@
  *  pantalla lo pueda mostrar como aviso no crítico.
  *
  *  Nueva hoja registrada en SHEET_MAP: 'Checklist_Salida'.
- *
- *  (Se conserva íntegro todo lo demás de v12.7 — nada de lo que ya
- *   funcionaba fue tocado.)
  *
  *  ── Historial v12.7 (anti-duplicados en SALIDA y LLEGADA) ──
  *
@@ -137,7 +166,7 @@ const SHEET_MAP = {
   'config':               'config',
   'Tanqueo':              'Tanqueo',
   'Inspeccion_Vehiculo':  'Inspeccion_Vehiculo',
-  'Checklist_Salida':     'Checklist_Salida', // 🆕 v12.8
+  'Checklist_Salida':     'Checklist_Salida',
 };
 
 function resolveSheet(name) { return SHEET_MAP[name] || name; }
@@ -147,6 +176,19 @@ function fechaHoy() {
   return h.getDate().toString().padStart(2,'0') + '/' +
          (h.getMonth()+1).toString().padStart(2,'0') + '/' +
          h.getFullYear();
+}
+
+// ── NORMALIZADOR DE TEXTO GENÉRICO (usado para comparar placas y
+//    nombres de columna sin depender de mayúsculas, tildes o
+//    guiones/espacios) ──────────────────────────────────────────
+function normTexto(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+function normClave(s) {
+  return normTexto(s).replace(/[^a-z0-9]/g, '');
 }
 
 // ── CLAVE DE ORDEN CRONOLÓGICO REAL ───────────────────────
@@ -451,6 +493,27 @@ async function buscarChecklistAbiertoPorPlaca(placa) {
 }
 
 // ══════════════════════════════════════════════════════════
+// 🆕 v12.10 — AVERÍAS RECIENTES DESDE "carrozas"
+// ══════════════════════════════════════════════════════════
+// La hoja "carrozas" ya trae, en la MISMA fila de cada placa, todo lo
+// necesario para pintar el panel de Averías Recientes:
+//   - estado_parque_automotor   → OPERATIVO / TALLER / PINTURA /
+//                                  NOVEDAD / PROCESO DE VENTA / (vacío)
+//   - historial_novedad_completa → detalle de la última novedad
+//   - historial_taller_nombre    → taller donde está / estuvo
+//   - historial_fecha            → fecha de esa última actualización
+//   - sede_parque_automotor      → sede donde está la carroza
+//   - dias_en_taller_parque      → días que lleva en taller (si aplica)
+//
+// (Antes se asumía por error que "historial_novedad_completa" era una
+// hoja aparte que había que cruzar por placa — en realidad es una
+// columna más de "carrozas", así que no hace falta ningún cruce.)
+
+// Valores de estado_parque_automotor que NO se consideran novedad
+// (la carroza está bien / operativa / disponible).
+const ESTADOS_SIN_NOVEDAD = ['disponible', 'operativo', 'operativa', 'ok', 'activo', 'activa', 'bien', ''];
+
+// ══════════════════════════════════════════════════════════
 //  COMBUSTIBLE Y RENDIMIENTO
 // ══════════════════════════════════════════════════════════
 
@@ -739,6 +802,50 @@ const DB = {
       data.sort(function(a,b) { return String(b.created_at||b.fecha||'').localeCompare(String(a.created_at||a.fecha||'')); });
       return { ok: true, data: data.slice(0, limite) };
     } catch(e) { return { ok: false, data: [], error: e.message }; }
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.10 — AVERÍAS RECIENTES (fuente: carrozas.estado_parque_automotor
+  //             + columnas historial_* de la MISMA hoja "carrozas")
+  // ══════════════════════════════════════════════════════════
+  // A diferencia de obtenerTodasAverias() (que lee la hoja "Averias",
+  // alimentada solo por el formulario de Avería), esta función arma
+  // el panel de "Averías Recientes" del dashboard a partir del estado
+  // REAL y actualizado del parque automotor: toma todas las filas de
+  // "carrozas" cuyo estado_parque_automotor indique una novedad
+  // (cualquier valor que no sea "Disponible"/"Operativo"/vacío — ver
+  // ESTADOS_SIN_NOVEDAD) y arma el detalle con las columnas
+  // historial_novedad_completa, historial_taller_nombre, historial_fecha,
+  // sede_parque_automotor y dias_en_taller_parque de esa misma fila.
+  async obtenerAveriasDesdeFlota(limite) {
+    if (limite === undefined) limite = 20;
+    try {
+      const flota = await gasGet('carrozas');
+
+      const conNovedad = flota.filter(function(c) {
+        const estado = normClave(c.estado_parque_automotor);
+        return estado && !ESTADOS_SIN_NOVEDAD.includes(estado);
+      });
+
+      const resultado = conNovedad.map(function(c) {
+        return {
+          placa_vehiculo:   c.placa || '',
+          modelo:           c.modelo || '',
+          tipo_falla:       c.estado_parque_automotor || '---',
+          regional:         c.sede_parque_automotor || c.sede_asignada || '',
+          reportado_por:    c.historial_taller_nombre || '',
+          observaciones:    c.historial_novedad_completa || '',
+          fecha:            c.historial_fecha || '',
+          dias_en_taller:   c.dias_en_taller_parque || '',
+        };
+      });
+
+      resultado.sort(function(a, b) { return String(b.fecha || '').localeCompare(String(a.fecha || '')); });
+
+      return { ok: true, data: resultado.slice(0, limite) };
+    } catch (e) {
+      return { ok: false, data: [], error: e.message };
+    }
   },
 
   async obtenerMantenimientos(limite) {
