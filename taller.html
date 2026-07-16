@@ -317,13 +317,26 @@
     };
 
     // ── NAVEGACION
+    // Usa la MISMA lógica de roles que index.html al hacer login, para que
+    // "Volver" regrese siempre al panel correcto según el rol de la sesión:
+    //   admin / administrador          -> dashboard.html
+    //   gestor_flota (Gestor de Flotas JR / Parque Automotor) -> panel_automotor.html
+    //   coordinador                    -> panel_coordinador.html
+    //   cualquier otro (conductor)     -> panel_conductor.html
     function irAtras() {
         var sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         var norm = function(s) { return (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,''); };
         var rol = norm(sesion.rol), usr = norm(sesion.usuario);
-        if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = 'dashboard.html';
-        else if (rol === 'coordinador') window.location.href = 'panel_coordinador.html';
-        else window.location.href = 'panel_conductor.html';
+
+        if (rol === 'admin' || rol === 'administrador' || rol === 'administracion' || usr === 'admin') {
+            window.location.href = 'dashboard.html';
+        } else if (rol === 'gestor_flota' || rol === 'gestor de flotas jr' || rol === 'gestor de flota jr' || rol === 'gestor flota jr') {
+            window.location.href = 'panel_automotor.html';
+        } else if (rol === 'coordinador') {
+            window.location.href = 'panel_coordinador.html';
+        } else {
+            window.location.href = 'panel_conductor.html';
+        }
     }
 
     // ── CARGAR PLACAS
