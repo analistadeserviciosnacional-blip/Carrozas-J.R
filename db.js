@@ -1,8 +1,40 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.10
+ *  CONECTOR J.R. CARROZAS — db.js  v12.11
  *
- *  🆕 CAMBIOS v12.10 (Averías Recientes — corrección de fuente):
+ *  🆕 CAMBIOS v12.11 (Notificaciones por regional — corrección):
+ *
+ *  La hoja "notificaciones_apoyo" traía el campo `alcance` guardado
+ *  de dos formas distintas según qué parte del código insertó la
+ *  fila:
+ *    - a veces la palabra literal "regional"
+ *    - a veces el NOMBRE de una regional (ej. "Pereira"), por un bug
+ *      histórico en el código que la creaba
+ *  Esto hacía que el filtrado en las pantallas (panel_coordinador,
+ *  etc.) fuera frágil: según cómo estuviera escrito el filtro, una
+ *  regional podía no ver sus propias notificaciones, o (peor) ver
+ *  las de otra regional.
+ *
+ *  Se agregan 3 métodos centralizados y usados desde ahora en TODAS
+ *  las pantallas que necesiten notificaciones, para que exista un
+ *  solo lugar con la lógica de filtrado (y no uno distinto por
+ *  pantalla):
+ *
+ *    - DB.obtenerNotificaciones(regional, opts)
+ *        Lee, de forma tolerante con el dato heredado, SOLO las
+ *        notificaciones de la regional indicada (+ las de alcance
+ *        global/nacional/todas). Nunca cruza regionales entre sí.
+ *    - DB.crearNotificacion(d)
+ *        Crea notificaciones SIEMPRE en el formato correcto
+ *        (alcance:'regional' + regional:d.regional), para que el
+ *        dato sucio deje de crecer hacia adelante.
+ *    - DB.marcarNotificacionLeida(id)
+ *        Marca una notificación puntual como leída.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.10 — nada de lo que ya
+ *   funcionaba fue tocado.)
+ *
+ *  ── Historial v12.10 (Averías Recientes — corrección de fuente) ──
  *
  *  Antes, el panel de "Averías Recientes" del dashboard leía de la
  *  hoja "Averias" (los reportes creados desde el formulario de
@@ -21,18 +53,10 @@
  *      - sede_parque_automotor      → sede donde está la carroza
  *      - dias_en_taller_parque      → días que lleva en taller
  *
- *  (En un intento anterior se asumió por error que
- *  "historial_novedad_completa" era una hoja aparte que había que
- *  cruzar por placa — en realidad siempre fue una columna más de
- *  "carrozas", así que no hace falta ningún cruce entre hojas.)
- *
  *  dashboard.html llama a DB.obtenerAveriasDesdeFlota() en vez de
  *  DB.obtenerTodasAverias() para pintar "Averías Recientes".
  *  DB.obtenerTodasAverias() se conserva intacta (sigue leyendo de la
  *  hoja "Averias") por si otra pantalla la sigue usando.
- *
- *  (Se conserva íntegro todo lo demás de v12.8 — nada de lo que ya
- *   funcionaba fue tocado.)
  *
  *  ── Historial v12.8 (alimentar Checklist_Salida desde Llegadas) ──
  *
@@ -495,49 +519,14 @@ async function buscarChecklistAbiertoPorPlaca(placa) {
 // ══════════════════════════════════════════════════════════
 // 🆕 v12.10 — AVERÍAS RECIENTES DESDE "carrozas"
 // ══════════════════════════════════════════════════════════
-// La hoja "carrozas" ya trae, en la MISMA fila de cada placa, todo lo
-// necesario para pintar el panel de Averías Recientes:
-//   - estado_parque_automotor   → OPERATIVO / TALLER / PINTURA /
-//                                  NOVEDAD / PROCESO DE VENTA / (vacío)
-//   - historial_novedad_completa → detalle de la última novedad
-//   - historial_taller_nombre    → taller donde está / estuvo
-//   - historial_fecha            → fecha de esa última actualización
-//   - sede_parque_automotor      → sede donde está la carroza
-//   - dias_en_taller_parque      → días que lleva en taller (si aplica)
-//
-// (Antes se asumía por error que "historial_novedad_completa" era una
-// hoja aparte que había que cruzar por placa — en realidad es una
-// columna más de "carrozas", así que no hace falta ningún cruce.)
-
-// Valores de estado_parque_automotor que NO se consideran novedad
-// (la carroza está bien / operativa / disponible).
 const ESTADOS_SIN_NOVEDAD = ['disponible', 'operativo', 'operativa', 'ok', 'activo', 'activa', 'bien', ''];
 
 // ══════════════════════════════════════════════════════════
 //  COMBUSTIBLE Y RENDIMIENTO
 // ══════════════════════════════════════════════════════════
 
-// Capacidad de tanque asumida si la carroza no tiene su propia
-// "capacidad_galones" registrada. Ajustable por vehículo: basta con
-// escribir el valor real en la columna "capacidad_galones" de la
-// hoja "carrozas" (se crea sola la primera vez que se use).
 const CAPACIDAD_TANQUE_DEFAULT = 55;
 
-// ── 🆕 TABLA DE CAPACIDAD DE TANQUE POR MODELO (en galones) ──────────
-// Antes TODAS las carrozas usaban el mismo default (55 gal) sin importar
-// si eran un Chery Yoya (tanque real ~9 gal) o una Van N400 (~13 gal),
-// lo que dañaba el % de combustible mostrado en el cierre de cada
-// servicio. Esta tabla se investigó contra fichas técnicas oficiales /
-// fuentes especializadas por modelo, y se aplica por coincidencia de
-// palabra clave contra el campo "modelo" de la hoja carrozas (sin
-// distinguir mayúsculas/minúsculas). Las reglas se evalúan en orden —
-// la primera coincidencia gana — así que las más específicas van primero.
-//
-// ⚠️ Los valores marcados "estimado" no tienen ficha oficial exacta
-// confirmada; son la mejor referencia disponible para ese tipo de
-// vehículo. Se puede ajustar cualquiera de estos valores editando
-// directamente la columna capacidad_galones de la fila en la hoja
-// carrozas — una vez escrita a mano, esa fila deja de usar esta tabla.
 const CAPACIDAD_POR_MODELO = [
   { patron: /ssangyong|rodius|stavic/i,              galones: 21.1, fuente: 'SsangYong Rodius/Stavic — tanque 80 L (Wikipedia/ficha oficial)' },
   { patron: /chevrolet\s*hhr|\bhhr\b/i,               galones: 16.1, fuente: 'Chevrolet HHR — tanque 61 L (fichas técnicas oficiales)' },
@@ -556,8 +545,6 @@ const CAPACIDAD_POR_MODELO = [
   { patron: /\brodeo\b/i,                             galones: 18.5, fuente: 'Isuzu Rodeo — tanque ~70 L (estimado)' },
 ];
 
-// Devuelve { galones, fuente } si el modelo coincide con alguna regla
-// conocida, o null si no hay coincidencia (se usará CAPACIDAD_TANQUE_DEFAULT).
 function capacidadPorModelo(modelo) {
   const m = String(modelo || '');
   for (const regla of CAPACIDAD_POR_MODELO) {
@@ -566,15 +553,8 @@ function capacidadPorModelo(modelo) {
   return null;
 }
 
-// Rendimiento (km/galón) que se asume ANTES de tener un primer
-// tanqueo histórico para calcular el real.
 const RENDIMIENTO_DEFAULT = 25;
 
-// Semáforo de rendimiento, según lo pedido:
-//   🟢 > 25 km/galón   → normal
-//   🟡 20–25 km/galón  → medio, vigilar
-//   🔴 < 20 km/galón   → alto consumo (posible fuga, mala conducción,
-//                        problema mecánico o robo de combustible)
 function nivelRendimiento(kmPorGalon) {
   const v = Number(kmPorGalon) || 0;
   if (v <= 0) return { nivel: 'sin_datos', emoji: '⚪', texto: 'Sin datos suficientes todavía' };
@@ -592,9 +572,6 @@ function nivelTanque(porcentaje) {
 
 // ══════════════════════════════════════════════════════════
 //  CAPA DE COMPATIBILIDAD ESTILO SUPABASE
-//  (algunas pantallas como dashboard/panel_coordinador/
-//   panel_conductor usan DB.supabase.from(...) en vez de
-//   los métodos directos — esto evita que se rompan)
 // ══════════════════════════════════════════════════════════
 class GASQueryBuilder {
   constructor(t) {
@@ -715,10 +692,6 @@ const DB = {
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  // ── BUSCAR EL TRASLADO ACTIVO (AÚN NO REGRESA) DE UNA PLACA ─
-  // No depende de límites de filas ni de un orden de texto: trae
-  // TODA la hoja, filtra por placa + sin hora_de_ingreso, y ordena
-  // por fecha/hora real (no alfabética) para tomar el más reciente.
   async obtenerTrasladoActivoPorPlaca(placa) {
     try {
       if (!placa) return { ok: true, data: null };
@@ -729,21 +702,6 @@ const DB = {
     }
   },
 
-  // ══════════════════════════════════════════════════════════
-  // 🆕 v12.5 — PLACAS CON TRASLADO ACTIVO (fuente real del selector)
-  // ══════════════════════════════════════════════════════════
-  // Devuelve solo las placas que en este momento están "en la calle":
-  // tienen un registro en la hoja Traslado con hora_de_ingreso vacía
-  // (todavía no regresaron) Y que además NO tengan ya una Llegada
-  // guardada para ese id_salida (por si el cierre automático del
-  // Traslado falló tras sus reintentos y quedó "abierto" por error,
-  // aunque la Llegada sí exista).
-  //
-  // Esto reemplaza la dependencia del campo "estado" de la hoja
-  // carrozas para poblar el selector de placas en Registro de
-  // Llegada: ese campo puede desincronizarse, mientras que la hoja
-  // Traslado es la fuente operativa real de "quién salió y no ha
-  // vuelto".
   async obtenerPlacasConTrasladoActivo() {
     try {
       const [traslados, llegadas, flota] = await Promise.all([
@@ -760,8 +718,6 @@ const DB = {
         return sinRegreso && !yaTieneLlegada;
       });
 
-      // Si una misma placa tuviera más de un Traslado abierto (dato
-      // sucio / caso raro), se toma el más reciente por fecha/hora real.
       const porPlaca = {};
       abiertos.forEach(function(r) {
         const pBase = String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
@@ -785,6 +741,7 @@ const DB = {
           hora_de_salida:   t.hora_de_salida || '',
           conductor:        t.conductor || '',
           motivo_de_salida: t.motivo_de_salida || '',
+          regional:         t.regional || '',
         };
       });
 
@@ -804,19 +761,6 @@ const DB = {
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  // ══════════════════════════════════════════════════════════
-  // 🆕 v12.10 — AVERÍAS RECIENTES (fuente: carrozas.estado_parque_automotor
-  //             + columnas historial_* de la MISMA hoja "carrozas")
-  // ══════════════════════════════════════════════════════════
-  // A diferencia de obtenerTodasAverias() (que lee la hoja "Averias",
-  // alimentada solo por el formulario de Avería), esta función arma
-  // el panel de "Averías Recientes" del dashboard a partir del estado
-  // REAL y actualizado del parque automotor: toma todas las filas de
-  // "carrozas" cuyo estado_parque_automotor indique una novedad
-  // (cualquier valor que no sea "Disponible"/"Operativo"/vacío — ver
-  // ESTADOS_SIN_NOVEDAD) y arma el detalle con las columnas
-  // historial_novedad_completa, historial_taller_nombre, historial_fecha,
-  // sede_parque_automotor y dias_en_taller_parque de esa misma fila.
   async obtenerAveriasDesdeFlota(limite) {
     if (limite === undefined) limite = 20;
     try {
@@ -860,19 +804,11 @@ const DB = {
   // ══════════════════════════════════════════════════════════
   // TANQUEO
   // ══════════════════════════════════════════════════════════
-
-  // ── GUARDAR TANQUEO ─────────────────────────────────────────
-  // d: { carroza, placa, conductor, estacion_servicio, ciudad,
-  //      kilometraje, galones, valor_galon, valor_total,
-  //      numero_factura, foto_tirilla (base64), observaciones, hora,
-  //      forma_pago, tipo_combustible }
   async guardarTanqueo(d) {
     return conLock('guardarTanqueo', async () => {
       try {
         const pSel = String(d.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
-        // 1) Buscar el tanqueo anterior de esta misma placa, para poder
-        //    calcular el rendimiento REAL (km recorridos ÷ galones cargados).
         const historico = await gasGet('Tanqueo');
         const anteriores = historico
           .filter(r => String(r.PLACA || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === pSel)
@@ -894,7 +830,7 @@ const DB = {
         }
 
         const fila = {
-          ID:                   '', // Code.gs asigna el consecutivo TQ-00001
+          ID:                   '',
           FECHA:                fechaHoy(),
           HORA:                 d.hora || new Date().toTimeString().slice(0, 5),
           CARROZA:              d.carroza || '',
@@ -912,11 +848,9 @@ const DB = {
           KM_RECORRIDOS:        kmRecorridos,
           RENDIMIENTO_KM_GALON: rendimiento,
           ALERTA_RENDIMIENTO:   alertaTexto,
-          // 🆕 v12.6 — antes faltaban estos dos campos y se descartaban
-          // en silencio, dejando siempre vacías las columnas FORMA_PAGO
-          // y TIPO_COMBUSTIBLE de la hoja "Tanqueo".
           FORMA_PAGO:           d.forma_pago || '',
           TIPO_COMBUSTIBLE:     d.tipo_combustible || '',
+          REGIONAL:             d.regional || '',
         };
 
         const res = await gasWrite('Tanqueo', fila, 'insert');
@@ -924,10 +858,6 @@ const DB = {
         if (res.ok) {
           DB.invalidarCache('Tanqueo');
 
-          // 2) Se asume que cada tanqueo llena el tanque → el medidor
-          //    de esa carroza vuelve al 100% de su capacidad, y se
-          //    guarda el rendimiento recién calculado para usarlo
-          //    en el descuento de las próximas llegadas.
           actualizarEnSegundoPlano((async () => {
             const estado = await DB.obtenerEstadoCarroza(d.placa);
             const capacidad = (estado.ok && estado.capacidad_galones) || CAPACIDAD_TANQUE_DEFAULT;
@@ -961,10 +891,6 @@ const DB = {
     } catch (e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  // ── ESTADO ACTUAL DE UNA CARROZA (combustible + aceite + rendimiento) ──
-  // Pensado para pintar un panel de estado tanto en el formulario de
-  // Tanqueo como en el de Salida (Traslado), para que el conductor vea
-  // de un vistazo cómo está la carroza antes de salir.
   async obtenerEstadoCarroza(placa) {
     try {
       const [flota, mants] = await Promise.all([gasGet('carrozas'), gasGet('mantenimientos')]);
@@ -972,15 +898,10 @@ const DB = {
       const carroza = flota.find(r => String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === pSel);
       if (!carroza) return { ok: false, error: 'Carroza no encontrada' };
 
-      // 🆕 Si la fila no tiene capacidad_galones escrita a mano, se busca
-      // en la tabla CAPACIDAD_POR_MODELO por el campo "modelo" de la
-      // carroza; solo si tampoco hay coincidencia se usa el default plano.
       const capacidadFila = parseFloat(carroza.capacidad_galones) || 0;
       const matchModelo = capacidadFila > 0 ? null : capacidadPorModelo(carroza.modelo);
       const capacidad = capacidadFila > 0 ? capacidadFila
         : (matchModelo ? matchModelo.galones : CAPACIDAD_TANQUE_DEFAULT);
-      // Si nunca se ha registrado combustible para esta carroza, asumimos
-      // que arranca llena (mejor que asumir 0 y disparar falsas alarmas).
       const combustible = (carroza.combustible_galones !== undefined && String(carroza.combustible_galones).trim() !== '')
         ? parseFloat(carroza.combustible_galones)
         : capacidad;
@@ -989,8 +910,6 @@ const DB = {
       const rendimientoUltimo = parseFloat(carroza.ultimo_rendimiento_km_gal) || 0;
       const alertaRendimiento = nivelRendimiento(rendimientoUltimo);
 
-      // Próximo cambio de aceite: última orden de mantenimiento tipo
-      // "aceite" para esta placa que tenga un km_proximo_cambio registrado.
       const ordenesAceite = mants
         .filter(m => String(m.placa || '').toUpperCase() === String(carroza.placa || '').toUpperCase()
                   && /aceite/i.test(m.tipo_servicio || '')
@@ -1026,12 +945,9 @@ const DB = {
   },
 
   // ── GUARDAR TRASLADO (SALIDA) ──────────────────────────────
-  // 🆕 v12.7: dos guardas anti-duplicado ANTES de insertar. Ver el
-  // changelog al inicio del archivo para el detalle de cada una.
   async guardarTraslado(d) {
     return conLock('guardarTraslado', async () => {
 
-      // GUARDA 1 — ¿esta placa ya tiene una Salida activa (sin cerrar)?
       try {
         const abierto = await buscarTrasladoAbiertoPorPlaca(d.placa);
         if (abierto) {
@@ -1049,7 +965,6 @@ const DB = {
         console.warn('No se pudo verificar si había una salida activa previa (se continúa igual):', e.message);
       }
 
-      // GUARDA 2 — ¿esta MISMA Salida ya se guardó (doble envío del formulario)?
       try {
         const duplicado = await buscarTrasladoDuplicadoPorContenido(d);
         if (duplicado) {
@@ -1165,30 +1080,9 @@ const DB = {
   },
 
   // ── GUARDAR LLEGADA ────────────────────────────────────────
-  // 🆕 v12.7: antes de insertar, verifica si YA existe una Llegada
-  // guardada para este id_salida — si es así, no vuelve a insertar
-  // (evita duplicar el cierre de un mismo Traslado). Ver changelog.
-  //
-  // 🆕 v12.5: Además de registrar la llegada, se ESPERA (await) la
-  // actualización de kilometraje_actual y combustible de la carroza
-  // antes de responder. El kilometraje_actual es la fuente de verdad
-  // que usará el SIGUIENTE Traslado (salida) como KM de salida —
-  // por eso ya no puede quedar como una escritura "de segundo plano"
-  // sin garantía: si fallara en silencio, el próximo servicio
-  // arrancaría con un KM de salida incorrecto y el Total KM del
-  // reporte quedaría descuadrado (el error reportado).
-  //
-  // Se descuenta del tanque el combustible estimado que consumió ESE
-  // viaje (km del viaje ÷ rendimiento conocido de la carroza, o el
-  // valor por defecto si todavía no hay historial de tanqueos).
-  //
-  // 🆕 v12.8: al final, alimenta también Checklist_Salida (HORA_ENTRADA,
-  // KM_ENTRADA, KM_RECORRIDOS) buscando el checklist abierto de esta
-  // placa — ver buscarChecklistAbiertoPorPlaca() más arriba.
   async guardarLlegada(d) {
     return conLock('guardarLlegada', async () => {
 
-      // GUARDA — ¿ya existe una Llegada para este id_salida?
       if (d.id_salida) {
         try {
           const existente = await buscarLlegadaPorIdSalida(d.id_salida);
@@ -1212,7 +1106,7 @@ const DB = {
 
       const fila = {
         id:             'L-' + Date.now(),
-        id_salida:      d.id_salida      || '',   // trazabilidad: enlaza con el Traslado de origen
+        id_salida:      d.id_salida      || '',
         fecha:          fechaHoy(),
         hora_ingreso:   d.hora_ingreso   || '',
         placa:          d.placa          || '',
@@ -1228,7 +1122,6 @@ const DB = {
 
       DB.invalidarCache('Llegadas');
 
-      // ── ACTUALIZACIÓN DE KM/COMBUSTIBLE — AHORA SE ESPERA ──
       let estadoDespues              = { ok: false };
       let estadoPrevio               = { ok: false };
       let rendimientoUsado           = RENDIMIENTO_DEFAULT;
@@ -1265,13 +1158,6 @@ const DB = {
         console.error('Error actualizando carroza tras guardarLlegada:', e.message);
       }
 
-      // ── 🆕 ANEXAR AL PROPIO REGISTRO DE LLEGADA EL ESTADO DE
-      //    COMBUSTIBLE (antes / después / consumido / rendimiento usado) ──
-      // Esto queda guardado en la hoja "Llegadas" como una segunda
-      // escritura (update por id), para que el cierre de combustible de
-      // cada servicio sea auditable después — se puede abrir la hoja o
-      // el registro y comparar el % con el que salió vs. el % con el
-      // que se cerró, y así verificar si el consumo reportado es real.
       try {
         const consumidoGal = (estadoPrevio.ok && estadoDespues && estadoDespues.ok)
           ? Math.round((estadoPrevio.combustible_galones - estadoDespues.combustible_galones) * 10) / 10
@@ -1299,15 +1185,6 @@ const DB = {
         console.warn('⚠️ Error anexando combustible al registro de Llegada:', e.message);
       }
 
-      // ── 🆕 v12.8 — ALIMENTAR Checklist_Salida CON LOS DATOS DE ESTA
-      //    LLEGADA ──
-      // No se pide nada nuevo al conductor: se busca el checklist
-      // abierto de esta placa (el que se llenó a la Salida y aún no
-      // tiene HORA_ENTRADA) y se le completan HORA_ENTRADA, KM_ENTRADA
-      // y KM_RECORRIDOS con lo que ya se guardó en Llegadas.
-      // Si no se encuentra o falla, NO afecta el resto del cierre
-      // (la Llegada ya quedó guardada arriba) — solo queda advertencia
-      // en consola y en el resultado (checklist_actualizado: false).
       let checklistActualizado = false;
       try {
         const checklistAbierto = await buscarChecklistAbiertoPorPlaca(d.placa);
@@ -1330,11 +1207,31 @@ const DB = {
         console.warn('⚠️ Error actualizando Checklist_Salida tras guardarLlegada:', e.message);
       }
 
+      // ── 🆕 v12.11 — Si esta Llegada cierra un servicio que tenía una
+      //    notificación de "cierre_pendiente" abierta, la marca como
+      //    leída automáticamente (ya no hace falta que el coordinador
+      //    la descarte a mano — la campana se limpia sola).
+      try {
+        if (d.id_salida) {
+          const notis = await gasGet('notificaciones_apoyo');
+          const pendientes = notis.filter(function(n) {
+            return String(n.tipo || '') === 'cierre_pendiente' &&
+                   String(n.id_salida_ref || '').trim() === String(d.id_salida).trim() &&
+                   !(n.leido === true || n.leido === 'TRUE' || n.leido === 'true');
+          });
+          for (const n of pendientes) {
+            await DB.marcarNotificacionLeida(n.id);
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ No se pudieron marcar como leídas las notificaciones de cierre para', d.id_salida, ':', e.message);
+      }
+
       return Object.assign({}, res, {
         estado_carroza_despues: estadoDespues,
         estado_carroza_antes: estadoPrevio,
         combustible_guardado_en_registro: combustibleGuardadoEnRegistro,
-        checklist_actualizado: checklistActualizado, // 🆕 v12.8
+        checklist_actualizado: checklistActualizado,
       });
     });
   },
@@ -1388,6 +1285,19 @@ const DB = {
             .then((r) => { DB.invalidarCache('mantenimientos'); return r; }),
           'crear orden de mantenimiento tras guardarAveria'
         );
+
+        // 🆕 v12.11 — Notificar a la regional de esta avería.
+        actualizarEnSegundoPlano(
+          DB.crearNotificacion({
+            tipo: 'averia_reportada',
+            titulo: '⚠️ Avería reportada — ' + (d.placa_vehiculo || ''),
+            cuerpo: (d.tipo_falla || 'Falla mecánica') + ' reportada por ' + (d.reportado_por || 'un conductor') + '.',
+            regional: d.regional || '',
+            remitente: d.reportado_por || '',
+            placa: d.placa_vehiculo || '',
+          }),
+          'crearNotificacion tras guardarAveria'
+        );
       }
       return res;
     });
@@ -1397,23 +1307,6 @@ const DB = {
     return await gasWrite('carrozas', campos, 'update', 'placa', placa);
   },
 
-  // ══════════════════════════════════════════════════════════
-  // 🆕 INICIALIZAR capacidad_galones EN TODA LA FLOTA (una sola vez)
-  // ══════════════════════════════════════════════════════════
-  // Recorre la hoja "carrozas" y, para cada placa que NO tenga ya un
-  // valor en capacidad_galones, escribe la capacidad real investigada
-  // en CAPACIDAD_POR_MODELO (o el default de 55 gal si el modelo no
-  // se pudo identificar). Es seguro ejecutarlo varias veces: las filas
-  // que ya tengan un valor (sea porque ya se corrió antes, o porque se
-  // editó a mano) NO se tocan.
-  //
-  // Cómo ejecutarlo una sola vez (por ejemplo desde la consola del
-  // navegador en cualquier pantalla que cargue db.js):
-  //     await DB.inicializarCapacidadesTanque()
-  //
-  // Devuelve un resumen: cuántas se actualizaron, cuántas ya tenían
-  // valor, y cuántas quedaron con el default por no identificar el
-  // modelo (para poder revisarlas y corregirlas a mano si se quiere).
   async inicializarCapacidadesTanque() {
     try {
       const flota = await gasGet('carrozas');
@@ -1506,24 +1399,16 @@ const DB = {
   },
 
   // ── GUARDAR INSPECCIÓN VEHICULAR ───────────────────────────
-  // Guarda la inspección completa en la hoja "Inspeccion_Vehiculo".
-  // El backend (Code.gs v10.7+) auto-crea la hoja con sus ~80 columnas
-  // la primera vez que se usa. El ID lo asigna Code.gs automáticamente
-  // (prefijo INSP-) si el payload lleva ID vacío o numérico.
   async guardarInspeccion(datos) {
     return conLock('guardarInspeccion', async () => {
       try {
-        // Normalizamos el ID: si viene como timestamp numérico lo borramos
-        // para que Code.gs asigne el consecutivo INSP-XXXXX correcto.
         const payload = Object.assign({}, datos);
         if (payload.ID && String(payload.ID).length > 8) {
-          // Es un timestamp de Date.now() — lo descartamos
           payload.ID = '';
         }
         const res = await gasWrite('Inspeccion_Vehiculo', payload, 'insert');
         if (res.ok) {
           this.invalidarCache('Inspeccion_Vehiculo');
-          // Si el estado de inspección es NO OPERATIVO → marcar carroza En Taller
           if (datos.ESTADO_INSPECCION === 'NO OPERATIVO') {
             actualizarEnSegundoPlano(
               this.actualizarCarroza(datos.PLACA, { estado: 'En Taller' })
@@ -1531,7 +1416,6 @@ const DB = {
               'actualizarCarroza tras inspeccion NO OPERATIVO'
             );
           } else if (datos.KILOMETRAJE) {
-            // Actualizar km de la carroza con el reportado en la inspección
             actualizarEnSegundoPlano(
               this.actualizarCarroza(datos.PLACA, {
                 kilometraje_actual: parseInt(datos.KILOMETRAJE) || 0
@@ -1548,9 +1432,6 @@ const DB = {
   },
 
   // ── VERIFICAR INSPECCIÓN HECHA HOY ────────────────────────
-  // Consulta el endpoint especial del GAS (action=checkInspeccionHoy)
-  // que revisa si ya existe una inspección OK para esta placa hoy.
-  // inspeccion.html puede usar esto para mostrar modo CONFIRMACIÓN.
   async verificarInspeccionHoy(placa) {
     try {
       const url = `${URL_GAS}?action=checkInspeccionHoy&placa=${encodeURIComponent(placa)}`;
@@ -1564,6 +1445,108 @@ const DB = {
     }
   },
 
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.11 — NOTIFICACIONES POR REGIONAL (multi-tenant real)
+  // ══════════════════════════════════════════════════════════
+  //
+  // LEER — solo trae las notificaciones de LA REGIONAL indicada
+  // (+ las de alcance global/nacional/todas). Tolerante con el dato
+  // heredado: acepta tanto alcance='regional'+regional=X (formato
+  // correcto) como alcance=X directamente (bug histórico), pero
+  // SIEMPRE exige que la regional coincida exactamente con la que
+  // se está consultando — nunca cruza regionales entre sí.
+  //
+  // opts: { soloNoLeidas: true/false, tipo: 'cierre_pendiente' (opcional) }
+  async obtenerNotificaciones(regional, opts) {
+    opts = opts || {};
+    try {
+      const regionalNorm = normTexto(regional);
+      if (!regionalNorm) return { ok: true, data: [] };
+
+      const rows = await gasGet('notificaciones_apoyo');
+
+      let filtradas = rows.filter(function(r) {
+        const alcanceNorm  = normTexto(r.alcance);
+        const regCampoNorm = normTexto(r.regional);
+
+        const esGlobal = alcanceNorm === 'global' || alcanceNorm === 'todas' || alcanceNorm === 'nacional' || alcanceNorm === 'general';
+
+        // Formato correcto: alcance='regional' + regional=miRegional
+        const formatoNuevo = alcanceNorm === 'regional' && regCampoNorm === regionalNorm;
+
+        // Formato heredado con bug: alcance trae el NOMBRE de la
+        // regional directamente. Solo cuenta si coincide EXACTO con
+        // la regional que se está consultando.
+        const formatoViejo = alcanceNorm === regionalNorm;
+
+        // Respaldo adicional: si por cualquier motivo `alcance` viene
+        // vacío o con un valor no reconocido, se usa directamente el
+        // campo `regional` de la fila (nunca deja pasar algo de otra
+        // regional distinta a la solicitada).
+        const porCampoRegional = !alcanceNorm && regCampoNorm === regionalNorm;
+
+        return esGlobal || formatoNuevo || formatoViejo || porCampoRegional;
+      });
+
+      if (opts.tipo) {
+        const tipoNorm = normTexto(opts.tipo);
+        filtradas = filtradas.filter(function(r) { return normTexto(r.tipo) === tipoNorm; });
+      }
+
+      if (opts.soloNoLeidas) {
+        filtradas = filtradas.filter(function(r) {
+          const leido = r.leido;
+          return !(leido === true || leido === 'TRUE' || leido === 'true' || leido === 1 || leido === '1');
+        });
+      }
+
+      filtradas.sort(function(a, b) {
+        return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      });
+
+      return { ok: true, data: filtradas };
+    } catch (e) {
+      return { ok: false, data: [], error: e.message };
+    }
+  },
+
+  // CREAR — siempre en el formato correcto (alcance:'regional').
+  // d: { tipo, titulo, cuerpo, regional, solicitud_id, remitente,
+  //      placa, id_salida_ref, conductor, hora_salida, fecha_salida }
+  async crearNotificacion(d) {
+    if (!d || !d.regional) {
+      return { ok: false, error: 'crearNotificacion requiere el campo "regional" del destinatario' };
+    }
+    const fila = {
+      id:             (d.tipo || 'NOT') + '-' + (d.placa ? String(d.placa).replace(/\s+/g, '') + '-' : '') + Date.now(),
+      tipo:           d.tipo || '',
+      titulo:         d.titulo || '',
+      cuerpo:         d.cuerpo || '',
+      regional:       d.regional,
+      alcance:        'regional',
+      leido:          false,
+      solicitud_id:   d.solicitud_id || '',
+      remitente:      d.remitente || '',
+      created_at:     new Date().toISOString(),
+      placa:          d.placa || '',
+      id_salida_ref:  d.id_salida_ref || '',
+      conductor:      d.conductor || '',
+      hora_salida:    d.hora_salida || '',
+      fecha_salida:   d.fecha_salida || '',
+    };
+    const res = await gasWrite('notificaciones_apoyo', fila, 'insert');
+    if (res.ok) DB.invalidarCache('notificaciones_apoyo');
+    return res;
+  },
+
+  // MARCAR COMO LEÍDA
+  async marcarNotificacionLeida(id) {
+    if (!id) return { ok: false, error: 'marcarNotificacionLeida requiere un id' };
+    const res = await gasWrite('notificaciones_apoyo', { leido: true }, 'update', 'id', id);
+    if (res.ok) DB.invalidarCache('notificaciones_apoyo');
+    return res;
+  },
+
 };
 
 window.DB = DB;
@@ -1574,7 +1557,7 @@ window.DB = DB;
     const ping = await DB.testConexion();
     if (ping.ok) {
       console.log('🟢 API J.R. conectada:', ping.mensaje);
-      const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo', 'Llegadas'];
+      const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo', 'Llegadas', 'notificaciones_apoyo'];
       for (let i = 0; i < hojas.length; i++) {
         await gasGet(hojas[i]);
         await new Promise(function(r) { setTimeout(r, 300); });
