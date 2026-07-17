@@ -1456,37 +1456,52 @@ const DB = {
   // SIEMPRE exige que la regional coincida exactamente con la que
   // se está consultando — nunca cruza regionales entre sí.
   //
-  // opts: { soloNoLeidas: true/false, tipo: 'cierre_pendiente' (opcional) }
+  // opts: { soloNoLeidas: true/false, tipo: 'cierre_pendiente' (opcional),
+  //         todas: true (🆕 v12.12 — SOLO para vistas de nivel
+  //         nacional/administración: ignora el filtro de regional y
+  //         trae TODAS las notificaciones de TODAS las regionales.
+  //         Cuando opts.todas es true, el primer argumento (regional)
+  //         se ignora por completo — llamar como
+  //         DB.obtenerNotificaciones(null, { todas: true }) desde el
+  //         panel de admin.) )
   async obtenerNotificaciones(regional, opts) {
     opts = opts || {};
     try {
-      const regionalNorm = normTexto(regional);
-      if (!regionalNorm) return { ok: true, data: [] };
+      const esVistaNacional = opts.todas === true;
+      const regionalNorm = esVistaNacional ? '' : normTexto(regional);
+      if (!esVistaNacional && !regionalNorm) return { ok: true, data: [] };
 
       const rows = await gasGet('notificaciones_apoyo');
 
-      let filtradas = rows.filter(function(r) {
-        const alcanceNorm  = normTexto(r.alcance);
-        const regCampoNorm = normTexto(r.regional);
+      let filtradas;
+      if (esVistaNacional) {
+        // Vista de administración: no se filtra por regional, se ven
+        // TODAS las notificaciones de TODAS las regionales.
+        filtradas = rows.slice();
+      } else {
+        filtradas = rows.filter(function(r) {
+          const alcanceNorm  = normTexto(r.alcance);
+          const regCampoNorm = normTexto(r.regional);
 
-        const esGlobal = alcanceNorm === 'global' || alcanceNorm === 'todas' || alcanceNorm === 'nacional' || alcanceNorm === 'general';
+          const esGlobal = alcanceNorm === 'global' || alcanceNorm === 'todas' || alcanceNorm === 'nacional' || alcanceNorm === 'general';
 
-        // Formato correcto: alcance='regional' + regional=miRegional
-        const formatoNuevo = alcanceNorm === 'regional' && regCampoNorm === regionalNorm;
+          // Formato correcto: alcance='regional' + regional=miRegional
+          const formatoNuevo = alcanceNorm === 'regional' && regCampoNorm === regionalNorm;
 
-        // Formato heredado con bug: alcance trae el NOMBRE de la
-        // regional directamente. Solo cuenta si coincide EXACTO con
-        // la regional que se está consultando.
-        const formatoViejo = alcanceNorm === regionalNorm;
+          // Formato heredado con bug: alcance trae el NOMBRE de la
+          // regional directamente. Solo cuenta si coincide EXACTO con
+          // la regional que se está consultando.
+          const formatoViejo = alcanceNorm === regionalNorm;
 
-        // Respaldo adicional: si por cualquier motivo `alcance` viene
-        // vacío o con un valor no reconocido, se usa directamente el
-        // campo `regional` de la fila (nunca deja pasar algo de otra
-        // regional distinta a la solicitada).
-        const porCampoRegional = !alcanceNorm && regCampoNorm === regionalNorm;
+          // Respaldo adicional: si por cualquier motivo `alcance` viene
+          // vacío o con un valor no reconocido, se usa directamente el
+          // campo `regional` de la fila (nunca deja pasar algo de otra
+          // regional distinta a la solicitada).
+          const porCampoRegional = !alcanceNorm && regCampoNorm === regionalNorm;
 
-        return esGlobal || formatoNuevo || formatoViejo || porCampoRegional;
-      });
+          return esGlobal || formatoNuevo || formatoViejo || porCampoRegional;
+        });
+      }
 
       if (opts.tipo) {
         const tipoNorm = normTexto(opts.tipo);
