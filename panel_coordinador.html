@@ -55,11 +55,11 @@
             cursor: pointer; 
         }
 
-        /* ── 🆕 CAMPANA DE "SERVICIOS SIN CERRAR" ──
-           Independiente del badge de "Ver Apoyos": tiene su propia
-           fuente de datos (notificaciones_apoyo con tipo='cierre_pendiente')
-           para que nunca se mezclen ambos tipos de aviso en un mismo
-           contador. */
+        /* ── CAMPANA DE NOTIFICACIONES DE LA REGIONAL
+           (servicios sin cerrar + averías + apoyo aceptado, etc.)
+           Filtrado 100% por la regional del coordinador logueado,
+           usando DB.obtenerNotificaciones() como única fuente de
+           verdad — nunca se cruzan notificaciones entre regionales. */
         .campana-wrap { position: relative; }
         .btn-campana {
             position: relative;
@@ -128,15 +128,28 @@
             position: sticky;
             top: 0;
             background: var(--blanco);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .campana-dropdown-header .marcar-todas {
+            text-transform: none;
+            font-size: 10.5px;
+            color: #2563eb;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: normal;
         }
         .campana-item {
             padding: 12px 16px;
             border-bottom: 1px solid #f8fafc;
             cursor: pointer;
             transition: 0.15s;
+            position: relative;
         }
         .campana-item:last-child { border-bottom: none; }
         .campana-item:hover { background: #fef2f2; }
+        .campana-item.leida { opacity: 0.55; }
         .campana-item .ci-placa {
             font-weight: 800;
             color: #991b1b;
@@ -259,7 +272,7 @@
         .pill-taller { color: var(--rojo); background: #fef2f2; }
         .pill-pendiente { color: #f59e0b; background: #fff7ed; }
 
-        /* ── ⛽ NUEVO: BARRA DE COMBUSTIBLE ESTIMADO ── */
+        /* ── BARRA DE COMBUSTIBLE ESTIMADO ── */
         .fuel-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 5px; }
         .fuel-bar-mini { width: 60px; height: 6px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
         .fuel-fill { height: 100%; border-radius: 4px; transition: width .3s; }
@@ -306,14 +319,17 @@
     <header>
         <div class="logo-small">J.R. COORDINACIÓN</div>
         <div class="header-acciones">
-            <!-- 🆕 CAMPANA: servicios sin cerrar (independiente de "Ver Apoyos") -->
+            <!-- CAMPANA: notificaciones de la regional (cierre pendiente, averías, apoyo) -->
             <div class="campana-wrap" id="campana-wrap">
-                <button class="btn-campana" id="btn-campana" onclick="toggleCampana()" title="Servicios sin cerrar">
+                <button class="btn-campana" id="btn-campana" onclick="toggleCampana()" title="Notificaciones de tu regional">
                     <span class="icono">🔔</span>
                     <span class="badge-campana" id="badge-campana">0</span>
                 </button>
                 <div class="campana-dropdown" id="campana-dropdown">
-                    <div class="campana-dropdown-header">⚠️ Servicios sin cerrar</div>
+                    <div class="campana-dropdown-header">
+                        <span id="campana-titulo-regional">⚠️ Notificaciones</span>
+                        <span class="marcar-todas" onclick="marcarTodasLeidas(event)">Marcar todas ✓</span>
+                    </div>
                     <div id="campana-lista">
                         <div class="campana-vacio">Cargando...</div>
                     </div>
@@ -367,7 +383,7 @@
         <table><tbody id="tabla-traslados"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
     </div>
 
-    <!-- ⛽ NUEVO: TANQUEOS RECIENTES ⛽ -->
+    <!-- TANQUEOS RECIENTES -->
     <div class="monitor-mini">
         <h2>Tanqueos Recientes <a href="tanqueo.html" class="btn-ver-todo">VER TODO</a></h2>
         <table><tbody id="tabla-tanqueos"><tr><td style="text-align:center;">Cargando...</td></tr></tbody></table>
@@ -391,10 +407,10 @@
     let userSesion = {};
     const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-    // 🆕 Lista en memoria de notificaciones de "servicio sin cerrar"
-    // vigentes para la campana (ya filtradas por regional/alcance y
-    // cruzadas contra los traslados que siguen realmente abiertos).
-    let notisCierre = [];
+    // Lista en memoria de notificaciones vigentes para la campana de
+    // esta regional (ya filtradas por DB.obtenerNotificaciones, que es
+    // la única fuente de verdad — nunca se filtra "a mano" aquí).
+    let notisRegional = [];
     let intervaloCampana = null;
 
     window.onload = async () => {
@@ -405,38 +421,45 @@
         const rol = norm(userSesion.rol);
         if (!rol.includes('coordinador')) { window.location.href = "panel_conductor.html"; return; }
 
-        // SALUDO NOMBRE COMPLETO
-        document.getElementById('txt-nombre').innerText = "Hola, " + (userSesion.nombre || "Cesar Augusto Hincapie Prieto");
-        document.getElementById('txt-reg-desc').innerText = "📍 Regional: " + (userSesion.regional || "Quindío");
+        if (!userSesion.regional) {
+            console.warn('⚠️ Este usuario no tiene una "regional" asignada — las notificaciones y tablas regionales quedarán vacías. Revisa el registro de este coordinador.');
+        }
 
-        await Promise.all([cargarApoyos(), cargarAverias(), cargarTraslados(), cargarTanqueos(), cargarFlota(), verificarBadges(), cargarNotificacionesCierre()]);
+        // SALUDO NOMBRE COMPLETO
+        document.getElementById('txt-nombre').innerText = "Hola, " + (userSesion.nombre || "Coordinador/a");
+        document.getElementById('txt-reg-desc').innerText = "📍 Regional: " + (userSesion.regional || "Sin regional asignada");
+        document.getElementById('campana-titulo-regional').innerText = "⚠️ " + (userSesion.regional || "Tu regional");
+
+        await Promise.all([cargarApoyos(), cargarAverias(), cargarTraslados(), cargarTanqueos(), cargarFlota(), verificarBadges(), cargarNotificacionesRegional()]);
         activarRealtime();
 
-        // 🆕 Polling de la campana de "servicios sin cerrar". Como el
-        // backend es Google Apps Script + Sheets (sin soporte real de
-        // websockets/Realtime), se refresca cada 17s en vez de depender
-        // de un canal en vivo — así el coordinador ve nuevas alertas y
-        // ve desaparecer las que ya se cerraron, sin recargar la página.
-        intervaloCampana = setInterval(cargarNotificacionesCierre, 17000);
+        // Polling de la campana: como el backend es Google Apps Script +
+        // Sheets (sin websockets reales), se refresca cada 17s en vez de
+        // depender de un canal en vivo — así el coordinador ve nuevas
+        // alertas y ve desaparecer las que ya se resolvieron, sin
+        // recargar la página.
+        intervaloCampana = setInterval(cargarNotificacionesRegional, 17000);
     };
 
     // ══════════════════════════════════════════════
-    // 🆕 CAMPANA — SERVICIOS SIN CERRAR
+    // CAMPANA — NOTIFICACIONES DE LA REGIONAL
     // ══════════════════════════════════════════════
-    // Fuente: notificaciones_apoyo con tipo === 'cierre_pendiente'
-    // (insertadas desde registro_salida.html cuando un conductor pide
-    // apoyo para cerrar un servicio que quedó abierto). Se cruzan
-    // contra los traslados que AÚN están abiertos (DB.obtenerPlacasConTrasladoActivo)
-    // para que la campana se limpie sola en cuanto alguien registre la
-    // Llegada — sin depender de borrar la fila de notificación.
-    async function cargarNotificacionesCierre() {
+    // Usa DB.obtenerNotificaciones(regional) como ÚNICA fuente de
+    // verdad para el filtrado — esa función ya resuelve de forma
+    // robusta el dato heredado de "alcance" y garantiza que nunca se
+    // mezclen notificaciones entre regionales distintas.
+    async function cargarNotificacionesRegional() {
+        if (!userSesion.regional) { renderCampana(); return; }
         try {
-            const regNorm = norm(userSesion.regional);
-
-            const [{ data: notis }, resAbiertos] = await Promise.all([
-                DB.supabase.from('notificaciones_apoyo').select('*').eq('tipo', 'cierre_pendiente'),
+            const [resNotis, resAbiertos] = await Promise.all([
+                DB.obtenerNotificaciones(userSesion.regional, { soloNoLeidas: true }),
                 DB.obtenerPlacasConTrasladoActivo()
             ]);
+
+            if (!resNotis.ok) {
+                console.warn('No se pudieron cargar las notificaciones de la regional:', resNotis.error);
+                return;
+            }
 
             const idsAbiertos = new Set(
                 (resAbiertos && resAbiertos.ok ? resAbiertos.data : [])
@@ -444,52 +467,79 @@
                     .filter(Boolean)
             );
 
-            const relevantes = (notis || []).filter(n => {
-                const alcanceOk = norm(n.alcance) === 'nacional' || norm(n.regional) === regNorm;
-                if (!alcanceOk) return false;
+            // Para las notificaciones de tipo "cierre_pendiente" (traen
+            // id_salida_ref), solo se muestran si ese servicio sigue
+            // realmente abierto — así la campana se limpia sola apenas
+            // se registra la Llegada, sin depender de que alguien la
+            // marque como leída a mano. El resto de tipos (avería,
+            // apoyo aceptado, etc.) se muestran siempre que no estén
+            // leídas.
+            const relevantes = resNotis.data.filter(n => {
+                if (normTexto_(n.tipo) !== 'cierre_pendiente') return true;
                 const idSalida = String(n.id_salida_ref || '').trim();
-                // Si no hay id_salida_ref (notificación antigua sin ese campo),
-                // se muestra igual por seguridad — mejor un falso positivo
-                // ocasional que perder de vista un servicio sin cerrar.
                 return idSalida ? idsAbiertos.has(idSalida) : true;
             });
 
-            relevantes.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-
-            notisCierre = relevantes;
+            notisRegional = relevantes;
             renderCampana();
         } catch (e) {
-            console.warn('No se pudieron cargar las notificaciones de cierre:', e.message);
+            console.warn('No se pudieron cargar las notificaciones de la regional:', e.message);
         }
     }
+
+    function normTexto_(s) {
+        return (s || '').toString().toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    const ICONOS_POR_TIPO = {
+        cierre_pendiente:  '🚨',
+        averia_reportada:  '⚠️',
+        apoyo_aceptado:    '🤝',
+        apoyo_solicitado:  '📤',
+    };
 
     function renderCampana() {
         const badge = document.getElementById('badge-campana');
         const lista = document.getElementById('campana-lista');
 
-        if (notisCierre.length > 0) {
+        if (notisRegional.length > 0) {
             badge.style.display = 'flex';
-            badge.innerText = notisCierre.length > 9 ? '9+' : notisCierre.length;
+            badge.innerText = notisRegional.length > 9 ? '9+' : notisRegional.length;
         } else {
             badge.style.display = 'none';
         }
 
-        if (notisCierre.length === 0) {
-            lista.innerHTML = '<div class="campana-vacio">✅ Sin servicios pendientes de cierre.</div>';
+        if (!userSesion.regional) {
+            lista.innerHTML = '<div class="campana-vacio">⚠️ Tu usuario no tiene una regional asignada.<br>Contacta a Administración.</div>';
             return;
         }
 
-        lista.innerHTML = notisCierre.map(n => {
-            const placa = (n.placa || 'N/A');
-            const detalle = [
+        if (notisRegional.length === 0) {
+            lista.innerHTML = '<div class="campana-vacio">✅ Sin notificaciones pendientes en ' + (userSesion.regional || 'tu regional') + '.</div>';
+            return;
+        }
+
+        lista.innerHTML = notisRegional.map(n => {
+            const icono = ICONOS_POR_TIPO[n.tipo] || '🔔';
+            const titulo = n.titulo || (n.placa ? icono + ' ' + n.placa : icono + ' Notificación');
+            const detalle = n.cuerpo || [
                 n.conductor ? 'Conductor: ' + n.conductor : '',
                 n.hora_salida ? 'Salió a las ' + n.hora_salida : ''
             ].filter(Boolean).join(' · ');
+
+            const idSeguro = String(n.id || '').replace(/'/g, '');
+            const placaSegura = String(n.placa || '').replace(/'/g, '');
+            const esCierre = normTexto_(n.tipo) === 'cierre_pendiente';
+            const accion = esCierre && placaSegura
+                ? `irARegistrarLlegada('${placaSegura}', '${idSeguro}')`
+                : `marcarNotificacionLeida('${idSeguro}')`;
+            const cta = esCierre && placaSegura ? 'Tocar para registrar la llegada →' : 'Tocar para marcar como leída ✓';
+
             return `
-                <div class="campana-item" onclick="irARegistrarLlegada('${placa.replace(/'/g, "")}')">
-                    <div class="ci-placa">🚨 ${placa}</div>
-                    <div class="ci-detalle">${detalle || 'Sin más datos del conductor'}</div>
-                    <div class="ci-cta">Tocar para registrar la llegada →</div>
+                <div class="campana-item" onclick="${accion}">
+                    <div class="ci-placa">${icono} ${titulo}</div>
+                    <div class="ci-detalle">${detalle || 'Sin más detalles'}</div>
+                    <div class="ci-cta">${cta}</div>
                 </div>`;
         }).join('');
     }
@@ -507,11 +557,36 @@
         }
     });
 
-    // Al tocar una notificación, se va directo a registro_llegada.html
-    // con la placa preseleccionada (registro_llegada.html ya sabe leer
-    // el parámetro ?placa= y disparar la carga automática de sus datos).
-    function irARegistrarLlegada(placa) {
+    // Al tocar una notificación de "servicio sin cerrar", se va directo
+    // a registro_llegada.html con la placa preseleccionada, y de paso se
+    // marca la notificación como leída (aunque también se limpia sola
+    // cuando la Llegada se guarde, por si el coordinador solo la mira
+    // sin llegar a completar el registro).
+    function irARegistrarLlegada(placa, idNotificacion) {
+        if (idNotificacion) marcarNotificacionLeida(idNotificacion, true);
         window.location.href = 'registro_llegada.html?placa=' + encodeURIComponent(placa);
+    }
+
+    async function marcarNotificacionLeida(id, silencioso) {
+        if (!id) return;
+        try {
+            await DB.marcarNotificacionLeida(id);
+            notisRegional = notisRegional.filter(n => String(n.id) !== String(id));
+            renderCampana();
+        } catch (e) {
+            if (!silencioso) console.warn('No se pudo marcar la notificación como leída:', e.message);
+        }
+    }
+
+    async function marcarTodasLeidas(e) {
+        if (e) e.stopPropagation();
+        const pendientes = notisRegional.slice();
+        if (!pendientes.length) return;
+        notisRegional = [];
+        renderCampana();
+        for (const n of pendientes) {
+            try { await DB.marcarNotificacionLeida(n.id); } catch (err) { /* se reintentará en el próximo polling */ }
+        }
     }
 
     async function cargarApoyos() {
@@ -521,54 +596,65 @@
         t.innerHTML = data.map(s => `<tr><td><b>${s.origen} ➔ ${s.destino}</b></td><td style="text-align:right;"><span class="status-pill pill-${s.estado}">${s.estado}</span></td></tr>`).join('');
     }
 
+    // Filtro regional normalizado (sin depender de mayúsculas/tildes)
+    // para las tablas de abajo, en vez de un .eq() exacto que podría
+    // fallar por diferencias de formato entre hojas.
+    function filtrarPorRegional(rows, campoRegional) {
+        const miRegional = norm(userSesion.regional);
+        if (!miRegional) return [];
+        return (rows || []).filter(r => norm(r[campoRegional]) === miRegional);
+    }
+
     async function cargarAverias() {
-        const { data } = await DB.supabase.from('Averias').select('*').eq('regional', userSesion.regional).order('created_at',{ascending:false}).limit(3);
+        const { data } = await DB.supabase.from('Averias').select('*').order('created_at',{ascending:false});
+        const propias = filtrarPorRegional(data, 'regional').slice(0, 3);
         const t = document.getElementById('tabla-averias');
-        if(!data || data.length === 0) { t.innerHTML = '<tr><td>Sin averías reportadas.</td></tr>'; return; }
-        t.innerHTML = data.map(av => `<tr><td><b>${av.placa_vehiculo}</b><br><small>${av.tipo_falla}</small></td><td style="text-align:right; font-size:11px;">${new Date(av.created_at).toLocaleDateString()}</td></tr>`).join('');
+        if(propias.length === 0) { t.innerHTML = '<tr><td>Sin averías reportadas.</td></tr>'; return; }
+        t.innerHTML = propias.map(av => `<tr><td><b>${av.placa_vehiculo}</b><br><small>${av.tipo_falla}</small></td><td style="text-align:right; font-size:11px;">${new Date(av.created_at).toLocaleDateString()}</td></tr>`).join('');
     }
 
     async function cargarTraslados() {
-        const { data } = await DB.supabase.from('Traslado').select('*').eq('regional', userSesion.regional).order('id_salida',{ascending:false}).limit(3);
+        const { data } = await DB.supabase.from('Traslado').select('*').order('id_salida',{ascending:false});
+        const propios = filtrarPorRegional(data, 'regional').slice(0, 3);
         const t = document.getElementById('tabla-traslados');
-        if(!data || data.length === 0) { t.innerHTML = '<tr><td>Sin traslados hoy.</td></tr>'; return; }
-        t.innerHTML = data.map(tr => `<tr><td><b>${tr.placa}</b></td><td style="text-align:right; font-size:11px;">${tr.origen} ➔ ${tr.destino}</td></tr>`).join('');
+        if(propios.length === 0) { t.innerHTML = '<tr><td>Sin traslados hoy.</td></tr>'; return; }
+        t.innerHTML = propios.map(tr => `<tr><td><b>${tr.placa}</b></td><td style="text-align:right; font-size:11px;">${tr.origen} ➔ ${tr.destino}</td></tr>`).join('');
     }
 
-    // ⛽ NUEVO: cargar últimos 3 tanqueos de la regional del coordinador
+    // Cargar últimos 3 tanqueos de la regional del coordinador
     async function cargarTanqueos() {
-        const { data } = await DB.supabase.from('tanqueo').select('*').eq('regional', userSesion.regional).order('created_at', {ascending:false}).limit(3);
+        const { data } = await DB.supabase.from('Tanqueo').select('*').order('created_at', {ascending:false});
+        const propios = filtrarPorRegional(data, 'REGIONAL').slice(0, 3);
         const t = document.getElementById('tabla-tanqueos');
-        if (!data || data.length === 0) { t.innerHTML = '<tr><td>Sin tanqueos registrados.</td></tr>'; return; }
-        t.innerHTML = data.map(tq => `
+        if (propios.length === 0) { t.innerHTML = '<tr><td>Sin tanqueos registrados.</td></tr>'; return; }
+        t.innerHTML = propios.map(tq => `
             <tr>
                 <td>
-                    <b>${tq.carroza || tq.placa}</b><br>
-                    <small>${tq.estacion_servicio || ''} · ${tq.ciudad || ''}</small>
+                    <b>${tq.CARROZA || tq.PLACA}</b><br>
+                    <small>${tq.ESTACION_SERVICIO || ''} · ${tq.CIUDAD || ''}</small>
                 </td>
                 <td style="text-align:right;">
-                    <b>${tq.galones || 0} gal</b><br>
-                    <small style="color:#64748b;">$${Number(tq.valor_total||0).toLocaleString('es-CO')}</small>
+                    <b>${tq.GALONES || 0} gal</b><br>
+                    <small style="color:#64748b;">$${Number(tq.VALOR_TOTAL||0).toLocaleString('es-CO')}</small>
                 </td>
             </tr>`).join('');
     }
 
-    // ⛽ NUEVO: cálculo de combustible estimado restante por carroza
+    // Cálculo de combustible estimado restante por carroza
     // Fórmula: galones restantes = galones del último tanqueo - (km recorridos desde ese tanqueo / rendimiento)
-    // Requiere en la hoja/tabla "carrozas": km_actual, rendimiento_km_gal, capacidad_tanque_galones
     function calcularCombustible(carroza, tanqueos) {
-        const rendimiento = Number(carroza.rendimiento_km_gal) || 30; // km por galón (valor por defecto si falta)
-        const capacidad = Number(carroza.capacidad_tanque_galones) || 15; // galones (valor por defecto si falta)
-        const kmActual = Number(carroza.km_actual) || 0;
+        const rendimiento = Number(carroza.rendimiento_km_gal || carroza.ultimo_rendimiento_km_gal) || 25;
+        const capacidad = Number(carroza.capacidad_galones) || 55;
+        const kmActual = Number(carroza.kilometraje_actual) || 0;
 
         const ultimo = (tanqueos || [])
-            .filter(t => norm(t.placa) === norm(carroza.placa))
-            .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
+            .filter(t => norm(t.PLACA) === norm(carroza.placa))
+            .sort((a,b) => String(b.FECHA||'').localeCompare(String(a.FECHA||'')))[0];
 
         if (!ultimo) return { porcentaje: null, color: '#94a3b8', texto: 'Sin datos' };
 
-        const galonesLlenado = Number(ultimo.galones) || 0;
-        const kmEnTanqueo = Number(ultimo.kilometraje) || kmActual;
+        const galonesLlenado = Number(ultimo.GALONES) || 0;
+        const kmEnTanqueo = Number(ultimo.KILOMETRAJE) || kmActual;
         const kmRecorridos = Math.max(0, kmActual - kmEnTanqueo);
         const galonesConsumidos = kmRecorridos / rendimiento;
         const galonesRestantes = Math.max(0, galonesLlenado - galonesConsumidos);
@@ -581,12 +667,20 @@
     }
 
     async function cargarFlota() {
-        const { data: carrozas } = await DB.supabase.from('carrozas').select('*').order('placa');
-        const { data: tanqueos } = await DB.supabase.from('tanqueo').select('*').order('created_at', {ascending:false});
+        const { data: carrozasTodas } = await DB.supabase.from('carrozas').select('*').order('placa');
+        const { data: tanqueos } = await DB.supabase.from('Tanqueo').select('*').order('created_at', {ascending:false});
+
+        // Estado de flota: se muestra la de la regional del coordinador.
+        // (Si tu operación necesita ver TODA la flota nacional desde
+        // aquí, cambia la línea de abajo por "carrozasTodas || []".)
+        const carrozas = filtrarPorRegional(carrozasTodas, 'sede_asignada');
 
         const t = document.getElementById('tabla-flota');
-        t.innerHTML = (carrozas || []).map(c => {
-            let cls = c.estado.includes('Taller') ? 'pill-taller' : c.estado.includes('Disponible') ? 'pill-disponible' : 'pill-ruta';
+        if (!carrozas.length) { t.innerHTML = '<tr><td>Sin carrozas registradas en tu regional.</td></tr>'; return; }
+
+        t.innerHTML = carrozas.map(c => {
+            const estado = c.estado || '';
+            let cls = estado.includes('Taller') ? 'pill-taller' : estado.includes('Disponible') ? 'pill-disponible' : 'pill-ruta';
             const comb = calcularCombustible(c, tanqueos);
             const fuelHtml = comb.porcentaje === null
                 ? `<small style="color:#94a3b8;">⛽ sin registro</small>`
@@ -597,7 +691,7 @@
             return `<tr>
                         <td><b>${c.placa}</b></td>
                         <td style="text-align:right;">
-                            <span class="status-pill ${cls}">● ${c.estado}</span>
+                            <span class="status-pill ${cls}">● ${estado || 'Sin estado'}</span>
                             ${fuelHtml}
                         </td>
                     </tr>`;
@@ -607,20 +701,33 @@
     async function verificarBadges() {
         const reg = norm(userSesion.regional);
         const { data } = await DB.supabase.from('solicitud_apoyo').select('*').eq('estado', 'pendiente');
-        const vis = (data || []).filter(s => norm(s.alcance) === 'nacional' || norm(s.regional_solicitante) === reg);
+        const vis = (data || []).filter(s => {
+            const alcance = norm(s.alcance);
+            const esGlobal = alcance === 'nacional' || alcance === 'global' || alcance === 'todas';
+            const regionalSolicitante = norm(s.regional_solicitante || s.regional);
+            return esGlobal || (reg && regionalSolicitante === reg);
+        });
         const b = document.getElementById('badge-apoyo');
         if (vis.length > 0) { b.style.display = 'flex'; b.innerText = vis.length; } else { b.style.display = 'none'; }
     }
 
+    // El canal Realtime es un stub de compatibilidad (este backend es
+    // Google Apps Script + Sheets, sin websockets reales) — se deja
+    // conectado por si en el futuro se migra a un backend con soporte
+    // real de Realtime, pero la campana NO depende de esto: usa el
+    // polling de cargarNotificacionesRegional() de arriba.
     function activarRealtime() {
         DB.supabase.channel('coord-push').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones_apoyo' }, payload => {
             const n = payload.new;
-            if (norm(n.alcance) === 'nacional' || norm(n.regional) === norm(userSesion.regional)) {
+            const alcance = norm(n.alcance);
+            const esGlobal = alcance === 'nacional' || alcance === 'global' || alcance === 'todas';
+            if (esGlobal || norm(n.regional) === norm(userSesion.regional)) {
                 document.getElementById('push-titulo').innerText = n.titulo;
                 document.getElementById('push-body').innerText = n.cuerpo;
                 document.getElementById('push-overlay').classList.add('visible');
                 document.getElementById('push-notif').classList.add('visible');
                 verificarBadges();
+                cargarNotificacionesRegional();
             }
         }).subscribe();
     }
