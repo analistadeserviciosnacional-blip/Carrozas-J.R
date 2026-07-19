@@ -671,12 +671,29 @@
         const { data: tanqueos } = await DB.supabase.from('Tanqueo').select('*').order('created_at', {ascending:false});
 
         // Estado de flota: se muestra la de la regional del coordinador.
-        // (Si tu operación necesita ver TODA la flota nacional desde
-        // aquí, cambia la línea de abajo por "carrozasTodas || []".)
-        const carrozas = filtrarPorRegional(carrozasTodas, 'sede_asignada');
+        // La regional REAL y actual de una carroza es sede_intercambio
+        // si tiene una (viene de un traslado temporal a otra regional);
+        // si no, es sede_asignada. Esta es la MISMA lógica que ya usa
+        // index.html al listar placas en el registro — si aquí solo se
+        // mirara sede_asignada, cualquier carroza con un intercambio
+        // activo desaparecería del panel de su regional real.
+        const miRegional = norm(userSesion.regional);
+        const carrozas = (carrozasTodas || []).filter(c => {
+            const ubicacionReal = c.sede_intercambio || c.sede_asignada;
+            return norm(ubicacionReal) === miRegional;
+        });
 
         const t = document.getElementById('tabla-flota');
-        if (!carrozas.length) { t.innerHTML = '<tr><td>Sin carrozas registradas en tu regional.</td></tr>'; return; }
+        if (!carrozas.length) {
+            t.innerHTML = '<tr><td>Sin carrozas registradas en tu regional.</td></tr>';
+            console.warn(
+                '⚠️ "Estado de Flota General" quedó vacío para la regional "' + userSesion.regional + '". ' +
+                'Verifica que las carrozas en la hoja "carrozas" tengan sede_asignada (o sede_intercambio) ' +
+                'escrito EXACTAMENTE como "' + userSesion.regional + '".',
+                carrozasTodas
+            );
+            return;
+        }
 
         t.innerHTML = carrozas.map(c => {
             const estado = c.estado || '';
