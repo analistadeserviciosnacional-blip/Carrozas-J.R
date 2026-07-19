@@ -441,18 +441,37 @@ async function conLock(nombre, fn) {
 // Estas funciones siempre invalidan la caché antes de leer, para no
 // dar un falso "no existe" por datos desactualizados en memoria.
 
-// Busca si la placa YA tiene una Salida activa (sin hora_de_ingreso)
-// en la hoja "Traslado". Se usa para impedir abrir una segunda
-// Salida mientras la anterior sigue abierta.
+// Busca si la placa YA tiene una Salida activa (sin hora_de_ingreso EN
+// LA HOJA TRASLADO Y SIN UNA LLEGADA YA GUARDADA). Se usa para impedir
+// abrir una segunda Salida mientras la anterior sigue abierta.
+//
+// 🆕 v12.12 — CORRECCIÓN CRÍTICA: antes esta función solo miraba el
+// campo hora_de_ingreso de la propia hoja "Traslado". Pero
+// guardarLlegada() nunca escribía de vuelta ese campo en "Traslado"
+// (solo guardaba la Llegada en su propia hoja) — así que un servicio
+// con su Llegada ya registrada correctamente en "Llegadas" seguía
+// apareciendo como "SERVICIO SIN CERRAR" en Registro de Salida para
+// siempre, bloqueando cualquier nueva salida de esa carroza.
+// Ahora se cruza contra "Llegadas" (igual que ya hacía
+// obtenerPlacasConTrasladoActivo) — si existe una Llegada para ese
+// id_salida, el traslado NO se considera abierto, sin importar lo
+// que diga el campo hora_de_ingreso de "Traslado".
 async function buscarTrasladoAbiertoPorPlaca(placa) {
   const pSel = String(placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
   if (!pSel) return null;
   DB.invalidarCache('Traslado');
-  const rows = await gasGet('Traslado');
+  DB.invalidarCache('Llegadas');
+  const [rows, llegadas] = await Promise.all([gasGet('Traslado'), gasGet('Llegadas')]);
+
+  const idsConLlegada = new Set(
+    llegadas.map(function(l) { return String(l.id_salida || '').trim(); }).filter(Boolean)
+  );
+
   const abiertos = rows.filter(function(r) {
     const pBase = String(r.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
-    const sinRegreso = (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '');
-    return pBase === pSel && sinRegreso;
+    const sinRegresoEnTraslado = (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '');
+    const yaTieneLlegada = r.id_salida && idsConLlegada.has(String(r.id_salida).trim());
+    return pBase === pSel && sinRegresoEnTraslado && !yaTieneLlegada;
   });
   if (!abiertos.length) return null;
   abiertos.sort(function(a, b) { return claveOrden(b) - claveOrden(a); });
@@ -1185,6 +1204,36 @@ const DB = {
         console.warn('⚠️ Error anexando combustible al registro de Llegada:', e.message);
       }
 
+      // 🆕 v12.12 — Actualizar también la propia hoja "Traslado" con
+      // hora_de_ingreso / km__ingreso / total_km. Antes esto NUNCA se
+      // escribía de vuelta en "Traslado" (solo se guardaba la Llegada
+      // en su propia hoja), así que el Traslado original quedaba
+      // "abierto" para siempre a ojos de cualquier pantalla que leyera
+      // directamente esa hoja — incluida la propia guarda anti-doble-
+      // salida (buscarTrasladoAbiertoPorPlaca), que por eso seguía
+      // bloqueando nuevas salidas de una carroza cuya Llegada YA
+      // estaba correctamente registrada. No es crítico si falla (la
+      // guarda ya cruza contra "Llegadas" de todas formas), así que
+      // no bloquea el resto del flujo si algo sale mal.
+      let trasladoActualizado = false;
+      if (d.id_salida) {
+        try {
+          const resTraslado = await gasWrite('Traslado', {
+            hora_de_ingreso: d.hora_ingreso || '',
+            km__ingreso:     d.km_ingreso   || '',
+            total_km:        d.total_km     || '',
+          }, 'update', 'id_salida', d.id_salida);
+          trasladoActualizado = !!resTraslado.ok;
+          if (resTraslado.ok) {
+            DB.invalidarCache('Traslado');
+          } else {
+            console.warn('⚠️ No se pudo actualizar hora_de_ingreso en Traslado (' + d.id_salida + '):', resTraslado.error);
+          }
+        } catch (e) {
+          console.warn('⚠️ Error actualizando Traslado tras guardarLlegada:', e.message);
+        }
+      }
+
       let checklistActualizado = false;
       try {
         const checklistAbierto = await buscarChecklistAbiertoPorPlaca(d.placa);
@@ -1232,6 +1281,7 @@ const DB = {
         estado_carroza_antes: estadoPrevio,
         combustible_guardado_en_registro: combustibleGuardadoEnRegistro,
         checklist_actualizado: checklistActualizado,
+        traslado_actualizado: trasladoActualizado,
       });
     });
   },
@@ -1352,6 +1402,77 @@ const DB = {
     }
   },
 
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.12 — REPARAR TRASLADOS "ABIERTOS" QUE YA TIENEN LLEGADA
+  // ══════════════════════════════════════════════════════════
+  // Antes de esta versión, guardarLlegada() nunca escribía de vuelta
+  // hora_de_ingreso/km__ingreso/total_km en la hoja "Traslado" — por
+  // lo que cualquier servicio cerrado ANTES de este parche quedó con
+  // su Traslado marcado como "abierto" para siempre, aunque su
+  // Llegada esté correctamente guardada en la hoja "Llegadas".
+  //
+  // Esta función recorre "Traslado", detecta esas filas huérfanas
+  // (hora_de_ingreso vacía + SÍ existe una Llegada con ese id_salida)
+  // y las completa con los datos de esa Llegada. Es seguro ejecutarla
+  // varias veces: una fila ya reparada (con hora_de_ingreso llena) no
+  // se vuelve a tocar.
+  //
+  // Cómo ejecutarla una sola vez (por ejemplo desde la consola del
+  // navegador en cualquier pantalla que cargue db.js):
+  //     await DB.repararTrasladosCerrados()
+  async repararTrasladosCerrados() {
+    try {
+      DB.invalidarCache('Traslado');
+      DB.invalidarCache('Llegadas');
+      const [traslados, llegadas] = await Promise.all([gasGet('Traslado'), gasGet('Llegadas')]);
+
+      const llegadaPorIdSalida = {};
+      llegadas.forEach(function(l) {
+        const id = String(l.id_salida || '').trim();
+        if (id) llegadaPorIdSalida[id] = l;
+      });
+
+      const huerfanos = traslados.filter(function(r) {
+        const sinRegreso = (r.hora_de_ingreso === undefined || r.hora_de_ingreso === null || String(r.hora_de_ingreso).trim() === '');
+        const idSalida = String(r.id_salida || '').trim();
+        return sinRegreso && idSalida && llegadaPorIdSalida[idSalida];
+      });
+
+      const resumen = { reparados: [], errores: [] };
+
+      for (const traslado of huerfanos) {
+        const idSalida = String(traslado.id_salida).trim();
+        const llegada = llegadaPorIdSalida[idSalida];
+        try {
+          const res = await gasWrite('Traslado', {
+            hora_de_ingreso: llegada.hora_ingreso || '',
+            km__ingreso:     llegada.km_ingreso   || '',
+            total_km:        llegada.total_km     || '',
+          }, 'update', 'id_salida', idSalida);
+          if (res.ok) {
+            resumen.reparados.push({ id_salida: idSalida, placa: traslado.placa });
+          } else {
+            resumen.errores.push({ id_salida: idSalida, placa: traslado.placa, error: res.error });
+          }
+        } catch (e) {
+          resumen.errores.push({ id_salida: idSalida, placa: traslado.placa, error: e.message });
+        }
+      }
+
+      DB.invalidarCache('Traslado');
+      console.log(
+        `✅ Reparación de Traslados completada: ${resumen.reparados.length} filas reparadas, ` +
+        `${resumen.errores.length} con error.`
+      );
+      if (resumen.errores.length) {
+        console.warn('⚠️ Estas no se pudieron reparar automáticamente — revisar a mano:', resumen.errores);
+      }
+      return { ok: true, resumen };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  },
+
   async insertar(hoja, datos) {
     const res = await gasWrite(hoja, datos, 'insert');
     if (res.ok) this.invalidarCache(hoja);
@@ -1456,52 +1577,37 @@ const DB = {
   // SIEMPRE exige que la regional coincida exactamente con la que
   // se está consultando — nunca cruza regionales entre sí.
   //
-  // opts: { soloNoLeidas: true/false, tipo: 'cierre_pendiente' (opcional),
-  //         todas: true (🆕 v12.12 — SOLO para vistas de nivel
-  //         nacional/administración: ignora el filtro de regional y
-  //         trae TODAS las notificaciones de TODAS las regionales.
-  //         Cuando opts.todas es true, el primer argumento (regional)
-  //         se ignora por completo — llamar como
-  //         DB.obtenerNotificaciones(null, { todas: true }) desde el
-  //         panel de admin.) )
+  // opts: { soloNoLeidas: true/false, tipo: 'cierre_pendiente' (opcional) }
   async obtenerNotificaciones(regional, opts) {
     opts = opts || {};
     try {
-      const esVistaNacional = opts.todas === true;
-      const regionalNorm = esVistaNacional ? '' : normTexto(regional);
-      if (!esVistaNacional && !regionalNorm) return { ok: true, data: [] };
+      const regionalNorm = normTexto(regional);
+      if (!regionalNorm) return { ok: true, data: [] };
 
       const rows = await gasGet('notificaciones_apoyo');
 
-      let filtradas;
-      if (esVistaNacional) {
-        // Vista de administración: no se filtra por regional, se ven
-        // TODAS las notificaciones de TODAS las regionales.
-        filtradas = rows.slice();
-      } else {
-        filtradas = rows.filter(function(r) {
-          const alcanceNorm  = normTexto(r.alcance);
-          const regCampoNorm = normTexto(r.regional);
+      let filtradas = rows.filter(function(r) {
+        const alcanceNorm  = normTexto(r.alcance);
+        const regCampoNorm = normTexto(r.regional);
 
-          const esGlobal = alcanceNorm === 'global' || alcanceNorm === 'todas' || alcanceNorm === 'nacional' || alcanceNorm === 'general';
+        const esGlobal = alcanceNorm === 'global' || alcanceNorm === 'todas' || alcanceNorm === 'nacional' || alcanceNorm === 'general';
 
-          // Formato correcto: alcance='regional' + regional=miRegional
-          const formatoNuevo = alcanceNorm === 'regional' && regCampoNorm === regionalNorm;
+        // Formato correcto: alcance='regional' + regional=miRegional
+        const formatoNuevo = alcanceNorm === 'regional' && regCampoNorm === regionalNorm;
 
-          // Formato heredado con bug: alcance trae el NOMBRE de la
-          // regional directamente. Solo cuenta si coincide EXACTO con
-          // la regional que se está consultando.
-          const formatoViejo = alcanceNorm === regionalNorm;
+        // Formato heredado con bug: alcance trae el NOMBRE de la
+        // regional directamente. Solo cuenta si coincide EXACTO con
+        // la regional que se está consultando.
+        const formatoViejo = alcanceNorm === regionalNorm;
 
-          // Respaldo adicional: si por cualquier motivo `alcance` viene
-          // vacío o con un valor no reconocido, se usa directamente el
-          // campo `regional` de la fila (nunca deja pasar algo de otra
-          // regional distinta a la solicitada).
-          const porCampoRegional = !alcanceNorm && regCampoNorm === regionalNorm;
+        // Respaldo adicional: si por cualquier motivo `alcance` viene
+        // vacío o con un valor no reconocido, se usa directamente el
+        // campo `regional` de la fila (nunca deja pasar algo de otra
+        // regional distinta a la solicitada).
+        const porCampoRegional = !alcanceNorm && regCampoNorm === regionalNorm;
 
-          return esGlobal || formatoNuevo || formatoViejo || porCampoRegional;
-        });
-      }
+        return esGlobal || formatoNuevo || formatoViejo || porCampoRegional;
+      });
 
       if (opts.tipo) {
         const tipoNorm = normTexto(opts.tipo);
