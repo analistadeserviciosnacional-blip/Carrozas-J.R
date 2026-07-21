@@ -613,7 +613,7 @@
 })();
 </script>
 <script>
-const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const norm = str => String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const normPlaca = p => String(p||'').replace(/[^A-Z0-9]/gi,'').toUpperCase();
 const fmtNum = n => new Intl.NumberFormat('es-CO').format(Math.round(n || 0));
 const fmtCOP = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n || 0);

@@ -495,7 +495,7 @@
 <script src="db.js"></script>
 <script src="offline-queue.js"></script>
 <script>
-    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const norm = str => String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
     // ✅ Misma URL que usa db.js y el resto del sistema
     const APPS_SCRIPT_URL_TG = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';

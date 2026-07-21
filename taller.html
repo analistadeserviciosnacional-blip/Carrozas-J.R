@@ -326,7 +326,7 @@
     //   cualquier otro (conductor)     -> panel_conductor.html
     function irAtras() {
         var sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        var norm = function(s) { return (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,''); };
+        var norm = function(s) { return String(s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,''); };
         var rol = norm(sesion.rol), usr = norm(sesion.usuario);
 
         if (rol === 'admin' || rol === 'administrador' || rol === 'administracion' || usr === 'admin') {

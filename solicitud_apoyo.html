@@ -255,7 +255,7 @@ async function cargar() {
 // ✅ CORREGIDO: "regional" como palabra = solicitud para la regional del solicitante
 function solicitudEsParaMiRegional(s, miRegional) {
     var norm = function(str) {
-        return (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     };
     var alc    = norm(s.alcance || '');
     var reg    = norm(miRegional);
@@ -292,7 +292,7 @@ function setFiltro(f, el) {
 function renderLista() {
     var miRegional = sesion.regional || localStorage.getItem('jr_regional_usuario') || 'Pereira';
     var norm = function(str) {
-        return (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     };
     var lista = todasSolicitudes.slice();
 
@@ -329,7 +329,7 @@ function renderLista() {
 
 function renderCard(s, miRegional) {
     var norm = function(str) {
-        return (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     };
     var yaAceptada      = (s.estado||'').toLowerCase() !== 'pendiente';
     var conductorAcepto = s['conductor_aceptó'] || s['conductor_acepto'] || '';

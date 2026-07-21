@@ -405,7 +405,7 @@
 <script src="offline-queue.js"></script>
 <script>
     let userSesion = {};
-    const norm = str => (str||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const norm = str => String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
     // Lista en memoria de notificaciones vigentes para la campana de
     // esta regional (ya filtradas por DB.obtenerNotificaciones, que es

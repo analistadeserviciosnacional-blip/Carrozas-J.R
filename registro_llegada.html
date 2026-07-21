@@ -970,7 +970,7 @@
     // ── VOLVER ────────────────────────────────────────────
     function irAtras() {
         const user = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const norm = s => (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const norm = s => String(s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const rol  = norm(user.rol);
         const usr  = norm(user.usuario);
         if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = 'dashboard.html';

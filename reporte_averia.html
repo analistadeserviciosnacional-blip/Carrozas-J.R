@@ -164,7 +164,7 @@
 
     function irAtras() {
         const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const norm = s => String(s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         const rol = norm(sesion.rol), usr = norm(sesion.usuario);
         if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = "dashboard.html";
         else if (rol === 'coordinador') window.location.href = "panel_coordinador.html";

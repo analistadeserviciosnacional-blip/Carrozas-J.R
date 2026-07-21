@@ -218,7 +218,7 @@
     let flotaGlobal = [];
 
     // Normaliza texto igual que en index.html (sin tildes, minúsculas)
-    const norm = s => (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const norm = s => String(s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     // Regresa al panel correcto según el ROL guardado en la sesión —
     // exactamente el mismo mapeo que usa index.html al hacer login,

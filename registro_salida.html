@@ -537,8 +537,8 @@
     // ── NORMALIZAR TEXTO para comparaciones robustas ──
     // Elimina tildes, convierte a minúsculas y recorta espacios
     function normalizar(str) {
-        if (!str) return '';
-        return str
+        const s = String(str || '');
+        return s
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase()

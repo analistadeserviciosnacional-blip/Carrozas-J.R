@@ -428,7 +428,7 @@ input:focus, select:focus { border-color: var(--azul); background: white; }
 <script src="db.js"></script>
 <script src="offline-queue.js"></script>
 <script>
-const norm = s => (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const norm = s => String(s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
 function mostrarError(msg) {
     const d = document.getElementById('error-msg');
