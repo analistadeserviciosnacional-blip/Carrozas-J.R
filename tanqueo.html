@@ -75,6 +75,22 @@
   textarea{min-height:78px; resize:vertical;}
   .hint{font-size:11.5px; color:var(--amber); margin-top:6px;}
 
+  /* ── Selector de nivel visual de combustible (chips) ── */
+  .nivel-chips{
+    display:grid; grid-template-columns:repeat(5, 1fr); gap:8px;
+  }
+  @media (max-width:620px){ .nivel-chips{grid-template-columns:repeat(3, 1fr);} }
+  .nivel-chip{
+    border:1.5px solid var(--line); background:var(--field); border-radius:8px;
+    padding:10px 6px; text-align:center; cursor:pointer; user-select:none;
+    font-size:12.5px; font-weight:700; color:var(--muted); line-height:1.3;
+  }
+  .nivel-chip .emoji{display:block; font-size:17px; margin-bottom:3px;}
+  .nivel-chip:hover{border-color:var(--blue-soft);}
+  .nivel-chip.sel{
+    border-color:var(--blue); background:rgba(29,85,201,.08); color:var(--blue-deep);
+  }
+
   /* ── Caja de estado (equivalente a la caja amarilla de config) ── */
   .config-box{
     background:#f2f7ff; border:1px solid var(--blue-soft); border-radius:10px;
@@ -213,6 +229,19 @@
       <div class="config-box" id="statusCard">
         <div class="titulo">Estado actual de la carroza</div>
         <div class="placeholder-txt">Selecciona la placa para ver el nivel de combustible y el estado del aceite.</div>
+      </div>
+
+      <!-- 🆕 Nivel de combustible observado (inspección visual antes de tanquear) -->
+      <div class="field">
+        <label>Nivel de combustible observado (antes de tanquear) <span class="req">*</span></label>
+        <div class="nivel-chips" id="nivelChips">
+          <div class="nivel-chip" data-val="Vacío/Reserva"><span class="emoji">🔴</span>Vacío / Reserva</div>
+          <div class="nivel-chip" data-val="1/4"><span class="emoji">🟠</span>1/4</div>
+          <div class="nivel-chip" data-val="Medio (1/2)"><span class="emoji">🟡</span>Medio (1/2)</div>
+          <div class="nivel-chip" data-val="3/4"><span class="emoji">🟢</span>3/4</div>
+          <div class="nivel-chip" data-val="Lleno (4/4)"><span class="emoji">🟢</span>Lleno (4/4)</div>
+        </div>
+        <input type="hidden" id="inNivelObservado" required>
       </div>
 
       <div class="row2">
@@ -369,6 +398,9 @@
       $('alertBanner').innerHTML = '';
       $('msg').textContent = '';
       $('msg').className = 'msg';
+      // 🆕 limpiar selección de nivel observado
+      $('inNivelObservado').value = '';
+      document.querySelectorAll('#nivelChips .nivel-chip').forEach(c => c.classList.remove('sel'));
     }
 
     function cancelarFormulario() {
@@ -377,6 +409,15 @@
       limpiarFormulario();
       volver();
     }
+
+    // 🆕 Selector de nivel de combustible observado (chips)
+    document.querySelectorAll('#nivelChips .nivel-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#nivelChips .nivel-chip').forEach(c => c.classList.remove('sel'));
+        chip.classList.add('sel');
+        $('inNivelObservado').value = chip.dataset.val;
+      });
+    });
 
     // ── Fecha/hora por defecto ─────────────────────────
     function hoyDDMMAAAA() {
@@ -644,6 +685,7 @@
         placa:                $('selCarroza').value.trim().toUpperCase(),
         conductor:            $('inConductor').value.trim(),
         hora:                 $('inHora').value,
+        nivel_observado:      $('inNivelObservado').value, // 🆕 nivel visual observado antes de tanquear
         estacion_servicio:    $('inEstacion').value.trim(),
         ciudad:               $('inCiudad').value.trim(),
         kilometraje:          $('inKilometraje').value,
@@ -657,7 +699,7 @@
         observaciones:        $('inObservaciones').value.trim(),
       };
 
-      if (!datos.placa || !datos.conductor || !datos.estacion_servicio || !datos.ciudad || !datos.kilometraje || !datos.galones || !datos.valor_galon || !datos.forma_pago || !datos.tipo_combustible) {
+      if (!datos.placa || !datos.conductor || !datos.nivel_observado || !datos.estacion_servicio || !datos.ciudad || !datos.kilometraje || !datos.galones || !datos.valor_galon || !datos.forma_pago || !datos.tipo_combustible) {
         $('msg').textContent = 'Completa los campos obligatorios (*) antes de guardar.';
         $('msg').className = 'msg err';
         return;
