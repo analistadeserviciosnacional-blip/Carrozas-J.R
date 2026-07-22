@@ -1,8 +1,41 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.11
+ *  CONECTOR J.R. CARROZAS — db.js  v12.13
  *
- *  🆕 CAMBIOS v12.11 (Notificaciones por regional — corrección):
+ *  🆕 CAMBIOS v12.13 (Tanqueo — nivel observado + alerta de innecesario):
+ *
+ *  El formulario de Tanqueo ahora manda 3 campos nuevos, que se
+ *  guardan tal cual en la hoja "Tanqueo":
+ *
+ *    - NIVEL_OBSERVADO      → nivel de combustible que la persona vio
+ *                             a simple vista ANTES de tanquear
+ *                             (Vacío/Reserva, 1/4, Medio, 3/4, Lleno).
+ *    - POSIBLE_INNECESARIO  → "SI" / "NO". Lo calcula el propio
+ *                             formulario: se marca "SI" cuando, al
+ *                             momento de tanquear, el sistema calcula
+ *                             que a la carroza le queda más del 80%
+ *                             de combustible (no se ha consumido ni
+ *                             el 20% mínimo esperado), o cuando el
+ *                             nivel observado fue "3/4" o "Lleno".
+ *    - MOTIVO_INNECESARIO   → texto plano explicando cuál de esas
+ *                             condiciones se cumplió (puede venir
+ *                             vacío si POSIBLE_INNECESARIO = "NO").
+ *
+ *  ⚠️ IMPORTANTE: para que estos 3 valores queden guardados hay que
+ *  agregar las columnas NIVEL_OBSERVADO, POSIBLE_INNECESARIO y
+ *  MOTIVO_INNECESARIO en la hoja de cálculo "Tanqueo" (incluso vacías,
+ *  con solo el encabezado). Si la columna no existe en la hoja, el
+ *  backend (Apps Script) simplemente ignora ese valor al insertar.
+ *
+ *  No se toca la lógica de combustible/rendimiento existente — estos
+ *  3 campos son puramente informativos, para poder filtrar después
+ *  en el historial o en un reporte los tanqueos marcados como
+ *  posiblemente innecesarios.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.12 — nada de lo que ya
+ *   funcionaba fue tocado.)
+ *
+ *  ── Historial v12.11 (Notificaciones por regional — corrección) ──
  *
  *  La hoja "notificaciones_apoyo" traía el campo `alcance` guardado
  *  de dos formas distintas según qué parte del código insertó la
@@ -30,9 +63,6 @@
  *        dato sucio deje de crecer hacia adelante.
  *    - DB.marcarNotificacionLeida(id)
  *        Marca una notificación puntual como leída.
- *
- *  (Se conserva íntegro todo lo demás de v12.10 — nada de lo que ya
- *   funcionaba fue tocado.)
  *
  *  ── Historial v12.10 (Averías Recientes — corrección de fuente) ──
  *
@@ -855,6 +885,7 @@ const DB = {
           CARROZA:              d.carroza || '',
           PLACA:                d.placa || '',
           CONDUCTOR:            d.conductor || '',
+          NIVEL_OBSERVADO:      d.nivel_observado || '',        // 🆕 v12.13
           ESTACION_SERVICIO:    d.estacion_servicio || '',
           CIUDAD:               d.ciudad || '',
           KILOMETRAJE:          kmActual,
@@ -870,12 +901,34 @@ const DB = {
           FORMA_PAGO:           d.forma_pago || '',
           TIPO_COMBUSTIBLE:     d.tipo_combustible || '',
           REGIONAL:             d.regional || '',
+          POSIBLE_INNECESARIO:  d.posible_innecesario || 'NO',  // 🆕 v12.13 — "SI" / "NO"
+          MOTIVO_INNECESARIO:   d.motivo_innecesario  || '',    // 🆕 v12.13
         };
 
         const res = await gasWrite('Tanqueo', fila, 'insert');
 
         if (res.ok) {
           DB.invalidarCache('Tanqueo');
+
+          // 🆕 v12.13 — Si el propio formulario marcó el tanqueo como
+          // posiblemente innecesario, se avisa también a la regional
+          // por notificación (igual que ya se hace con las averías),
+          // para que el coordinador lo vea sin tener que revisar el
+          // historial manualmente.
+          if (d.posible_innecesario === 'SI') {
+            actualizarEnSegundoPlano(
+              DB.crearNotificacion({
+                tipo: 'tanqueo_innecesario',
+                titulo: '⛽ Posible tanqueo innecesario — ' + (d.placa || ''),
+                cuerpo: (d.motivo_innecesario || 'El tanqueo se registró con el tanque todavía en buen nivel.') +
+                        ' Conductor: ' + (d.conductor || 's/d') + '.',
+                regional: d.regional || '',
+                remitente: d.conductor || '',
+                placa: d.placa || '',
+              }),
+              'crearNotificacion tras guardarTanqueo (posible innecesario)'
+            );
+          }
 
           actualizarEnSegundoPlano((async () => {
             const estado = await DB.obtenerEstadoCarroza(d.placa);
@@ -905,6 +958,18 @@ const DB = {
     if (limite === undefined) limite = 50;
     try {
       let data = await gasGet('Tanqueo');
+      data.sort((a, b) => claveOrdenTanqueo(b) - claveOrdenTanqueo(a));
+      return { ok: true, data: data.slice(0, limite) };
+    } catch (e) { return { ok: false, data: [], error: e.message }; }
+  },
+
+  // 🆕 v12.13 — Tanqueos marcados como posiblemente innecesarios,
+  // para pantallas de reporte/auditoría (ej. panel_coordinador).
+  async obtenerTanqueosInnecesarios(limite) {
+    if (limite === undefined) limite = 50;
+    try {
+      let data = await gasGet('Tanqueo');
+      data = data.filter(r => String(r.POSIBLE_INNECESARIO || '').trim().toUpperCase() === 'SI');
       data.sort((a, b) => claveOrdenTanqueo(b) - claveOrdenTanqueo(a));
       return { ok: true, data: data.slice(0, limite) };
     } catch (e) { return { ok: false, data: [], error: e.message }; }
