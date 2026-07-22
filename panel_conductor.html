@@ -31,7 +31,6 @@
             align-items: center;
         }
 
-        /* ── HEADER ── */
         header {
             width: 100%;
             max-width: 600px;
@@ -73,7 +72,6 @@
         }
         .btn-salir:hover { background: rgba(255,255,255,0.22); color: white; }
 
-        /* ── BIENVENIDA ── */
         .welcome-box {
             width: 100%;
             max-width: 600px;
@@ -87,7 +85,6 @@
         }
         .welcome-box p { color: var(--gris); font-size: 13px; margin-top: 3px; }
 
-        /* ── PANEL TARJETA ── */
         .panel {
             width: 100%;
             max-width: 600px;
@@ -125,7 +122,6 @@
         }
         .btn-ver-todo:hover { background: #c7d7ff; }
 
-        /* ── GRID MENÚ ── */
         .menu-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -168,7 +164,6 @@
         }
         .card-menu.especial:hover { border-color: #059669; }
 
-        /* ── BADGE ── */
         @keyframes badgePulse {
             0%,100% { transform: scale(1); box-shadow: 0 2px 8px rgba(220,38,38,0.5); }
             50%      { transform: scale(1.2); box-shadow: 0 4px 16px rgba(220,38,38,0.8); }
@@ -187,7 +182,6 @@
             z-index: 10;
         }
 
-        /* ── MI CARROZA BOX ── */
         .carroza-box { padding: 4px 0; }
         .carroza-row {
             display: flex;
@@ -238,7 +232,6 @@
         }
         .btn-asignar:hover { background: var(--azul-med); }
 
-        /* ── TABLAS ── */
         table { width: 100%; border-collapse: collapse; }
         td {
             padding: 11px 6px;
@@ -255,7 +248,6 @@
         .falla-pill   { color: var(--rojo); font-weight: 800; font-size: 10px; background: #fef2f2; padding: 3px 8px; border-radius: 7px; }
         .servicio-pill{ color: var(--azul); font-weight: 800; font-size: 10px; background: #e0e7ff; padding: 3px 8px; border-radius: 7px; }
 
-        /* ── MODAL CARROZA ── */
         .modal-carroza {
             display: none; position: fixed; inset: 0;
             background: rgba(0,26,112,0.3); backdrop-filter: blur(5px);
@@ -289,7 +281,6 @@
         .btn-confirmar-modal:hover { background: var(--azul-med); }
         .btn-confirmar-modal:disabled { background: #94a3b8; cursor: not-allowed; }
 
-        /* ── NOTIFICACIÓN PUSH ── */
         .push-overlay {
             display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998;
@@ -348,7 +339,6 @@
         }
         .push-btn-cerrar:active { background: #1e293b; }
 
-        /* ── FOOTER ── */
         .footer-panel {
             width: 100%; max-width: 600px;
             text-align: center;
@@ -359,16 +349,13 @@
         .footer-name  { font-size: 14px; font-weight: 800; color: var(--azul); margin-top: 4px; }
         .footer-copy  { font-size: 10px; color: #a5b4fc; font-weight: 700; margin-top: 6px; }
 
-        /* ── ESTADO VACÍO ── */
         .empty-state { text-align: center; padding: 16px 0; color: #94a3b8; font-size: 13px; }
     </style>
 </head>
 <body>
 
-    <!-- ── OVERLAY PUSH ── -->
     <div class="push-overlay" id="push-overlay" onclick="ignorarPush()"></div>
 
-    <!-- ── NOTIFICACIÓN PUSH ── -->
     <div class="push-notif" id="push-notif">
         <div class="push-barra-top"></div>
         <div class="push-header">
@@ -387,7 +374,6 @@
         </div>
     </div>
 
-    <!-- ── MODAL CAMBIAR CARROZA ── -->
     <div class="modal-carroza" id="modal-carroza">
         <div class="modal-box-carroza">
             <h2>🚗 Mi Carroza</h2>
@@ -402,7 +388,6 @@
         </div>
     </div>
 
-    <!-- ── HEADER ── -->
     <header>
         <div class="header-brand">
             <div class="header-logo">🚗</div>
@@ -414,13 +399,11 @@
         <button onclick="cerrarSesion()" class="btn-salir">⏻ Salir</button>
     </header>
 
-    <!-- ── BIENVENIDA ── -->
     <div class="welcome-box">
         <h1 id="txt-conductor">Hola...</h1>
         <p>Panel de Servicios y Reportes</p>
     </div>
 
-    <!-- ── MI CARROZA ── -->
     <div class="panel">
         <div class="panel-header">
             <span class="panel-titulo">🚗 Mi Carroza Asignada</span>
@@ -428,7 +411,6 @@
         <div id="mi-carroza-info" class="empty-state">Cargando...</div>
     </div>
 
-    <!-- ── MENÚ DE ACCIONES ── -->
     <div class="menu-grid">
         <a href="registro_salida.html" class="card-menu">
             <i>🚚</i><span>Nueva Salida</span>
@@ -453,7 +435,6 @@
         </a>
     </div>
 
-    <!-- ── MIS SALIDAS RECIENTES ── -->
     <div class="panel">
         <div class="panel-header">
             <span class="panel-titulo">📋 Mis Salidas Recientes</span>
@@ -464,7 +445,6 @@
         </tbody></table>
     </div>
 
-    <!-- ── MIS AVERÍAS ── -->
     <div class="panel">
         <div class="panel-header">
             <span class="panel-titulo">⚠️ Mis Averías Reportadas</span>
@@ -475,7 +455,6 @@
         </tbody></table>
     </div>
 
-    <!-- ── ESTADO DE FLOTA ── -->
     <div class="panel">
         <div class="panel-header">
             <span class="panel-titulo">🚗 Estado de Flota</span>
@@ -485,7 +464,6 @@
         </tbody></table>
     </div>
 
-    <!-- ── FOOTER ── -->
     <div class="footer-panel">
         <div class="footer-label">Diseñado &amp; Desarrollado por</div>
         <div class="footer-name">Zaider J. Buitrago A.</div>
@@ -497,7 +475,6 @@
 <script>
     const norm = str => String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-    // ✅ Misma URL que usa db.js y el resto del sistema
     const APPS_SCRIPT_URL_TG = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
 
     let userSesion        = {};
@@ -540,10 +517,16 @@
         }
     };
 
-    // 🆕 Vinculación Telegram — genera el link t.me con el teléfono del
-    // conductor (ya registrado en la hoja "usuarios") para que el bot lo
-    // reconozca automáticamente al abrir /start, y avisa si ya está vinculado.
-    async function prepararVinculacionTelegram(user) {
+    // 🆕 Vinculación Telegram — usa el esquema tg:// (no https://t.me/...)
+    // para que el sistema operativo abra la app de Telegram directamente
+    // vía "intent", sin depender de resolución DNS del navegador. Esto
+    // soluciona el error DNS_PROBE_STARTED que ocurre en redes/operadores
+    // que bloquean o no resuelven el dominio t.me.
+    // Si el navegador no logra interpretar tg:// (ej. Telegram no está
+    // instalado, o es un navegador de escritorio sin asociación de
+    // protocolo), después de un instante se hace fallback automático a
+    // la versión web https://t.me/... por si esa sí resuelve en ese caso.
+    function prepararVinculacionTelegram(user) {
         const btn = document.getElementById('btn-vincular-tg');
         const txt = document.getElementById('txt-vincular-tg');
         const telefono = String(user.telefono || '').replace(/[^0-9]/g, '');
@@ -554,8 +537,31 @@
             return;
         }
 
-        btn.href = `https://t.me/Jr_alertas_2026_bot?start=${telefono}`;
+        const BOT = 'Jr_alertas_2026_bot';
+        const linkApp = `tg://resolve?domain=${BOT}&start=${telefono}`;
+        const linkWeb = `https://t.me/${BOT}?start=${telefono}`;
 
+        // El href visible sigue siendo el de web (por si el usuario copia el
+        // link o abre en un contexto donde tg:// no aplica), pero el click
+        // se intercepta para intentar primero el esquema de la app.
+        btn.href = linkWeb;
+        btn.onclick = (e) => {
+            e.preventDefault();
+            const inicio = Date.now();
+            window.location.href = linkApp;
+            // Si tras ~1.2s seguimos en la pestaña (la app no abrió), probamos
+            // con la versión web como respaldo.
+            setTimeout(() => {
+                if (Date.now() - inicio < 2000 && document.visibilityState === 'visible') {
+                    window.open(linkWeb, '_blank');
+                }
+            }, 1200);
+        };
+
+        verificarVinculo(telefono, txt);
+    }
+
+    async function verificarVinculo(telefono, txt) {
         try {
             const resp = await fetch(APPS_SCRIPT_URL_TG + '?sheetName=telegram_links');
             const links = await resp.json();
@@ -569,7 +575,6 @@
         }
     }
 
-    // ── MI CARROZA ───────────────────────────────────────────
     async function cargarMiCarroza(user) {
         const infoEl = document.getElementById('mi-carroza-info');
         const placaAsignada = user.placa_asignada || '';
@@ -671,7 +676,6 @@
         }
     }
 
-    // ── PUSH (STUB VISUAL — sin Supabase Realtime) ───────────
     function mostrarPush(notif) {
         document.getElementById('push-titulo').textContent = notif.titulo || '🤝 Nueva solicitud de apoyo';
         document.getElementById('push-body').textContent   = notif.cuerpo || 'Hay una nueva solicitud para tu regional.';
@@ -691,7 +695,6 @@
     function ignorarPush() { cerrarPush(); }
     function verSolicitud() { cerrarPush(); window.location.href = 'solicitud_apoyo.html'; }
 
-    // ── BADGE DE APOYOS ───────────────────────────────────────
     async function verificarApoyosPendientes(user) {
         try {
             const regional = norm(user.regional || '');
@@ -716,7 +719,6 @@
         } catch(e) {}
     }
 
-    // ── CARGA DE DATOS ────────────────────────────────────────
     async function cargarSalidasRecientes(nombre) {
         const tabla = document.getElementById('tabla-salidas');
         const { ok, data } = await DB.obtenerTrasladosRecientes(200);
@@ -753,7 +755,6 @@
             let horaCorta = "";
             if (s.hora_de_salida) {
                 const txt = String(s.hora_de_salida).trim();
-                // Si ya viene en formato HH:MM o HH:MM:SS
                 if (/^\d{1,2}:\d{2}/.test(txt)) {
                     horaCorta = txt.substring(0, 5);
                 } else {
