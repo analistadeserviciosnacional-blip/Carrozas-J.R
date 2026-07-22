@@ -242,6 +242,7 @@
           <div class="nivel-chip" data-val="Lleno (4/4)"><span class="emoji">🟢</span>Lleno (4/4)</div>
         </div>
         <input type="hidden" id="inNivelObservado" required>
+        <div class="ocr-banner" id="alertaInnecesario" style="border-color:var(--amber); background:rgba(185,121,10,.08); color:#8f5f08;"></div>
       </div>
 
       <div class="row2">
@@ -373,6 +374,22 @@
     let flotaCache = [];
     let fotoBase64 = '';
 
+    // ══════════════════════════════════════════════════════════
+    // 🆕 ALERTA DE TANQUEO INNECESARIO
+    // ══════════════════════════════════════════════════════════
+    // Se considera "innecesario" un tanqueo cuando la carroza todavía
+    // no ha consumido al menos este % mínimo de su tanque, es decir,
+    // cuando le queda más del (100 - UMBRAL) % de combustible.
+    // Ej: UMBRAL = 20  →  se alerta si al momento de tanquear el
+    // tanque todavía tiene MÁS del 80% (no se ha gastado ni el 20%).
+    const UMBRAL_PORCENTAJE_MINIMO_CONSUMO = 20;
+    // Niveles observados (chips) que por sí solos también disparan la alerta,
+    // sin importar lo que diga el cálculo del sistema.
+    const NIVELES_OBSERVADOS_ALTOS = ['3/4', 'Lleno (4/4)'];
+
+    let estadoCarrozaActual = null; // guarda el último resultado de DB.obtenerEstadoCarroza()
+    let posibleInnecesario = { flag: false, motivo: '' }; // 🆕 se envía junto con el tanqueo al guardar
+
     // ── Navegación: volver / cancelar ───────────────────
     function volver() {
       if (document.referrer && document.referrer.indexOf(window.location.host) !== -1) {
@@ -398,9 +415,13 @@
       $('alertBanner').innerHTML = '';
       $('msg').textContent = '';
       $('msg').className = 'msg';
-      // 🆕 limpiar selección de nivel observado
+      // 🆕 limpiar selección de nivel observado y alerta de tanqueo innecesario
       $('inNivelObservado').value = '';
       document.querySelectorAll('#nivelChips .nivel-chip').forEach(c => c.classList.remove('sel'));
+      estadoCarrozaActual = null;
+      posibleInnecesario = { flag: false, motivo: '' };
+      $('alertaInnecesario').className = 'ocr-banner';
+      $('alertaInnecesario').innerHTML = '';
     }
 
     function cancelarFormulario() {
@@ -416,8 +437,47 @@
         document.querySelectorAll('#nivelChips .nivel-chip').forEach(c => c.classList.remove('sel'));
         chip.classList.add('sel');
         $('inNivelObservado').value = chip.dataset.val;
+        evaluarTanqueoInnecesario(); // 🆕
       });
     });
+
+    // 🆕 Evalúa si este tanqueo parece innecesario y muestra/oculta el aviso.
+    // No bloquea el guardado — es solo una alerta informativa para que el
+    // coordinador la revise en el historial o converse con el conductor.
+    function evaluarTanqueoInnecesario() {
+      const banner = $('alertaInnecesario');
+      const nivelObs = $('inNivelObservado').value;
+
+      const motivos = [];       // para el banner (HTML)
+      const motivosPlano = [];  // 🆕 para guardar en la hoja (texto plano, sin <b>)
+
+      if (estadoCarrozaActual && typeof estadoCarrozaActual.porcentaje_combustible === 'number') {
+        const pct = estadoCarrozaActual.porcentaje_combustible;
+        if (pct >= (100 - UMBRAL_PORCENTAJE_MINIMO_CONSUMO)) {
+          motivos.push(`el sistema calcula que la carroza aún tiene <b>${pct}%</b> de combustible (no se ha consumido ni el ${UMBRAL_PORCENTAJE_MINIMO_CONSUMO}% mínimo esperado)`);
+          motivosPlano.push(`Sistema calculó ${pct}% de combustible restante (no se consumió ni el ${UMBRAL_PORCENTAJE_MINIMO_CONSUMO}% mínimo esperado)`);
+        }
+      }
+
+      if (nivelObs && NIVELES_OBSERVADOS_ALTOS.includes(nivelObs)) {
+        motivos.push(`marcaste el tanque como <b>${nivelObs}</b> al momento de tanquear`);
+        motivosPlano.push(`Nivel observado marcado como "${nivelObs}" al momento de tanquear`);
+      }
+
+      // 🆕 guarda el resultado para enviarlo junto con el tanqueo
+      posibleInnecesario = { flag: motivosPlano.length > 0, motivo: motivosPlano.join('. ') };
+
+      if (motivos.length) {
+        banner.className = 'ocr-banner show';
+        banner.style.borderColor = 'var(--amber)';
+        banner.style.background = 'rgba(185,121,10,.08)';
+        banner.style.color = '#8f5f08';
+        banner.innerHTML = '⚠️ <span><b>Este tanqueo podría ser innecesario:</b> ' + motivos.join(' y ') + '. Verifica con el conductor antes de continuar, o dejarlo anotado en Observaciones.</span>';
+      } else {
+        banner.className = 'ocr-banner';
+        banner.innerHTML = '';
+      }
+    }
 
     // ── Fecha/hora por defecto ─────────────────────────
     function hoyDDMMAAAA() {
@@ -454,6 +514,8 @@
       const card = $('statusCard');
       card.innerHTML = '<div class="titulo">Estado actual de la carroza</div><div class="placeholder-txt">Cargando…</div>';
       const est = await DB.obtenerEstadoCarroza(placa);
+      estadoCarrozaActual = est.ok ? est : null; // 🆕 guarda para evaluar alerta de tanqueo innecesario
+      evaluarTanqueoInnecesario(); // 🆕
       if (!est.ok) {
         card.innerHTML = '<div class="titulo">Estado actual de la carroza</div><div class="placeholder-txt">No hay información de combustible registrada para esta carroza (se asumirá tanque lleno).</div>';
         return;
@@ -686,6 +748,8 @@
         conductor:            $('inConductor').value.trim(),
         hora:                 $('inHora').value,
         nivel_observado:      $('inNivelObservado').value, // 🆕 nivel visual observado antes de tanquear
+        posible_innecesario:  posibleInnecesario.flag ? 'SI' : 'NO',   // 🆕
+        motivo_innecesario:   posibleInnecesario.motivo || '',          // 🆕
         estacion_servicio:    $('inEstacion').value.trim(),
         ciudad:               $('inCiudad').value.trim(),
         kilometraje:          $('inKilometraje').value,
