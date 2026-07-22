@@ -228,9 +228,13 @@ window.onload = async function() {
     setInterval(cargar, 30000);
 };
 
+// 🔧 FIX: se envuelve sesion.usuario y sesion.rol con String(...) antes de
+// llamar .toLowerCase(), porque si vienen guardados en localStorage como
+// algo distinto a texto (número, boolean, etc.), (valor || '') no los
+// convierte en string vacío y .toLowerCase() truena.
 function irAtras() {
-    var esAdmin = (sesion.usuario||'').toLowerCase() === 'admin' || (sesion.rol||'').toLowerCase() === 'admin';
-    var esCoord = (sesion.rol||'').toLowerCase().indexOf('coordinador') >= 0;
+    var esAdmin = String(sesion.usuario||'').toLowerCase() === 'admin' || String(sesion.rol||'').toLowerCase() === 'admin';
+    var esCoord = String(sesion.rol||'').toLowerCase().indexOf('coordinador') >= 0;
     window.location.href = esAdmin ? 'dashboard.html' : esCoord ? 'panel_coordinador.html' : 'panel_conductor.html';
 }
 
