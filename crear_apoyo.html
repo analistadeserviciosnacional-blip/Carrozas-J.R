@@ -470,9 +470,11 @@
     async function notificarTelegram(datos) {
         const texto = generarMensajeTelegram(datos);
         try {
+            // ✅ Content-Type: text/plain para evitar preflight OPTIONS
+            // (Apps Script no responde OPTIONS y eso causaba CORS error)
             await fetch(APPS_SCRIPT_URL + '?action=notificarTelegram', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ regional: datos.alcance, mensaje: texto })
             });
         } catch (e) {
@@ -621,4 +623,3 @@
 </script>
 </body>
 </html>
-
