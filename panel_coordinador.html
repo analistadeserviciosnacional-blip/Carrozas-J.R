@@ -319,7 +319,7 @@
     <header>
         <div class="logo-small">J.R. COORDINACIÓN</div>
         <div class="header-acciones">
-            <!-- CAMPANA: notificaciones de la regional (cierre pendiente, averías, apoyo) -->
+            <!-- CAMPANA: notificaciones de la regional (cierre pendiente, averías, apoyo, tanqueos innecesarios) -->
             <div class="campana-wrap" id="campana-wrap">
                 <button class="btn-campana" id="btn-campana" onclick="toggleCampana()" title="Notificaciones de tu regional">
                     <span class="icono">🔔</span>
@@ -365,7 +365,10 @@
         <a href="taller.html" class="card-condu"><i>🔧</i><span>Taller</span></a>
         <a href="flota.html" class="card-condu"><i>🚗</i><span>Gestión Flota</span></a>
         <a href="reporte_averia.html" class="card-condu"><i>⚠️</i><span>Reportar Avería</span></a>
-        <a href="tanqueo.html" class="card-condu" style="border-color: var(--naranja);"><i>⛽</i><span>Tanqueos</span></a>
+        <a href="tanqueo.html" class="card-condu" style="border-color: var(--naranja);">
+            <div id="badge-tanqueo" class="badge-rojo" onclick="event.preventDefault(); event.stopPropagation(); toggleCampana();" style="cursor:pointer;">0</div>
+            <i>⛽</i><span>Tanqueos</span>
+        </a>
     </div>
 
     <!-- LISTAS DE MONITOREO -->
@@ -473,8 +476,8 @@
             // realmente abierto — así la campana se limpia sola apenas
             // se registra la Llegada, sin depender de que alguien la
             // marque como leída a mano. El resto de tipos (avería,
-            // apoyo aceptado, etc.) se muestran siempre que no estén
-            // leídas.
+            // apoyo aceptado, tanqueo innecesario, etc.) se muestran
+            // siempre que no estén leídas.
             const relevantes = resNotis.data.filter(n => {
                 if (normTexto_(n.tipo) !== 'cierre_pendiente') return true;
                 const idSalida = String(n.id_salida_ref || '').trim();
@@ -493,10 +496,11 @@
     }
 
     const ICONOS_POR_TIPO = {
-        cierre_pendiente:  '🚨',
-        averia_reportada:  '⚠️',
-        apoyo_aceptado:    '🤝',
-        apoyo_solicitado:  '📤',
+        cierre_pendiente:     '🚨',
+        averia_reportada:     '⚠️',
+        apoyo_aceptado:       '🤝',
+        apoyo_solicitado:     '📤',
+        tanqueo_innecesario:  '⛽',
     };
 
     function renderCampana() {
@@ -509,6 +513,12 @@
         } else {
             badge.style.display = 'none';
         }
+
+        // 🆕 Badge específico en la tarjeta "Tanqueos" — solo cuenta las
+        // notificaciones de tipo "tanqueo_innecesario" pendientes de esta
+        // regional. Se limpia sola apenas se marcan como leídas (desde la
+        // propia campana), sin necesidad de tocar nada más.
+        actualizarBadgeTanqueo();
 
         if (!userSesion.regional) {
             lista.innerHTML = '<div class="campana-vacio">⚠️ Tu usuario no tiene una regional asignada.<br>Contacta a Administración.</div>';
@@ -543,6 +553,18 @@
                     <div class="ci-cta">${cta}</div>
                 </div>`;
         }).join('');
+    }
+
+    // 🆕 Actualiza el badge rojo de la tarjeta "Tanqueos" con el número
+    // de notificaciones de tipo "tanqueo_innecesario" aún no leídas en
+    // esta regional. Al marcarlas como leídas desde la campana (arriba),
+    // notisRegional se actualiza y este badge desaparece solo.
+    function actualizarBadgeTanqueo() {
+        const badge = document.getElementById('badge-tanqueo');
+        if (!badge) return;
+        const pendientes = notisRegional.filter(n => normTexto_(n.tipo) === 'tanqueo_innecesario');
+        if (pendientes.length > 0) { badge.style.display = 'flex'; badge.innerText = pendientes.length; }
+        else { badge.style.display = 'none'; }
     }
 
     function toggleCampana() {
