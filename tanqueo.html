@@ -75,6 +75,25 @@
   textarea{min-height:78px; resize:vertical;}
   .hint{font-size:11.5px; color:var(--amber); margin-top:6px;}
 
+  /* 🆕 Buscador de placas (combobox filtrable) */
+  .combo-wrap{position:relative;}
+  .combo{position:relative;}
+  .combo input{
+    width:100%; background:var(--field); border:1px solid var(--line);
+    color:var(--text); border-radius:8px; padding:11px 12px; font-size:15px;
+  }
+  .combo input:focus{ border-color:var(--blue); box-shadow:0 0 0 3px rgba(29,85,201,.12); }
+  .combo-list{
+    display:none; position:absolute; z-index:20; top:calc(100% + 4px); left:0; right:0;
+    max-height:240px; overflow-y:auto; background:#fff; border:1px solid var(--line);
+    border-radius:8px; box-shadow:0 8px 24px -8px rgba(29,85,201,.35);
+  }
+  .combo-list.show{display:block;}
+  .combo-item{padding:11px 12px; font-size:14px; color:var(--text); cursor:pointer;}
+  .combo-item:hover, .combo-item.activo{background:rgba(29,85,201,.08);}
+  .combo-item.sin-resultados{color:var(--muted); cursor:default; font-style:italic;}
+  #selCarroza{display:none;}
+
   /* ── Selector de nivel visual de combustible (chips) ── */
   .nivel-chips{
     display:grid; grid-template-columns:repeat(5, 1fr); gap:8px;
@@ -202,8 +221,12 @@
     <form id="formTanqueo">
 
       <div class="row2">
-        <div class="field">
+        <div class="field combo-wrap">
           <label>Carroza / Placa <span class="req">*</span></label>
+          <div class="combo">
+            <input type="text" id="inBuscarPlaca" placeholder="Escribe la placa o carroza…" autocomplete="off">
+            <div class="combo-list" id="listaPlacas"></div>
+          </div>
           <select id="selCarroza" required>
             <option value="">— Seleccione placa —</option>
           </select>
@@ -422,6 +445,9 @@
       posibleInnecesario = { flag: false, motivo: '' };
       $('alertaInnecesario').className = 'ocr-banner';
       $('alertaInnecesario').innerHTML = '';
+      // 🆕 limpiar buscador de placas
+      $('inBuscarPlaca').value = '';
+      $('listaPlacas').classList.remove('show');
     }
 
     function cancelarFormulario() {
@@ -430,6 +456,68 @@
       limpiarFormulario();
       volver();
     }
+
+    // ══════════════════════════════════════════════════════════
+    // 🆕 Buscador de placas (combobox filtrable)
+    // ══════════════════════════════════════════════════════════
+    // El <select id="selCarroza"> real sigue existiendo (oculto) y
+    // sigue siendo la "fuente de verdad": todo el resto del código
+    // (OCR, estado de carroza, guardar, etc.) sigue leyendo/escribiendo
+    // ahí igual que antes. El input de texto de arriba es solo una
+    // capa visual para filtrar más fácil desde el celular.
+    function construirListaPlacas() {
+      const cont = $('listaPlacas');
+      cont.innerHTML = '';
+      Array.from($('selCarroza').options).forEach(opt => {
+        if (!opt.value) return; // se salta "— Seleccione placa —"
+        const div = document.createElement('div');
+        div.className = 'combo-item';
+        div.textContent = opt.textContent;
+        div.dataset.value = opt.value;
+        div.addEventListener('click', () => seleccionarPlacaDesdeCombo(opt.value, opt.textContent));
+        cont.appendChild(div);
+      });
+    }
+
+    function filtrarPlacas(texto) {
+      const q = texto.trim().toLowerCase();
+      const cont = $('listaPlacas');
+      const items = Array.from(cont.querySelectorAll('.combo-item:not(.sin-resultados)'));
+      let visibles = 0;
+      items.forEach(div => {
+        const coincide = div.textContent.toLowerCase().includes(q);
+        div.style.display = coincide ? '' : 'none';
+        if (coincide) visibles++;
+      });
+      let avisoVacio = cont.querySelector('.sin-resultados');
+      if (!visibles) {
+        if (!avisoVacio) {
+          avisoVacio = document.createElement('div');
+          avisoVacio.className = 'combo-item sin-resultados';
+          avisoVacio.textContent = 'Sin resultados para "' + texto + '"';
+          cont.appendChild(avisoVacio);
+        } else {
+          avisoVacio.textContent = 'Sin resultados para "' + texto + '"';
+          avisoVacio.style.display = '';
+        }
+      } else if (avisoVacio) {
+        avisoVacio.style.display = 'none';
+      }
+      cont.classList.add('show');
+    }
+
+    function seleccionarPlacaDesdeCombo(valor, label) {
+      $('selCarroza').value = valor;
+      $('inBuscarPlaca').value = label;
+      $('listaPlacas').classList.remove('show');
+      $('selCarroza').dispatchEvent(new Event('change'));
+    }
+
+    $('inBuscarPlaca').addEventListener('input', (e) => filtrarPlacas(e.target.value));
+    $('inBuscarPlaca').addEventListener('focus', (e) => filtrarPlacas(e.target.value));
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.combo-wrap')) $('listaPlacas').classList.remove('show');
+    });
 
     // 🆕 Selector de nivel de combustible observado (chips)
     document.querySelectorAll('#nivelChips .nivel-chip').forEach(chip => {
@@ -507,6 +595,7 @@
         opt.textContent = label + (c.placa ? ' — ' + c.placa : '');
         sel.appendChild(opt);
       });
+      construirListaPlacas(); // 🆕 arma la lista filtrable del buscador
     }
 
     // ── Pintar caja de estado ───────────────────────────
@@ -676,6 +765,7 @@
           const opcion = Array.from(sel.options).find(o => o.value.trim().toUpperCase().replace(/\s+/g,'') === placaNorm);
           if (opcion) {
             sel.value = opcion.value;
+            $('inBuscarPlaca').value = opcion.textContent; // 🆕 sincroniza el buscador de placas
             sel.dispatchEvent(new Event('change'));
             camposLlenados.push('placa');
           }
