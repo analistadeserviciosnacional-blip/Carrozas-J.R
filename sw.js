@@ -1,21 +1,37 @@
-// sw.js - Service Worker Oficial J.R. v7.0
-// FIX: se excluyen del Service Worker las peticiones hacia la API de
-// Google Apps Script (script.google.com / script.googleusercontent.com).
-// Antes, el listener de 'fetch' interceptaba TODO, incluidas esas llamadas,
-// lo que causaba timeouts/cuelgues en db.js que no ocurrían al probar
-// la URL directamente en una pestaña (porque ahí no hay SW de por medio).
+// sw.js - Service Worker Oficial J.R. v8.0
 //
-// 🆕 v7.0 — se agregan al caché las pantallas de campo (Salida, Llegada,
-// Tanqueo, Avería, Inspección, Panel del conductor) y el nuevo
-// offline-queue.js, para que la app se pueda ABRIR sin señal y el
-// conductor pueda diligenciar los formularios. El GUARDADO de esos
-// formularios sin señal lo resuelve offline-queue.js (cola local que se
-// sincroniza sola al recuperar conexión) — este archivo solo se encarga
-// de que la pantalla cargue.
+// 🆕 v8.0 — FIX BUG "hay que dar muchos clics al acceso directo para
+// que cargue":
+//
+// 1) Antes, install() y activate() NO llamaban a self.skipWaiting() ni
+//    self.clients.claim(). Eso significa que cuando se publicaba una
+//    versión nueva del Service Worker, el navegador la dejaba en estado
+//    "waiting" y NO la activaba hasta que el usuario cerrara TODAS las
+//    pestañas/instancias de la app. En la práctica, cada vez que se
+//    tocaba el ícono del acceso directo se abría una instancia más
+//    controlada por el SW viejo, y el usuario tenía que tocar el ícono
+//    varias veces / cerrar la app varias veces hasta que por fin
+//    quedara controlada por la versión nueva.
+//    -> Ahora el SW nuevo se activa de inmediato (skipWaiting) y toma
+//       control de todas las pestañas abiertas al instante (clients.claim).
+//
+// 2) La estrategia de red era "solo red, si falla usa caché"
+//    (network-only con fallback). Si el celular tenía señal débil o
+//    inestable (típico en campo/carretera), el navegador podía tardar
+//    mucho tiempo en darse por vencido con la red antes de recurrir a
+//    la caché, dando la sensación de que la app "no cargaba" y
+//    obligando a cerrar y volver a abrir el acceso directo repetidas
+//    veces.
+//    -> Ahora se usa "carrera red vs. caché con tiempo límite corto":
+//       si la red no responde en NETWORK_TIMEOUT_MS, se usa
+//       inmediatamente la versión en caché (y la red sigue en segundo
+//       plano por si acaso). Así la app abre rápido siempre, con o sin
+//       buena señal.
 
-const CACHE_NAME = 'jr-carrozas-v7';
+const CACHE_NAME = 'jr-carrozas-v8';
+const NETWORK_TIMEOUT_MS = 3000; // si la red no responde en 3s, usar caché
+
 // Lista de archivos para funcionar offline
-// He quitado el icon-192.png temporalmente para que no te dé el error 404
 const urlsToCache = [
   './',
   './index.html',
@@ -29,8 +45,15 @@ const urlsToCache = [
   './tanqueo.html',
   './reporte_averia.html',
   './inspeccion.html',
+  './configuracion.html',
+  './mis_salidas.html',
+  './mis_averias.html',
+  './flota.html',
+  './taller.html',
+  './dashboard.html',
   './db.js',
   './offline-queue.js',
+  './config-aplicar.js',
   './manifest.json',
   'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
@@ -38,59 +61,103 @@ const urlsToCache = [
 ];
 
 // Dominios que NUNCA deben pasar por el Service Worker (API en vivo).
-// Si algún día cambias de backend, agrega aquí el nuevo dominio.
 const DOMINIOS_EXCLUIDOS = [
   'script.google.com',
   'script.googleusercontent.com',
 ];
 
-// Instalación: Guarda los archivos en caché
+// ── INSTALACIÓN ──
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('📦 Registrando caché...');
-        // Usamos un bucle para que si un archivo falla (404), los demás sí se guarden
         return Promise.all(
-          urlsToCache.map(url => {
-            return cache.add(url).catch(err => console.warn(`⚠️ No se pudo cachear: ${url}`));
-          })
+          urlsToCache.map(url => cache.add(url).catch(err => console.warn(`⚠️ No se pudo cachear: ${url}`, err)))
         );
       })
+      // 🆕 Activa esta versión del SW de inmediato, sin esperar a que se
+      // cierren las demás pestañas.
+      .then(() => self.skipWaiting())
   );
 });
 
-// Activación: Limpia cachés antiguos
+// ── ACTIVACIÓN ──
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
+    caches.keys()
+      .then(cacheNames => Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
             console.log('🧹 Borrando caché antigua:', cacheName);
             return caches.delete(cacheName);
           }
         })
-      );
-    })
+      ))
+      // 🆕 Toma control inmediato de todas las pestañas/instancias ya
+      // abiertas, sin necesidad de recargarlas manualmente.
+      .then(() => self.clients.claim())
   );
 });
 
-// Estrategia: Primero Red, si falla, busca en Caché
-// PERO: si la petición es hacia un dominio excluido (la API de Google
-// Apps Script), la dejamos pasar de largo SIN interceptar, para que
-// viaje exactamente igual que si el Service Worker no existiera.
+// 🆕 Permite que la página fuerce la activación inmediata del SW en
+// espera (usado desde index.html cuando detecta una versión nueva).
+self.addEventListener('message', event => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// ── FETCH: red con tiempo límite, si tarda o falla usa caché ──
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   const esDominioExcluido = DOMINIOS_EXCLUIDOS.some(d => url.hostname === d || url.hostname.endsWith('.' + d));
   if (esDominioExcluido) {
-    return; // No se llama a respondWith(): el navegador maneja el fetch normalmente
+    return; // No se intercepta: viaja igual que sin Service Worker.
   }
 
+  // Solo interceptamos GET; otros métodos (si los hubiera) pasan directo.
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
-    })
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cachedResponse = await cache.match(event.request);
+
+      // Petición de red que, si tiene éxito, además actualiza la caché
+      // en segundo plano para la próxima vez.
+      const fetchPromise = fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.ok) {
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        })
+        .catch(() => null);
+
+      if (!cachedResponse) {
+        // No hay nada en caché todavía: hay que esperar a la red sí o sí.
+        const networkResponse = await fetchPromise;
+        if (networkResponse) return networkResponse;
+        // Sin red y sin caché: dejamos que el navegador muestre su error
+        // estándar de offline (no hay nada mejor que ofrecer).
+        return new Response('Sin conexión y sin datos en caché para esta página.', {
+          status: 503,
+          statusText: 'Offline',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
+      }
+
+      // 🆕 Ya hay algo en caché: carrera entre red y un temporizador corto.
+      // Si la red no contesta rápido, se usa la caché de inmediato y la
+      // app no se queda "colgada" esperando.
+      const timeoutPromise = new Promise(resolve => {
+        setTimeout(() => resolve(null), NETWORK_TIMEOUT_MS);
+      });
+
+      const ganador = await Promise.race([fetchPromise, timeoutPromise]);
+      return ganador || cachedResponse;
+    })()
   );
 });

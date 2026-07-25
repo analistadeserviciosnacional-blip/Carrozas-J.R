@@ -513,9 +513,32 @@ function previewLogo(input) {
     const file = input.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
-        const img = document.getElementById('logo-preview');
-        img.src = e.target.result; img.style.display = 'block';
-        localStorage.setItem('jr_logo', e.target.result);
+        // 🆕 FIX: el logo se comprime antes de guardarlo (igual que las
+        // fotos de las demás pantallas) para evitar que una imagen pesada
+        // exceda la cuota de localStorage o quede muy lenta de cargar en
+        // cada pantalla que la usa (config-aplicar.js la inserta en todos
+        // los headers).
+        const img = new Image();
+        img.onload = () => {
+            const maxW   = 400;
+            const escala = Math.min(1, maxW / img.width);
+            const canvas = document.createElement('canvas');
+            canvas.width  = Math.max(1, Math.round(img.width  * escala));
+            canvas.height = Math.max(1, Math.round(img.height * escala));
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/png');
+
+            const preview = document.getElementById('logo-preview');
+            preview.src = dataUrl; preview.style.display = 'block';
+            try {
+                localStorage.setItem('jr_logo', dataUrl);
+            } catch (err) {
+                console.error('No se pudo guardar el logo:', err);
+                alert('No se pudo guardar el logo (imagen muy pesada). Prueba con otra imagen.');
+            }
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }

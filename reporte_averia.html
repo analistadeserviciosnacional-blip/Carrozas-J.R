@@ -171,14 +171,66 @@
         else window.location.href = "panel_conductor.html";
     }
 
-    function procesarFotos(input) {
-        for (let f of Array.from(input.files)) {
-            if (fotosArray.length < 4) {
-                const reader = new FileReader();
-                reader.readAsDataURL(f);
-                reader.onload = e => { fotosArray.push(e.target.result); renderGaleria(); };
+    // 🆕 FIX BUG "Error al guardar con fotos pesadas": misma solución
+    // aplicada en registro_salida.html — se comprime cada foto antes de
+    // guardarla en fotosArray para no exceder los límites de Google
+    // Sheets / Apps Script al enviar el reporte.
+    const FOTO_MAX_ANCHO = 1280;
+    const FOTO_CALIDAD   = 0.72;
+    const FOTO_MAX_CHARS = 700000;
+
+    function comprimirImagen(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('No se pudo leer la imagen ' + file.name));
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('Imagen inválida: ' + file.name));
+                img.onload = () => {
+                    const escala  = Math.min(1, FOTO_MAX_ANCHO / img.width);
+                    const canvas  = document.createElement('canvas');
+                    canvas.width  = Math.max(1, Math.round(img.width  * escala));
+                    canvas.height = Math.max(1, Math.round(img.height * escala));
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    let calidad = FOTO_CALIDAD;
+                    let dataUrl = canvas.toDataURL('image/jpeg', calidad);
+                    let intentos = 0;
+                    while (dataUrl.length > FOTO_MAX_CHARS && intentos < 3) {
+                        calidad = Math.max(0.35, calidad - 0.15);
+                        dataUrl = canvas.toDataURL('image/jpeg', calidad);
+                        intentos++;
+                    }
+                    resolve(dataUrl);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function procesarFotos(input) {
+        const archivos = Array.from(input.files).slice(0, 4 - fotosArray.length);
+        if (archivos.length === 0) return;
+
+        document.getElementById('upload-text').innerText = '⏳ Procesando fotos...';
+
+        for (const f of archivos) {
+            try {
+                const comprimida = await comprimirImagen(f);
+                if (comprimida.length > FOTO_MAX_CHARS) {
+                    alert('⚠️ La foto "' + f.name + '" sigue siendo muy pesada incluso después de comprimirla. Prueba con otra foto.');
+                    continue;
+                }
+                fotosArray.push(comprimida);
+            } catch (err) {
+                console.error('Error comprimiendo foto:', err);
+                alert('❌ No se pudo procesar la foto "' + f.name + '".');
             }
         }
+        renderGaleria();
+        input.value = '';
     }
 
     function renderGaleria() {

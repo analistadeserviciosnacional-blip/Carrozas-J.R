@@ -868,11 +868,50 @@ function limpiarCarroza() {
 <!-- ── SERVICE WORKER + PWA INSTALL ── -->
 <script>
 // ── SERVICE WORKER ──
+// 🆕 FIX BUG "hay que dar muchos clics al acceso directo para que
+// cargue": antes, si se publicaba una versión nueva del Service Worker,
+// esta se quedaba "esperando" (waiting) hasta que el usuario cerrara
+// todas las instancias de la app, así que el ícono del acceso directo
+// parecía no responder / mostrar la versión vieja varios intentos.
+// Ahora, apenas se detecta una versión nueva instalada, se le pide que
+// tome el control de inmediato (SKIP_WAITING) y se recarga la página
+// UNA sola vez para que quede al día — sin que el usuario tenga que
+// hacer nada manualmente.
 if ('serviceWorker' in navigator) {
+    let recargandoPorSW = false;
+
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('✅ SW J.R. registrado:', reg.scope))
+            .then(reg => {
+                console.log('✅ SW J.R. registrado:', reg.scope);
+
+                // Si ya hay una versión nueva esperando (por ejemplo,
+                // porque se instaló en una pestaña anterior), actívala ya.
+                if (reg.waiting) {
+                    reg.waiting.postMessage('SKIP_WAITING');
+                }
+
+                // Si se detecta una actualización mientras la app está
+                // abierta, activarla apenas termine de instalarse.
+                reg.addEventListener('updatefound', () => {
+                    const nuevoSW = reg.installing;
+                    if (!nuevoSW) return;
+                    nuevoSW.addEventListener('statechange', () => {
+                        if (nuevoSW.state === 'installed' && navigator.serviceWorker.controller) {
+                            nuevoSW.postMessage('SKIP_WAITING');
+                        }
+                    });
+                });
+            })
             .catch(err => console.error('❌ Error SW:', err));
+    });
+
+    // Cuando el nuevo SW toma el control, recargamos una sola vez para
+    // que la app quede sirviéndose desde la versión actualizada.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (recargandoPorSW) return;
+        recargandoPorSW = true;
+        window.location.reload();
     });
 }
 

@@ -1146,14 +1146,79 @@
     // ══════════════════════════════════════════════
     //  FOTOS
     // ══════════════════════════════════════════════
-    function procesarFotos(input) {
-        Array.from(input.files).forEach(f => {
-            if (fotosArray.length < 4) {
-                const reader = new FileReader();
-                reader.onload = e => { fotosArray.push(e.target.result); renderGaleria(); };
-                reader.readAsDataURL(f);
-            }
+    // 🆕 FIX BUG "Error al guardar con fotos pesadas":
+    // Antes se guardaba el archivo original (una foto de cámara moderna
+    // puede pesar 3-10 MB) directamente como base64 en fotosArray. Al
+    // enviar 4 fotos + firma en un solo POST hacia Google Sheets (vía
+    // gasWrite), el payload podía superar el límite de tamaño de POST
+    // de Apps Script y el límite de 50.000 caracteres por celda de
+    // Google Sheets, provocando que "GUARDAR EN SISTEMA" fallara sin
+    // explicación clara (o se quedara colgado sin avanzar).
+    //
+    // Solución: comprimir cada foto en el navegador antes de guardarla
+    // en fotosArray (misma estrategia que ya usa tanqueo.html): se
+    // reescala a un ancho máximo y se reexporta como JPEG con calidad
+    // reducida. Si aun así queda muy pesada, se comprime un poco más.
+    // Esto reduce el peso típico de una foto de 5-8 MB a ~150-400 KB.
+    const FOTO_MAX_ANCHO = 1280;    // px
+    const FOTO_CALIDAD   = 0.72;    // 0-1 (jpeg)
+    const FOTO_MAX_CHARS = 700000;  // ~700 KB en base64: margen seguro
+
+    function comprimirImagen(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('No se pudo leer la imagen ' + file.name));
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('Imagen inválida: ' + file.name));
+                img.onload = () => {
+                    const escala  = Math.min(1, FOTO_MAX_ANCHO / img.width);
+                    const canvas  = document.createElement('canvas');
+                    canvas.width  = Math.max(1, Math.round(img.width  * escala));
+                    canvas.height = Math.max(1, Math.round(img.height * escala));
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    let calidad = FOTO_CALIDAD;
+                    let dataUrl = canvas.toDataURL('image/jpeg', calidad);
+
+                    // Si sigue muy pesada (foto de altísima resolución), se
+                    // reduce la calidad de forma progresiva hasta 3 intentos.
+                    let intentos = 0;
+                    while (dataUrl.length > FOTO_MAX_CHARS && intentos < 3) {
+                        calidad = Math.max(0.35, calidad - 0.15);
+                        dataUrl = canvas.toDataURL('image/jpeg', calidad);
+                        intentos++;
+                    }
+                    resolve(dataUrl);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         });
+    }
+
+    async function procesarFotos(input) {
+        const archivos = Array.from(input.files).slice(0, 4 - fotosArray.length);
+        if (archivos.length === 0) return;
+
+        document.getElementById('upload-text').innerText = '⏳ Procesando fotos...';
+
+        for (const f of archivos) {
+            try {
+                const comprimida = await comprimirImagen(f);
+                if (comprimida.length > FOTO_MAX_CHARS) {
+                    Swal.fire('Foto muy pesada', 'La foto "' + f.name + '" sigue siendo muy pesada incluso después de comprimirla. Prueba con otra foto o con menor resolución de cámara.', 'warning');
+                    continue;
+                }
+                fotosArray.push(comprimida);
+            } catch (err) {
+                console.error('Error comprimiendo foto:', err);
+                Swal.fire('Error', 'No se pudo procesar la foto "' + f.name + '". Intenta con otra imagen.', 'error');
+            }
+        }
+        renderGaleria();
+        input.value = ''; // permite volver a elegir el mismo archivo si se elimina y se reintenta
     }
     function renderGaleria() {
         document.getElementById('galeria').innerHTML = fotosArray.map((img, i) =>
@@ -1553,7 +1618,15 @@
             document.getElementById('bloque-wa').style.display = 'flex';
 
         } catch(e) {
-            setStep('step-traslado', 'err', '❌ Error: ' + e.message);
+            // 🆕 Mensaje más claro cuando el error es por tamaño de payload o
+            // timeout de red (típico de fotos pesadas o señal débil), en vez
+            // de mostrar solo el error técnico crudo.
+            let mensajeAmigable = e.message || 'Error desconocido';
+            const msgLower = mensajeAmigable.toLowerCase();
+            if (msgLower.includes('timeout') || msgLower.includes('fetch') || msgLower.includes('network') || msgLower.includes('failed')) {
+                mensajeAmigable = 'No se pudo guardar por un problema de conexión o porque el envío tardó demasiado (posiblemente por fotos muy pesadas). Verifica tu señal e intenta de nuevo con "REINTENTAR".';
+            }
+            setStep('step-traslado', 'err', '❌ Error: ' + mensajeAmigable);
             btn.disabled = false;
             guardandoActualmente = false;
             document.getElementById('btn-texto').textContent = modoEdicion ? '✏️ REINTENTAR ACTUALIZACIÓN' : '💾 REINTENTAR';
