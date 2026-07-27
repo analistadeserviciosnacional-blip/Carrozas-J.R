@@ -1006,6 +1006,122 @@ async function confirmarResolverNovedad(i){
 }
 
 /* ==========================================================================
+   HISTORIAL COMPLETO POR CARROZA (traslados y checklists) — con foto y firma
+   Estas funciones NO tocan las secciones/badges existentes de novedades;
+   solo agregan una vista de historial completo agrupado por mes, con las
+   imágenes y la firma tal como vienen guardadas en la hoja de cálculo
+   (columnas imagen1..imagen4 y firma en "Traslado"; FIRMA_CONDUCTOR en
+   "Checklist_Salida").
+   ========================================================================== */
+function agruparPorMes(lista, campoFecha){
+    const grupos = {};
+    lista.forEach(item=>{
+        const d = parseDDMMAAAA(item[campoFecha]);
+        if(!d) return;
+        const key = d.toLocaleDateString('es-CO',{month:'long', year:'numeric'});
+        if(!grupos[key]) grupos[key] = [];
+        grupos[key].push(item);
+    });
+    return grupos;
+}
+function capitalizar(str){
+    str = String(str||'');
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+function imagenAdjunta(src, alto){
+    if(!src) return '';
+    const h = alto || 54;
+    return `<img src="${src}" style="width:${h}px;height:${h}px;object-fit:cover;border-radius:8px;border:1px solid #1e293b;cursor:pointer;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'">`;
+}
+function firmaAdjunta(src){
+    if(!src) return '';
+    return `<div style="margin-top:6px;"><span style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:700;">Firma</span><br>
+        <img src="${src}" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'"></div>`;
+}
+function imagenesTraslado(t){
+    const campos = ['imagen1','imagen2','imagen3','imagen4'];
+    const imgs = campos.map(c=>t[c]).filter(Boolean);
+    let html = '';
+    if(imgs.length){
+        html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">${imgs.map(src=>imagenAdjunta(src)).join('')}</div>`;
+    }
+    html += firmaAdjunta(t.firma);
+    return html;
+}
+
+// Historial completo de traslados de una placa, agrupado por mes, con
+// fotos y firma. Se abre desde el botón "Ver historial completo" del
+// panel individual de la carroza.
+function mostrarHistorialTrasladosCarroza(placa){
+    const lista = TRASLADOS.filter(t => String(t.placa||'').toUpperCase() === placa.toUpperCase())
+        .sort((a,b)=> (parseDDMMAAAA(b.fecha)||0) - (parseDDMMAAAA(a.fecha)||0));
+    const grupos = agruparPorMes(lista, 'fecha');
+    const meses = Object.keys(grupos);
+
+    let html;
+    if(!lista.length){
+        html = '<div class="push-empty-alert">Sin traslados registrados para esta carroza.</div>';
+    } else {
+        html = meses.map(mes => `
+            <div class="push-alert-section">
+                <h4 style="color:#93c5fd;">${capitalizar(mes)} (${grupos[mes].length})</h4>
+                <ul>${grupos[mes].map(t => `
+                    <li>
+                        <div style="display:flex;justify-content:space-between;gap:8px;">
+                            <b style="color:#f1f5f9;">${t.fecha || '—'}${t.hora_de_salida ? ' · '+fmtHoraCorta(t.hora_de_salida) : ''}</b>
+                            <span style="color:#94a3b8;font-size:11px;">${t.conductor||'—'}</span>
+                        </div>
+                        <div style="margin-top:3px;">${t.origen||'—'} ➔ ${t.destino||'—'}</div>
+                        ${t.motivo_de_salida ? `<div style="margin-top:3px;color:#94a3b8;">${t.motivo_de_salida}</div>` : ''}
+                        ${imagenesTraslado(t)}
+                    </li>`).join('')}</ul>
+            </div>`).join('');
+    }
+
+    document.getElementById('push-titulo-txt').textContent = `Historial de Traslados — ${placa}`;
+    document.getElementById('push-alertas-body').innerHTML = `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${lista.length} traslado(s) en total</div>${html}`;
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
+
+// Historial completo de checklists de entrega de una placa (todos, no
+// solo los que tienen novedad), agrupado por mes, con la firma del
+// conductor.
+function mostrarHistorialChecklistCarroza(placa){
+    const lista = CHECKLISTS.filter(c => String(c.PLACA||'').toUpperCase() === placa.toUpperCase())
+        .sort((a,b)=> (parseDDMMAAAA(b.FECHA)||0) - (parseDDMMAAAA(a.FECHA)||0));
+    const grupos = agruparPorMes(lista, 'FECHA');
+    const meses = Object.keys(grupos);
+
+    let html;
+    if(!lista.length){
+        html = '<div class="push-empty-alert">Sin checklists de entrega registrados para esta carroza.</div>';
+    } else {
+        html = meses.map(mes => `
+            <div class="push-alert-section">
+                <h4 style="color:#93c5fd;">${capitalizar(mes)} (${grupos[mes].length})</h4>
+                <ul>${grupos[mes].map(c => {
+                    const nov = novedadesDeChecklist(c);
+                    return `<li>
+                        <div style="display:flex;justify-content:space-between;gap:8px;">
+                            <b style="color:#f1f5f9;">${c.FECHA || '—'}${c.HORA_SALIDA ? ' · '+c.HORA_SALIDA : ''}</b>
+                            <span style="color:#94a3b8;font-size:11px;">${c.CONDUCTOR||'—'}</span>
+                        </div>
+                        <div style="margin-top:3px;">${c.TIPO_DE_SERVICIO||'—'}${nov.length ? ' · <span style=\"color:#fcd34d;\">⚠️ '+nov.map(n=>n.campo+': '+n.valor).join(', ')+'</span>' : ''}</div>
+                        ${c.OBSERVACIONES ? `<div style="margin-top:3px;color:#94a3b8;">${c.OBSERVACIONES}</div>` : ''}
+                        ${firmaAdjunta(c.FIRMA_CONDUCTOR)}
+                    </li>`;
+                }).join('')}</ul>
+            </div>`).join('');
+    }
+
+    document.getElementById('push-titulo-txt').textContent = `Historial de Checklists — ${placa}`;
+    document.getElementById('push-alertas-body').innerHTML = `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${lista.length} checklist(s) en total</div>${html}`;
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
+
+/* ==========================================================================
    CARGA DE DATOS
    ========================================================================== */
 async function cargarDatos(){
@@ -1599,7 +1715,7 @@ async function abrirPanelCarroza(placa){
     const estado  = await DB.obtenerEstadoCarroza(placa);
 
     const trasladosVeh = TRASLADOS.filter(t => String(t.placa||'').toUpperCase() === placa.toUpperCase())
-        .sort((a,b)=> (parseDDMMAAAA(b.fecha)||0) - (parseDDMMAAAA(a.fecha)||0)).slice(0,6);
+        .sort((a,b)=> (parseDDMMAAAA(b.fecha)||0) - (parseDDMMAAAA(a.fecha)||0)).slice(0,5);
     const tanqueosVeh = TANQUEOS.filter(t => String(t.PLACA||'').toUpperCase() === placa.toUpperCase())
         .sort((a,b)=> (parseDDMMAAAA(b.FECHA)||0) - (parseDDMMAAAA(a.FECHA)||0)).slice(0,8);
     const averiasVeh = AVERIAS.filter(a => String(a.placa_vehiculo||'').toUpperCase() === placa.toUpperCase())
@@ -1608,13 +1724,14 @@ async function abrirPanelCarroza(placa){
         .sort((a,b)=> String(b.fecha||'').localeCompare(String(a.fecha||''))).slice(0,6);
     const checklistVeh = checklistsConNovedad()
         .filter(x => String(x.registro.PLACA||'').toUpperCase() === placa.toUpperCase())
-        .slice(0,6);
+        .slice(0,5);
 
     const averiaParque = carroza ? averiaActivaDeCarroza(carroza) : null;
     const docUrgente = carroza ? documentoMasUrgente(carroza) : null;
 
     document.getElementById('vmSub').textContent = carroza ? `${carroza.regional || 'Regional no registrada'} · ${estadoInfo(carroza.estado).label}` : '—';
 
+    const placaSegura = placa.replace(/'/g,"");
     const body = document.getElementById('vmBody');
     body.innerHTML = `
         <div class="vm-grid">
@@ -1641,10 +1758,12 @@ async function abrirPanelCarroza(placa){
         <div class="vm-section">
             <h4>Novedades en checklist de entrega</h4>
             ${checklistVeh.length ? `<ul class="vm-list">${checklistVeh.map(({registro, novedades})=>`<li><span>${registro.FECHA||'—'} · ${novedades.map(n=>n.campo+': '+n.valor).join(', ')}</span><span>⏳ ${registro.CONDUCTOR||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin novedades en checklists de entrega.</div>'}
+            <button class="push-btn-resolver" style="margin-top:10px;background:var(--celeste);color:var(--azul);" onclick="mostrarHistorialChecklistCarroza('${placaSegura}')">📁 Ver historial completo (con firma)</button>
         </div>
         <div class="vm-section">
             <h4>Últimos traslados</h4>
             ${trasladosVeh.length ? `<ul class="vm-list">${trasladosVeh.map(t=>`<li><span>${t.fecha}${t.hora_de_salida ? ' · '+fmtHoraCorta(t.hora_de_salida) : ''} · ${t.origen||'—'} → ${t.destino||'—'}</span><span>${t.conductor||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin traslados registrados.</div>'}
+            <button class="push-btn-resolver" style="margin-top:10px;background:var(--celeste);color:var(--azul);" onclick="mostrarHistorialTrasladosCarroza('${placaSegura}')">📁 Ver historial completo (con foto y firma)</button>
         </div>
         <div class="vm-section">
             <h4>Últimos tanqueos</h4>
