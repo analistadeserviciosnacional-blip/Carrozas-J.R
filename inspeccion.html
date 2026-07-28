@@ -218,8 +218,6 @@
       <div class="grid-form">
         <div class="field"><label>Nombre Conductor <span style="color:red">*</span></label><input type="text" id="CONDUCTOR" readonly></div>
         <div class="field"><label>Inspector / Entrega <span style="color:red">*</span></label><input type="text" id="INSPECTOR" placeholder="Quien realiza la entrega"></div>
-        <div class="field"><label>Firma Conductor (Escriba nombre)</label><input type="text" id="FIRMA_CONDUCTOR" required placeholder="Firma digital"></div>
-        <div class="field"><label>Firma Inspector (Escriba nombre)</label><input type="text" id="FIRMA_INSPECTOR" placeholder="Firma inspector"></div>
         <div class="field">
             <label>Estado Final</label>
             <select id="ESTADO_INSPECCION">
@@ -227,6 +225,32 @@
                 <option value="REVISIÓN">⚠️ REQUIERE REVISIÓN</option>
                 <option value="NO OPERATIVO">❌ NO OPERATIVO / TALLER</option>
             </select>
+        </div>
+      </div>
+
+      <!-- ══════ FIRMA DIGITAL CON EL DEDO / MOUSE ══════ -->
+      <div class="firma-section">
+        <div class="firma-block">
+          <div class="firma-label">Firma de Responsable (Conductor)</div>
+          <div class="firma-pad-wrap" id="wrapFirmaConductor">
+            <canvas class="firma-pad" id="padFirmaConductor"></canvas>
+            <div class="firma-placeholder" id="placeholderFirmaConductor">Firme aquí con el dedo</div>
+          </div>
+          <div class="firma-acciones">
+            <button type="button" class="btn-borrar-firma" onclick="borrarFirma('CONDUCTOR')">✖ Borrar firma</button>
+          </div>
+          <input type="hidden" id="FIRMA_CONDUCTOR" required>
+        </div>
+        <div class="firma-block">
+          <div class="firma-label">Firma de Inspector</div>
+          <div class="firma-pad-wrap" id="wrapFirmaInspector">
+            <canvas class="firma-pad" id="padFirmaInspector"></canvas>
+            <div class="firma-placeholder" id="placeholderFirmaInspector">Firme aquí con el dedo</div>
+          </div>
+          <div class="firma-acciones">
+            <button type="button" class="btn-borrar-firma" onclick="borrarFirma('INSPECTOR')">✖ Borrar firma</button>
+          </div>
+          <input type="hidden" id="FIRMA_INSPECTOR">
         </div>
       </div>
 
@@ -425,6 +449,90 @@
       div.textContent = `⚠️ ${malos.length} ítem(s) marcados en Regular/Malo/Vencido — revise las observaciones antes de guardar.`;
     }
 
+    // ══════════════════════════════════════════════════════
+    // FIRMA DIGITAL CON EL DEDO / MOUSE (canvas)
+    // ══════════════════════════════════════════════════════
+    const firmaPads = {};
+
+    function initFirmaPad(nombre) {
+      const sufijo = nombre === 'CONDUCTOR' ? 'Conductor' : 'Inspector';
+      const wrap = document.getElementById('wrapFirma' + sufijo);
+      const canvas = document.getElementById('padFirma' + sufijo);
+      const placeholder = document.getElementById('placeholderFirma' + sufijo);
+      const hiddenInput = document.getElementById('FIRMA_' + nombre);
+      const ctx = canvas.getContext('2d');
+
+      function resize() {
+        const rect = wrap.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        const dataUrlPrevio = hiddenInput.value;
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        ctx.scale(ratio, ratio);
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#16233d';
+        if (dataUrlPrevio) {
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          img.src = dataUrlPrevio;
+        }
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      let dibujando = false;
+
+      function pos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
+      }
+
+      function iniciar(e) {
+        e.preventDefault();
+        dibujando = true;
+        placeholder.style.display = 'none';
+        wrap.classList.add('firmado');
+        const p = pos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+      }
+      function mover(e) {
+        if (!dibujando) return;
+        e.preventDefault();
+        const p = pos(e);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+      function terminar() {
+        if (!dibujando) return;
+        dibujando = false;
+        hiddenInput.value = canvas.toDataURL('image/png');
+      }
+
+      canvas.addEventListener('mousedown', iniciar);
+      canvas.addEventListener('mousemove', mover);
+      window.addEventListener('mouseup', terminar);
+      canvas.addEventListener('touchstart', iniciar, { passive: false });
+      canvas.addEventListener('touchmove', mover, { passive: false });
+      canvas.addEventListener('touchend', terminar);
+
+      firmaPads[nombre] = { canvas, ctx, placeholder, wrap, hiddenInput };
+    }
+
+    function borrarFirma(nombre) {
+      const p = firmaPads[nombre];
+      if (!p) return;
+      p.ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
+      p.hiddenInput.value = '';
+      p.placeholder.style.display = 'block';
+      p.wrap.classList.remove('firmado');
+    }
+
     window.onload = async () => {
       construirChecklists();
 
@@ -435,6 +543,9 @@
       document.getElementById('REGIONAL').value = sesion.regional || 'General';
       document.getElementById('FECHA').value = new Date().toLocaleDateString('es-CO');
       document.getElementById('HORA').value = new Date().toTimeString().slice(0,5);
+
+      initFirmaPad('CONDUCTOR');
+      initFirmaPad('INSPECTOR');
 
       try {
         const res = await DB.obtenerFlota();
@@ -551,7 +662,7 @@
       const firma = document.getElementById('FIRMA_CONDUCTOR').value;
 
       if (!placa || !km || !firma) {
-        msg.innerHTML = '<p style="color:red; text-align:center;">⚠️ Placa, Kilometraje y Firma son obligatorios.</p>';
+        msg.innerHTML = '<p style="color:red; text-align:center;">⚠️ Placa, Kilometraje y Firma del conductor son obligatorios.</p>';
         return;
       }
 
@@ -769,11 +880,42 @@
         doc.text('ESTADO FINAL:  ' + estadoFinal, margin + 8, y + 17);
         y += 40;
 
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-        doc.text('Firma Conductor: ' + (val('FIRMA_CONDUCTOR') || '—'), margin, y);
-        doc.text('Inspector / Entrega: ' + (val('INSPECTOR') || '—'), pageW / 2 + 10, y);
-        y += 16;
-        doc.text('Firma Inspector: ' + (val('FIRMA_INSPECTOR') || '—'), pageW / 2 + 10, y);
+        // ── Firmas (imagen del trazo hecho con el dedo/mouse) ──
+        if (y > pageH - 140) { doc.addPage(); y = 40; }
+
+        const anchoFirma = (pageW - 2 * margin - 20) / 2;
+        const altoFirma = 60;
+        const yInicioFirmas = y;
+
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(100, 110, 137);
+        doc.text('FIRMA CONDUCTOR', margin, y);
+        doc.text('FIRMA INSPECTOR', margin + anchoFirma + 20, y);
+        y += 8;
+
+        doc.setDrawColor(201, 218, 242); doc.setLineWidth(0.6);
+        doc.rect(margin, y, anchoFirma, altoFirma);
+        doc.rect(margin + anchoFirma + 20, y, anchoFirma, altoFirma);
+
+        const firmaConductor = val('FIRMA_CONDUCTOR');
+        const firmaInspector = val('FIRMA_INSPECTOR');
+
+        if (firmaConductor) {
+          try { doc.addImage(firmaConductor, 'PNG', margin + 4, y + 4, anchoFirma - 8, altoFirma - 8); } catch(e) {}
+        } else {
+          doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(150, 150, 150);
+          doc.text('Sin firma', margin + anchoFirma / 2, y + altoFirma / 2, { align: 'center' });
+        }
+
+        if (firmaInspector) {
+          try { doc.addImage(firmaInspector, 'PNG', margin + anchoFirma + 24, y + 4, anchoFirma - 8, altoFirma - 8); } catch(e) {}
+        } else {
+          doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(150, 150, 150);
+          doc.text('Sin firma', margin + anchoFirma + 20 + anchoFirma / 2, y + altoFirma / 2, { align: 'center' });
+        }
+
+        y += altoFirma + 14;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(22, 35, 61);
+        doc.text('Inspector / Entrega: ' + (val('INSPECTOR') || '—'), margin, y);
 
         // ── Pie de página en todas las hojas ──────
         const totalPages = doc.internal.getNumberOfPages();
