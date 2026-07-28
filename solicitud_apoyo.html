@@ -180,6 +180,7 @@
     <div class="filtro"    onclick="setFiltro('mi_regional', this)">📍 Mi Regional</div>
     <div class="filtro"    onclick="setFiltro('nacional', this)">🌎 Nacional</div>
     <div class="filtro"    onclick="setFiltro('mis_aceptadas', this)">✅ Mis Aceptadas</div>
+    <div class="filtro"    onclick="setFiltro('mis_solicitudes', this)">📝 Mis Solicitudes</div>
 </div>
 
 <div class="lista" id="lista">
@@ -319,19 +320,26 @@ function renderLista() {
             var ca = (s['conductor_aceptó'] || s['conductor_acepto'] || '').toLowerCase().trim();
             return ca === (sesion.nombre||'').toLowerCase().trim();
         });
+    } else if (filtroActual === 'mis_solicitudes') {
+        // 🆕 Solicitudes creadas por MÍ como coordinador(a), sin importar su estado
+        lista = lista.filter(function(s) {
+            return norm(s.coordinador) === norm(sesion.nombre || '');
+        });
     }
 
     var div = document.getElementById('lista');
     if (!lista.length) {
-        var icono = filtroActual === 'disponibles' ? '🎉' : '📭';
-        var msg   = filtroActual === 'disponibles' ? 'Sin solicitudes pendientes para tu regional' : 'Nada aquí todavía';
+        var icono = filtroActual === 'disponibles' ? '🎉' : filtroActual === 'mis_solicitudes' ? '📋' : '📭';
+        var msg   = filtroActual === 'disponibles' ? 'Sin solicitudes pendientes para tu regional' :
+                    filtroActual === 'mis_solicitudes' ? 'Aún no has creado solicitudes de apoyo' :
+                    'Nada aquí todavía';
         div.innerHTML = '<div class="empty"><div class="icon">' + icono + '</div><p>' + msg + '</p><small>Actualiza en unos minutos</small></div>';
         return;
     }
-    div.innerHTML = lista.map(function(s) { return renderCard(s, miRegional); }).join('');
+    div.innerHTML = lista.map(function(s) { return renderCard(s, miRegional, filtroActual); }).join('');
 }
 
-function renderCard(s, miRegional) {
+function renderCard(s, miRegional, filtroActual) {
     var norm = function(str) {
         return String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     };
@@ -367,7 +375,14 @@ function renderCard(s, miRegional) {
     if (horaLimpia)         detalles += '<div class="detalle-item"><div class="d-label">Hora</div><div class="d-val">🕒 ' + horaLimpia + '</div></div>';
 
     var boton = '';
-    if (!yaAceptada) {
+    if (filtroActual === 'mis_solicitudes') {
+        // 🆕 Vista de solo lectura para el coordinador que creó la solicitud
+        if ((s.estado||'').toLowerCase() === 'pendiente') {
+            boton = '<div class="sol-aceptada-info" style="background:#fffbeb;color:#92400e;">⏳ Pendiente · esperando conductor</div>';
+        } else {
+            boton = '<div class="sol-aceptada-info">✅ ' + estadoLabel(s.estado) + ' · Aceptó ' + (conductorAcepto || '---') + '</div>';
+        }
+    } else if (!yaAceptada) {
         boton = '<button class="btn-aceptar" id="btn-ac-' + idSol + '" onclick="pedirConfirmar(\'' + idSol + '\')"><span>🤝</span> ACEPTAR ESTE SERVICIO</button>';
     } else if (esLaMia) {
         boton = '<div class="sol-aceptada-info">✅ Aceptada por ti · Estado: ' + estadoLabel(s.estado) + '</div>';
