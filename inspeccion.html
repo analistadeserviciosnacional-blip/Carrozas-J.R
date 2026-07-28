@@ -157,7 +157,20 @@
         <div class="field"><label>Vehículo (Modelo)</label><input type="text" id="MODELO" readonly></div>
         <div class="field"><label>Año</label><input type="text" id="AÑO" readonly></div>
         <div class="field"><label>Tipo de Servicio</label><input type="text" id="TIPO_VEHICULO" readonly></div>
-        <div class="field"><label>Conductor Asignado (Ficha)</label><input type="text" id="CONDUCTOR_ASIGNADO" readonly></div>
+
+        <!-- ═══ CAMBIO: ahora se puede asignar conductor si el vehículo no tiene ═══ -->
+        <div class="field">
+          <label>Conductor Asignado (Ficha)</label>
+          <input type="text" id="CONDUCTOR_ASIGNADO" readonly>
+          <div id="asignarConductorBox" class="hidden" style="margin-top:6px; display:flex; gap:6px;">
+            <select id="SELECT_CONDUCTOR_ASIGNAR" style="flex:1;"><option value="">— Seleccione conductor —</option></select>
+            <button type="button" onclick="asignarConductor(this)"
+              style="padding:8px 10px; border:none; border-radius:8px; background:var(--blue); color:#fff; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">
+              Asignar
+            </button>
+          </div>
+        </div>
+
         <div class="field"><label>Fecha</label><input type="text" id="FECHA" readonly></div>
         <div class="field"><label>Hora</label><input type="time" id="HORA"></div>
         <div class="field"><label>Kilometraje <span style="color:red">*</span></label><input type="number" id="KILOMETRAJE" required placeholder="Ej: 154200"></div>
@@ -267,25 +280,29 @@
   <script src="offline-queue.js"></script>
   <script>
     let flotaGlobal = [];
+    let conductoresGlobal = []; // 🆕 lista de usuarios con rol conductor, para poder asignar
 
     // Normaliza texto igual que en index.html (sin tildes, minúsculas)
     const norm = s => String(s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     // Regresa al panel correcto según el ROL guardado en la sesión —
-    // exactamente el mismo mapeo que usa index.html al hacer login,
-    // para que "Volver al Panel" funcione igual sin importar el rol:
-    //   admin / administrador          -> dashboard.html
-    //   gestor_flota (Gestor de Flotas)-> panel_automotor.html
-    //   coordinador                    -> panel_coordinador.html
-    //   cualquier otro (conductor)     -> panel_conductor.html
+    // 🆕 CORRECCIÓN: antes se comparaba el rol contra una lista cerrada
+    // de variantes exactas ("gestor_flota", "gestor de flotas jr", etc.),
+    // así que cualquier otra forma de escribir el rol (p.ej. solo
+    // "Gestor de Flotas", o con guiones/mayúsculas distintas) no
+    // coincidía con nada y siempre terminaba mandando a
+    // panel_conductor.html por el "else" final.
+    // Ahora se usa .includes() sobre el texto normalizado: mientras el
+    // rol contenga la palabra "flota" o "automotor", va al panel de
+    // Parque Automotor, sin importar cómo esté escrito exactamente.
     function volverPanel() {
       const sesion = JSON.parse(localStorage.getItem('usuario_sesion') || 'null');
-      const rol = norm(sesion && sesion.rol);
       const usr = norm(sesion && sesion.usuario);
+      const rol = norm(sesion && sesion.rol).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
 
       if (rol === 'admin' || rol === 'administrador' || usr === 'admin') {
         window.location.href = 'dashboard.html';
-      } else if (rol === 'gestor_flota' || rol === 'gestor de flotas jr' || rol === 'gestor de flota jr' || rol === 'gestor flota jr') {
+      } else if (rol.includes('flota') || rol.includes('automotor')) {
         window.location.href = 'panel_automotor.html';
       } else if (rol === 'coordinador') {
         window.location.href = 'panel_coordinador.html';
@@ -565,6 +582,13 @@
           }
         }
       } catch(e) { console.error("Error cargando flota", e); }
+
+      // 🆕 Carga la lista de usuarios con rol "conductor" para poder
+      // asignarlos desde el selector cuando una carroza no tenga uno.
+      try {
+        const { data } = await DB.supabase.from('usuarios').select();
+        conductoresGlobal = (data || []).filter(u => norm(u.rol).includes('conductor'));
+      } catch (e) { console.error('Error cargando conductores', e); }
     };
 
     async function llenarDatosVehiculo() {
@@ -579,6 +603,7 @@
       document.getElementById('AÑO').value = v.anio || '';
       document.getElementById('TIPO_VEHICULO').value = v.tipo_vehiculo || '';
       document.getElementById('CONDUCTOR_ASIGNADO').value = v.conductor_asignado || '—';
+      actualizarBoxAsignarConductor(v); // 🆕 muestra/oculta el selector de asignación
       if (v.sede_asignada && !document.getElementById('SEDE').value) {
         document.getElementById('SEDE').value = v.sede_asignada.trim();
       }
@@ -637,6 +662,53 @@
           toggleModo(false);
         }
       } catch(e) { banner.classList.add('hidden'); }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 🆕 ASIGNAR CONDUCTOR A LA CARROZA DESDE LA INSPECCIÓN
+    // ══════════════════════════════════════════════════════
+    // Muestra el selector + botón "Asignar" solo cuando la carroza
+    // seleccionada NO tiene conductor_asignado. Si ya tiene, se oculta
+    // y se ve únicamente el campo de solo lectura como antes.
+    function actualizarBoxAsignarConductor(v) {
+      const box = document.getElementById('asignarConductorBox');
+      const sel = document.getElementById('SELECT_CONDUCTOR_ASIGNAR');
+      const tieneConductor = v && v.conductor_asignado && String(v.conductor_asignado).trim() !== '';
+
+      if (tieneConductor) { box.classList.add('hidden'); return; }
+
+      sel.innerHTML = '<option value="">— Seleccione conductor —</option>' +
+        conductoresGlobal.map(c => `<option value="${c.nombre || c.usuario}">${c.nombre || c.usuario}</option>`).join('');
+      box.classList.remove('hidden');
+    }
+
+    // Guarda el conductor elegido en la hoja "carrozas" (columna
+    // conductor_asignado) usando DB.actualizarCarroza, que ya existe
+    // en db.js — no se modificó nada de ese archivo.
+    async function asignarConductor(btn) {
+      const placa = document.getElementById('PLACA').value;
+      const nombre = document.getElementById('SELECT_CONDUCTOR_ASIGNAR').value;
+      if (!placa || !nombre) { alert('Seleccione un conductor de la lista.'); return; }
+
+      const original = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Asignando...';
+
+      try {
+        const res = await DB.actualizarCarroza(placa, { conductor_asignado: nombre });
+        if (res.ok) {
+          const v = flotaGlobal.find(item => item.placa === placa);
+          if (v) v.conductor_asignado = nombre;
+          document.getElementById('CONDUCTOR_ASIGNADO').value = nombre;
+          document.getElementById('asignarConductorBox').classList.add('hidden');
+          DB.invalidarCache('carrozas');
+        } else {
+          alert('No se pudo asignar el conductor: ' + (res.error || 'error desconocido'));
+        }
+      } catch (e) {
+        alert('Error al asignar conductor.');
+      } finally {
+        btn.disabled = false; btn.textContent = original;
+      }
     }
 
     function toggleModo() {
