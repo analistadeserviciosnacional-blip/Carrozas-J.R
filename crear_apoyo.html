@@ -214,20 +214,84 @@
         }
         
         .modal-wa-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+
+        /* ═══════════════════════════════════════════════════════════
+           🔧 AJUSTE RESPONSIVE — lista de conductores WhatsApp
+           Antes: el nombre largo + el botón "Enviar" competían por
+           espacio y el teléfono quedaba oculto/cortado en pantallas
+           angostas. Ahora: avatar y botón nunca se encogen, el nombre
+           se recorta con "..." si es muy largo, y en pantallas muy
+           pequeñas el botón baja a su propia línea.
+           ═══════════════════════════════════════════════════════════ */
         .wa-conductor-item { 
-            display: flex; align-items: center; gap: 14px; background: #f8faff; border-radius: 18px; padding: 14px 18px; border: 1.5px solid #eef2ff; margin-bottom: 12px; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            background: #f8faff; 
+            border-radius: 18px; 
+            padding: 14px 16px; 
+            border: 1.5px solid #eef2ff; 
+            margin-bottom: 12px; 
+            flex-wrap: wrap;
         }
         .wa-conductor-avatar { 
-            width: 44px; height: 44px; border-radius: 50%; background: var(--azul); color: white; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; flex-shrink: 0;
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            background: var(--azul); 
+            color: white; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 16px; 
+            font-weight: 800; 
+            flex-shrink: 0;
         }
-        .wa-conductor-info { flex: 1; min-width: 0; }
-        .wa-conductor-nombre { font-size: 15px; font-weight: 800; color: #1e293b; }
-        .wa-conductor-tel { font-size: 12px; color: var(--gris); margin-top: 2px; }
+        .wa-conductor-info { 
+            flex: 1 1 140px; 
+            min-width: 0; 
+            overflow: hidden;
+        }
+        .wa-conductor-nombre { 
+            font-size: 14px; 
+            font-weight: 800; 
+            color: #1e293b; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+        }
+        .wa-conductor-tel { 
+            font-size: 12px; 
+            color: var(--gris); 
+            margin-top: 2px; 
+            white-space: nowrap;
+        }
         
         .btn-wa-enviar { 
-            background: #25D366; border: none; border-radius: 12px; color: white; font-weight: 800; font-size: 13.5px; padding: 11px 16px; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: 0.2s; 
+            background: #25D366; 
+            border: none; 
+            border-radius: 12px; 
+            color: white; 
+            font-weight: 800; 
+            font-size: 13.5px; 
+            padding: 11px 16px; 
+            cursor: pointer; 
+            text-decoration: none; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            transition: 0.2s; 
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .btn-wa-enviado { background: #94a3b8 !important; cursor: default !important; }
+
+        /* Pantallas muy angostas (móviles pequeños) */
+        @media (max-width: 380px) {
+            .wa-conductor-item { flex-direction: column; align-items: flex-start; }
+            .wa-conductor-info { width: 100%; }
+            .btn-wa-enviar { width: 100%; justify-content: center; margin-top: 8px; }
+        }
         
         .modal-wa-footer { padding: 16px 24px 30px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; }
         .btn-wa-cerrar { width: 100%; padding: 14px; border: 1.8px solid #e2e8f0; border-radius: 16px; background: white; color: var(--gris); font-weight: 700; cursor: pointer; }
@@ -590,7 +654,7 @@
                 <div class="wa-conductor-item">
                     <div class="wa-conductor-avatar">${c.nombre[0]}</div>
                     <div class="wa-conductor-info">
-                        <div class="wa-conductor-nombre">${c.nombre}</div>
+                        <div class="wa-conductor-nombre" title="${c.nombre}">${c.nombre}</div>
                         <div class="wa-conductor-tel">📱 ${c.telefono}</div>
                     </div>
                     <a class="btn-wa-enviar" id="wabtn-${i}" href="https://api.whatsapp.com/send?phone=57${c.telefono}&text=${encodeURIComponent(mensajeWA)}" target="_blank" onclick="marcar(${i})">📲 Enviar</a>
