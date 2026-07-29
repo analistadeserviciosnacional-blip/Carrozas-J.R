@@ -387,6 +387,25 @@
         font-size: 11.5px; font-weight: 700; cursor: pointer; border: 1.5px solid transparent; white-space: nowrap;
     }
     .chart-tab.active { background: var(--azul); color: #fff; }
+
+    /* ── FICHA DETALLADA DE TRASLADO (historial completo) ── */
+    .traslado-ficha {
+        background: #0b1626; border: 1px solid #1e293b; border-radius: 14px;
+        padding: 14px 14px 12px; margin-bottom: 10px;
+    }
+    .traslado-ficha .tf-row {
+        display: flex; justify-content: space-between; gap: 10px; padding: 3px 0;
+        font-size: 11.5px;
+    }
+    .traslado-ficha .tf-row .tf-lbl { color: #64748b; }
+    .traslado-ficha .tf-row .tf-val { color: #e2e8f0; font-weight: 600; text-align: right; }
+    .traslado-ficha .tf-block {
+        margin-top: 8px; padding-top: 8px; border-top: 1px solid #1e293b;
+    }
+    .traslado-ficha .tf-block-title {
+        font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 800;
+        letter-spacing: .3px; margin-bottom: 4px;
+    }
 </style>
 </head>
 <body>
@@ -1038,15 +1057,80 @@ function firmaAdjunta(src){
     return `<div style="margin-top:6px;"><span style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:700;">Firma</span><br>
         <img src="${src}" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'"></div>`;
 }
+
+/* ── Ficha detallada de un traslado (TODOS los campos de Registro_Salidas) ── */
+// Fila etiqueta:valor — solo se pinta si hay valor.
+function filaDato(label, valor){
+    if(valor === null || valor === undefined || String(valor).trim() === '') return '';
+    return `<div class="tf-row"><span class="tf-lbl">${label}</span><span class="tf-val">${valor}</span></div>`;
+}
+// Pill Sí/No para campos booleanos tipo "kit_carretera"
+function pillSiNo(valor){
+    const esSi = ['si','sí','true','1','x'].includes(norm(valor));
+    const esNo = ['no','false','0'].includes(norm(valor));
+    if(!esSi && !esNo) return '<span style="color:#64748b;font-size:11px;">Sin registro</span>';
+    return `<span style="font-weight:800;font-size:11px;color:${esSi ? '#34d399' : '#fca5a5'};">${esSi ? '✅ Sí' : '❌ No'}</span>`;
+}
 function imagenesTraslado(t){
     const campos = ['imagen1','imagen2','imagen3','imagen4'];
     const imgs = campos.map(c=>t[c]).filter(Boolean);
     let html = '';
     if(imgs.length){
-        html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">${imgs.map(src=>imagenAdjunta(src)).join('')}</div>`;
+        html += `<div class="tf-block"><div class="tf-block-title">Fotos (${imgs.length})</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${imgs.map(src=>imagenAdjunta(src, 64)).join('')}</div></div>`;
     }
-    html += firmaAdjunta(t.firma);
+    if(t.firma){
+        html += `<div class="tf-block">${firmaAdjunta(t.firma)}</div>`;
+    }
     return html;
+}
+// Ficha completa con TODOS los campos de un traslado individual.
+function fichaTraslado(t){
+    const numTel = t.num_telefono || t.numero_telefono || t.nnum_telefono || t.telefono || '';
+    const kmSalida  = (t.km__salida ?? t.km_salida ?? '') !== '' ? (t.km__salida ?? t.km_salida) : '';
+    const kmIngreso = (t.km__ingreso ?? t.km_ingreso ?? '') !== '' ? (t.km__ingreso ?? t.km_ingreso) : '';
+    const totalKm   = t.total_km ?? '';
+
+    return `<div class="traslado-ficha">
+        <div style="display:flex;justify-content:space-between;gap:8px;">
+            <b style="color:#f1f5f9;font-size:13.5px;">${t.fecha || '—'}${t.hora_de_salida ? ' · Salida '+fmtHoraCorta(t.hora_de_salida) : ''}</b>
+            <span style="color:#94a3b8;font-size:11px;">${t.hora_de_ingreso ? 'Ingreso '+fmtHoraCorta(t.hora_de_ingreso) : ''}</span>
+        </div>
+
+        <div style="margin-top:5px;font-size:13px;color:#e2e8f0;font-weight:700;">${t.origen || '—'} ➔ ${t.destino || '—'}</div>
+        ${t.motivo_de_salida ? `<div style="margin-top:2px;color:#94a3b8;font-size:12px;">${t.motivo_de_salida}</div>` : ''}
+
+        ${(t.nombre_del_fallecido || t.clinica_hospital_o_rsd || t.numero_prestacion) ? `
+        <div class="tf-block">
+            <div class="tf-block-title">Servicio funerario</div>
+            ${filaDato('Fallecido(a)', t.nombre_del_fallecido)}
+            ${filaDato('Clínica / Hospital / RSD', t.clinica_hospital_o_rsd)}
+            ${filaDato('N.° de prestación', t.numero_prestacion)}
+        </div>` : ''}
+
+        <div class="tf-block">
+            <div class="tf-block-title">Personal</div>
+            ${filaDato('Conductor', t.conductor)}
+            ${filaDato('Teléfono', numTel)}
+            ${filaDato('Regional', t.regional)}
+            ${filaDato('Coordinador en turno', t.coordinador_en_turno)}
+        </div>
+
+        <div class="tf-block">
+            <div class="tf-block-title">Kilometraje</div>
+            ${filaDato('Km salida', kmSalida !== '' ? fmtNum(kmSalida)+' km' : '')}
+            ${filaDato('Km ingreso', kmIngreso !== '' ? fmtNum(kmIngreso)+' km' : '')}
+            ${filaDato('Total recorrido', totalKm !== '' ? fmtNum(totalKm)+' km' : '')}
+            <div class="tf-row"><span class="tf-lbl">Kit de carretera</span><span class="tf-val">${pillSiNo(t.kit_carretera)}</span></div>
+        </div>
+
+        ${t.observaciones ? `<div class="tf-block">
+            <div class="tf-block-title">Observaciones</div>
+            <div style="color:#cbd5e1;font-size:12px;">${t.observaciones}</div>
+        </div>` : ''}
+
+        ${imagenesTraslado(t)}
+    </div>`;
 }
 
 // Historial completo de traslados de una placa, agrupado por mes, con
@@ -1065,16 +1149,7 @@ function mostrarHistorialTrasladosCarroza(placa){
         html = meses.map(mes => `
             <div class="push-alert-section">
                 <h4 style="color:#93c5fd;">${capitalizar(mes)} (${grupos[mes].length})</h4>
-                <ul>${grupos[mes].map(t => `
-                    <li>
-                        <div style="display:flex;justify-content:space-between;gap:8px;">
-                            <b style="color:#f1f5f9;">${t.fecha || '—'}${t.hora_de_salida ? ' · '+fmtHoraCorta(t.hora_de_salida) : ''}</b>
-                            <span style="color:#94a3b8;font-size:11px;">${t.conductor||'—'}</span>
-                        </div>
-                        <div style="margin-top:3px;">${t.origen||'—'} ➔ ${t.destino||'—'}</div>
-                        ${t.motivo_de_salida ? `<div style="margin-top:3px;color:#94a3b8;">${t.motivo_de_salida}</div>` : ''}
-                        ${imagenesTraslado(t)}
-                    </li>`).join('')}</ul>
+                ${grupos[mes].map(t => fichaTraslado(t)).join('')}
             </div>`).join('');
     }
 
@@ -1139,7 +1214,7 @@ async function cargarDatos(){
     ]);
 
     FLOTA          = normalizarFechas(flotaRes.data || [], ['doc_fecha_proximo_vencer','ultimo_hallazgo_fecha','historial_fecha']);
-    TRASLADOS      = normalizarHoras(normalizarFechas(trasladosRes.data || [], ['fecha']), ['hora_de_salida']);
+    TRASLADOS      = normalizarHoras(normalizarFechas(trasladosRes.data || [], ['fecha']), ['hora_de_salida','hora_de_ingreso']);
     AVERIAS        = averiasRes.data || [];
     MANTENIMIENTOS = normalizarFechas(mantRes.data || [], ['fecha']);
     TANQUEOS       = normalizarFechas(tanqueosRes.data || [], ['FECHA']);
@@ -2104,8 +2179,14 @@ function datasetTraslados(){
     return TRASLADOS
         .filter(t => pasaFiltrosExport({placa:t.placa, regional:t.regional, conductor:t.conductor, formaPago:'', fecha:t.fecha}, aplicables, f))
         .map(t => ({
-            Placa: t.placa || '', Fecha: fmtFechaCorta(t.fecha), Hora_Salida: fmtHoraCorta(t.hora_de_salida), Regional: t.regional || '',
+            Placa: t.placa || '', Fecha: fmtFechaCorta(t.fecha), Hora_Salida: fmtHoraCorta(t.hora_de_salida), Hora_Ingreso: fmtHoraCorta(t.hora_de_ingreso), Regional: t.regional || '',
             Origen: t.origen || '', Destino: t.destino || '', Conductor: t.conductor || '',
+            Motivo_Salida: t.motivo_de_salida || '', Nombre_Fallecido: t.nombre_del_fallecido || '',
+            Clinica_Hospital_RSD: t.clinica_hospital_o_rsd || '', Numero_Prestacion: t.numero_prestacion || '',
+            Telefono: t.num_telefono || t.numero_telefono || t.nnum_telefono || t.telefono || '',
+            Km_Salida: t.km__salida ?? t.km_salida ?? '', Km_Ingreso: t.km__ingreso ?? t.km_ingreso ?? '', Total_Km: t.total_km ?? '',
+            Coordinador_En_Turno: t.coordinador_en_turno || '', Observaciones: t.observaciones || '',
+            Kit_Carretera: t.kit_carretera || '',
         }));
 }
 function datasetTanqueos(){
