@@ -94,6 +94,8 @@
 
         .tipo-pill { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; text-transform: uppercase; white-space: nowrap; }
         .tp-aceite  { background: #fef3c7; color: #92400e; }
+        .tp-caja    { background: #e0f2fe; color: #075985; }
+        .tp-transmision { background: #fae8ff; color: #86198f; }
         .tp-frenos  { background: #fee2e2; color: #991b1b; }
         .tp-llantas { background: #ede9fe; color: #5b21b6; }
         .tp-sinc    { background: #ecfdf5; color: #065f46; }
@@ -135,7 +137,7 @@
             Inspeccion de Kilometraje
             <span class="badge-inspeccion">Actualiza el KM sin generar un servicio</span>
         </div>
-        <div class="inspeccion-sub">Registra el KM actual del odometro en cualquier momento para saber cuanta vida le queda a la carroza antes del proximo cambio de aceite.</div>
+        <div class="inspeccion-sub">Registra el KM actual del odometro en cualquier momento para saber cuanta vida le queda a la carroza antes del proximo cambio de aceite, de caja o de transmision.</div>
 
         <div class="grid-2">
             <div>
@@ -150,6 +152,13 @@
             </div>
         </div>
 
+        <label>Sistema a Revisar *</label>
+        <select id="insp-tipo" onchange="alSeleccionarPlacaInspeccion()">
+            <option value="Cambio de Aceite">Aceite de Motor</option>
+            <option value="Cambio de Aceite de Caja">Aceite de Caja</option>
+            <option value="Cambio de Aceite de Transmision">Aceite de Transmision</option>
+        </select>
+
         <div class="info-km-insp" id="info-km-insp" style="display:none;"></div>
 
         <label>Kilometraje Actual (odometro) *</label>
@@ -158,7 +167,7 @@
         <div class="insp-resumen" id="insp-resumen">Selecciona una placa e ingresa el KM actual para ver la vida restante.</div>
 
         <div id="insp-manual-wrap" style="display:none;">
-            <label>Proximo Cambio de Aceite Programado (KM) — no hay registro previo, ingresalo tu</label>
+            <label>Proximo Cambio Programado (KM) — no hay registro previo, ingresalo tu</label>
             <input type="number" id="insp-km-proximo-manual" placeholder="Ej: 165000" min="0" oninput="calcularVidaRestanteInspeccion()">
         </div>
 
@@ -196,7 +205,9 @@
                 <div>
                     <label>Tipo de Servicio *</label>
                     <select id="tipo_servicio" required onchange="alCambiarTipo()">
-                        <option value="Cambio de Aceite">Cambio de Aceite</option>
+                        <option value="Cambio de Aceite">Cambio de Aceite (Motor)</option>
+                        <option value="Cambio de Aceite de Caja">Cambio de Aceite de Caja</option>
+                        <option value="Cambio de Aceite de Transmision">Cambio de Aceite de Transmision</option>
                         <option value="Frenos">Frenos</option>
                         <option value="Llantas">Llantas</option>
                         <option value="Sincronizacion">Sincronizacion</option>
@@ -303,7 +314,21 @@
     var editandoID    = null;
     var flotaData     = [];
     var historialData = [];   // cache del historial para edicion segura por indice
-    var inspKmProximoCambio = 0; // cache del proximo cambio de aceite para la placa seleccionada en inspeccion
+    var inspKmProximoCambio = 0; // cache del proximo cambio para la placa + tipo seleccionado en inspeccion
+
+    // ── TIPOS DE SERVICIO QUE MANEJAN INTERVALO DE KM (aceite motor / caja / transmision)
+    var TIPOS_CON_INTERVALO = ['Cambio de Aceite', 'Cambio de Aceite de Caja', 'Cambio de Aceite de Transmision'];
+    function esTipoConIntervalo(tipo) {
+        return TIPOS_CON_INTERVALO.indexOf(tipo) !== -1;
+    }
+    function etiquetaTipo(tipo) {
+        var etiquetas = {
+            'Cambio de Aceite': 'aceite de motor',
+            'Cambio de Aceite de Caja': 'aceite de caja',
+            'Cambio de Aceite de Transmision': 'aceite de transmision'
+        };
+        return etiquetas[tipo] || 'aceite';
+    }
 
     // ── INIT
     window.onload = async function() {
@@ -312,6 +337,7 @@
         var sesion = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
         if (sesion.nombre) document.getElementById('responsable').value = sesion.nombre;
         document.getElementById('bloque-aceite').style.display = 'block';
+        actualizarOpcionesIntervalo('Cambio de Aceite');
         await cargarPlacas();
         await cargarOrdenesPendientes();
         await cargarHistorial();
@@ -391,42 +417,40 @@
         }
     }
 
-    // ── BUSCAR EL ULTIMO CAMBIO DE ACEITE COMPLETADO DE UNA PLACA
-    async function buscarUltimoCambioAceite(placa) {
+    // ── BUSCAR EL ULTIMO CAMBIO (de un tipo con intervalo) COMPLETADO DE UNA PLACA
+    async function buscarUltimoCambioAceite(placa, tipo) {
         try {
             var res = await DB.supabase
                 .from('mantenimientos')
                 .select('km_proximo_cambio, kilometraje_servicio, fecha')
                 .eq('placa', placa)
-                .eq('tipo_servicio', 'Cambio de Aceite')
+                .eq('tipo_servicio', tipo)
                 .eq('estado_orden', 'completada')
                 .order('fecha', { ascending: false })
                 .limit(1);
             if (res.data && res.data.length > 0) return res.data[0];
             return null;
         } catch(e) {
-            console.error('Error buscando ultimo cambio de aceite:', e);
+            console.error('Error buscando ultimo cambio registrado:', e);
             return null;
         }
     }
 
-    // ── BUSCAR LA ULTIMA INSPECCION QUE TENGA UN PROXIMO CAMBIO GUARDADO
-    // (sirve como respaldo cuando la carroza nunca tuvo un "Cambio de Aceite"
-    // registrado formalmente, pero ya se definio manualmente en una inspeccion previa)
+    // ── BUSCAR LA ULTIMA INSPECCION (del mismo tipo) QUE TENGA UN PROXIMO CAMBIO GUARDADO
+    // (sirve como respaldo cuando la carroza nunca tuvo un cambio registrado formalmente
+    // en taller, pero ya se definio manualmente en una inspeccion previa)
     //
-    // CORREGIDO: el wrapper DB.supabase (GASQueryBuilder en db.js) NO
-    // implementa el metodo .gt(), solo .eq()/.is()/.ilike()/.order()/.limit().
-    // Antes se encadenaba .eq(...).eq(...).gt(...) y explotaba con
-    // "DB.supabase.from(...).select(...).eq(...).eq(...).gt is not a function".
-    // Ahora se trae el listado (ya filtrado por placa + estado_orden) y el
-    // filtro de "km_proximo_cambio > 0" se hace en JS del lado del cliente.
-    async function buscarUltimaInspeccionConProximo(placa) {
+    // NOTA: el wrapper DB.supabase (GASQueryBuilder en db.js) NO implementa el metodo
+    // .gt(), solo .eq()/.is()/.ilike()/.order()/.limit(), por eso el filtro de
+    // "km_proximo_cambio > 0" se hace en JS del lado del cliente.
+    async function buscarUltimaInspeccionConProximo(placa, tipo) {
         try {
             var res = await DB.supabase
                 .from('mantenimientos')
                 .select('km_proximo_cambio, kilometraje_servicio, fecha')
                 .eq('placa', placa)
                 .eq('estado_orden', 'inspeccion')
+                .eq('tipo_servicio', tipo)
                 .order('fecha', { ascending: false })
                 .limit(20);
 
@@ -443,20 +467,22 @@
         }
     }
 
-    // ── OBTENER LA MEJOR REFERENCIA DE "PROXIMO CAMBIO" PARA UNA PLACA
-    // 1) el ultimo Cambio de Aceite completado, 2) si no hay, la ultima
-    // inspeccion que ya tenga un proximo cambio guardado manualmente.
-    async function obtenerReferenciaProximoCambio(placa) {
-        var ultimoCambio = await buscarUltimoCambioAceite(placa);
+    // ── OBTENER LA MEJOR REFERENCIA DE "PROXIMO CAMBIO" PARA UNA PLACA + TIPO
+    // 1) el ultimo cambio de ese tipo (motor/caja/transmision) completado en taller,
+    // 2) si no hay, la ultima inspeccion de ese mismo tipo que ya tenga un proximo
+    // cambio guardado manualmente.
+    async function obtenerReferenciaProximoCambio(placa, tipo) {
+        var ultimoCambio = await buscarUltimoCambioAceite(placa, tipo);
         if (ultimoCambio && ultimoCambio.km_proximo_cambio) return ultimoCambio;
-        var ultimaInsp = await buscarUltimaInspeccionConProximo(placa);
+        var ultimaInsp = await buscarUltimaInspeccionConProximo(placa, tipo);
         if (ultimaInsp) return ultimaInsp;
         return null;
     }
 
-    // ── AL SELECCIONAR PLACA (inspeccion de kilometraje)
+    // ── AL SELECCIONAR PLACA O TIPO (inspeccion de kilometraje)
     async function alSeleccionarPlacaInspeccion() {
         var placa   = document.getElementById('insp-placa').value;
+        var tipo    = document.getElementById('insp-tipo').value;
         var veh     = flotaData.find(function(c) { return c.placa === placa; });
         var infoEl  = document.getElementById('info-km-insp');
         var resumen = document.getElementById('insp-resumen');
@@ -475,9 +501,9 @@
         document.getElementById('insp-km').value = veh.kilometraje_actual || '';
 
         resumen.className = 'insp-resumen';
-        resumen.innerHTML = 'Consultando el ultimo cambio de aceite...';
+        resumen.innerHTML = 'Consultando el ultimo cambio de ' + etiquetaTipo(tipo) + ' registrado...';
 
-        var ref = await obtenerReferenciaProximoCambio(placa);
+        var ref = await obtenerReferenciaProximoCambio(placa, tipo);
         inspKmProximoCambio = (ref && ref.km_proximo_cambio) ? Number(ref.km_proximo_cambio) : 0;
 
         var manualWrap = document.getElementById('insp-manual-wrap');
@@ -498,6 +524,8 @@
         var km      = parseInt(document.getElementById('insp-km').value) || 0;
         var resumen = document.getElementById('insp-resumen');
         var placa   = document.getElementById('insp-placa').value;
+        var tipo    = document.getElementById('insp-tipo').value;
+        var etiqueta = etiquetaTipo(tipo);
 
         if (!placa) {
             resumen.className = 'insp-resumen';
@@ -516,7 +544,7 @@
         if (!proximoEfectivo) {
             resumen.className = 'insp-resumen';
             resumen.innerHTML = 'KM actual a registrar: <b>' + km.toLocaleString() + ' KM</b><br>' +
-                'Esta placa nunca ha tenido un cambio de aceite registrado. Ingresa arriba a que KM esta programado el proximo cambio para poder calcular la vida restante desde ahora.';
+                'Esta placa nunca ha tenido un cambio de ' + etiqueta + ' registrado. Ingresa arriba a que KM esta programado el proximo cambio para poder calcular la vida restante desde ahora.';
             return;
         }
 
@@ -536,13 +564,14 @@
         resumen.className = 'insp-resumen ' + clase;
         resumen.innerHTML =
             'KM actual a registrar: <b>' + km.toLocaleString() + ' KM</b><br>' +
-            'Proximo cambio de aceite programado a los: <b>' + proximoEfectivo.toLocaleString() + ' KM</b><br>' +
+            'Proximo cambio de ' + etiqueta + ' programado a los: <b>' + proximoEfectivo.toLocaleString() + ' KM</b><br>' +
             'Vida restante: <b class="vida">' + vidaRestante.toLocaleString() + ' KM</b> &mdash; ' + estado;
     }
 
     // ── REGISTRAR INSPECCION DE KILOMETRAJE
     async function registrarInspeccion() {
         var placa = document.getElementById('insp-placa').value;
+        var tipo  = document.getElementById('insp-tipo').value;
         var km    = parseInt(document.getElementById('insp-km').value) || 0;
         var fecha = document.getElementById('insp-fecha').value;
         var obs   = document.getElementById('insp-obs').value.trim();
@@ -569,8 +598,8 @@
 
         if (!proximoAGuardar) {
             var continuarSinProximo = confirm(
-                'No definiste un proximo cambio de aceite para esta placa. La inspeccion se guardara igual, ' +
-                'pero no se podra calcular la vida restante hasta que se registre un cambio de aceite o lo definas manualmente. Continuar?'
+                'No definiste un proximo cambio de ' + etiquetaTipo(tipo) + ' para esta placa. La inspeccion se guardara igual, ' +
+                'pero no se podra calcular la vida restante hasta que se registre un cambio o lo definas manualmente. Continuar?'
             );
             if (!continuarSinProximo) {
                 btn.disabled = false;
@@ -579,20 +608,17 @@
             }
         }
 
-        // CORREGIDO: tipo_servicio ahora se guarda como 'Cambio de Aceite'
-        // (antes era 'Inspeccion KM'). El modal de "Registro de Salida"
-        // calcula el estado de aceite en db.js -> obtenerEstadoCarroza()
-        // filtrando filas de "mantenimientos" con /aceite/i.test(tipo_servicio),
-        // asi que una inspeccion guardada como 'Inspeccion KM' nunca entraba
-        // a ese calculo aunque ya trajera km_proximo_cambio. El campo
-        // estado_orden se mantiene en 'inspeccion' para que el historial de
-        // esta misma pantalla la siga distinguiendo de un cambio de aceite
-        // real hecho en taller (badge INSPECCION vs CERRADA).
+        // El tipo_servicio se guarda igual al sistema seleccionado (motor / caja / transmision)
+        // para que cada uno lleve su propio historial y su propio "proximo cambio". Los tres
+        // contienen la palabra "Aceite", asi que cualquier deteccion basada en /aceite/i en
+        // db.js los sigue reconociendo igual que antes. El campo estado_orden se mantiene en
+        // 'inspeccion' para que el historial de esta misma pantalla la siga distinguiendo de
+        // un cambio real hecho en taller (badge INSPECCION vs CERRADA).
         var registro = {
             id:                   'I-' + Date.now(),
             placa:                placa,
             fecha:                fecha,
-            tipo_servicio:        'Cambio de Aceite',
+            tipo_servicio:        tipo,
             kilometraje_servicio: km,
             costo:                0,
             taller:               '-',
@@ -625,9 +651,61 @@
     // ── AL CAMBIAR TIPO DE SERVICIO
     function alCambiarTipo() {
         var tipo = document.getElementById('tipo_servicio').value;
-        document.getElementById('bloque-aceite').style.display =
-            tipo === 'Cambio de Aceite' ? 'block' : 'none';
-        if (tipo === 'Cambio de Aceite') calcularProximoCambio();
+        var muestra = esTipoConIntervalo(tipo);
+        document.getElementById('bloque-aceite').style.display = muestra ? 'block' : 'none';
+        if (muestra) {
+            actualizarOpcionesIntervalo(tipo);
+            actualizarTituloBloqueAceite(tipo);
+            calcularProximoCambio();
+        }
+    }
+
+    // ── TITULO DEL BLOQUE SEGUN EL TIPO (motor / caja / transmision)
+    function actualizarTituloBloqueAceite(tipo) {
+        var titulos = {
+            'Cambio de Aceite': 'Configuracion del Proximo Cambio de Aceite (Motor)',
+            'Cambio de Aceite de Caja': 'Configuracion del Proximo Cambio de Aceite de Caja',
+            'Cambio de Aceite de Transmision': 'Configuracion del Proximo Cambio de Aceite de Transmision'
+        };
+        document.querySelector('#bloque-aceite .ba-titulo').textContent =
+            titulos[tipo] || 'Configuracion del Proximo Cambio';
+    }
+
+    // ── OPCIONES DE INTERVALO SEGUN EL TIPO
+    // Motor: intervalos cortos (3.000 - 10.000 KM). Caja y Transmision: intervalos
+    // mucho mas largos (20.000 - 50.000 KM), tipico de estos sistemas.
+    function actualizarOpcionesIntervalo(tipo) {
+        var sel = document.getElementById('intervalo-km');
+        var valorAnterior = sel.value;
+        var opciones;
+        if (tipo === 'Cambio de Aceite') {
+            opciones = [
+                { v: 3000,  t: 'Cada 3.000 KM' },
+                { v: 5000,  t: 'Cada 5.000 KM', sel: true },
+                { v: 7500,  t: 'Cada 7.500 KM' },
+                { v: 10000, t: 'Cada 10.000 KM' }
+            ];
+        } else {
+            opciones = [
+                { v: 20000, t: 'Cada 20.000 KM' },
+                { v: 30000, t: 'Cada 30.000 KM', sel: true },
+                { v: 40000, t: 'Cada 40.000 KM' },
+                { v: 50000, t: 'Cada 50.000 KM' }
+            ];
+        }
+        sel.innerHTML = opciones.map(function(o) {
+            return '<option value="' + o.v + '"' + (o.sel ? ' selected' : '') + '>' + o.t + '</option>';
+        }).join('') + '<option value="custom">Personalizado...</option>';
+
+        // Si el valor previamente seleccionado sigue siendo una opcion valida (o era "custom"),
+        // se conserva para no perder la seleccion al reabrir el mismo tipo.
+        var valoresValidos = opciones.map(function(o) { return String(o.v); });
+        if (valorAnterior === 'custom' || valoresValidos.indexOf(valorAnterior) !== -1) {
+            sel.value = valorAnterior;
+            if (valorAnterior === 'custom') document.getElementById('custom-km-wrap').style.display = 'block';
+        } else {
+            document.getElementById('custom-km-wrap').style.display = 'none';
+        }
     }
 
     // ── OBTENER INTERVALO
@@ -647,6 +725,8 @@
         var kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
         var intervalo  = getIntervalo();
         var resumen    = document.getElementById('ba-resumen');
+        var tipo       = document.getElementById('tipo_servicio').value;
+        var etiqueta   = etiquetaTipo(tipo);
         if (!kmServicio || !intervalo) {
             resumen.innerHTML = 'Ingresa el KM del servicio para ver el calculo.';
             return;
@@ -655,7 +735,7 @@
         resumen.innerHTML =
             'KM del servicio actual: <b>' + kmServicio.toLocaleString() + ' KM</b><br>' +
             'Intervalo del cambio: <b>cada ' + intervalo.toLocaleString() + ' KM</b><br>' +
-            'Proximo cambio de aceite a los: <b style="color:#92400e; font-size:15px;">' +
+            'Proximo cambio de ' + etiqueta + ' a los: <b style="color:#92400e; font-size:15px;">' +
             kmProximo.toLocaleString() + ' KM</b>';
     }
 
@@ -677,7 +757,7 @@
 
         var tipo       = document.getElementById('tipo_servicio').value;
         var kmServicio = parseInt(document.getElementById('km_servicio').value) || 0;
-        var esAceite   = (tipo === 'Cambio de Aceite');
+        var esAceite   = esTipoConIntervalo(tipo);
         var intervalo  = esAceite ? getIntervalo() : 0;
 
         var esKmDistinto  = document.getElementById('km_actual_distinto').checked;
@@ -954,7 +1034,9 @@
             tbody.innerHTML = res.data.map(function(m, idx) {
                 var tipo = m.tipo_servicio || '';
                 var cls  = 'tp-otro';
-                if (tipo.includes('Aceite'))      cls = 'tp-aceite';
+                if (tipo.includes('Caja'))            cls = 'tp-caja';
+                else if (tipo.includes('Transmision') || tipo.includes('Transmisión')) cls = 'tp-transmision';
+                else if (tipo.includes('Aceite'))     cls = 'tp-aceite';
                 else if (tipo.includes('Freno'))  cls = 'tp-frenos';
                 else if (tipo.includes('Llanta')) cls = 'tp-llantas';
                 else if (tipo.includes('Sinc'))   cls = 'tp-sinc';
@@ -962,10 +1044,8 @@
                 else if (tipo.includes('veria'))  cls = 'tp-averia';
 
                 // Si es una inspeccion (estado_orden === 'inspeccion'), el pill
-                // de tipo se mantiene visualmente como inspeccion aunque el
-                // tipo_servicio guardado ahora sea 'Cambio de Aceite', para no
-                // perder la distincion visual frente a un cambio de aceite
-                // real hecho en taller.
+                // de tipo se mantiene visualmente como inspeccion, para no
+                // perder la distincion visual frente a un cambio real hecho en taller.
                 if (m.estado_orden === 'inspeccion') cls = 'tp-inspeccion';
 
                 var kmServNum = parseInt(m.kilometraje_servicio) || 0;
@@ -1041,10 +1121,17 @@
         document.getElementById('responsable').value   = m.responsable   || '';
         document.getElementById('observaciones').value = m.observaciones || '';
 
-        if (m.tipo_servicio === 'Cambio de Aceite' && m.km_proximo_cambio && m.kilometraje_servicio) {
+        alSeleccionarPlaca();
+        alCambiarTipo(); // deja las opciones de intervalo y el titulo listos segun el tipo
+
+        // Ahora si se restaura el intervalo exacto que quedo guardado en el registro,
+        // despues de que alCambiarTipo ya dejo las opciones correctas para este tipo.
+        if (esTipoConIntervalo(m.tipo_servicio) && m.km_proximo_cambio && m.kilometraje_servicio) {
             var intervaloRegistrado = parseInt(m.km_proximo_cambio) - parseInt(m.kilometraje_servicio);
             var selIntervalo = document.getElementById('intervalo-km');
-            var opcionesValidas = [3000, 5000, 7500, 10000];
+            var opcionesValidas = (m.tipo_servicio === 'Cambio de Aceite')
+                ? [3000, 5000, 7500, 10000]
+                : [20000, 30000, 40000, 50000];
             if (opcionesValidas.includes(intervaloRegistrado)) {
                 selIntervalo.value = String(intervaloRegistrado);
             } else if (intervaloRegistrado > 0) {
@@ -1054,8 +1141,10 @@
             }
         }
 
-        alSeleccionarPlaca();
-        alCambiarTipo();
+        // km_servicio se restaura de nuevo por si alSeleccionarPlaca lo sobreescribio
+        // con el KM actual de la carroza en vez del KM real que tenia el servicio.
+        document.getElementById('km_servicio').value = m.kilometraje_servicio || '';
+
         calcularProximoCambio();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -1076,6 +1165,8 @@
         document.getElementById('btn-submit').disabled        = false;
         document.getElementById('info-km').style.display      = 'none';
         document.getElementById('bloque-aceite').style.display = 'block';
+        actualizarOpcionesIntervalo('Cambio de Aceite');
+        actualizarTituloBloqueAceite('Cambio de Aceite');
         document.getElementById('custom-km-wrap').style.display = 'none';
         document.getElementById('ba-resumen').innerHTML        = 'Ingresa el KM del servicio para ver el calculo.';
         document.getElementById('km_actual_distinto').checked  = false;
