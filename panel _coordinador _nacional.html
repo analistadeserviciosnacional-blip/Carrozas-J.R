@@ -331,6 +331,8 @@
     .vm-section h4 { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--azul); margin: 0 0 8px; }
     .vm-list { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
     .vm-list li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    .vm-list li.clickable { cursor: pointer; }
+    .vm-list li.clickable:hover, .vm-list li.clickable:active { background: #f8fafc; }
     .vm-list li:last-child { border-bottom: none; }
     .vm-list li span:last-child { text-align: right; color: var(--gris); flex-shrink: 0; }
     .vm-empty { font-size: 12px; color: var(--gris); padding: 6px 0; }
@@ -1208,15 +1210,59 @@ function capitalizar(str){
     str = String(str||'');
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
+// 🆕 Google Drive últimamente devuelve 403 Forbidden en varias fotos
+// cuando se usan como <img src="https://drive.google.com/uc?id=...">.
+// Se prueban automáticamente otros 2 formatos de URL de Drive, y si
+// ninguno carga, se muestra un enlace "Ver en Drive" en vez de dejar
+// el espacio en blanco (ver comentario completo en panel_automotor.html).
+function extraerIdDrive(url){
+    if (!url) return null;
+    const patrones = [/[?&]id=([a-zA-Z0-9_-]{15,})/, /\/file\/d\/([a-zA-Z0-9_-]{15,})/, /\/d\/([a-zA-Z0-9_-]{15,})/];
+    for (const p of patrones) {
+        const m = String(url).match(p);
+        if (m) return m[1];
+    }
+    return null;
+}
+function probarFormatoAlternoImagen(img){
+    const id = img.dataset.driveId;
+    if (!id) { reemplazarPorEnlaceDrive(img); return; }
+    const intento = parseInt(img.dataset.intento || '0', 10) + 1;
+    img.dataset.intento = intento;
+    const formatos = [
+        `https://drive.google.com/thumbnail?id=${id}&sz=w1000`,
+        `https://drive.google.com/uc?export=view&id=${id}`,
+    ];
+    if (intento <= formatos.length) {
+        img.src = formatos[intento - 1];
+    } else {
+        reemplazarPorEnlaceDrive(img);
+    }
+}
+function reemplazarPorEnlaceDrive(img){
+    const enlace = img.dataset.enlace;
+    const w = img.style.width || '54px', h = img.style.height || '54px';
+    const a = document.createElement('a');
+    a.href = enlace; a.target = '_blank'; a.rel = 'noopener';
+    a.style.cssText = `display:flex;align-items:center;justify-content:center;width:${w};height:${h};border:1px dashed #475569;border-radius:8px;color:#93c5fd;font-size:9px;text-align:center;text-decoration:none;padding:2px;`;
+    a.textContent = '📂 Ver en Drive';
+    if (img.parentNode) img.parentNode.replaceChild(a, img);
+}
 function imagenAdjunta(src, alto){
     if(!src) return '';
     const h = alto || 54;
-    return `<img src="${src}" style="width:${h}px;height:${h}px;object-fit:cover;border-radius:8px;border:1px solid #1e293b;cursor:pointer;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'">`;
+    const id = extraerIdDrive(src);
+    const primerIntento = id ? `https://lh3.googleusercontent.com/d/${id}=w1000` : src;
+    const enlaceDrive = id ? `https://drive.google.com/file/d/${id}/view` : src;
+    return `<img src="${primerIntento}" data-drive-id="${id||''}" data-enlace="${enlaceDrive}" data-intento="0" loading="lazy" style="width:${h}px;height:${h}px;object-fit:cover;border-radius:8px;border:1px solid #1e293b;cursor:pointer;" onclick="window.open(this.dataset.enlace,'_blank')" onerror="probarFormatoAlternoImagen(this)">`;
 }
 function firmaAdjunta(src){
     if(!src) return '';
+    const id = extraerIdDrive(src);
+    const primerIntento = id ? `https://lh3.googleusercontent.com/d/${id}=w1000` : src;
+    const enlaceDrive = id ? `https://drive.google.com/file/d/${id}/view` : src;
     return `<div style="margin-top:6px;"><span style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:700;">Firma</span><br>
-        <img src="${src}" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'"></div>`;
+        <img src="${primerIntento}" data-drive-id="${id||''}" data-enlace="${enlaceDrive}" data-intento="0" loading="lazy" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open(this.dataset.enlace,'_blank')" onerror="probarFormatoAlternoImagen(this)"></div>`;
 }
 function filaDato(label, valor){
     if(valor === null || valor === undefined || String(valor).trim() === '') return '';
@@ -1240,6 +1286,24 @@ function imagenesTraslado(t){
         html += `<div class="tf-block">${firmaAdjunta(t.firma)}</div>`;
     }
     return html;
+}
+// 🆕 Muestra el detalle COMPLETO (con fotos y firma) de UN solo traslado,
+// bajo demanda al hacer click — evita cargar de una vez las fotos de
+// varios traslados cuando se abre el panel de la carroza.
+function mostrarFichaTrasladoUnico(placa, idSalida, fecha, hora){
+    let t = null;
+    if (idSalida) {
+        t = TRASLADOS.find(x => String(x.placa||'').toUpperCase() === placa.toUpperCase() && String(x.id_salida||'') === String(idSalida));
+    }
+    if (!t) {
+        t = TRASLADOS.find(x => String(x.placa||'').toUpperCase() === placa.toUpperCase() && x.fecha === fecha && x.hora_de_salida === hora);
+    }
+    document.getElementById('push-titulo-txt').textContent = `Traslado — ${placa}${fecha ? ' · '+fecha : ''}`;
+    document.getElementById('push-alertas-body').innerHTML = t
+        ? fichaTraslado(t)
+        : '<div class="push-empty-alert">No se encontró el detalle de este traslado.</div>';
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
 }
 function fichaTraslado(t){
     const numTel = t.num_telefono || t.numero_telefono || t.nnum_telefono || t.telefono || '';
@@ -1397,7 +1461,7 @@ async function abrirPanelCarroza(placa){
         </div>
         <div class="vm-section">
             <h4>Últimos traslados</h4>
-            ${trasladosVeh.length ? trasladosVeh.map(t=>fichaTraslado(t)).join('') : '<div class="vm-empty">Sin traslados registrados.</div>'}
+            ${trasladosVeh.length ? `<ul class="vm-list">${trasladosVeh.map(t=>`<li class="clickable" onclick="mostrarFichaTrasladoUnico('${placa.replace(/'/g,"")}','${String(t.id_salida||'').replace(/'/g,"")}','${String(t.fecha||'').replace(/'/g,"")}','${String(t.hora_de_salida||'').replace(/'/g,"")}')"><span>${t.fecha}${t.hora_de_salida ? ' · '+fmtHoraCorta(t.hora_de_salida) : ''} · ${t.origen||'—'} → ${t.destino||'—'}</span><span>${t.conductor||'—'} ›</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin traslados registrados.</div>'}
             <button class="push-btn-resolver" style="margin-top:10px;background:var(--celeste);color:var(--azul);" onclick="mostrarHistorialTrasladosCarroza('${placa.replace(/'/g,"")}')">📁 Ver historial completo (con foto y firma)</button>
         </div>
         <div class="vm-section">
