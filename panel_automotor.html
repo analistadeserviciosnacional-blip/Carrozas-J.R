@@ -372,6 +372,8 @@
     .vm-section h4 { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--azul); margin: 0 0 8px; }
     .vm-list { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
     .vm-list li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    .vm-list li.clickable { cursor: pointer; }
+    .vm-list li.clickable:hover, .vm-list li.clickable:active { background: #f8fafc; }
     .vm-list li:last-child { border-bottom: none; }
     .vm-list li span:last-child { text-align: right; color: var(--gris); flex-shrink: 0; }
     .vm-empty { font-size: 12px; color: var(--gris); padding: 6px 0; }
@@ -1058,12 +1060,12 @@ function capitalizar(str){
 function imagenAdjunta(src, alto){
     if(!src) return '';
     const h = alto || 54;
-    return `<img src="${src}" style="width:${h}px;height:${h}px;object-fit:cover;border-radius:8px;border:1px solid #1e293b;cursor:pointer;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'">`;
+    return `<img src="${src}" loading="lazy" style="width:${h}px;height:${h}px;object-fit:cover;border-radius:8px;border:1px solid #1e293b;cursor:pointer;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'">`;
 }
 function firmaAdjunta(src){
     if(!src) return '';
     return `<div style="margin-top:6px;"><span style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:700;">Firma</span><br>
-        <img src="${src}" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'"></div>`;
+        <img src="${src}" loading="lazy" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'"></div>`;
 }
 
 /* ── Ficha detallada de un traslado (TODOS los campos de Registro_Salidas) ── */
@@ -1093,6 +1095,28 @@ function imagenesTraslado(t){
     return html;
 }
 // Ficha completa con TODOS los campos de un traslado individual.
+// 🆕 Muestra el detalle COMPLETO (con fotos y firma) de UN solo traslado,
+// bajo demanda al hacer click — antes se renderizaban las fichas completas
+// de los 5 últimos traslados de una vez apenas se abría el panel de la
+// carroza, disparando hasta ~20 peticiones de imágenes a Google Drive en
+// simultáneo (de ahí la carga lenta y las fotos rotas/403). Ahora la lista
+// de "Últimos traslados" vuelve a ser compacta y liviana, y solo se pide
+// (y se cargan sus fotos) el traslado puntual que el usuario clickea.
+function mostrarFichaTrasladoUnico(placa, idSalida, fecha, hora){
+    let t = null;
+    if (idSalida) {
+        t = TRASLADOS.find(x => String(x.placa||'').toUpperCase() === placa.toUpperCase() && String(x.id_salida||'') === String(idSalida));
+    }
+    if (!t) {
+        t = TRASLADOS.find(x => String(x.placa||'').toUpperCase() === placa.toUpperCase() && x.fecha === fecha && x.hora_de_salida === hora);
+    }
+    document.getElementById('push-titulo-txt').textContent = `Traslado — ${placa}${fecha ? ' · '+fecha : ''}`;
+    document.getElementById('push-alertas-body').innerHTML = t
+        ? fichaTraslado(t)
+        : '<div class="push-empty-alert">No se encontró el detalle de este traslado.</div>';
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
 function fichaTraslado(t){
     const numTel = t.num_telefono || t.numero_telefono || t.nnum_telefono || t.telefono || '';
     const kmSalida  = (t.km__salida ?? t.km_salida ?? '') !== '' ? (t.km__salida ?? t.km_salida) : '';
@@ -1845,7 +1869,7 @@ async function abrirPanelCarroza(placa){
         </div>
         <div class="vm-section">
             <h4>Últimos traslados</h4>
-            ${trasladosVeh.length ? trasladosVeh.map(t=>fichaTraslado(t)).join('') : '<div class="vm-empty">Sin traslados registrados.</div>'}
+            ${trasladosVeh.length ? `<ul class="vm-list">${trasladosVeh.map(t=>`<li class="clickable" onclick="mostrarFichaTrasladoUnico('${placaSegura}','${String(t.id_salida||'').replace(/'/g,"")}','${String(t.fecha||'').replace(/'/g,"")}','${String(t.hora_de_salida||'').replace(/'/g,"")}')"><span>${t.fecha}${t.hora_de_salida ? ' · '+fmtHoraCorta(t.hora_de_salida) : ''} · ${t.origen||'—'} → ${t.destino||'—'}</span><span>${t.conductor||'—'} ›</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin traslados registrados.</div>'}
             <button class="push-btn-resolver" style="margin-top:10px;background:var(--celeste);color:var(--azul);" onclick="mostrarHistorialTrasladosCarroza('${placaSegura}')">📁 Ver historial completo (con foto y firma)</button>
         </div>
         <div class="vm-section">
