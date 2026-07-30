@@ -251,14 +251,20 @@
     .fleet-empty { text-align: center; color: var(--gris); font-size: 13px; padding: 20px 0; }
 
     /* ── NOTIFICACIÓN PUSH (OVERLAY / MODAL "VER TODO") ── */
-    .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998; }
+    /* ── SISTEMA DE NOTIFICACIÓN PUSH (OVERLAY) ── */
+    /* 🆕 z-index más alto que .veh-overlay/.veh-sheet: este modal se
+       abre desde dentro del panel de una carroza (historial completo),
+       así que debe quedar por ENCIMA de ese panel — antes empataban en
+       9998/9999 y, al empatar, ganaba .veh-sheet por orden en el HTML,
+       dejando el modal "pegado atrás". */
+    .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 10998; }
     .push-overlay.visible { display: block; }
 
     @keyframes slideDown { from{opacity:0;transform:translateY(-30px) scale(0.95);} to{opacity:1;transform:none;} }
     .push-notif {
         display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
         width: calc(100% - 32px); max-width: 460px; background: #0f172a; border-radius: 24px;
-        padding: 24px 20px 20px; z-index: 9999; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        padding: 24px 20px 20px; z-index: 10999; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
         border: 1.5px solid #1e3a5f; animation: slideDown 0.4s cubic-bezier(.22,1,.36,1);
         max-height: 82vh; overflow-y: auto;
     }
@@ -336,6 +342,25 @@
     @media (min-width: 1100px){
         .veh-sheet { max-width: 820px; bottom: 4vh; max-height: 92vh; border-radius: 26px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
         .veh-sheet-head { border-radius: 26px 26px 0 0; }
+    }
+
+    /* 🆕 FICHA DETALLADA DE TRASLADO (historial completo) — igual que panel_automotor.html */
+    .traslado-ficha {
+        background: #0b1626; border: 1px solid #1e293b; border-radius: 14px;
+        padding: 14px 14px 12px; margin-bottom: 10px;
+    }
+    .traslado-ficha .tf-row {
+        display: flex; justify-content: space-between; gap: 10px; padding: 3px 0;
+        font-size: 11.5px;
+    }
+    .traslado-ficha .tf-row .tf-lbl { color: #64748b; }
+    .traslado-ficha .tf-row .tf-val { color: #e2e8f0; font-weight: 600; text-align: right; }
+    .traslado-ficha .tf-block {
+        margin-top: 8px; padding-top: 8px; border-top: 1px solid #1e293b;
+    }
+    .traslado-ficha .tf-block-title {
+        font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 800;
+        letter-spacing: .3px; margin-bottom: 4px;
     }
 </style>
 </head>
@@ -1159,6 +1184,166 @@ function documentoMasUrgente(carroza){
     };
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   🆕 HISTORIAL COMPLETO POR CARROZA (traslados y checklists) — con foto y
+   firma. Copiado de panel_automotor.html para que el panel nacional tenga
+   la misma vista de detalle que el de parque automotor: estas funciones
+   NO tocan las secciones/badges existentes, solo agregan la vista de
+   historial completo agrupado por mes, con imágenes y firma tal como
+   vienen guardadas en la hoja de cálculo (columnas imagen1..imagen4 y
+   firma en "Traslado"; FIRMA_CONDUCTOR en "Checklist_Salida").
+   ══════════════════════════════════════════════════════════════════════ */
+function agruparPorMes(lista, campoFecha){
+    const grupos = {};
+    lista.forEach(item=>{
+        const d = parseDDMMAAAA(item[campoFecha]);
+        if(!d) return;
+        const key = d.toLocaleDateString('es-CO',{month:'long', year:'numeric'});
+        if(!grupos[key]) grupos[key] = [];
+        grupos[key].push(item);
+    });
+    return grupos;
+}
+function capitalizar(str){
+    str = String(str||'');
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+function imagenAdjunta(src, alto){
+    if(!src) return '';
+    const h = alto || 54;
+    return `<img src="${src}" style="width:${h}px;height:${h}px;object-fit:cover;border-radius:8px;border:1px solid #1e293b;cursor:pointer;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'">`;
+}
+function firmaAdjunta(src){
+    if(!src) return '';
+    return `<div style="margin-top:6px;"><span style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:700;">Firma</span><br>
+        <img src="${src}" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'"></div>`;
+}
+function filaDato(label, valor){
+    if(valor === null || valor === undefined || String(valor).trim() === '') return '';
+    return `<div class="tf-row"><span class="tf-lbl">${label}</span><span class="tf-val">${valor}</span></div>`;
+}
+function pillSiNo(valor){
+    const esSi = ['si','sí','true','1','x'].includes(norm(valor));
+    const esNo = ['no','false','0'].includes(norm(valor));
+    if(!esSi && !esNo) return '<span style="color:#64748b;font-size:11px;">Sin registro</span>';
+    return `<span style="font-weight:800;font-size:11px;color:${esSi ? '#34d399' : '#fca5a5'};">${esSi ? '✅ Sí' : '❌ No'}</span>`;
+}
+function imagenesTraslado(t){
+    const campos = ['imagen1','imagen2','imagen3','imagen4'];
+    const imgs = campos.map(c=>t[c]).filter(Boolean);
+    let html = '';
+    if(imgs.length){
+        html += `<div class="tf-block"><div class="tf-block-title">Fotos (${imgs.length})</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${imgs.map(src=>imagenAdjunta(src, 64)).join('')}</div></div>`;
+    }
+    if(t.firma){
+        html += `<div class="tf-block">${firmaAdjunta(t.firma)}</div>`;
+    }
+    return html;
+}
+function fichaTraslado(t){
+    const numTel = t.num_telefono || t.numero_telefono || t.nnum_telefono || t.telefono || '';
+    const kmSalida  = (t.km__salida ?? t.km_salida ?? '') !== '' ? (t.km__salida ?? t.km_salida) : '';
+    const kmIngreso = (t.km__ingreso ?? t.km_ingreso ?? '') !== '' ? (t.km__ingreso ?? t.km_ingreso) : '';
+    const totalKm   = t.total_km ?? '';
+
+    return `<div class="traslado-ficha">
+        <div style="display:flex;justify-content:space-between;gap:8px;">
+            <b style="color:#f1f5f9;font-size:13.5px;">${t.fecha || '—'}${t.hora_de_salida ? ' · Salida '+fmtHoraCorta(t.hora_de_salida) : ''}</b>
+            <span style="color:#94a3b8;font-size:11px;">${t.hora_de_ingreso ? 'Ingreso '+fmtHoraCorta(t.hora_de_ingreso) : ''}</span>
+        </div>
+
+        <div style="margin-top:5px;font-size:13px;color:#e2e8f0;font-weight:700;">${t.origen || '—'} ➔ ${t.destino || '—'}</div>
+        ${t.motivo_de_salida ? `<div style="margin-top:2px;color:#94a3b8;font-size:12px;">${t.motivo_de_salida}</div>` : ''}
+
+        ${(t.nombre_del_fallecido || t.clinica_hospital_o_rsd || t.numero_prestacion) ? `
+        <div class="tf-block">
+            <div class="tf-block-title">Servicio funerario</div>
+            ${filaDato('Fallecido(a)', t.nombre_del_fallecido)}
+            ${filaDato('Clínica / Hospital / RSD', t.clinica_hospital_o_rsd)}
+            ${filaDato('N.° de prestación', t.numero_prestacion)}
+        </div>` : ''}
+
+        <div class="tf-block">
+            <div class="tf-block-title">Personal</div>
+            ${filaDato('Conductor', t.conductor)}
+            ${filaDato('Teléfono', numTel)}
+            ${filaDato('Regional', t.regional)}
+            ${filaDato('Coordinador en turno', t.coordinador_en_turno)}
+        </div>
+
+        <div class="tf-block">
+            <div class="tf-block-title">Kilometraje</div>
+            ${filaDato('Km salida', kmSalida !== '' ? fmtNum(kmSalida)+' km' : '')}
+            ${filaDato('Km ingreso', kmIngreso !== '' ? fmtNum(kmIngreso)+' km' : '')}
+            ${filaDato('Total recorrido', totalKm !== '' ? fmtNum(totalKm)+' km' : '')}
+            <div class="tf-row"><span class="tf-lbl">Kit de carretera</span><span class="tf-val">${pillSiNo(t.kit_carretera)}</span></div>
+        </div>
+
+        ${t.observaciones ? `<div class="tf-block">
+            <div class="tf-block-title">Observaciones</div>
+            <div style="color:#cbd5e1;font-size:12px;">${t.observaciones}</div>
+        </div>` : ''}
+
+        ${imagenesTraslado(t)}
+    </div>`;
+}
+function mostrarHistorialTrasladosCarroza(placa){
+    const lista = TRASLADOS.filter(t => String(t.placa||'').toUpperCase() === placa.toUpperCase())
+        .sort((a,b)=> (parseDDMMAAAA(b.fecha)||0) - (parseDDMMAAAA(a.fecha)||0));
+    const grupos = agruparPorMes(lista, 'fecha');
+    const meses = Object.keys(grupos);
+
+    let html;
+    if(!lista.length){
+        html = '<div class="push-empty-alert">Sin traslados registrados para esta carroza.</div>';
+    } else {
+        html = meses.map(mes => `
+            <div class="push-alert-section">
+                <h4 style="color:#93c5fd;">${capitalizar(mes)} (${grupos[mes].length})</h4>
+                ${grupos[mes].map(t => fichaTraslado(t)).join('')}
+            </div>`).join('');
+    }
+
+    document.getElementById('push-titulo-txt').textContent = `Historial de Traslados — ${placa}`;
+    document.getElementById('push-alertas-body').innerHTML = `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${lista.length} traslado(s) en total</div>${html}`;
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
+function mostrarHistorialChecklistCarroza(placa){
+    const lista = CHECKLISTS.filter(c => String(c.PLACA||'').toUpperCase() === placa.toUpperCase())
+        .sort((a,b)=> (parseDDMMAAAA(b.FECHA)||0) - (parseDDMMAAAA(a.FECHA)||0));
+    const grupos = agruparPorMes(lista, 'FECHA');
+    const meses = Object.keys(grupos);
+
+    let html;
+    if(!lista.length){
+        html = '<div class="push-empty-alert">Sin checklists de entrega registrados para esta carroza.</div>';
+    } else {
+        html = meses.map(mes => `
+            <div class="push-alert-section">
+                <h4 style="color:#93c5fd;">${capitalizar(mes)} (${grupos[mes].length})</h4>
+                <ul>${grupos[mes].map(c => {
+                    const nov = novedadesDeChecklist(c);
+                    return `<li>
+                        <div style="display:flex;justify-content:space-between;gap:8px;">
+                            <b style="color:#f1f5f9;">${c.FECHA || '—'}${c.HORA_SALIDA ? ' · '+c.HORA_SALIDA : ''}</b>
+                            <span style="color:#94a3b8;font-size:11px;">${c.CONDUCTOR||'—'}</span>
+                        </div>
+                        <div style="margin-top:3px;">${c.TIPO_DE_SERVICIO||'—'}${nov.length ? ' · <span style=\"color:#fcd34d;\">⚠️ '+nov.map(n=>n.campo+': '+n.valor).join(', ')+'</span>' : ''}</div>
+                        ${c.OBSERVACIONES ? `<div style="margin-top:3px;color:#94a3b8;">${c.OBSERVACIONES}</div>` : ''}
+                        ${firmaAdjunta(c.FIRMA_CONDUCTOR)}
+                    </li>`;
+                }).join('')}</ul>
+            </div>`).join('');
+    }
+
+    document.getElementById('push-titulo-txt').textContent = `Historial de Checklists — ${placa}`;
+    document.getElementById('push-alertas-body').innerHTML = `<div style="font-size:11.5px;color:#64748b;margin-bottom:14px;">${lista.length} checklist(s) en total</div>${html}`;
+    document.getElementById('push-overlay').classList.add('visible');
+    document.getElementById('push-notif').classList.add('visible');
+}
+
 async function abrirPanelCarroza(placa){
     document.getElementById('veh-overlay').classList.add('visible');
     document.getElementById('veh-sheet').classList.add('visible');
@@ -1208,10 +1393,12 @@ async function abrirPanelCarroza(placa){
         <div class="vm-section">
             <h4>Novedades en checklist de entrega</h4>
             ${checklistVeh.length ? `<ul class="vm-list">${checklistVeh.map(({registro, novedades})=>`<li><span>${registro.FECHA||'—'} · ${novedades.map(n=>n.campo+': '+n.valor).join(', ')}</span><span>${registro.CONDUCTOR||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin novedades en checklists de entrega.</div>'}
+            <button class="push-btn-resolver" style="margin-top:10px;background:var(--celeste);color:var(--azul);" onclick="mostrarHistorialChecklistCarroza('${placa.replace(/'/g,"")}')">📁 Ver historial completo (con firma)</button>
         </div>
         <div class="vm-section">
             <h4>Últimos traslados</h4>
-            ${trasladosVeh.length ? `<ul class="vm-list">${trasladosVeh.map(t=>`<li><span>${t.fecha}${t.hora_de_salida ? ' · '+fmtHoraCorta(t.hora_de_salida) : ''} · ${t.origen||'—'} → ${t.destino||'—'}</span><span>${t.conductor||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin traslados registrados.</div>'}
+            ${trasladosVeh.length ? trasladosVeh.map(t=>fichaTraslado(t)).join('') : '<div class="vm-empty">Sin traslados registrados.</div>'}
+            <button class="push-btn-resolver" style="margin-top:10px;background:var(--celeste);color:var(--azul);" onclick="mostrarHistorialTrasladosCarroza('${placa.replace(/'/g,"")}')">📁 Ver historial completo (con foto y firma)</button>
         </div>
         <div class="vm-section">
             <h4>Últimos tanqueos</h4>
