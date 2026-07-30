@@ -267,15 +267,23 @@
         cursor: pointer; text-decoration: underline; margin: -6px 0 12px; padding: 0;
     }
 
-    /* ── NOTIFICACIÓN PUSH (OVERLAY) ── */
-    .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9998; }
+    /* ── SISTEMA DE NOTIFICACIÓN PUSH (OVERLAY) ── */
+    /* 🆕 z-index más alto que .veh-overlay/.veh-sheet (9998/9999): este
+       modal se abre muchas veces DESDE DENTRO del panel de una carroza
+       (p.ej. el botón "📁 Ver historial completo"), así que siempre debe
+       quedar por ENCIMA de ese panel. Antes ambos compartían el mismo
+       z-index (9998/9999) y, al empatar, el navegador desempata por
+       orden en el HTML — como .veh-sheet aparece después en el
+       documento, terminaba tapando al modal de historial, que quedaba
+       "pegado atrás" aunque técnicamente sí se había abierto. */
+    .push-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 10998; }
     .push-overlay.visible { display: block; }
 
     @keyframes slideDown { from{opacity:0;transform:translateY(-30px) scale(0.95);} to{opacity:1;transform:none;} }
     .push-notif {
         display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
         width: calc(100% - 32px); max-width: 460px; background: #0f172a; border-radius: 24px;
-        padding: 24px 20px 20px; z-index: 9999; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        padding: 24px 20px 20px; z-index: 10999; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
         border: 1.5px solid #1e3a5f; animation: slideDown 0.4s cubic-bezier(.22,1,.36,1);
         max-height: 82vh; overflow-y: auto;
     }
@@ -1837,7 +1845,7 @@ async function abrirPanelCarroza(placa){
         </div>
         <div class="vm-section">
             <h4>Últimos traslados</h4>
-            ${trasladosVeh.length ? `<ul class="vm-list">${trasladosVeh.map(t=>`<li><span>${t.fecha}${t.hora_de_salida ? ' · '+fmtHoraCorta(t.hora_de_salida) : ''} · ${t.origen||'—'} → ${t.destino||'—'}</span><span>${t.conductor||'—'}</span></li>`).join('')}</ul>` : '<div class="vm-empty">Sin traslados registrados.</div>'}
+            ${trasladosVeh.length ? trasladosVeh.map(t=>fichaTraslado(t)).join('') : '<div class="vm-empty">Sin traslados registrados.</div>'}
             <button class="push-btn-resolver" style="margin-top:10px;background:var(--celeste);color:var(--azul);" onclick="mostrarHistorialTrasladosCarroza('${placaSegura}')">📁 Ver historial completo (con foto y firma)</button>
         </div>
         <div class="vm-section">
