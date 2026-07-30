@@ -545,6 +545,38 @@
             .trim();
     }
 
+    // 🆕 Preselección robusta de la regional del conductor.
+    // Antes se hacía "select.value = user.regional", que exige una
+    // coincidencia EXACTA (letra por letra, con tildes y mayúsculas)
+    // contra el atributo "value" de las <option> del selector. El
+    // problema: varias opciones usan un código interno distinto al
+    // nombre de la regional (Cundinamarca → value="C/ Marca",
+    // Fusagasugá → value="FUSA", Popayán → value="POPAYAN" sin tilde,
+    // Medellín → "MEDELLIN", Tuluá → "TULUA", Líbano → "LIBANO",
+    // Garzón → "GARZON"). Si el dato guardado para el conductor no
+    // calzaba letra por letra con ese "value", la preselección fallaba
+    // en silencio (el selector se quedaba en su primera opción,
+    // "Risaralda") y el conductor tenía que abrir el desplegable y
+    // elegir manualmente su propia regional para que le aparecieran
+    // sus placas — el bug reportado de "tener que seleccionar otra
+    // regional". Ahora se busca la opción comparando de forma
+    // normalizada (sin tildes/mayúsculas) tanto contra el "value" como
+    // contra el texto visible de la opción, así que calza sin importar
+    // si el dato guardado es el código interno o el nombre legible.
+    function preseleccionarRegional(regionalGuardada) {
+        const select = document.getElementById('regional');
+        if (!regionalGuardada) return;
+        const objetivo = normalizar(regionalGuardada);
+        const opcion = Array.from(select.options).find(o =>
+            normalizar(o.value) === objetivo || normalizar(o.textContent) === objetivo
+        );
+        if (opcion) {
+            select.value = opcion.value;
+        } else {
+            console.warn('La regional guardada para este conductor ("' + regionalGuardada + '") no coincide con ninguna opción del selector — revisa el dato en la hoja "usuarios".');
+        }
+    }
+
     // 🆕 Fecha de hoy en formato DD/MM/AAAA (igual que fechaHoy() de db.js)
     // Se usa para distinguir un traslado "duplicado de hoy" (que ya maneja
     // el flujo de banner-duplicado) de un traslado de un DÍA ANTERIOR que
@@ -1700,7 +1732,7 @@
         const user = JSON.parse(sesionData);
         document.getElementById('conductor').value = user.nombre;
         document.getElementById('saludo').innerText = '¡HOLA, ' + user.nombre.split(' ')[0].toUpperCase() + '!';
-        if (user.regional) document.getElementById('regional').value = user.regional;
+        if (user.regional) preseleccionarRegional(user.regional);
 
         verificarParametrosURL();
         await cargarPlacas();
