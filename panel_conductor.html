@@ -628,9 +628,14 @@
         const regionalUser = userSesion.regional || '';
         const res = await DB.obtenerFlota();
 
+        // 🆕 Comparación normalizada (sin tildes/mayúsculas/espacios): antes
+        // era "ubi === regionalUser", una igualdad EXACTA que fallaba en
+        // silencio si el dato guardado tenía distinta tilde, mayúscula o
+        // espacio que el de la hoja "carrozas" — dejando al conductor sin
+        // ver ninguna carroza de su propia regional.
         const flota = (res.data || []).filter(c => {
             const ubi = c.sede_intercambio || c.sede_asignada;
-            return ubi === regionalUser;
+            return norm(ubi) === norm(regionalUser);
         });
 
         if (flota.length > 0) {
