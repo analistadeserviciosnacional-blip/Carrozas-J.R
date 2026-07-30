@@ -1057,15 +1057,66 @@ function capitalizar(str){
     str = String(str||'');
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
+// 🆕 Google Drive últimamente devuelve 403 Forbidden en varias fotos
+// cuando se usan como <img src="https://drive.google.com/uc?id=..."> —
+// esto pasa por cómo Drive sirve ese endpoint concreto (a veces por
+// límite de peticiones, a veces porque el archivo no quedó compartido
+// como "Cualquiera con el enlace"), y no se puede forzar desde el
+// navegador a que Drive lo autorice. Lo que SÍ se puede hacer: probar
+// automáticamente otros 2 formatos de URL que Google Drive también
+// entiende para el mismo archivo (a veces uno funciona aunque el otro
+// dé 403), y si NINGUNO carga, mostrar un enlace "Ver foto en Drive"
+// en vez de dejar el espacio en blanco — al abrirlo en una pestaña
+// nueva, Drive sí pide el login/permiso normal en vez de bloquear la
+// petición como hotlink.
+function extraerIdDrive(url){
+    if (!url) return null;
+    const patrones = [/[?&]id=([a-zA-Z0-9_-]{15,})/, /\/file\/d\/([a-zA-Z0-9_-]{15,})/, /\/d\/([a-zA-Z0-9_-]{15,})/];
+    for (const p of patrones) {
+        const m = String(url).match(p);
+        if (m) return m[1];
+    }
+    return null;
+}
+function probarFormatoAlternoImagen(img){
+    const id = img.dataset.driveId;
+    if (!id) { reemplazarPorEnlaceDrive(img); return; }
+    const intento = parseInt(img.dataset.intento || '0', 10) + 1;
+    img.dataset.intento = intento;
+    const formatos = [
+        `https://drive.google.com/thumbnail?id=${id}&sz=w1000`,
+        `https://drive.google.com/uc?export=view&id=${id}`,
+    ];
+    if (intento <= formatos.length) {
+        img.src = formatos[intento - 1];
+    } else {
+        reemplazarPorEnlaceDrive(img);
+    }
+}
+function reemplazarPorEnlaceDrive(img){
+    const enlace = img.dataset.enlace;
+    const w = img.style.width || '54px', h = img.style.height || '54px';
+    const a = document.createElement('a');
+    a.href = enlace; a.target = '_blank'; a.rel = 'noopener';
+    a.style.cssText = `display:flex;align-items:center;justify-content:center;width:${w};height:${h};border:1px dashed #475569;border-radius:8px;color:#93c5fd;font-size:9px;text-align:center;text-decoration:none;padding:2px;`;
+    a.textContent = '📂 Ver en Drive';
+    if (img.parentNode) img.parentNode.replaceChild(a, img);
+}
 function imagenAdjunta(src, alto){
     if(!src) return '';
     const h = alto || 54;
-    return `<img src="${src}" loading="lazy" style="width:${h}px;height:${h}px;object-fit:cover;border-radius:8px;border:1px solid #1e293b;cursor:pointer;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'">`;
+    const id = extraerIdDrive(src);
+    const primerIntento = id ? `https://lh3.googleusercontent.com/d/${id}=w1000` : src;
+    const enlaceDrive = id ? `https://drive.google.com/file/d/${id}/view` : src;
+    return `<img src="${primerIntento}" data-drive-id="${id||''}" data-enlace="${enlaceDrive}" data-intento="0" loading="lazy" style="width:${h}px;height:${h}px;object-fit:cover;border-radius:8px;border:1px solid #1e293b;cursor:pointer;" onclick="window.open(this.dataset.enlace,'_blank')" onerror="probarFormatoAlternoImagen(this)">`;
 }
 function firmaAdjunta(src){
     if(!src) return '';
+    const id = extraerIdDrive(src);
+    const primerIntento = id ? `https://lh3.googleusercontent.com/d/${id}=w1000` : src;
+    const enlaceDrive = id ? `https://drive.google.com/file/d/${id}/view` : src;
     return `<div style="margin-top:6px;"><span style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:700;">Firma</span><br>
-        <img src="${src}" loading="lazy" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open('${src}','_blank')" onerror="this.style.display='none'"></div>`;
+        <img src="${primerIntento}" data-drive-id="${id||''}" data-enlace="${enlaceDrive}" data-intento="0" loading="lazy" style="max-width:130px;max-height:52px;border-radius:6px;border:1px solid #1e293b;background:#fff;cursor:pointer;margin-top:3px;" onclick="window.open(this.dataset.enlace,'_blank')" onerror="probarFormatoAlternoImagen(this)"></div>`;
 }
 
 /* ── Ficha detallada de un traslado (TODOS los campos de Registro_Salidas) ── */
