@@ -28,7 +28,15 @@
 //       plano por si acaso). Así la app abre rápido siempre, con o sin
 //       buena señal.
 
-const CACHE_NAME = 'jr-carrozas-v8';
+const CACHE_NAME = 'jr-carrozas-v9';
+// 🆕 v9 — se sube la versión de caché a propósito: index.html tenía un
+// bug de redirección para el rol "coordinador nacional" (apuntaba a
+// "panel_coordinador_nacional.html" pero el archivo real se llamaba
+// "panel _coordinador _nacional.html", CON ESPACIOS — se renombró el
+// archivo para que coincida). Subir CACHE_NAME fuerza a que TODOS los
+// dispositivos, incluidos los que ya tenían la app instalada como PWA,
+// descarten su caché vieja y traigan estos archivos corregidos en el
+// próximo acceso, en vez de seguir sirviendo el index.html anterior.
 const NETWORK_TIMEOUT_MS = 3000; // si la red no responde en 3s, usar caché
 
 // Lista de archivos para funcionar offline
@@ -36,6 +44,7 @@ const urlsToCache = [
   './',
   './index.html',
   './panel_coordinador.html',
+  './panel_coordinador_nacional.html',
   './panel_conductor.html',
   './panel_automotor.html',
   './solicitud_apoyo.html',
