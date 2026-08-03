@@ -1,8 +1,49 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.14
+ *  CONECTOR J.R. CARROZAS — db.js  v12.15
  *
- *  🆕 CAMBIOS v12.14 (corrección global de fechas/horas "1899-12-30"):
+ *  🆕 CAMBIOS v12.15 (FIX CRÍTICO — login mostraba "credenciales
+ *  incorrectas" cuando en realidad el servidor no respondió a tiempo):
+ *
+ *  Bug reportado: en pantallas donde la hoja "usuarios" (u otra) tarda
+ *  en responder, la consola mostraba:
+ *      gasGet usuarios error (Error): El servidor tardó demasiado en
+ *      responder (más de 15s). Verifica tu conexión e intenta nuevamente.
+ *  y a pesar de que el usuario y la contraseña eran correctos, la
+ *  pantalla de login mostraba "Usuario o contraseña incorrectos".
+ *
+ *  Causa: gasGet() hacía UN SOLO intento de lectura con 15s de timeout
+ *  (a diferencia de gasWrite(), que sí reintenta con más tiempo). Si ese
+ *  intento fallaba, el catch devolvía un arreglo vacío ([]) sin avisar
+ *  a quien lo llamó. DB.login() recibía ese [] vacío, no encontraba
+ *  ningún usuario que coincidiera (obviamente, no había ninguna fila
+ *  para comparar) y devolvía "Credenciales incorrectas" — un mensaje
+ *  falso, porque en realidad nunca se pudo verificar nada.
+ *
+ *  Corrección (sin tocar ninguna otra función que ya funciona):
+ *
+ *   1) gasGet() ahora reintenta UNA vez más con más tiempo (35s) antes
+ *      de rendirse, igual que ya hacía gasWrite() para escrituras.
+ *   2) Si aun así falla, y existe un caché anterior de esa hoja (aunque
+ *      esté vencido), gasGet() lo devuelve como respaldo en vez de un
+ *      arreglo vacío — mejor un dato "viejo pero real" que aparentar
+ *      que la hoja no tiene registros.
+ *   3) Solo si de verdad no hay forma de traer los datos (ni intento
+ *      nuevo ni caché previo), gasGet() devuelve un arreglo vacío
+ *      MARCADO internamente (propiedad __gasGetError) para que quien
+ *      lo consuma sepa que fue un fallo de conexión y no "la hoja está
+ *      vacía".
+ *   4) DB.login() ahora revisa esa marca: si el problema fue de
+ *      conexión, responde con errorConexion:true y un mensaje honesto
+ *      ("no se pudo conectar…") en vez de "Credenciales incorrectas".
+ *      Solo dice "Credenciales incorrectas" cuando SÍ pudo comparar los
+ *      datos y de verdad no coinciden.
+ *
+ *  Ninguna otra función de este archivo fue modificada. El resto del
+ *  comportamiento (caché de 60s, dedup de lecturas en vuelo, reintento
+ *  de escrituras, anti-duplicados, etc.) sigue exactamente igual.
+ *
+ *  ── Historial v12.14 (corrección global de fechas/horas "1899-12-30") ──
  *
  *  Bug reportado: en el selector de placas de "Registro de Llegada"
  *  (y en cualquier otra pantalla que muestre hora_de_salida / fecha
@@ -432,6 +473,27 @@ const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
 const CACHE_TTL = 60000;   // 60 segundos
 
+// ══════════════════════════════════════════════════════════
+// 🆕 v12.15 — gasGet() CON REINTENTO + RESPALDO DE CACHÉ
+// ══════════════════════════════════════════════════════════
+// Antes, un solo timeout de 15s en la lectura hacía que gasGet()
+// devolviera un arreglo vacío ([]) sin distinguirlo de "la hoja
+// realmente no tiene datos". Eso hacía que, por ejemplo, DB.login()
+// interpretara un simple timeout de red como "no existe ese usuario"
+// y mostrara "Credenciales incorrectas" de forma engañosa.
+//
+// Ahora:
+//   1) Si el primer intento (15s) falla, se reintenta una vez más
+//      con más tiempo (35s) antes de rendirse — mismo patrón que ya
+//      usa gasWrite() para escrituras.
+//   2) Si el reintento también falla pero existe un caché anterior
+//      de esa hoja (aunque esté vencido por el TTL), se devuelve ese
+//      dato como respaldo en vez de un arreglo vacío.
+//   3) Solo si no hay caché previo NI se pudo leer, se devuelve un
+//      arreglo vacío marcado con la propiedad __gasGetError (no
+//      enumerable en JSON.stringify, pero sí visible en JS) para que
+//      quien lo llame pueda distinguir "error de conexión" de "hoja
+//      vacía de verdad".
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
@@ -443,19 +505,45 @@ async function gasGet(sheetName) {
   if (_inflight[key]) return _inflight[key];
 
   _inflight[key] = (async () => {
-    try {
+    const intentarLectura = async (ms) => {
       const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 15000);
-      if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, ms);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
-      if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
-      const data = Array.isArray(json) ? json : [];
-      data.forEach(_limpiarFilaGAS); // 🆕 v12.14 — corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
+      if (json && json.error) throw new Error(json.error);
+      return Array.isArray(json) ? json : [];
+    };
+
+    try {
+      let data;
+      try {
+        data = await intentarLectura(15000); // intento 1 — igual que antes
+      } catch (err1) {
+        console.warn(`gasGet ${sheetName}: intento 1 falló (${err1.message}). Reintentando con más tiempo…`);
+        data = await intentarLectura(35000); // 🆕 intento 2 — cubre "cold start" de Apps Script
+      }
+      data.forEach(_limpiarFilaGAS);
       _cache[key] = { data, ts: Date.now() };
       return data;
     } catch (err) {
-      console.warn(`gasGet ${sheetName} error (${err.name}):`, err.message);
-      return [];
+      console.warn(`gasGet ${sheetName} error tras reintento (${err.name}):`, err.message);
+
+      // 🆕 Respaldo: si hay un caché previo (aunque esté vencido), se
+      // devuelve ese dato en vez de aparentar que la hoja está vacía.
+      if (_cache[key]) {
+        console.warn(`gasGet ${sheetName}: usando caché anterior (vencido) como respaldo.`);
+        return _cache[key].data;
+      }
+
+      // 🆕 Sin caché y sin poder leer: se marca explícitamente como
+      // error de conexión (y NO como "hoja vacía") para que funciones
+      // como DB.login() no lo confundan con "no hay coincidencias".
+      const vacio = [];
+      Object.defineProperty(vacio, '__gasGetError', {
+        value: err.message || 'Error de conexión',
+        enumerable: false,
+      });
+      return vacio;
     } finally {
       delete _inflight[key];
     }
@@ -821,9 +909,27 @@ const DB = {
   },
 
   // ── LOGIN ──────────────────────────────────────────────────
+  // 🆕 v12.15 — Ahora distingue un fallo de conexión (timeout tras
+  // reintento, sin caché de respaldo) de credenciales realmente
+  // incorrectas. Antes, un timeout en gasGet('usuarios') devolvía un
+  // arreglo vacío y login() lo interpretaba como "no existe ese
+  // usuario", mostrando el mensaje engañoso "Credenciales incorrectas"
+  // cuando en realidad nunca se pudo verificar nada.
   async login(usuario, clave) {
     try {
-      const rows  = await gasGet('usuarios');
+      const rows = await gasGet('usuarios');
+
+      // Si gasGet no pudo traer los datos ni con reintento ni con
+      // caché de respaldo, se informa el problema real en vez de
+      // decir "credenciales incorrectas".
+      if (rows.__gasGetError) {
+        return {
+          ok: false,
+          error: 'No se pudo conectar con el servidor (tardó demasiado en responder). Verifica tu conexión e intenta de nuevo en unos segundos.',
+          errorConexion: true,
+        };
+      }
+
       const match = rows.filter(function(r) {
         return String(r.usuario ||'').trim().toLowerCase() === usuario.trim().toLowerCase() &&
                String(r.password||'').trim()               === clave.trim();
