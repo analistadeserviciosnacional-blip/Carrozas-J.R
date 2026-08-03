@@ -546,6 +546,9 @@ async function verificarAdmin() {
                 err.textContent = 'Este usuario no tiene permisos de administrador';
                 err.style.display = 'block';
             }
+        } else if (res.esFalloConexion) {
+            err.textContent = res.error || 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.';
+            err.style.display = 'block';
         } else {
             err.textContent = 'Usuario o contraseña incorrectos';
             err.style.display = 'block';
@@ -690,6 +693,11 @@ async function login() {
             } else {
                 window.location.href = 'panel_conductor.html';
             }
+        } else if (res.esFalloConexion) {
+            // 🆕 v12.15 — antes esto caía en el "else" de abajo y
+            // mostraba "Usuario o contraseña incorrectos" aunque el
+            // problema real era que no se pudo conectar con el backend.
+            mostrarError(res.error || "No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.");
         } else {
             mostrarError("Usuario o contraseña incorrectos");
         }
