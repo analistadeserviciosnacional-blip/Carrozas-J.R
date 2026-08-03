@@ -1,66 +1,8 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.15
+ *  CONECTOR J.R. CARROZAS — db.js  v12.13
  *
- *  🆕 CAMBIOS v12.15 (reintento automático en LECTURAS — gasGet):
- *
- *  Bug reportado: justo después de un rato sin uso, la primera
- *  llamada a la API (Apps Script en "cold start") podía tardar más
- *  de lo normal y devolver un 404/timeout aislado — por ejemplo al
- *  cargar el login o la flota — aunque el deployment estaba bien
- *  configurado y la URL era correcta (confirmado abriendo la misma
- *  URL directamente, incluso en incógnito, donde sí respondía OK).
- *
- *  Antes, gasGet() (usado por login, obtenerFlota, obtenerTraslados,
- *  notificaciones, etc.) NO reintentaba ante un fallo — con un solo
- *  intento fallido, devolvía [] de una vez y quedaba en la consola
- *  como advertencia, haciendo parecer que el servidor "no respondía"
- *  cuando en realidad solo necesitaba una segunda oportunidad con
- *  más tiempo.
- *
- *  gasWrite() (usado por los guardados) YA tenía este reintento
- *  automático desde antes — ahora gasGet() se comporta igual:
- *    - Intento 1: timeout de 15s (igual que antes).
- *    - Si falla (error de red, timeout, o HTTP no-OK): espera un
- *      instante y reintenta UNA vez más con 25s de margen.
- *    - Si el segundo intento también falla, ahí sí se devuelve []
- *      y se deja la advertencia en consola, como antes.
- *
- *  No se toca nada más de la lógica existente — el resto de v12.14
- *  se conserva íntegro.
- *
- *  ── Historial v12.14 (corrección global de fechas/horas "1899-12-30") ──
- *
- *  Bug reportado: en el selector de placas de "Registro de Llegada"
- *  (y en cualquier otra pantalla que muestre hora_de_salida / fecha
- *  leídos directo de las hojas) aparecían valores como
- *  "GJX 568 — SUZUKI ERTIGA (salió 1899-12-30 13:16:44)" en vez de
- *  la hora real ("salió 13:16"). Esto pasa porque, cuando una celda
- *  de Sheets queda con formato de Hora o Fecha (Sheets lo hace solo
- *  al detectar que el texto escrito "parece" una hora o fecha), Apps
- *  Script ya no la entrega como el texto guardado sino como un
- *  objeto Date serializado a ISO — y para celdas que solo tienen
- *  HORA, Sheets usa como "fecha base" su día cero (30/12/1899).
- *
- *  Ya existía un arreglo para esto (fmtFechaCorta/fmtHoraCorta +
- *  normalizarFechas/normalizarHoras), pero estaba duplicado y solo
- *  aplicado en 2 pantallas (panel_automotor.html y
- *  panel_coordinador_nacional.html) — el resto de la app (Registro
- *  de Llegada, Registro de Salida, Dashboard, Mis Salidas, Panel
- *  Coordinador, Tanqueo, Taller, Inspección, etc.) seguía recibiendo
- *  el dato crudo mal serializado.
- *
- *  Se centraliza la corrección en un solo lugar — _limpiarFilaGAS(),
- *  aplicada automáticamente dentro de gasGet() — para que TODA
- *  pantalla que lea cualquier hoja reciba las fechas/horas ya
- *  corregidas, sin tener que repetir el arreglo pantalla por
- *  pantalla. Las pantallas que ya tenían su propio arreglo local
- *  (panel_automotor.html, panel_coordinador_nacional.html) no se
- *  tocaron — su normalización local sigue funcionando igual, ahora
- *  simplemente no tiene nada que corregir porque el dato ya llega
- *  limpio.
- *
- *  ── Historial v12.13 (Tanqueo — nivel observado + alerta de innecesario) ──
+ *  🆕 CAMBIOS v12.13 (Tanqueo — nivel observado + alerta de innecesario):
  *
  *  El formulario de Tanqueo ahora manda 3 campos nuevos, que se
  *  guardan tal cual en la hoja "Tanqueo":
@@ -355,85 +297,6 @@ function claveOrdenChecklist(registro) {
   return parseInt(aaaammdd + hora, 10) || 0;
 }
 
-// ══════════════════════════════════════════════════════════
-// 🆕 v12.14 — SANEAMIENTO CENTRAL DE FECHAS/HORAS (bug "1899-12-30")
-// ══════════════════════════════════════════════════════════
-// Cuando una celda de la hoja queda con formato de "Hora" o "Fecha"
-// (en vez de Texto plano) — algo que Google Sheets hace solo, sin que
-// nadie lo pida, apenas detecta que el texto escrito "parece" una
-// hora ("13:16") o una fecha ("29/07/2026") — Apps Script ya no la
-// lee como el texto que se guardó, sino como un objeto Date. Al
-// convertir la respuesta a JSON, esa Date se serializa como texto
-// ISO. Para una celda que solo tiene HORA, Sheets usa como "fecha
-// base" el día cero de su propio sistema (30 de diciembre de 1899),
-// así que el ISO llega como "1899-12-30T18:16:44.000Z" — de ahí el
-// bug visible de "salió 1899-12-30 ...". Para una celda con FECHA
-// real, la Date sí trae el día correcto, pero de todas formas llega
-// como ISO ("2026-07-29T05:00:00.000Z") en vez del texto
-// "29/07/2026" que espera el resto de la app — y funciones como
-// claveOrden() (arriba), que solo entienden "DD/MM/AAAA", ignoran ese
-// valor y ordenan mal. Ese es el origen real de "las fechas tan
-// erradas" en toda la aplicación: no es un bug de una sola pantalla,
-// es un dato que sale mal formado desde la fuente para CUALQUIER
-// pantalla que lo pida.
-//
-// _limpiarFilaGAS() detecta ambos casos y los devuelve en el mismo
-// formato de texto que la app siempre usó (HH:MM para horas, DD/MM/
-// AAAA para fechas), usando el reloj/huso horario del propio
-// navegador (igual que ya hacían fmtFechaCorta/fmtHoraCorta en
-// panel_automotor.html y panel_coordinador_nacional.html, que sí
-// tenían este arreglo pero solo en esas 2 pantallas). Al aplicarse
-// una sola vez aquí, dentro de gasGet(), la corrección queda
-// disponible automáticamente en TODA la aplicación (registro_salida,
-// registro_llegada, dashboard, mis_salidas, panel_coordinador,
-// tanqueo, taller, inspección, etc.) sin tener que tocar cada
-// pantalla una por una. Los campos ISO que la propia app genera a
-// propósito (created_at) se dejan intactos.
-const _CAMPOS_ISO_SIN_TOCAR = { created_at: true };
-
-const RE_ISO_FECHA_HORA = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/;
-const OFFSET_COLOMBIA_MS = 5 * 60 * 60 * 1000; // Colombia = UTC-5 fijo, sin horario de verano
-
-function _looksLikeISOFechaHora(v) {
-  return typeof v === 'string' && RE_ISO_FECHA_HORA.test(v);
-}
-
-// ⚠️ Se calcula la hora local de Colombia restando manualmente 5 horas
-// en milisegundos (Date.UTC + resta fija), en vez de usar
-// new Date(iso).getHours()/.getDate() del navegador. Para la fecha
-// ancla del caso "solo hora" (30/12/1899), esa vía daba un resultado
-// CORRIDO EN MINUTOS: antes de 1914 Bogotá no usaba UTC-5 exacto sino
-// su antigua "hora media local" (~UTC-4:56), y los navegadores aplican
-// ese offset histórico a cualquier Date con año 1899 — un
-// "1899-12-30T18:16:44Z" terminaba mostrando "13:20" en vez de
-// "13:16". Restar 5h en milisegundos y leer con los métodos *UTC*
-// evita ese problema por completo, y además no depende de en qué
-// huso horario esté configurado el navegador de quien abre la app.
-function _fmtFechaHoraGAS(valorISO) {
-  const m = valorISO.match(RE_ISO_FECHA_HORA);
-  if (!m) return valorISO;
-  const utcMs = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
-  const local = new Date(utcMs - OFFSET_COLOMBIA_MS);
-  // Celda que solo tenía HORA → Sheets la ancló al día cero (30/12/1899).
-  if (m[1] === '1899' && m[2] === '12' && m[3] === '30') {
-    return local.getUTCHours().toString().padStart(2, '0') + ':' + local.getUTCMinutes().toString().padStart(2, '0');
-  }
-  // Celda con FECHA real → mismo formato DD/MM/AAAA que usa toda la app.
-  return local.getUTCDate().toString().padStart(2, '0') + '/' +
-         (local.getUTCMonth() + 1).toString().padStart(2, '0') + '/' +
-         local.getUTCFullYear();
-}
-
-function _limpiarFilaGAS(fila) {
-  if (!fila || typeof fila !== 'object') return fila;
-  Object.keys(fila).forEach(function(k) {
-    if (_CAMPOS_ISO_SIN_TOCAR[k]) return;
-    const v = fila[k];
-    if (_looksLikeISOFechaHora(v)) fila[k] = _fmtFechaHoraGAS(v);
-  });
-  return fila;
-}
-
 // ── TIMEOUT HELPER ─────────────────────────────────────────
 function fetchConTimeout(url, opciones, ms) {
   if (ms === undefined) ms = 15000;
@@ -454,23 +317,11 @@ function fetchConTimeout(url, opciones, ms) {
     .finally(function() { clearTimeout(timer); });
 }
 
-// ── ESPERA SIMPLE (usada entre reintentos de lectura) ──────
-function _esperar(ms) {
-  return new Promise(function(resolve) { setTimeout(resolve, ms); });
-}
-
 // ── CACHÉ EN MEMORIA (solo lecturas) ──────────────────────
 const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
 const CACHE_TTL = 60000;   // 60 segundos
 
-// 🆕 v12.15 — gasGet() con reintento automático. Antes, un solo
-// fallo (timeout de cold-start, error de red puntual, HTTP no-OK)
-// hacía que la lectura devolviera [] de una vez, sin darle una
-// segunda oportunidad — a diferencia de gasWrite(), que sí reintenta
-// desde hace varias versiones. Ahora ambas rutas (lectura y
-// escritura) se comportan igual: 1er intento con 15s, y si falla,
-// un 2do intento con 25s antes de rendirse.
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
@@ -482,50 +333,24 @@ async function gasGet(sheetName) {
   if (_inflight[key]) return _inflight[key];
 
   _inflight[key] = (async () => {
-    const intentos = [15000, 25000];
-    let ultimoError = null;
-
-    for (let i = 0; i < intentos.length; i++) {
-      try {
-        const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-        const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, intentos[i]);
-
-        if (!resp.ok) {
-          console.warn(`gasGet ${sheetName}: HTTP ${resp.status} (intento ${i + 1}/${intentos.length})`);
-          ultimoError = new Error(`HTTP ${resp.status}`);
-          if (i < intentos.length - 1) { await _esperar(500); continue; }
-          return [];
-        }
-
-        const json = await resp.json();
-        if (json && json.error) {
-          console.warn(`gasGet ${sheetName}: ${json.error}`);
-          return [];
-        }
-
-        const data = Array.isArray(json) ? json : [];
-        data.forEach(_limpiarFilaGAS); // v12.14 — corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
-        _cache[key] = { data, ts: Date.now() };
-        return data;
-
-      } catch (err) {
-        ultimoError = err;
-        console.warn(`gasGet ${sheetName} error (${err.name}) intento ${i + 1}/${intentos.length}:`, err.message);
-        if (i < intentos.length - 1) {
-          console.warn(`gasGet ${sheetName}: reintentando con más tiempo…`);
-          await _esperar(500);
-          continue;
-        }
-      }
+    try {
+      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 15000);
+      if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
+      const json = await resp.json();
+      if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
+      const data = Array.isArray(json) ? json : [];
+      _cache[key] = { data, ts: Date.now() };
+      return data;
+    } catch (err) {
+      console.warn(`gasGet ${sheetName} error (${err.name}):`, err.message);
+      return [];
+    } finally {
+      delete _inflight[key];
     }
-
-    console.warn(`gasGet ${sheetName}: sin datos tras ${intentos.length} intentos.`, ultimoError && ultimoError.message);
-    return [];
   })();
 
-  return _inflight[key].finally(function() {
-    delete _inflight[key];
-  });
+  return _inflight[key];
 }
 
 // ── VERIFICAR SI UNA FILA YA QUEDÓ GUARDADA ───────────────
