@@ -432,11 +432,40 @@ const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
 const CACHE_TTL = 60000;   // 60 segundos
 
+// 🆕 v12.15 — un solo intento de lectura, con su propio timeout.
+// Separado de gasGet() para poder reintentar sin duplicar código.
+async function _gasGetIntento(key, ms) {
+  const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
+  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, ms);
+  if (!resp.ok) { throw new Error(`HTTP ${resp.status}`); }
+  const json = await resp.json();
+  if (json && json.error) { throw new Error(json.error); }
+  const data = Array.isArray(json) ? json : [];
+  data.forEach(_limpiarFilaGAS); // corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
+  return data;
+}
+
+// 🆕 v12.15 — Último error real de conexión con el backend (o null si
+// la última lectura fue exitosa). No cambia el contrato de gasGet()
+// (sigue devolviendo [] si falla, para no romper las ~25 pantallas que
+// ya asumen que siempre reciben un array) — pero ahora cualquier
+// pantalla puede preguntar "¿el [] que me acaban de dar es porque no
+// hay datos, o porque el backend no respondió?" leyendo esta variable
+// justo después de un gasGet(). login() la usa para no confundir un
+// timeout de red con "contraseña incorrecta" (ver más abajo).
+let _ultimoErrorGasGet = null;
+
+// 🆕 v12.15 — FIX: antes, si el primer intento de leer una hoja hacía
+// timeout (15s), gasGet() se rendía de inmediato y devolvía un array
+// VACÍO en silencio — sin reintentar, a diferencia de gasWrite() que
+// sí reintenta. Ahora reintenta UNA vez con más tiempo antes de darse
+// por vencido, igual que gasWrite.
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
   const cached = _cache[key];
   if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
+    _ultimoErrorGasGet = null;
     return cached.data;
   }
 
@@ -444,18 +473,22 @@ async function gasGet(sheetName) {
 
   _inflight[key] = (async () => {
     try {
-      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 15000);
-      if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
-      const json = await resp.json();
-      if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
-      const data = Array.isArray(json) ? json : [];
-      data.forEach(_limpiarFilaGAS); // 🆕 v12.14 — corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
+      const data = await _gasGetIntento(key, 15000);
       _cache[key] = { data, ts: Date.now() };
+      _ultimoErrorGasGet = null;
       return data;
     } catch (err) {
-      console.warn(`gasGet ${sheetName} error (${err.name}):`, err.message);
-      return [];
+      console.warn(`gasGet ${sheetName}: falló intento 1 (${err.message}). Reintentando…`);
+      try {
+        const data2 = await _gasGetIntento(key, 20000);
+        _cache[key] = { data: data2, ts: Date.now() };
+        _ultimoErrorGasGet = null;
+        return data2;
+      } catch (err2) {
+        console.warn(`gasGet ${sheetName} error definitivo:`, err2.message);
+        _ultimoErrorGasGet = err2.message; // 🆕 queda registrado para quien lo quiera consultar
+        return []; // se conserva el contrato original: nunca lanza, siempre array
+      }
     } finally {
       delete _inflight[key];
     }
@@ -821,9 +854,24 @@ const DB = {
   },
 
   // ── LOGIN ──────────────────────────────────────────────────
+  // 🆕 v12.15 — FIX: antes, si gasGet('usuarios') fallaba por timeout
+  // (backend caído/lento), devolvía [] y login() mostraba "Usuario o
+  // contraseña incorrectos" — un mensaje falso que llevaba a revisar
+  // la contraseña en vez del problema real (conexión con el backend).
+  // Ahora, si la hoja vino vacía Y hay un error de conexión reciente
+  // registrado en _ultimoErrorGasGet, se reporta como fallo de
+  // conexión (esFalloConexion:true) para que la pantalla de login
+  // pueda mostrar el mensaje correcto.
   async login(usuario, clave) {
     try {
-      const rows  = await gasGet('usuarios');
+      const rows = await gasGet('usuarios');
+      if (rows.length === 0 && _ultimoErrorGasGet) {
+        return {
+          ok: false,
+          esFalloConexion: true,
+          error: 'No se pudo conectar con el servidor (' + _ultimoErrorGasGet + '). Verifica tu conexión e intenta de nuevo.'
+        };
+      }
       const match = rows.filter(function(r) {
         return String(r.usuario ||'').trim().toLowerCase() === usuario.trim().toLowerCase() &&
                String(r.password||'').trim()               === clave.trim();
