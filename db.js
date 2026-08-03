@@ -1,25 +1,8 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.16
+ *  CONECTOR J.R. CARROZAS — db.js  v12.14
  *
- *  🆕 CAMBIOS v12.16 (caché persistente entre páginas):
- *
- *  La app es multi-página: cada pantalla recarga db.js entero, así que
- *  la caché en memoria (_cache, 60s) nunca sobrevivía a una navegación
- *  y cada entrada a una pantalla que lee "Traslado" (hoja grande, con
- *  fotos) repetía una lectura completa contra Apps Script — de ahí los
- *  avisos en consola "gasGet Traslado: falló intento 1... más de 15s"
- *  cada vez que el backend estaba lento (arranque en frío / hoja grande
- *  / señal débil). Se agrega un segundo nivel de caché en
- *  sessionStorage (sobrevive la navegación, se borra solo al cerrar la
- *  pestaña) para que gasGet() reutilice datos recientes sin tocar la
- *  red al cambiar de pantalla. Es "best effort": si sessionStorage no
- *  está disponible o se llena, simplemente se ignora sin romper nada.
- *  DB.invalidarCache() y existeFila() se actualizaron para limpiar
- *  también esta caché persistente y no arrastrar datos viejos después
- *  de un guardado.
- *
- *  ── Historial v12.14 (corrección global de fechas/horas "1899-12-30") ──
+ *  🆕 CAMBIOS v12.14 (corrección global de fechas/horas "1899-12-30"):
  *
  *  Bug reportado: en el selector de placas de "Registro de Llegada"
  *  (y en cualquier otra pantalla que muestre hora_de_salida / fecha
@@ -449,131 +432,30 @@ const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
 const CACHE_TTL = 60000;   // 60 segundos
 
-// 🆕 v12.16 — CACHÉ PERSISTENTE (sessionStorage), además de la de memoria.
-//
-// Esta app es multi-página (cada pantalla es un .html distinto que se
-// carga completo), no una SPA. Eso significa que _cache y _inflight se
-// reinician EN CADA NAVEGACIÓN — la caché en memoria de 60s nunca
-// alcanza a servir de nada porque casi siempre el usuario ya está en
-// otra página cuando esos 60s se cumplen. Resultado: cada vez que se
-// entra a una pantalla que lee "Traslado" (una hoja grande, con fotos)
-// se repite una lectura completa contra Apps Script, y si el backend
-// está lento (arranque en frío, hoja grande, conexión débil) eso es lo
-// que dispara el aviso "gasGet Traslado: falló intento 1... más de 15s".
-//
-// sessionStorage SÍ sobrevive la navegación entre páginas del mismo
-// sitio (se borra solo al cerrar la pestaña/app), así que se usa como
-// segundo nivel de caché: si hay un dato reciente ahí, se usa de una
-// vez sin tocar la red, aunque la página se haya recargado por completo.
-// Es "best effort": si sessionStorage no está disponible o se llena
-// (fotos en base64 pueden pesar), simplemente se ignora y todo sigue
-// funcionando igual que antes, solo sin este acelerador.
-const _SS_PREFIX = 'jr_gascache_v1_';
-
-function _ssGet(key) {
-  try {
-    const raw = sessionStorage.getItem(_SS_PREFIX + key);
-    if (!raw) return null;
-    const entry = JSON.parse(raw);
-    if (!entry || typeof entry.ts !== 'number' || !Array.isArray(entry.data)) return null;
-    return entry;
-  } catch (e) {
-    return null;
-  }
-}
-
-function _ssSet(key, entry) {
-  try {
-    sessionStorage.setItem(_SS_PREFIX + key, JSON.stringify(entry));
-  } catch (e) {
-    // Sin espacio (cuota llena, típico si hay muchas fotos) u otro
-    // problema de storage: no es crítico, se sigue sin caché persistente.
-  }
-}
-
-function _ssDel(key) {
-  try { sessionStorage.removeItem(_SS_PREFIX + key); } catch (e) {}
-}
-
-// 🆕 v12.15 — un solo intento de lectura, con su propio timeout.
-// Separado de gasGet() para poder reintentar sin duplicar código.
-async function _gasGetIntento(key, ms) {
-  const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, ms);
-  if (!resp.ok) { throw new Error(`HTTP ${resp.status}`); }
-  const json = await resp.json();
-  if (json && json.error) { throw new Error(json.error); }
-  const data = Array.isArray(json) ? json : [];
-  data.forEach(_limpiarFilaGAS); // corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
-  return data;
-}
-
-// 🆕 v12.15 — Último error real de conexión con el backend (o null si
-// la última lectura fue exitosa). No cambia el contrato de gasGet()
-// (sigue devolviendo [] si falla, para no romper las ~25 pantallas que
-// ya asumen que siempre reciben un array) — pero ahora cualquier
-// pantalla puede preguntar "¿el [] que me acaban de dar es porque no
-// hay datos, o porque el backend no respondió?" leyendo esta variable
-// justo después de un gasGet(). login() la usa para no confundir un
-// timeout de red con "contraseña incorrecta" (ver más abajo).
-let _ultimoErrorGasGet = null;
-
-// 🆕 v12.15 — FIX: antes, si el primer intento de leer una hoja hacía
-// timeout (15s), gasGet() se rendía de inmediato y devolvía un array
-// VACÍO en silencio — sin reintentar, a diferencia de gasWrite() que
-// sí reintenta. Ahora reintenta UNA vez con más tiempo antes de darse
-// por vencido, igual que gasWrite.
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
   const cached = _cache[key];
   if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
-    _ultimoErrorGasGet = null;
     return cached.data;
-  }
-
-  // 🆕 v12.16 — segundo nivel de caché (sobrevive a la recarga de página).
-  // Se usa aunque ya haya "vencido" para _cache en memoria, siempre que
-  // siga dentro de CACHE_TTL, para no perder el beneficio al navegar.
-  const ssCached = _ssGet(key);
-  if (ssCached && (Date.now() - ssCached.ts) < CACHE_TTL) {
-    _cache[key] = ssCached; // repuebla la caché en memoria para esta página
-    _ultimoErrorGasGet = null;
-    return ssCached.data;
   }
 
   if (_inflight[key]) return _inflight[key];
 
   _inflight[key] = (async () => {
     try {
-      const data = await _gasGetIntento(key, 15000);
-      const entry = { data, ts: Date.now() };
-      _cache[key] = entry;
-      _ssSet(key, entry);
-      _ultimoErrorGasGet = null;
+      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 15000);
+      if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
+      const json = await resp.json();
+      if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
+      const data = Array.isArray(json) ? json : [];
+      data.forEach(_limpiarFilaGAS); // 🆕 v12.14 — corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
+      _cache[key] = { data, ts: Date.now() };
       return data;
     } catch (err) {
-      console.warn(`gasGet ${sheetName}: falló intento 1 (${err.message}). Reintentando…`);
-      try {
-        const data2 = await _gasGetIntento(key, 20000);
-        const entry2 = { data: data2, ts: Date.now() };
-        _cache[key] = entry2;
-        _ssSet(key, entry2);
-        _ultimoErrorGasGet = null;
-        return data2;
-      } catch (err2) {
-        console.warn(`gasGet ${sheetName} error definitivo:`, err2.message);
-        _ultimoErrorGasGet = err2.message; // 🆕 queda registrado para quien lo quiera consultar
-        // 🆕 v12.16 — si hay un dato viejo en sessionStorage (aunque ya
-        // pasó el TTL), es mejor mostrar algo desactualizado que dejar
-        // la pantalla vacía por un timeout puntual del backend.
-        const stale = _ssGet(key);
-        if (stale) {
-          console.warn(`gasGet ${sheetName}: usando caché desactualizada (${Math.round((Date.now()-stale.ts)/1000)}s) por falta de respuesta del servidor.`);
-          return stale.data;
-        }
-        return []; // se conserva el contrato original: nunca lanza, siempre array
-      }
+      console.warn(`gasGet ${sheetName} error (${err.name}):`, err.message);
+      return [];
     } finally {
       delete _inflight[key];
     }
@@ -589,11 +471,6 @@ async function existeFila(sheetName, col, val) {
     const key = resolveSheet(sheetName);
     delete _cache[key];
     delete _inflight[key];
-    _ssDel(key); // 🆕 v12.16 — sin esto, gasGet() podría devolver el dato
-                 // persistido en sessionStorage ANTES del guardado que se
-                 // está verificando, y existeFila() reportaría "no existe"
-                 // por error, provocando justamente el guardado doble que
-                 // esta función existe para evitar.
     const rows = await gasGet(sheetName);
     return rows.some(function(r) { return String(r[col] || '') === String(val); });
   } catch (e) {
@@ -935,7 +812,6 @@ const DB = {
   invalidarCache(sheetName) {
     const key = resolveSheet(sheetName);
     delete _cache[key];
-    _ssDel(key); // 🆕 v12.16 — también se limpia la caché persistente
   },
 
   // ── CACHÉ: PRECARGAR HOJAS ────────────────────────────────
@@ -945,24 +821,9 @@ const DB = {
   },
 
   // ── LOGIN ──────────────────────────────────────────────────
-  // 🆕 v12.15 — FIX: antes, si gasGet('usuarios') fallaba por timeout
-  // (backend caído/lento), devolvía [] y login() mostraba "Usuario o
-  // contraseña incorrectos" — un mensaje falso que llevaba a revisar
-  // la contraseña en vez del problema real (conexión con el backend).
-  // Ahora, si la hoja vino vacía Y hay un error de conexión reciente
-  // registrado en _ultimoErrorGasGet, se reporta como fallo de
-  // conexión (esFalloConexion:true) para que la pantalla de login
-  // pueda mostrar el mensaje correcto.
   async login(usuario, clave) {
     try {
-      const rows = await gasGet('usuarios');
-      if (rows.length === 0 && _ultimoErrorGasGet) {
-        return {
-          ok: false,
-          esFalloConexion: true,
-          error: 'No se pudo conectar con el servidor (' + _ultimoErrorGasGet + '). Verifica tu conexión e intenta de nuevo.'
-        };
-      }
+      const rows  = await gasGet('usuarios');
       const match = rows.filter(function(r) {
         return String(r.usuario ||'').trim().toLowerCase() === usuario.trim().toLowerCase() &&
                String(r.password||'').trim()               === clave.trim();
