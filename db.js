@@ -1,8 +1,35 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.14
+ *  CONECTOR J.R. CARROZAS — db.js  v12.15
  *
- *  🆕 CAMBIOS v12.14 (corrección global de fechas/horas "1899-12-30"):
+ *  🆕 CAMBIOS v12.15 (reintento automático en LECTURAS — gasGet):
+ *
+ *  Bug reportado: justo después de un rato sin uso, la primera
+ *  llamada a la API (Apps Script en "cold start") podía tardar más
+ *  de lo normal y devolver un 404/timeout aislado — por ejemplo al
+ *  cargar el login o la flota — aunque el deployment estaba bien
+ *  configurado y la URL era correcta (confirmado abriendo la misma
+ *  URL directamente, incluso en incógnito, donde sí respondía OK).
+ *
+ *  Antes, gasGet() (usado por login, obtenerFlota, obtenerTraslados,
+ *  notificaciones, etc.) NO reintentaba ante un fallo — con un solo
+ *  intento fallido, devolvía [] de una vez y quedaba en la consola
+ *  como advertencia, haciendo parecer que el servidor "no respondía"
+ *  cuando en realidad solo necesitaba una segunda oportunidad con
+ *  más tiempo.
+ *
+ *  gasWrite() (usado por los guardados) YA tenía este reintento
+ *  automático desde antes — ahora gasGet() se comporta igual:
+ *    - Intento 1: timeout de 15s (igual que antes).
+ *    - Si falla (error de red, timeout, o HTTP no-OK): espera un
+ *      instante y reintenta UNA vez más con 25s de margen.
+ *    - Si el segundo intento también falla, ahí sí se devuelve []
+ *      y se deja la advertencia en consola, como antes.
+ *
+ *  No se toca nada más de la lógica existente — el resto de v12.14
+ *  se conserva íntegro.
+ *
+ *  ── Historial v12.14 (corrección global de fechas/horas "1899-12-30") ──
  *
  *  Bug reportado: en el selector de placas de "Registro de Llegada"
  *  (y en cualquier otra pantalla que muestre hora_de_salida / fecha
@@ -427,11 +454,23 @@ function fetchConTimeout(url, opciones, ms) {
     .finally(function() { clearTimeout(timer); });
 }
 
+// ── ESPERA SIMPLE (usada entre reintentos de lectura) ──────
+function _esperar(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}
+
 // ── CACHÉ EN MEMORIA (solo lecturas) ──────────────────────
 const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
 const CACHE_TTL = 60000;   // 60 segundos
 
+// 🆕 v12.15 — gasGet() con reintento automático. Antes, un solo
+// fallo (timeout de cold-start, error de red puntual, HTTP no-OK)
+// hacía que la lectura devolviera [] de una vez, sin darle una
+// segunda oportunidad — a diferencia de gasWrite(), que sí reintenta
+// desde hace varias versiones. Ahora ambas rutas (lectura y
+// escritura) se comportan igual: 1er intento con 15s, y si falla,
+// un 2do intento con 25s antes de rendirse.
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
@@ -443,25 +482,50 @@ async function gasGet(sheetName) {
   if (_inflight[key]) return _inflight[key];
 
   _inflight[key] = (async () => {
-    try {
-      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 15000);
-      if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
-      const json = await resp.json();
-      if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
-      const data = Array.isArray(json) ? json : [];
-      data.forEach(_limpiarFilaGAS); // 🆕 v12.14 — corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
-      _cache[key] = { data, ts: Date.now() };
-      return data;
-    } catch (err) {
-      console.warn(`gasGet ${sheetName} error (${err.name}):`, err.message);
-      return [];
-    } finally {
-      delete _inflight[key];
+    const intentos = [15000, 25000];
+    let ultimoError = null;
+
+    for (let i = 0; i < intentos.length; i++) {
+      try {
+        const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
+        const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, intentos[i]);
+
+        if (!resp.ok) {
+          console.warn(`gasGet ${sheetName}: HTTP ${resp.status} (intento ${i + 1}/${intentos.length})`);
+          ultimoError = new Error(`HTTP ${resp.status}`);
+          if (i < intentos.length - 1) { await _esperar(500); continue; }
+          return [];
+        }
+
+        const json = await resp.json();
+        if (json && json.error) {
+          console.warn(`gasGet ${sheetName}: ${json.error}`);
+          return [];
+        }
+
+        const data = Array.isArray(json) ? json : [];
+        data.forEach(_limpiarFilaGAS); // v12.14 — corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
+        _cache[key] = { data, ts: Date.now() };
+        return data;
+
+      } catch (err) {
+        ultimoError = err;
+        console.warn(`gasGet ${sheetName} error (${err.name}) intento ${i + 1}/${intentos.length}:`, err.message);
+        if (i < intentos.length - 1) {
+          console.warn(`gasGet ${sheetName}: reintentando con más tiempo…`);
+          await _esperar(500);
+          continue;
+        }
+      }
     }
+
+    console.warn(`gasGet ${sheetName}: sin datos tras ${intentos.length} intentos.`, ultimoError && ultimoError.message);
+    return [];
   })();
 
-  return _inflight[key];
+  return _inflight[key].finally(function() {
+    delete _inflight[key];
+  });
 }
 
 // ── VERIFICAR SI UNA FILA YA QUEDÓ GUARDADA ───────────────
