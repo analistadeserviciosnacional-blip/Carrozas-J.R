@@ -1,6 +1,6 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.15
+ *  CONECTOR J.R. CARROZAS — db.js  v12.16
  *
  *  🆕 CAMBIOS v12.14 (corrección global de fechas/horas "1899-12-30"):
  *
@@ -277,6 +277,33 @@
  *    ninguna pantalla existente. Solo se le subió el timeout base de
  *    lectura de 15s a 20s, dando un poco más de margen antes de
  *    considerar que una hoja lenta "falló".
+ *
+ *  🆕 CAMBIOS v12.16 (fix: 404 instantáneo en "script.googleusercontent.
+ *  com/macros/echo?user_content_key=..." — ya NO era lentitud del
+ *  backend, sino algo sirviendo una respuesta vieja/cacheada):
+ *
+ *  Diagnóstico: tras el fix de v10.19/v12.15, el backend responde
+ *  rápido (el ping inicial "API J.R. Carrozas v10.19 activa" lo
+ *  confirma), pero las lecturas de hojas empezaron a fallar con un
+ *  404 INSTANTÁNEO (no un timeout lento) contra la URL de redirect de
+ *  Apps Script (script.googleusercontent.com/macros/echo?user_content
+ *  _key=...). Esa URL es un token de UN SOLO USO por ejecución — un
+ *  404 rápido ahí es la firma típica de que algo (el Service Worker
+ *  de offline-queue.js, o la caché HTTP del navegador) está sirviendo
+ *  una respuesta guardada en vez de ir en vivo al servidor, y ese
+ *  token ya se "gastó" la primera vez que se usó.
+ *
+ *  + Toda petición GET a Apps Script (gasGet, gasGetEstricto,
+ *    testConexion, verificarInspeccionHoy) ahora:
+ *      1) agrega un parámetro "_=<timestamp>" único a la URL en cada
+ *         llamada, para que ninguna caché que compare por URL exacta
+ *         (típico en Service Workers) pueda reconocerla como "la
+ *         misma petición de antes" y servir una respuesta vieja.
+ *      2) usa { cache: 'no-store' } en fetch(), para que el propio
+ *         navegador tampoco intente servir esta petición desde su
+ *         caché HTTP.
+ *    Las escrituras (gasWrite) no se tocaron: ya usan POST con
+ *    idCol/idValue propios y nunca dependieron de caché.
  * ══════════════════════════════════════════════════════════
  */
 
@@ -487,8 +514,16 @@ async function gasGet(sheetName) {
 
   _inflight[key] = (async () => {
     try {
-      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 20000); // 🆕 v12.15 — 15s → 20s
+      // 🆕 v12.16 — "_" con timestamp único + cache:'no-store': evita que
+      // el Service Worker (offline-queue.js) o la caché HTTP del
+      // navegador intercepten esta petición y sirvan una respuesta
+      // guardada. Esto es crítico porque script.google.com redirige
+      // cada ejecución a una URL de un solo uso
+      // (script.googleusercontent.com/macros/echo?user_content_key=...)
+      // — si algo cachea esa respuesta y la reutiliza, la segunda vez
+      // da 404 porque ese token ya se "gastó" en la primera.
+      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 20000); // 🆕 v12.15 — 15s → 20s
       if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
       const json = await resp.json();
       if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
@@ -524,8 +559,9 @@ async function gasGetEstricto(sheetName, ms) {
     return cached.data;
   }
 
-  const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, ms || 20000);
+  // 🆕 v12.16 — mismo cache-busting que gasGet() (ver comentario arriba).
+  const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
+  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, ms || 20000);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const json = await resp.json();
   if (json && json.error) throw new Error(json.error);
@@ -1755,7 +1791,9 @@ const DB = {
 
   async testConexion() {
     try {
-      const resp = await fetchConTimeout(URL_GAS, { method: 'GET', redirect: 'follow' }, 10000);
+      // 🆕 v12.16 — cache-busting también aquí (ver comentario en gasGet).
+      const url = `${URL_GAS}?_=${Date.now()}`;
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 10000);
       const json = await resp.json();
       return { ok: true, mensaje: json.mensaje || JSON.stringify(json) };
     } catch(e) { return { ok: false, error: e.message }; }
@@ -1823,8 +1861,9 @@ const DB = {
   // ── VERIFICAR INSPECCIÓN HECHA HOY ────────────────────────
   async verificarInspeccionHoy(placa) {
     try {
-      const url = `${URL_GAS}?action=checkInspeccionHoy&placa=${encodeURIComponent(placa)}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, 12000);
+      // 🆕 v12.16 — cache-busting también aquí (ver comentario en gasGet).
+      const url = `${URL_GAS}?action=checkInspeccionHoy&placa=${encodeURIComponent(placa)}&_=${Date.now()}`;
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 12000);
       if (!resp.ok) return { existe: false };
       const json = await resp.json();
       return json;
@@ -1959,4 +1998,3 @@ window.DB = DB;
     console.warn('🔴 Error en warm-up:', e.message);
   }
 })();
-
