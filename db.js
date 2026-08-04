@@ -523,7 +523,7 @@ async function gasGet(sheetName) {
       // — si algo cachea esa respuesta y la reutiliza, la segunda vez
       // da 404 porque ese token ya se "gastó" en la primera.
       const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 20000); // 🆕 v12.15 — 15s → 20s
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 45000); // 🆕 v12.17 — 20s → 45s: cold-start de GAS
       if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
       const json = await resp.json();
       if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
@@ -559,9 +559,9 @@ async function gasGetEstricto(sheetName, ms) {
     return cached.data;
   }
 
-  // 🆕 v12.16 — mismo cache-busting que gasGet() (ver comentario arriba).
+  // 🆕 v12.17 — mismo cache-busting que gasGet() (ver comentario arriba).
   const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
-  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, ms || 20000);
+  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, ms || 45000);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const json = await resp.json();
   if (json && json.error) throw new Error(json.error);
@@ -936,11 +936,11 @@ const DB = {
   async login(usuario, clave) {
     let rows;
     try {
-      rows = await gasGetEstricto('usuarios', 20000);
+      rows = await gasGetEstricto('usuarios', 45000);
     } catch (eIntento1) {
       console.warn('login: 1er intento de leer "usuarios" falló, reintentando con más tiempo…', eIntento1.message);
       try {
-        rows = await gasGetEstricto('usuarios', 30000);
+        rows = await gasGetEstricto('usuarios', 60000);
       } catch (eIntento2) {
         console.error('login: no se pudo leer "usuarios" tras 2 intentos:', eIntento2.message);
         return {
@@ -1791,9 +1791,11 @@ const DB = {
 
   async testConexion() {
     try {
-      // 🆕 v12.16 — cache-busting también aquí (ver comentario en gasGet).
+      // 🆕 v12.17 — 10s → 45s: el cold-start de GAS puede tardar 15-30s cuando
+      // el script estuvo inactivo. Con 10s el ping siempre fallaba al abrir la
+      // app por primera vez o tras un periodo sin uso, bloqueando todo lo demás.
       const url = `${URL_GAS}?_=${Date.now()}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 10000);
+      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 45000);
       const json = await resp.json();
       return { ok: true, mensaje: json.mensaje || JSON.stringify(json) };
     } catch(e) { return { ok: false, error: e.message }; }
@@ -1979,22 +1981,28 @@ const DB = {
 
 window.DB = DB;
 
-// ── WARM-UP SECUENCIAL AL INICIAR ─────────────────────────
-(async function() {
-  try {
-    const ping = await DB.testConexion();
-    if (ping.ok) {
-      console.log('🟢 API J.R. conectada:', ping.mensaje);
-      const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo', 'Llegadas', 'notificaciones_apoyo'];
-      for (let i = 0; i < hojas.length; i++) {
-        await gasGet(hojas[i]);
-        await new Promise(function(r) { setTimeout(r, 300); });
-      }
-      console.log('✅ Caché precargado correctamente');
-    } else {
-      console.warn('🔴 API J.R. sin conexión:', ping.error);
-    }
-  } catch(e) {
-    console.warn('🔴 Error en warm-up:', e.message);
-  }
+// ── WARM-UP PARALELO AL INICIAR (no bloquea la UI) ─────────
+// 🆕 v12.17 — Antes el warm-up era SECUENCIAL: esperaba el ping (10s),
+// luego descargaba 8 hojas una por una con 300ms de pausa entre cada una.
+// Si el GAS estaba en cold-start, el ping fallaba a los 10s y el caché
+// nunca se precargaba — dejando todas las lecturas siguientes lentas.
+// Ahora:
+//   1. El ping y todas las hojas se descargan EN PARALELO (Promise.allSettled)
+//      para aprovechar al máximo el tiempo de cold-start.
+//   2. Todo corre en segundo plano (fire-and-forget): si tarda 30s no
+//      bloquea ni el login ni ninguna otra pantalla.
+//   3. Cualquier hoja que falle simplemente queda sin caché (se reintentará
+//      la próxima vez que esa hoja se necesite).
+(function() {
+  const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo', 'Llegadas', 'notificaciones_apoyo', 'config'];
+  const promesas = [
+    DB.testConexion().then(function(ping) {
+      if (ping.ok) console.log('🟢 API J.R. conectada:', ping.mensaje);
+      else         console.warn('🔴 API J.R. sin conexión (warm-up):', ping.error);
+    }),
+    ...hojas.map(function(h) { return gasGet(h).catch(function() {}); })
+  ];
+  Promise.allSettled(promesas).then(function() {
+    console.log('✅ Caché precargado correctamente (paralelo)');
+  });
 })();
