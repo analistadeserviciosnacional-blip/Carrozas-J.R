@@ -1,47 +1,33 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.15
+ *  CONECTOR J.R. CARROZAS — db.js  v12.16
  *
- *  🆕 CAMBIOS v12.15 (FIX CRÍTICO — login mostraba "credenciales
- *  incorrectas" cuando en realidad el servidor no respondió a tiempo):
+ *  🆕 CAMBIOS v12.16 (lectura por lotes + caché persistente):
  *
- *  Bug reportado: en pantallas donde la hoja "usuarios" (u otra) tarda
- *  en responder, la consola mostraba:
- *      gasGet usuarios error (Error): El servidor tardó demasiado en
- *      responder (más de 15s). Verifica tu conexión e intenta nuevamente.
- *  y a pesar de que el usuario y la contraseña eran correctos, la
- *  pantalla de login mostraba "Usuario o contraseña incorrectos".
+ *  PROBLEMA REAL: pantallas como "Panel Parque Automotor" precargan 6-8
+ *  hojas al entrar (DB.prefetch('carrozas','Traslado','Averias',...)),
+ *  y antes eso disparaba 6-8 peticiones GET en paralelo — cada una
+ *  abriendo su propia ejecución de Apps Script. Como todas compiten por
+ *  la misma cuota del mismo backend, era normal ver TODAS hacer timeout
+ *  a la vez (no solo una hoja lenta): "gasGet Traslado... Averias...
+ *  mantenimientos... Inspeccion_Vehiculo... Checklist_Salida: falló
+ *  intento 1" todos juntos, como en el panel_automotor.
  *
- *  Causa: gasGet() hacía UN SOLO intento de lectura con 15s de timeout
- *  (a diferencia de gasWrite(), que sí reintenta con más tiempo). Si ese
- *  intento fallaba, el catch devolvía un arreglo vacío ([]) sin avisar
- *  a quien lo llamó. DB.login() recibía ese [] vacío, no encontraba
- *  ningún usuario que coincidiera (obviamente, no había ninguna fila
- *  para comparar) y devolvía "Credenciales incorrectas" — un mensaje
- *  falso, porque en realidad nunca se pudo verificar nada.
+ *  FIX 1 — DB.prefetch() ahora pide todas las hojas que hacen falta en
+ *  UNA sola llamada (action=batchGet, requiere Code.gs v10.19+), en vez
+ *  de una ejecución por hoja. Si el backend todavía no tiene ese
+ *  endpoint (no se actualizó Code.gs) o la llamada falla, cae
+ *  automáticamente al modo anterior (una petición por hoja) — nunca deja
+ *  de funcionar, solo pierde la mejora de velocidad.
  *
- *  Corrección (sin tocar ninguna otra función que ya funciona):
- *
- *   1) gasGet() ahora reintenta UNA vez más con más tiempo (35s) antes
- *      de rendirse, igual que ya hacía gasWrite() para escrituras.
- *   2) Si aun así falla, y existe un caché anterior de esa hoja (aunque
- *      esté vencido), gasGet() lo devuelve como respaldo en vez de un
- *      arreglo vacío — mejor un dato "viejo pero real" que aparentar
- *      que la hoja no tiene registros.
- *   3) Solo si de verdad no hay forma de traer los datos (ni intento
- *      nuevo ni caché previo), gasGet() devuelve un arreglo vacío
- *      MARCADO internamente (propiedad __gasGetError) para que quien
- *      lo consuma sepa que fue un fallo de conexión y no "la hoja está
- *      vacía".
- *   4) DB.login() ahora revisa esa marca: si el problema fue de
- *      conexión, responde con errorConexion:true y un mensaje honesto
- *      ("no se pudo conectar…") en vez de "Credenciales incorrectas".
- *      Solo dice "Credenciales incorrectas" cuando SÍ pudo comparar los
- *      datos y de verdad no coinciden.
- *
- *  Ninguna otra función de este archivo fue modificada. El resto del
- *  comportamiento (caché de 60s, dedup de lecturas en vuelo, reintento
- *  de escrituras, anti-duplicados, etc.) sigue exactamente igual.
+ *  FIX 2 — Caché persistente en sessionStorage (sobrevive la navegación
+ *  entre páginas de esta app multi-página; se borra sola al cerrar la
+ *  pestaña), para que entrar y salir de una pantalla no repita lecturas
+ *  que ya se hicieron hace poco desde otra pantalla. "Best effort": si
+ *  sessionStorage no está disponible o se llena, se ignora sin romper
+ *  nada. DB.invalidarCache() y existeFila() se actualizaron para
+ *  limpiar también esta caché y no arrastrar datos viejos después de
+ *  un guardado.
  *
  *  ── Historial v12.14 (corrección global de fechas/horas "1899-12-30") ──
  *
@@ -473,77 +459,166 @@ const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
 const CACHE_TTL = 60000;   // 60 segundos
 
-// ══════════════════════════════════════════════════════════
-// 🆕 v12.15 — gasGet() CON REINTENTO + RESPALDO DE CACHÉ
-// ══════════════════════════════════════════════════════════
-// Antes, un solo timeout de 15s en la lectura hacía que gasGet()
-// devolviera un arreglo vacío ([]) sin distinguirlo de "la hoja
-// realmente no tiene datos". Eso hacía que, por ejemplo, DB.login()
-// interpretara un simple timeout de red como "no existe ese usuario"
-// y mostrara "Credenciales incorrectas" de forma engañosa.
+// 🆕 v12.16 — CACHÉ PERSISTENTE (sessionStorage), además de la de memoria.
 //
-// Ahora:
-//   1) Si el primer intento (15s) falla, se reintenta una vez más
-//      con más tiempo (35s) antes de rendirse — mismo patrón que ya
-//      usa gasWrite() para escrituras.
-//   2) Si el reintento también falla pero existe un caché anterior
-//      de esa hoja (aunque esté vencido por el TTL), se devuelve ese
-//      dato como respaldo en vez de un arreglo vacío.
-//   3) Solo si no hay caché previo NI se pudo leer, se devuelve un
-//      arreglo vacío marcado con la propiedad __gasGetError (no
-//      enumerable en JSON.stringify, pero sí visible en JS) para que
-//      quien lo llame pueda distinguir "error de conexión" de "hoja
-//      vacía de verdad".
+// Esta app es multi-página (cada pantalla es un .html distinto que se
+// carga completo), no una SPA. Eso significa que _cache y _inflight se
+// reinician EN CADA NAVEGACIÓN — la caché en memoria de 60s nunca
+// alcanza a servir de nada porque casi siempre el usuario ya está en
+// otra página cuando esos 60s se cumplen. Resultado: cada vez que se
+// entra a una pantalla que lee "Traslado" (una hoja grande, con fotos)
+// se repite una lectura completa contra Apps Script, y si el backend
+// está lento (arranque en frío, hoja grande, conexión débil) eso es lo
+// que dispara el aviso "gasGet Traslado: falló intento 1... más de 15s".
+//
+// sessionStorage SÍ sobrevive la navegación entre páginas del mismo
+// sitio (se borra solo al cerrar la pestaña/app), así que se usa como
+// segundo nivel de caché: si hay un dato reciente ahí, se usa de una
+// vez sin tocar la red, aunque la página se haya recargado por completo.
+// Es "best effort": si sessionStorage no está disponible o se llena
+// (fotos en base64 pueden pesar), simplemente se ignora y todo sigue
+// funcionando igual que antes, solo sin este acelerador.
+const _SS_PREFIX = 'jr_gascache_v1_';
+
+function _ssGet(key) {
+  try {
+    const raw = sessionStorage.getItem(_SS_PREFIX + key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (!entry || typeof entry.ts !== 'number' || !Array.isArray(entry.data)) return null;
+    return entry;
+  } catch (e) {
+    return null;
+  }
+}
+
+function _ssSet(key, entry) {
+  try {
+    sessionStorage.setItem(_SS_PREFIX + key, JSON.stringify(entry));
+  } catch (e) {
+    // Sin espacio (cuota llena, típico si hay muchas fotos) u otro
+    // problema de storage: no es crítico, se sigue sin caché persistente.
+  }
+}
+
+function _ssDel(key) {
+  try { sessionStorage.removeItem(_SS_PREFIX + key); } catch (e) {}
+}
+
+// 🆕 v12.15 — un solo intento de lectura, con su propio timeout.
+// Separado de gasGet() para poder reintentar sin duplicar código.
+async function _gasGetIntento(key, ms) {
+  const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
+  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, ms);
+  if (!resp.ok) { throw new Error(`HTTP ${resp.status}`); }
+  const json = await resp.json();
+  if (json && json.error) { throw new Error(json.error); }
+  const data = Array.isArray(json) ? json : [];
+  data.forEach(_limpiarFilaGAS); // corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
+  return data;
+}
+
+// 🆕 v12.16 — LECTURA POR LOTES (batchGet).
+//
+// Pantallas como "Panel Parque Automotor" piden hasta 8 hojas al cargar.
+// Antes eso disparaba 8 peticiones GET en paralelo, cada una abriendo su
+// propia ejecución en Apps Script — y como todas compiten por la misma
+// cuota, era normal ver las 8 hacer timeout juntas (no una sola). Esta
+// función pide varias hojas en UNA sola llamada al backend (requiere
+// Code.gs v10.19+, que expone action=batchGet). Si el backend todavía no
+// tiene ese endpoint (versión vieja), lanza un error y quien la llama
+// (DB.prefetch) cae de vuelta al modo anterior (una petición por hoja),
+// así que nunca deja de funcionar por no haber actualizado el backend.
+async function _gasBatchGetIntento(keys, ms) {
+  const url  = `${URL_GAS}?action=batchGet&sheets=${encodeURIComponent(keys.join(','))}`;
+  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, ms);
+  if (!resp.ok) { throw new Error(`HTTP ${resp.status}`); }
+  const json = await resp.json();
+  if (!json || json.ok !== true || !json.data || typeof json.data !== 'object') {
+    throw new Error('El backend no soporta batchGet (actualiza Code.gs)');
+  }
+  Object.keys(json.data).forEach(function(k) {
+    if (!Array.isArray(json.data[k])) json.data[k] = [];
+    json.data[k].forEach(_limpiarFilaGAS);
+  });
+  return json.data; // { sheetName: [fila, fila, ...], ... }
+}
+
+async function _gasBatchGetConReintento(keys) {
+  try {
+    return await _gasBatchGetIntento(keys, 25000);
+  } catch (err) {
+    console.warn(`gasBatchGet: falló intento 1 (${err.message}). Reintentando…`);
+    return await _gasBatchGetIntento(keys, 35000);
+  }
+}
+
+// 🆕 v12.15 — Último error real de conexión con el backend (o null si
+// la última lectura fue exitosa). No cambia el contrato de gasGet()
+// (sigue devolviendo [] si falla, para no romper las ~25 pantallas que
+// ya asumen que siempre reciben un array) — pero ahora cualquier
+// pantalla puede preguntar "¿el [] que me acaban de dar es porque no
+// hay datos, o porque el backend no respondió?" leyendo esta variable
+// justo después de un gasGet(). login() la usa para no confundir un
+// timeout de red con "contraseña incorrecta" (ver más abajo).
+let _ultimoErrorGasGet = null;
+
+// 🆕 v12.15 — FIX: antes, si el primer intento de leer una hoja hacía
+// timeout (15s), gasGet() se rendía de inmediato y devolvía un array
+// VACÍO en silencio — sin reintentar, a diferencia de gasWrite() que
+// sí reintenta. Ahora reintenta UNA vez con más tiempo antes de darse
+// por vencido, igual que gasWrite.
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
   const cached = _cache[key];
   if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
+    _ultimoErrorGasGet = null;
     return cached.data;
+  }
+
+  // 🆕 v12.16 — segundo nivel de caché (sobrevive a la recarga de página).
+  // Se usa aunque ya haya "vencido" para _cache en memoria, siempre que
+  // siga dentro de CACHE_TTL, para no perder el beneficio al navegar.
+  const ssCached = _ssGet(key);
+  if (ssCached && (Date.now() - ssCached.ts) < CACHE_TTL) {
+    _cache[key] = ssCached; // repuebla la caché en memoria para esta página
+    _ultimoErrorGasGet = null;
+    return ssCached.data;
   }
 
   if (_inflight[key]) return _inflight[key];
 
   _inflight[key] = (async () => {
-    const intentarLectura = async (ms) => {
-      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow' }, ms);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const json = await resp.json();
-      if (json && json.error) throw new Error(json.error);
-      return Array.isArray(json) ? json : [];
-    };
-
     try {
-      let data;
-      try {
-        data = await intentarLectura(15000); // intento 1 — igual que antes
-      } catch (err1) {
-        console.warn(`gasGet ${sheetName}: intento 1 falló (${err1.message}). Reintentando con más tiempo…`);
-        data = await intentarLectura(35000); // 🆕 intento 2 — cubre "cold start" de Apps Script
-      }
-      data.forEach(_limpiarFilaGAS);
-      _cache[key] = { data, ts: Date.now() };
+      const data = await _gasGetIntento(key, 15000);
+      const entry = { data, ts: Date.now() };
+      _cache[key] = entry;
+      _ssSet(key, entry);
+      _ultimoErrorGasGet = null;
       return data;
     } catch (err) {
-      console.warn(`gasGet ${sheetName} error tras reintento (${err.name}):`, err.message);
-
-      // 🆕 Respaldo: si hay un caché previo (aunque esté vencido), se
-      // devuelve ese dato en vez de aparentar que la hoja está vacía.
-      if (_cache[key]) {
-        console.warn(`gasGet ${sheetName}: usando caché anterior (vencido) como respaldo.`);
-        return _cache[key].data;
+      console.warn(`gasGet ${sheetName}: falló intento 1 (${err.message}). Reintentando…`);
+      try {
+        const data2 = await _gasGetIntento(key, 20000);
+        const entry2 = { data: data2, ts: Date.now() };
+        _cache[key] = entry2;
+        _ssSet(key, entry2);
+        _ultimoErrorGasGet = null;
+        return data2;
+      } catch (err2) {
+        console.warn(`gasGet ${sheetName} error definitivo:`, err2.message);
+        _ultimoErrorGasGet = err2.message; // 🆕 queda registrado para quien lo quiera consultar
+        // 🆕 v12.16 — si hay un dato viejo en sessionStorage (aunque ya
+        // pasó el TTL), es mejor mostrar algo desactualizado que dejar
+        // la pantalla vacía por un timeout puntual del backend.
+        const stale = _ssGet(key);
+        if (stale) {
+          console.warn(`gasGet ${sheetName}: usando caché desactualizada (${Math.round((Date.now()-stale.ts)/1000)}s) por falta de respuesta del servidor.`);
+          return stale.data;
+        }
+        return []; // se conserva el contrato original: nunca lanza, siempre array
       }
-
-      // 🆕 Sin caché y sin poder leer: se marca explícitamente como
-      // error de conexión (y NO como "hoja vacía") para que funciones
-      // como DB.login() no lo confundan con "no hay coincidencias".
-      const vacio = [];
-      Object.defineProperty(vacio, '__gasGetError', {
-        value: err.message || 'Error de conexión',
-        enumerable: false,
-      });
-      return vacio;
     } finally {
       delete _inflight[key];
     }
@@ -559,6 +634,11 @@ async function existeFila(sheetName, col, val) {
     const key = resolveSheet(sheetName);
     delete _cache[key];
     delete _inflight[key];
+    _ssDel(key); // 🆕 v12.16 — sin esto, gasGet() podría devolver el dato
+                 // persistido en sessionStorage ANTES del guardado que se
+                 // está verificando, y existeFila() reportaría "no existe"
+                 // por error, provocando justamente el guardado doble que
+                 // esta función existe para evitar.
     const rows = await gasGet(sheetName);
     return rows.some(function(r) { return String(r[col] || '') === String(val); });
   } catch (e) {
@@ -900,36 +980,86 @@ const DB = {
   invalidarCache(sheetName) {
     const key = resolveSheet(sheetName);
     delete _cache[key];
+    _ssDel(key); // 🆕 v12.16 — también se limpia la caché persistente
   },
 
   // ── CACHÉ: PRECARGAR HOJAS ────────────────────────────────
+  // 🆕 v12.16 — antes esto hacía Promise.all(hojas.map(gasGet)), es decir
+  // una petición GET por hoja, todas al mismo tiempo. Con pantallas que
+  // precargan 6-8 hojas (Panel Parque Automotor, por ejemplo), eso son
+  // 6-8 ejecuciones de Apps Script compitiendo por la misma cuota a la
+  // vez — la causa real de ver TODAS las hojas hacer timeout juntas.
+  // Ahora se pide todo en una sola llamada por lotes (batchGet). Si esa
+  // llamada falla por cualquier motivo (backend viejo sin batchGet, error
+  // de red, etc.) se cae de vuelta al modo anterior automáticamente, así
+  // que nunca deja de funcionar.
   async prefetch() {
-    const hojas = Array.from(arguments);
-    await Promise.all(hojas.map(function(h) { return gasGet(h); }));
+    const hojasSolicitadas = Array.from(arguments);
+    const keys = hojasSolicitadas.map(resolveSheet);
+    const ahora = Date.now();
+
+    // Solo se piden las que de verdad hacen falta (no están frescas ni
+    // en memoria ni en sessionStorage).
+    const faltantes = keys.filter(function(k) {
+      const c = _cache[k];
+      if (c && (ahora - c.ts) < CACHE_TTL) return false;
+      const ss = _ssGet(k);
+      if (ss && (ahora - ss.ts) < CACHE_TTL) { _cache[k] = ss; return false; }
+      return true;
+    });
+
+    if (faltantes.length === 0) return;
+
+    if (faltantes.length === 1) {
+      // Una sola hoja: no vale la pena usar el modo por lotes.
+      await gasGet(faltantes[0]);
+      return;
+    }
+
+    try {
+      const datosPorHoja = await _gasBatchGetConReintento(faltantes);
+
+      faltantes.forEach(function(k) {
+        if (!Object.prototype.hasOwnProperty.call(datosPorHoja, k)) return; // se completa abajo
+        const entry = { data: datosPorHoja[k], ts: Date.now() };
+        _cache[k] = entry;
+        _ssSet(k, entry);
+      });
+
+      // Si el backend (por versión vieja o error puntual de una hoja)
+      // no trajo alguna de las solicitadas, se completa esa puntual con
+      // el camino individual — no se repite el lote completo.
+      const noLlegaron = faltantes.filter(function(k) {
+        return !Object.prototype.hasOwnProperty.call(datosPorHoja, k);
+      });
+      if (noLlegaron.length) {
+        await Promise.all(noLlegaron.map(function(k) { return gasGet(k); }));
+      }
+    } catch (errBatch) {
+      console.warn('prefetch: batchGet no disponible, se usa carga individual en paralelo (' + errBatch.message + ')');
+      await Promise.all(faltantes.map(function(k) { return gasGet(k); }));
+    }
   },
 
   // ── LOGIN ──────────────────────────────────────────────────
-  // 🆕 v12.15 — Ahora distingue un fallo de conexión (timeout tras
-  // reintento, sin caché de respaldo) de credenciales realmente
-  // incorrectas. Antes, un timeout en gasGet('usuarios') devolvía un
-  // arreglo vacío y login() lo interpretaba como "no existe ese
-  // usuario", mostrando el mensaje engañoso "Credenciales incorrectas"
-  // cuando en realidad nunca se pudo verificar nada.
+  // 🆕 v12.15 — FIX: antes, si gasGet('usuarios') fallaba por timeout
+  // (backend caído/lento), devolvía [] y login() mostraba "Usuario o
+  // contraseña incorrectos" — un mensaje falso que llevaba a revisar
+  // la contraseña en vez del problema real (conexión con el backend).
+  // Ahora, si la hoja vino vacía Y hay un error de conexión reciente
+  // registrado en _ultimoErrorGasGet, se reporta como fallo de
+  // conexión (esFalloConexion:true) para que la pantalla de login
+  // pueda mostrar el mensaje correcto.
   async login(usuario, clave) {
     try {
       const rows = await gasGet('usuarios');
-
-      // Si gasGet no pudo traer los datos ni con reintento ni con
-      // caché de respaldo, se informa el problema real en vez de
-      // decir "credenciales incorrectas".
-      if (rows.__gasGetError) {
+      if (rows.length === 0 && _ultimoErrorGasGet) {
         return {
           ok: false,
-          error: 'No se pudo conectar con el servidor (tardó demasiado en responder). Verifica tu conexión e intenta de nuevo en unos segundos.',
-          errorConexion: true,
+          esFalloConexion: true,
+          error: 'No se pudo conectar con el servidor (' + _ultimoErrorGasGet + '). Verifica tu conexión e intenta de nuevo.'
         };
       }
-
       const match = rows.filter(function(r) {
         return String(r.usuario ||'').trim().toLowerCase() === usuario.trim().toLowerCase() &&
                String(r.password||'').trim()               === clave.trim();
