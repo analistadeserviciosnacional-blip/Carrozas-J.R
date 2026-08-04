@@ -1993,16 +1993,26 @@ window.DB = DB;
 //      bloquea ni el login ni ninguna otra pantalla.
 //   3. Cualquier hoja que falle simplemente queda sin caché (se reintentará
 //      la próxima vez que esa hoja se necesite).
+
 (function() {
   const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo', 'Llegadas', 'notificaciones_apoyo', 'config'];
-  const promesas = [
-    DB.testConexion().then(function(ping) {
-      if (ping.ok) console.log('🟢 API J.R. conectada:', ping.mensaje);
-      else         console.warn('🔴 API J.R. sin conexión (warm-up):', ping.error);
-    }),
-    ...hojas.map(function(h) { return gasGet(h).catch(function() {}); })
-  ];
-  Promise.allSettled(promesas).then(function() {
-    console.log('✅ Caché precargado correctamente (paralelo)');
-  });
+  const TAMANO_TANDA = 3;      // máximo 3 peticiones a la vez
+  const PAUSA_ENTRE_TANDAS = 400; // ms de respiro entre tandas
+
+  function esperar(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+  async function precargarEnTandas() {
+    const ping = await DB.testConexion();
+    if (ping.ok) console.log('🟢 API J.R. conectada:', ping.mensaje);
+    else         console.warn('🔴 API J.R. sin conexión (warm-up):', ping.error);
+
+    for (let i = 0; i < hojas.length; i += TAMANO_TANDA) {
+      const tanda = hojas.slice(i, i + TAMANO_TANDA);
+      await Promise.allSettled(tanda.map(function(h) { return gasGet(h).catch(function() {}); }));
+      if (i + TAMANO_TANDA < hojas.length) await esperar(PAUSA_ENTRE_TANDAS);
+    }
+    console.log('✅ Caché precargado correctamente (por tandas)');
+  }
+
+  precargarEnTandas();
 })();
