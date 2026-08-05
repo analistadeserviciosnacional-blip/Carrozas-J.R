@@ -430,9 +430,6 @@
             <span>Solicitudes de Apoyo</span>
             <span id="badge-texto" style="display:none; font-size:10px; color:#10b981; font-weight:800;"></span>
         </a>
-        <a id="btn-vincular-tg" href="#" target="_blank" class="card-menu">
-            <i>📲</i><span id="txt-vincular-tg">Vincular Telegram</span>
-        </a>
     </div>
 
     <div class="panel">
@@ -475,8 +472,6 @@
 <script>
     const norm = str => String(str || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-    const APPS_SCRIPT_URL_TG = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
-
     let userSesion        = {};
     let solicitudActivaId = null;
 
@@ -509,71 +504,12 @@
             cargarResumenAverias(nombre);
             cargarMonitorFlota();
             verificarApoyosPendientes(user);
-            prepararVinculacionTelegram(user);
 
         } catch(e) {
             console.error("Error sesión:", e);
             window.location.href = "index.html";
         }
     };
-
-    // 🆕 Vinculación Telegram — usa el esquema tg:// (no https://t.me/...)
-    // para que el sistema operativo abra la app de Telegram directamente
-    // vía "intent", sin depender de resolución DNS del navegador. Esto
-    // soluciona el error DNS_PROBE_STARTED que ocurre en redes/operadores
-    // que bloquean o no resuelven el dominio t.me.
-    // Si el navegador no logra interpretar tg:// (ej. Telegram no está
-    // instalado, o es un navegador de escritorio sin asociación de
-    // protocolo), después de un instante se hace fallback automático a
-    // la versión web https://t.me/... por si esa sí resuelve en ese caso.
-    function prepararVinculacionTelegram(user) {
-        const btn = document.getElementById('btn-vincular-tg');
-        const txt = document.getElementById('txt-vincular-tg');
-        const telefono = String(user.telefono || '').replace(/[^0-9]/g, '');
-
-        if (!telefono) {
-            btn.style.opacity = '0.5';
-            btn.onclick = (e) => { e.preventDefault(); alert('Tu usuario no tiene teléfono registrado. Pide a tu coordinador que lo actualice.'); };
-            return;
-        }
-
-        const BOT = 'Jr_alertas_2026_bot';
-        const linkApp = `tg://resolve?domain=${BOT}&start=${telefono}`;
-        const linkWeb = `https://t.me/${BOT}?start=${telefono}`;
-
-        // El href visible sigue siendo el de web (por si el usuario copia el
-        // link o abre en un contexto donde tg:// no aplica), pero el click
-        // se intercepta para intentar primero el esquema de la app.
-        btn.href = linkWeb;
-        btn.onclick = (e) => {
-            e.preventDefault();
-            const inicio = Date.now();
-            window.location.href = linkApp;
-            // Si tras ~1.2s seguimos en la pestaña (la app no abrió), probamos
-            // con la versión web como respaldo.
-            setTimeout(() => {
-                if (Date.now() - inicio < 2000 && document.visibilityState === 'visible') {
-                    window.open(linkWeb, '_blank');
-                }
-            }, 1200);
-        };
-
-        verificarVinculo(telefono, txt);
-    }
-
-    async function verificarVinculo(telefono, txt) {
-        try {
-            const resp = await fetch(APPS_SCRIPT_URL_TG + '?sheetName=telegram_links');
-            const links = await resp.json();
-            const norm10 = t => String(t || '').replace(/[^0-9]/g, '').slice(-10);
-            const yaVinculado = (Array.isArray(links) ? links : []).some(l => norm10(l.telefono) === norm10(telefono) && l.chat_id);
-            if (yaVinculado) {
-                txt.textContent = '✅ Telegram Vinculado';
-            }
-        } catch (e) {
-            console.warn('No se pudo verificar vínculo de Telegram:', e.message);
-        }
-    }
 
     async function cargarMiCarroza(user) {
         const infoEl = document.getElementById('mi-carroza-info');
