@@ -23,6 +23,8 @@
         input, select, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 2px solid #dcfce7; border-radius: 10px; font-family: inherit; color: #14532d; background: #f9fef9; font-size: 14px; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--verde); }
         input[readonly] { background: #eefff4; font-weight: bold; color: var(--verde); }
+        /* 🔧 FIX: estado visual claro mientras el selector de placas está deshabilitado (cargando) */
+        select:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
         /* ── CARD TOTAL KM ── */
@@ -176,8 +178,13 @@
         <div class="grid-2">
             <div>
                 <label>Placa de la Carroza</label>
-                <select id="placa" onchange="alSeleccionarPlaca()">
-                    <option value="">Elija placa...</option>
+                <!-- 🔧 FIX: el selector arranca DESHABILITADO y con texto de
+                     "Cargando..." para que el conductor no le dé clic antes
+                     de tiempo y crea que no hay placas disponibles. Se
+                     habilita solo cuando cargarPlacas() termina de traer
+                     los datos reales (ver script). -->
+                <select id="placa" onchange="alSeleccionarPlaca()" disabled>
+                    <option value="">⏳ Cargando placas...</option>
                 </select>
             </div>
             <div>
@@ -394,9 +401,22 @@
     // problema puntual de red), se conserva el respaldo anterior por
     // "estado" de carrozas para que el formulario nunca quede sin
     // opciones para elegir.
+    //
+    // 🔧 FIX: el selector permanece DESHABILITADO con el texto
+    // "⏳ Cargando placas..." mientras esta función corre. Antes, el
+    // <select> quedaba habilitado desde el primer render de la página
+    // con solo la opción "Elija placa...", así que si el conductor le
+    // daba clic antes de que terminara la consulta a la base de datos,
+    // veía el desplegable "vacío" y reportaba que no había placas —
+    // cuando en realidad el sistema todavía estaba cargando. Ahora solo
+    // se habilita (y se muestra "Elija placa...") cuando ya hay datos
+    // reales listos para elegir.
     async function cargarPlacas() {
         const select = document.getElementById('placa');
         trasladosActivosCache = {};
+
+        select.disabled = true;
+        select.innerHTML = '<option value="">⏳ Cargando placas...</option>';
 
         try {
             const resActivos = await DB.obtenerPlacasConTrasladoActivo();
@@ -413,6 +433,7 @@
                         const salidaTxt = t.hora_de_salida ? ' (salió ' + t.hora_de_salida + ')' : '';
                         return '<option value="' + t.placa + '">' + t.placa + modeloTxt + salidaTxt + '</option>';
                     }).join('');
+                select.disabled = false;
                 return;
             }
 
@@ -425,13 +446,23 @@
             const enServicio = flotaCompleta.filter(c => (c.estado || '').includes('Servicio'));
             const lista = enServicio.length > 0 ? enServicio : flotaCompleta;
 
-            select.innerHTML = '<option value="">Elija placa...</option>' +
-                lista.map(c =>
-                    '<option value="' + c.placa + '">' + c.placa + ' — ' + (c.modelo || 'S/M') +
-                    (enServicio.length === 0 ? ' (' + (c.estado || '?') + ')' : '') + '</option>'
-                ).join('');
+            if (lista.length > 0) {
+                select.innerHTML = '<option value="">Elija placa...</option>' +
+                    lista.map(c =>
+                        '<option value="' + c.placa + '">' + c.placa + ' — ' + (c.modelo || 'S/M') +
+                        (enServicio.length === 0 ? ' (' + (c.estado || '?') + ')' : '') + '</option>'
+                    ).join('');
+            } else {
+                // 🔧 FIX: si de verdad no hay ninguna placa (ni traslados
+                // activos ni flota registrada), se avisa con un mensaje
+                // claro en vez de dejar un desplegable ambiguo que solo
+                // diga "Elija placa..." sin ninguna explicación.
+                select.innerHTML = '<option value="">🚫 No hay placas disponibles</option>';
+            }
+            select.disabled = false;
         } catch(e) {
-            select.innerHTML = '<option>Error al cargar placas</option>';
+            select.innerHTML = '<option value="">❌ Error al cargar placas — recarga la página</option>';
+            select.disabled = false;
         }
     }
 
@@ -444,11 +475,24 @@
         const btn    = document.getElementById('btn-finalizar');
         const kmI    = parseFloat(document.getElementById('km_ingreso').value) || 0;
         const total  = parseFloat(document.getElementById('total_km').value) || 0;
+        const kmS    = window._kmSalidaActivo || 0;
 
         if (estadoCargaKM === 'cargando') {
             btn.disabled = true;
             btn.classList.remove('bloqueado-km');
             btn.innerText = '⏳ CARGANDO DATOS DE KM...';
+            return;
+        }
+
+        // 🔧 FIX: si ya se tienen KM de salida y de llegada pero el total
+        // no es válido (llegada menor a la salida), antes se mostraba
+        // "⏳ ESPERANDO DATOS DE KM..." — un mensaje confuso porque los
+        // datos ya llegaron, el problema es que el KM de llegada está mal.
+        // Ahora se avisa explícitamente cuál es el problema.
+        if (estadoCargaKM === 'ok' && kmI > 0 && kmS > 0 && total <= 0) {
+            btn.disabled = true;
+            btn.classList.remove('bloqueado-km');
+            btn.innerText = '⚠️ KM DE LLEGADA MENOR AL DE SALIDA';
             return;
         }
 
@@ -493,6 +537,7 @@
         window._kmSalidaActivo  = 0;
         window._idSalidaActivo  = '';
         window._kmSalidaCorregidoManual = false;
+        window._totalKmSospechoso = false;
         document.getElementById('total_km').value = '';
         document.getElementById('total-km-display').innerText = '— KM';
         kmSalidaInput.value = '';
@@ -638,8 +683,14 @@
                 window._totalKmSospechoso = false;
             }
         } else {
+            // 🔧 FIX: al quedar sin datos suficientes para calcular, se
+            // limpia también el estilo de la tarjeta (antes podía quedar
+            // pintada de verde "listo" o roja "error" de un cálculo
+            // anterior, aunque ya no hubiera ningún total mostrado).
             display.innerText = '— KM';
             hidden.value = '';
+            card.classList.remove('error', 'listo');
+            window._totalKmSospechoso = false;
         }
 
         actualizarBoton();
@@ -749,6 +800,15 @@
         // Guardia extra: no guardar si todavía está cargando el KM
         if (estadoCargaKM === 'cargando') {
             alert('⏳ Espera — todavía se están cargando los datos de KM de salida. Intenta en unos segundos.');
+            return;
+        }
+
+        // 🔧 FIX: bloquear explícitamente si el KM de llegada es menor al
+        // de salida — antes el botón quedaba en un estado ambiguo pero
+        // esta función no verificaba el caso, así que técnicamente se
+        // podía forzar el envío (p.ej. reactivando el botón por consola).
+        if (window._kmSalidaActivo > 0 && parseFloat(kmI) < window._kmSalidaActivo) {
+            alert('⚠️ El KM de llegada (' + kmI + ') es menor al KM de salida (' + window._kmSalidaActivo + ').\n\nRevisa y corrige antes de guardar.');
             return;
         }
 
