@@ -1,309 +1,108 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.16
+ *  CONECTOR J.R. CARROZAS — db.js  v12.18
  *
- *  🆕 CAMBIOS v12.14 (corrección global de fechas/horas "1899-12-30"):
+ *  🆕 CAMBIOS v12.18 (fix RAÍZ del 404 instantáneo / lentitud extrema
+ *  al cargar placas — "Cargando flota..." eterno y regionales que
+ *  aparecían vacías sin estarlo):
  *
- *  Bug reportado: en el selector de placas de "Registro de Llegada"
- *  (y en cualquier otra pantalla que muestre hora_de_salida / fecha
- *  leídos directo de las hojas) aparecían valores como
- *  "GJX 568 — SUZUKI ERTIGA (salió 1899-12-30 13:16:44)" en vez de
- *  la hora real ("salió 13:16"). Esto pasa porque, cuando una celda
- *  de Sheets queda con formato de Hora o Fecha (Sheets lo hace solo
- *  al detectar que el texto escrito "parece" una hora o fecha), Apps
- *  Script ya no la entrega como el texto guardado sino como un
- *  objeto Date serializado a ISO — y para celdas que solo tienen
- *  HORA, Sheets usa como "fecha base" su día cero (30/12/1899).
+ *  Diagnóstico real (visto en consola del usuario): justo después de
+ *  un ping exitoso ("🟢 API J.R. conectada"), varias lecturas
+ *  seguidas fallaban con "gasGet Traslado: HTTP 404",
+ *  "gasGet mantenimientos: HTTP 404", "gasGet carrozas: HTTP 404" —
+ *  todas contra la URL de redirect de Apps Script
+ *  (script.googleusercontent.com/macros/echo?user_content_key=...).
  *
- *  Ya existía un arreglo para esto (fmtFechaCorta/fmtHoraCorta +
- *  normalizarFechas/normalizarHoras), pero estaba duplicado y solo
- *  aplicado en 2 pantallas (panel_automotor.html y
- *  panel_coordinador_nacional.html) — el resto de la app (Registro
- *  de Llegada, Registro de Salida, Dashboard, Mis Salidas, Panel
- *  Coordinador, Tanqueo, Taller, Inspección, etc.) seguía recibiendo
- *  el dato crudo mal serializado.
+ *  Causa raíz: el warm-up de v12.17 lanzaba, TODO DE UNA VEZ con
+ *  Promise.allSettled, el ping + 9 lecturas de hoja en paralelo — 10
+ *  peticiones simultáneas contra el MISMO Web App de Apps Script.
+ *  Google Apps Script no ejecuta un número ilimitado de doGet() en
+ *  paralelo para un mismo script (especialmente uno ligado a
+ *  Sheets, donde las lecturas compiten por los mismos bloqueos
+ *  internos de SpreadsheetApp) — al llegar 10 de golpe, varias
+ *  quedaban en cola, tardaban demasiado, o competían por el token de
+ *  redirección de un solo uso, resultando en 404 instantáneos o
+ *  timeouts en cascada. Esto explica ambos síntomas reportados:
+ *    - El selector de placas se quedaba "Cargando..." mucho tiempo.
+ *    - Una regional con vehículos reales terminaba mostrando
+ *      "Sin vehículos en esta regional" — los datos nunca llegaron
+ *      a tiempo, no es que no existieran.
  *
- *  Se centraliza la corrección en un solo lugar — _limpiarFilaGAS(),
- *  aplicada automáticamente dentro de gasGet() — para que TODA
- *  pantalla que lea cualquier hoja reciba las fechas/horas ya
- *  corregidas, sin tener que repetir el arreglo pantalla por
- *  pantalla. Las pantallas que ya tenían su propio arreglo local
- *  (panel_automotor.html, panel_coordinador_nacional.html) no se
- *  tocaron — su normalización local sigue funcionando igual, ahora
- *  simplemente no tiene nada que corregir porque el dato ya llega
- *  limpio.
+ *  Esto no era exclusivo del warm-up: CUALQUIER pantalla que dispare
+ *  varias lecturas casi al tiempo (p.ej. alSeleccionarPlaca(), que
+ *  antes ya lanzaba 2-3 consultas en paralelo) sufre el mismo
+ *  problema si el warm-up sigue en curso al mismo tiempo.
  *
- *  ── Historial v12.13 (Tanqueo — nivel observado + alerta de innecesario) ──
+ *  + Se agrega un LIMITADOR DE CONCURRENCIA GLOBAL
+ *    (_conLimiteConcurrencia): como máximo 2 peticiones al backend de
+ *    Apps Script corren al mismo tiempo (lecturas Y escrituras); el
+ *    resto espera su turno en una cola en memoria y se dispara
+ *    automáticamente en cuanto se libera un cupo. Se aplica dentro de
+ *    gasGet(), gasGetEstricto(), gasWriteIntento(), testConexion() y
+ *    verificarInspeccionHoy() — es decir, TODA comunicación con el
+ *    backend pasa por el mismo límite, sin tener que tocar cada
+ *    pantalla una por una.
+ *  + Se baja el timeout base de lectura de 45s (v12.15/17) a 25s: ya
+ *    no hace falta un margen tan grande porque el backend deja de
+ *    saturarse por congestión propia; 25s sigue siendo generoso para
+ *    un cold-start real de Apps Script. testConexion() y el login
+ *    (gasGetEstricto) conservan 45s, por ser los casos donde SÍ
+ *    interesa aguantar un cold-start completo sin fallar.
+ *  + Nuevo método público DB.obtenerHoja(sheetName): lectura genérica
+ *    de cualquier hoja del SHEET_MAP, pensada para pantallas que
+ *    necesiten leer una hoja sin un método dedicado (p.ej. el
+ *    checklist de Registro de Salida — ver v12.18 en
+ *    registro_salida.html). Pasa por gasGet(), así que hereda el
+ *    mismo caché, el mismo límite de concurrencia y el mismo
+ *    saneamiento de fechas/horas que ya usa el resto de la app, en
+ *    vez de hacer un fetch() suelto y sin ninguna de esas
+ *    protecciones (que es justo lo que hacía antes
+ *    registro_salida.html para leer/guardar el checklist).
  *
- *  El formulario de Tanqueo ahora manda 3 campos nuevos, que se
- *  guardan tal cual en la hoja "Tanqueo":
- *
- *    - NIVEL_OBSERVADO      → nivel de combustible que la persona vio
- *                             a simple vista ANTES de tanquear
- *                             (Vacío/Reserva, 1/4, Medio, 3/4, Lleno).
- *    - POSIBLE_INNECESARIO  → "SI" / "NO". Lo calcula el propio
- *                             formulario: se marca "SI" cuando, al
- *                             momento de tanquear, el sistema calcula
- *                             que a la carroza le queda más del 80%
- *                             de combustible (no se ha consumido ni
- *                             el 20% mínimo esperado), o cuando el
- *                             nivel observado fue "3/4" o "Lleno".
- *    - MOTIVO_INNECESARIO   → texto plano explicando cuál de esas
- *                             condiciones se cumplió (puede venir
- *                             vacío si POSIBLE_INNECESARIO = "NO").
- *
- *  ⚠️ IMPORTANTE: para que estos 3 valores queden guardados hay que
- *  agregar las columnas NIVEL_OBSERVADO, POSIBLE_INNECESARIO y
- *  MOTIVO_INNECESARIO en la hoja de cálculo "Tanqueo" (incluso vacías,
- *  con solo el encabezado). Si la columna no existe en la hoja, el
- *  backend (Apps Script) simplemente ignora ese valor al insertar.
- *
- *  No se toca la lógica de combustible/rendimiento existente — estos
- *  3 campos son puramente informativos, para poder filtrar después
- *  en el historial o en un reporte los tanqueos marcados como
- *  posiblemente innecesarios.
- *
- *  (Se conserva íntegro todo lo demás de v12.12 — nada de lo que ya
+ *  (Se conserva íntegro todo lo demás de v12.17 — nada de lo que ya
  *   funcionaba fue tocado.)
  *
- *  ── Historial v12.11 (Notificaciones por regional — corrección) ──
+ *  ── Historial v12.17 ──
+ *  Warm-up paralelo al iniciar (ping + hojas con Promise.allSettled,
+ *  fire-and-forget) y timeout de lectura subido de 20s a 45s para dar
+ *  margen a cold-starts de Apps Script. (El propio paralelismo sin
+ *  límite fue la causa del bug corregido arriba en v12.18.)
  *
- *  La hoja "notificaciones_apoyo" traía el campo `alcance` guardado
- *  de dos formas distintas según qué parte del código insertó la
- *  fila:
- *    - a veces la palabra literal "regional"
- *    - a veces el NOMBRE de una regional (ej. "Pereira"), por un bug
- *      histórico en el código que la creaba
- *  Esto hacía que el filtrado en las pantallas (panel_coordinador,
- *  etc.) fuera frágil: según cómo estuviera escrito el filtro, una
- *  regional podía no ver sus propias notificaciones, o (peor) ver
- *  las de otra regional.
+ *  ── Historial v12.16 (fix 404 instantáneo por caché de Service
+ *  Worker / navegador) ──
+ *  Toda petición GET a Apps Script agrega "_=<timestamp>" único a la
+ *  URL y usa { cache: 'no-store' } en fetch(), para que ninguna caché
+ *  sirva una respuesta vieja de un token de un solo uso ya "gastado".
  *
- *  Se agregan 3 métodos centralizados y usados desde ahora en TODAS
- *  las pantallas que necesiten notificaciones, para que exista un
- *  solo lugar con la lógica de filtrado (y no uno distinto por
- *  pantalla):
+ *  ── Historial v12.15 (fix: login mostraba "Credenciales
+ *  incorrectas" cuando en realidad era un timeout/fallo de red) ──
+ *  gasGetEstricto(): igual que gasGet(), pero LANZA el error real en
+ *  vez de devolver [] en silencio. DB.login() la usa con reintento
+ *  automático, para distinguir "no hay ese usuario" de "no se pudo
+ *  conectar".
  *
- *    - DB.obtenerNotificaciones(regional, opts)
- *        Lee, de forma tolerante con el dato heredado, SOLO las
- *        notificaciones de la regional indicada (+ las de alcance
- *        global/nacional/todas). Nunca cruza regionales entre sí.
- *    - DB.crearNotificacion(d)
- *        Crea notificaciones SIEMPRE en el formato correcto
- *        (alcance:'regional' + regional:d.regional), para que el
- *        dato sucio deje de crecer hacia adelante.
- *    - DB.marcarNotificacionLeida(id)
- *        Marca una notificación puntual como leída.
+ *  ── Historial v12.14 (corrección global de fechas/horas
+ *  "1899-12-30") ──
+ *  _limpiarFilaGAS(), aplicada dentro de gasGet(), corrige
+ *  automáticamente en TODA la app los valores de fecha/hora que
+ *  Google Sheets serializa mal cuando una celda queda con formato de
+ *  Hora o Fecha en vez de Texto plano.
  *
- *  ── Historial v12.10 (Averías Recientes — corrección de fuente) ──
+ *  ── Historial v12.13 (Tanqueo — nivel observado + alerta de
+ *  innecesario) ──
+ *  NIVEL_OBSERVADO / POSIBLE_INNECESARIO / MOTIVO_INNECESARIO se
+ *  guardan en la hoja "Tanqueo" y generan notificación a la regional
+ *  cuando POSIBLE_INNECESARIO = "SI".
  *
- *  Antes, el panel de "Averías Recientes" del dashboard leía de la
- *  hoja "Averias" (los reportes creados desde el formulario de
- *  Avería), pero esa hoja no reflejaba el estado real y actualizado
- *  del parque automotor, así que el panel aparecía vacío.
- *
- *  Se agrega obtenerAveriasDesdeFlota(), que lee la hoja "carrozas" y
- *  toma todas las filas cuyo campo estado_parque_automotor indique
- *  una novedad (cualquier valor que no sea "Disponible"/"Operativo"/
- *  vacío — ver ESTADOS_SIN_NOVEDAD). El detalle de cada novedad
- *  (descripción, taller, fecha) se toma de las columnas historial_*
- *  que ya vienen en esa MISMA fila de "carrozas":
- *      - historial_novedad_completa → detalle de la última novedad
- *      - historial_taller_nombre    → taller donde está/estuvo
- *      - historial_fecha            → fecha de esa actualización
- *      - sede_parque_automotor      → sede donde está la carroza
- *      - dias_en_taller_parque      → días que lleva en taller
- *
- *  dashboard.html llama a DB.obtenerAveriasDesdeFlota() en vez de
- *  DB.obtenerTodasAverias() para pintar "Averías Recientes".
- *  DB.obtenerTodasAverias() se conserva intacta (sigue leyendo de la
- *  hoja "Averias") por si otra pantalla la sigue usando.
- *
- *  ── Historial v12.8 (alimentar Checklist_Salida desde Llegadas) ──
- *
- *  Ahora, al guardar una Llegada, el sistema busca automáticamente
- *  el registro de "Checklist_Salida" de esa misma placa que quedó
- *  pendiente (sin HORA_ENTRADA) y le completa:
- *      - HORA_ENTRADA   = hora_ingreso de la Llegada
- *      - KM_ENTRADA     = km_ingreso de la Llegada
- *      - KM_RECORRIDOS  = total_km de la Llegada
- *
- *  No se le pide nada nuevo al conductor: el formulario de "Registro
- *  de Llegada" sigue funcionando exactamente igual que antes; esta
- *  actualización ocurre puertas adentro, dentro de guardarLlegada().
- *
- *  Cómo se enlaza: se busca por PLACA el Checklist_Salida más
- *  reciente (por FECHA + HORA_SALIDA) que tenga HORA_ENTRADA vacío —
- *  el mismo patrón que ya se usaba para detectar Traslados abiertos.
- *  Si por algún motivo no se encuentra, o falla la escritura, NO se
- *  bloquea el guardado de la Llegada (que ya se guardó exitosamente
- *  antes de intentar esto) — solo se deja advertencia en consola y
- *  en el resultado (`checklist_actualizado: false`) para que la
- *  pantalla lo pueda mostrar como aviso no crítico.
- *
- *  Nueva hoja registrada en SHEET_MAP: 'Checklist_Salida'.
- *
- *  ── Historial v12.7 (anti-duplicados en SALIDA y LLEGADA) ──
- *
- *  Problema detectado: en la hoja "Traslado" aparecieron dos filas
- *  con el MISMO id_salida (S-1783983171345, placa HWT 515) y además
- *  una tercera fila casi idéntica con id_salida distinto pero mismos
- *  datos (misma placa, conductor, hora de salida y motivo), 55
- *  segundos después. Como una de esas filas quedó sin
- *  hora_de_ingreso, el selector de "Registro de Llegada" seguía
- *  marcando la placa como "servicio sin cerrar" días después, aunque
- *  la carroza ya había regresado y vuelto a salir varias veces.
- *
- *  Causa: no existía ninguna verificación — ni por placa activa ni
- *  por contenido — antes de insertar una Salida nueva. Un reintento
- *  del conductor (por creer que el primer guardado falló) terminaba
- *  creando una segunda fila de Salida para el mismo viaje real.
- *
- *  Corrección — 2 guardas nuevas antes de CADA guardado:
- *
- *   1) guardarTraslado(d):
- *      GUARDA 1 — No permite abrir una Salida nueva para una placa
- *      que YA tiene una Salida activa (sin Llegada registrada). Se
- *      responde con { ok:false, duplicado:true, tipo:'salida_activa',
- *      existente:{...} } y un mensaje claro con el id_salida y la
- *      hora del viaje que sigue abierto, para que el formulario lo
- *      muestre al usuario en vez de crear un registro nuevo.
- *
- *      GUARDA 2 — Si los datos del formulario (placa + conductor +
- *      fecha + hora_salida + motivo) coinciden EXACTO con un
- *      Traslado ya existente (esté abierto o cerrado), se asume que
- *      es un doble envío del mismo formulario y NO se inserta una
- *      fila nueva — se reutiliza el id_salida existente
- *      ({ ok:true, data:{yaGuardado:true}, id_salida, duplicado:true }).
- *
- *   2) guardarLlegada(d):
- *      Si ya existe una Llegada guardada con el mismo id_salida, NO
- *      se vuelve a insertar (evita duplicar el cierre de un mismo
- *      Traslado por un reintento manual de "Finalizar Servicio" tras
- *      un timeout que sí había llegado a guardar en el servidor).
- *      Responde { ok:true, data:{yaGuardado:true}, duplicado:true }.
- *
- *  Estas verificaciones siempre leen la hoja SIN caché (se invalida
- *  antes de consultar), para no dar falsos negativos por datos
- *  desactualizados en memoria.
- *
- *  ── Historial v12.6 ──
- *  + guardarTanqueo(d) ahora sí envía FORMA_PAGO y TIPO_COMBUSTIBLE
- *    al backend (antes se descartaban en silencio).
- *
- *  ── Historial v12.5 ──
- *  + obtenerPlacasConTrasladoActivo(): nueva fuente de verdad para el
- *    selector "Elija placa..." del formulario de Llegada, construida
- *    directamente desde la hoja "Traslado" (filas sin hora_de_ingreso
- *    y sin Llegada ya guardada para ese id_salida), en vez de depender
- *    del campo estado de la hoja "carrozas".
- *  + guardarLlegada() ahora ESPERA (await) la actualización de
- *    kilometraje_actual / combustible_galones de la carroza antes de
- *    responder, y deja un error explícito en consola si falla (antes
- *    era fire-and-forget y podía fallar en silencio, descuadrando el
- *    Total KM del siguiente Traslado).
- *
- *  ── Historial v12.4 ──
- *  + Módulo de Tanqueo (guardarTanqueo / obtenerTanqueos) con los
- *    campos reales del formulario (Ciudad, N° factura, Foto de la
- *    tirilla, etc.)
- *  + Medidor de combustible por carroza. Se asume que cada tanqueo
- *    llena el tanque, así que:
- *      - Al guardar un Tanqueo → combustible_galones vuelve al 100%
- *        (capacidad_galones) y se calcula el rendimiento real
- *        (km recorridos desde el tanqueo anterior ÷ galones).
- *      - Al guardar una Llegada → se descuenta del tanque el consumo
- *        estimado de ESE viaje (km del viaje ÷ rendimiento conocido
- *        de la carroza, o 25 km/gal por defecto si aún no hay
- *        historial).
- *  + obtenerEstadoCarroza(placa) — combina combustible, alerta de
- *    rendimiento (🟢/🟡/🔴) y estado del próximo cambio de aceite
- *    (usando la hoja "mantenimientos") en un solo objeto.
- *  + Repuesta la capa de compatibilidad con Supabase
- *    (DB.supabase.from(...)) — otras páginas (dashboard,
- *    panel_coordinador, panel_conductor) sí la necesitaban.
- *  + Anti-duplicados: antes de reintentar un INSERT por timeout,
- *    verifica si la fila ya quedó guardada — si ya existe, NO
- *    vuelve a insertar.
- *  + Bloqueo contra doble click en guardarTraslado/Llegada/Averia/Tanqueo.
- *  + Guardado directo: confirma apenas la escritura principal
- *    responde OK, sin esperar a las actualizaciones secundarias
- *    que no afectan la corrección del dato (p.ej. cierre del
- *    Traslado, que ahora tiene su propio respaldo por Llegadas).
- *  + Caché en memoria con TTL para lecturas
- *  + Deduplicación de lecturas en vuelo
- *  + Timeout largo en escrituras + 1 reintento automático
- *  + Warm-up secuencial al cargar
- *
- *  🆕 CAMBIOS v12.15 (fix: login mostraba "Credenciales incorrectas"
- *  cuando en realidad era un timeout/fallo de red — no una contraseña
- *  mala):
- *
- *  Diagnóstico real (visto en consola): "gasGet usuarios error
- *  (Error): El servidor tardó demasiado en responder" repetido varias
- *  veces justo antes de un intento de login. Como gasGet() atrapa
- *  CUALQUIER error de red y devuelve [] en silencio (para no romper
- *  las ~40 pantallas que ya dependen de ese comportamiento), un
- *  timeout de la hoja "usuarios" se veía IDÉNTICO a "no hay ningún
- *  usuario con esos datos" — y el login le decía al conductor que su
- *  contraseña estaba mal, aunque era 100% correcta.
- *
- *  Causa raíz del timeout puntual de "usuarios": esa hoja de cálculo
- *  tiene cientos de columnas vacías de más (arrastradas por un pegado
- *  accidental), lo que hace que el backend (Code.gs) tarde mucho más
- *  de lo normal en leerla. Ver Code.gs v10.19 para el arreglo de raíz
- *  en el backend — este cambio en db.js es el respaldo del lado del
- *  cliente para que, aunque vuelva a pasar una lentitud puntual, el
- *  usuario NUNCA reciba un mensaje de error incorrecto.
- *
- *  + gasGetEstricto(sheetName, ms): igual que gasGet(), pero SIN
- *    tragarse los errores — si falla o hace timeout, LANZA la
- *    excepción real en vez de devolver [] en silencio. Se usa
- *    únicamente donde "lista vacía real" y "no se pudo conectar" son
- *    dos situaciones que deben mostrarle mensajes distintos al
- *    usuario (por ahora: solo login).
- *  + DB.login() reescrito: si la lectura de "usuarios" falla, se
- *    reintenta UNA vez con más tiempo (20s → 30s, mismo patrón que ya
- *    usa gasWrite) antes de rendirse. Si de verdad no hay conexión,
- *    ahora responde con un mensaje claro y distinto
- *    ("No se pudo conectar con el servidor...", esErrorConexion:true)
- *    en vez de "Credenciales incorrectas" — así el conductor/
- *    coordinador sabe que debe reintentar y no que su clave esté mal.
- *    Si sí hay datos y no matchean, sigue devolviendo el mensaje de
- *    credenciales, ahora como "Usuario o contraseña incorrectos"
- *    (mismo texto que ya usa index.html, para no romper nada visual).
- *  + gasGet() normal (usado por TODO el resto de la app) no cambió su
- *    comportamiento — sigue devolviendo [] en fallos para no romper
- *    ninguna pantalla existente. Solo se le subió el timeout base de
- *    lectura de 15s a 20s, dando un poco más de margen antes de
- *    considerar que una hoja lenta "falló".
- *
- *  🆕 CAMBIOS v12.16 (fix: 404 instantáneo en "script.googleusercontent.
- *  com/macros/echo?user_content_key=..." — ya NO era lentitud del
- *  backend, sino algo sirviendo una respuesta vieja/cacheada):
- *
- *  Diagnóstico: tras el fix de v10.19/v12.15, el backend responde
- *  rápido (el ping inicial "API J.R. Carrozas v10.19 activa" lo
- *  confirma), pero las lecturas de hojas empezaron a fallar con un
- *  404 INSTANTÁNEO (no un timeout lento) contra la URL de redirect de
- *  Apps Script (script.googleusercontent.com/macros/echo?user_content
- *  _key=...). Esa URL es un token de UN SOLO USO por ejecución — un
- *  404 rápido ahí es la firma típica de que algo (el Service Worker
- *  de offline-queue.js, o la caché HTTP del navegador) está sirviendo
- *  una respuesta guardada en vez de ir en vivo al servidor, y ese
- *  token ya se "gastó" la primera vez que se usó.
- *
- *  + Toda petición GET a Apps Script (gasGet, gasGetEstricto,
- *    testConexion, verificarInspeccionHoy) ahora:
- *      1) agrega un parámetro "_=<timestamp>" único a la URL en cada
- *         llamada, para que ninguna caché que compare por URL exacta
- *         (típico en Service Workers) pueda reconocerla como "la
- *         misma petición de antes" y servir una respuesta vieja.
- *      2) usa { cache: 'no-store' } en fetch(), para que el propio
- *         navegador tampoco intente servir esta petición desde su
- *         caché HTTP.
- *    Las escrituras (gasWrite) no se tocaron: ya usan POST con
- *    idCol/idValue propios y nunca dependieron de caché.
+ *  ── Historial v12.12 (reparación de Traslados "abiertos" con
+ *  Llegada ya guardada) + v12.11 (notificaciones por regional) +
+ *  v12.10 (Averías Recientes desde "carrozas") + v12.8 (enlace con
+ *  Checklist_Salida) + v12.7 (anti-duplicados en Salida/Llegada) +
+ *  v12.6-v12.4 (Tanqueo, medidor de combustible, capa de
+ *  compatibilidad Supabase, anti-duplicados genérico, bloqueo doble
+ *  click, caché con TTL, timeouts largos en escritura) — todo se
+ *  conserva íntegro, ver versiones anteriores del archivo para el
+ *  detalle completo de cada una.
  * ══════════════════════════════════════════════════════════
  */
 
@@ -401,37 +200,6 @@ function claveOrdenChecklist(registro) {
 // ══════════════════════════════════════════════════════════
 // 🆕 v12.14 — SANEAMIENTO CENTRAL DE FECHAS/HORAS (bug "1899-12-30")
 // ══════════════════════════════════════════════════════════
-// Cuando una celda de la hoja queda con formato de "Hora" o "Fecha"
-// (en vez de Texto plano) — algo que Google Sheets hace solo, sin que
-// nadie lo pida, apenas detecta que el texto escrito "parece" una
-// hora ("13:16") o una fecha ("29/07/2026") — Apps Script ya no la
-// lee como el texto que se guardó, sino como un objeto Date. Al
-// convertir la respuesta a JSON, esa Date se serializa como texto
-// ISO. Para una celda que solo tiene HORA, Sheets usa como "fecha
-// base" el día cero de su propio sistema (30 de diciembre de 1899),
-// así que el ISO llega como "1899-12-30T18:16:44.000Z" — de ahí el
-// bug visible de "salió 1899-12-30 ...". Para una celda con FECHA
-// real, la Date sí trae el día correcto, pero de todas formas llega
-// como ISO ("2026-07-29T05:00:00.000Z") en vez del texto
-// "29/07/2026" que espera el resto de la app — y funciones como
-// claveOrden() (arriba), que solo entienden "DD/MM/AAAA", ignoran ese
-// valor y ordenan mal. Ese es el origen real de "las fechas tan
-// erradas" en toda la aplicación: no es un bug de una sola pantalla,
-// es un dato que sale mal formado desde la fuente para CUALQUIER
-// pantalla que lo pida.
-//
-// _limpiarFilaGAS() detecta ambos casos y los devuelve en el mismo
-// formato de texto que la app siempre usó (HH:MM para horas, DD/MM/
-// AAAA para fechas), usando el reloj/huso horario del propio
-// navegador (igual que ya hacían fmtFechaCorta/fmtHoraCorta en
-// panel_automotor.html y panel_coordinador_nacional.html, que sí
-// tenían este arreglo pero solo en esas 2 pantallas). Al aplicarse
-// una sola vez aquí, dentro de gasGet(), la corrección queda
-// disponible automáticamente en TODA la aplicación (registro_salida,
-// registro_llegada, dashboard, mis_salidas, panel_coordinador,
-// tanqueo, taller, inspección, etc.) sin tener que tocar cada
-// pantalla una por una. Los campos ISO que la propia app genera a
-// propósito (created_at) se dejan intactos.
 const _CAMPOS_ISO_SIN_TOCAR = { created_at: true };
 
 const RE_ISO_FECHA_HORA = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/;
@@ -441,17 +209,6 @@ function _looksLikeISOFechaHora(v) {
   return typeof v === 'string' && RE_ISO_FECHA_HORA.test(v);
 }
 
-// ⚠️ Se calcula la hora local de Colombia restando manualmente 5 horas
-// en milisegundos (Date.UTC + resta fija), en vez de usar
-// new Date(iso).getHours()/.getDate() del navegador. Para la fecha
-// ancla del caso "solo hora" (30/12/1899), esa vía daba un resultado
-// CORRIDO EN MINUTOS: antes de 1914 Bogotá no usaba UTC-5 exacto sino
-// su antigua "hora media local" (~UTC-4:56), y los navegadores aplican
-// ese offset histórico a cualquier Date con año 1899 — un
-// "1899-12-30T18:16:44Z" terminaba mostrando "13:20" en vez de
-// "13:16". Restar 5h en milisegundos y leer con los métodos *UTC*
-// evita ese problema por completo, y además no depende de en qué
-// huso horario esté configurado el navegador de quien abre la app.
 function _fmtFechaHoraGAS(valorISO) {
   const m = valorISO.match(RE_ISO_FECHA_HORA);
   if (!m) return valorISO;
@@ -497,6 +254,39 @@ function fetchConTimeout(url, opciones, ms) {
     .finally(function() { clearTimeout(timer); });
 }
 
+// ══════════════════════════════════════════════════════════
+// 🆕 v12.18 — LIMITADOR DE CONCURRENCIA GLOBAL HACIA APPS SCRIPT
+// ══════════════════════════════════════════════════════════
+// Ver explicación completa en el encabezado del archivo. En corto:
+// Apps Script no soporta bien un aluvión de peticiones simultáneas al
+// mismo Web App — eso causaba los 404 instantáneos y la lentitud
+// extrema reportada al cargar placas. Aquí se limita a 2 peticiones
+// en vuelo al mismo tiempo; el resto espera en una cola FIFO en
+// memoria y arranca automáticamente en cuanto se libera un cupo.
+const MAX_PETICIONES_SIMULTANEAS = 2;
+let _peticionesActivas = 0;
+const _colaPeticiones = [];
+
+function _conLimiteConcurrencia(fn) {
+  return new Promise(function(resolve, reject) {
+    function ejecutar() {
+      _peticionesActivas++;
+      fn().then(resolve, reject).finally(function() {
+        _peticionesActivas--;
+        if (_colaPeticiones.length) {
+          const siguiente = _colaPeticiones.shift();
+          siguiente();
+        }
+      });
+    }
+    if (_peticionesActivas < MAX_PETICIONES_SIMULTANEAS) {
+      ejecutar();
+    } else {
+      _colaPeticiones.push(ejecutar);
+    }
+  });
+}
+
 // ── CACHÉ EN MEMORIA (solo lecturas) ──────────────────────
 const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
@@ -514,21 +304,19 @@ async function gasGet(sheetName) {
 
   _inflight[key] = (async () => {
     try {
-      // 🆕 v12.16 — "_" con timestamp único + cache:'no-store': evita que
-      // el Service Worker (offline-queue.js) o la caché HTTP del
-      // navegador intercepten esta petición y sirvan una respuesta
-      // guardada. Esto es crítico porque script.google.com redirige
-      // cada ejecución a una URL de un solo uso
-      // (script.googleusercontent.com/macros/echo?user_content_key=...)
-      // — si algo cachea esa respuesta y la reutiliza, la segunda vez
-      // da 404 porque ese token ya se "gastó" en la primera.
-      const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 45000); // 🆕 v12.17 — 20s → 45s: cold-start de GAS
+      // v12.16 — "_" con timestamp único + cache:'no-store': evita caché
+      // de Service Worker / navegador sirviendo una respuesta vieja de
+      // un token de un solo uso. v12.18 — pasa por el limitador de
+      // concurrencia para no saturar Apps Script con lecturas simultáneas.
+      const url = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
+      const resp = await _conLimiteConcurrencia(() =>
+        fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 25000) // 🆕 v12.18 — 45s → 25s (ya no hace falta tanto margen sin la congestión)
+      );
       if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
       const json = await resp.json();
       if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
       const data = Array.isArray(json) ? json : [];
-      data.forEach(_limpiarFilaGAS); // 🆕 v12.14 — corrige fechas/horas mal serializadas ("1899-12-30", ISO crudo)
+      data.forEach(_limpiarFilaGAS); // v12.14 — corrige fechas/horas mal serializadas
       _cache[key] = { data, ts: Date.now() };
       return data;
     } catch (err) {
@@ -543,14 +331,8 @@ async function gasGet(sheetName) {
 }
 
 // ══════════════════════════════════════════════════════════
-// 🆕 v12.15 — LECTURA "ESTRICTA" (no traga errores en silencio)
+// v12.15 — LECTURA "ESTRICTA" (no traga errores en silencio)
 // ══════════════════════════════════════════════════════════
-// Igual que gasGet(), pero si la petición falla o hace timeout LANZA
-// la excepción real en vez de devolver []. Usar solo donde "no hay
-// datos" y "no se pudo leer la hoja" necesitan un mensaje distinto
-// para el usuario (por ahora: DB.login, ver más abajo). No usa la
-// deduplicación _inflight de gasGet a propósito, para no heredar un
-// posible resultado ya "tragado" como [] de una llamada en vuelo.
 async function gasGetEstricto(sheetName, ms) {
   const key = resolveSheet(sheetName);
 
@@ -559,9 +341,13 @@ async function gasGetEstricto(sheetName, ms) {
     return cached.data;
   }
 
-  // 🆕 v12.17 — mismo cache-busting que gasGet() (ver comentario arriba).
-  const url  = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
-  const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, ms || 45000);
+  // v12.16 — mismo cache-busting que gasGet(). v12.18 — mismo límite
+  // de concurrencia (el login no debe competir de más contra otras
+  // lecturas que estén en curso, ni saturar por su cuenta).
+  const url = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
+  const resp = await _conLimiteConcurrencia(() =>
+    fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, ms || 45000)
+  );
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const json = await resp.json();
   if (json && json.error) throw new Error(json.error);
@@ -592,12 +378,17 @@ async function gasWriteIntento(sheetName, payload, action, idCol, idValue, ms) {
   if (idValue) urlParams.set('idValue', idValue);
   const url = `${URL_GAS}?${urlParams}`;
 
-  const resp = await fetchConTimeout(url, {
+  // 🆕 v12.18 — las escrituras también pasan por el limitador global:
+  // Apps Script comparte el mismo cupo de ejecuciones concurrentes
+  // para lecturas y escrituras, así que dejar las escrituras sin
+  // límite podía seguir saturando el backend aunque las lecturas ya
+  // estuvieran controladas.
+  const resp = await _conLimiteConcurrencia(() => fetchConTimeout(url, {
     method:  'POST',
     redirect: 'follow',
     headers: { 'Content-Type': 'text/plain' },
     body:    JSON.stringify(payload),
-  }, ms);
+  }, ms));
 
   if (!resp.ok) { return { ok: false, error: `HTTP ${resp.status}` }; }
   const text = await resp.text();
@@ -656,9 +447,6 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
 }
 
 // ── ACTUALIZACIÓN SECUNDARIA EN SEGUNDO PLANO ─────────────
-// (Solo para procesos que NO son fuente de verdad para el próximo
-// servicio, p.ej. el cierre "cosmético" del Traslado — el KM real
-// de la carroza ya no depende de esto, ver guardarLlegada v12.5.)
 function actualizarEnSegundoPlano(promesa, etiqueta) {
   promesa
     .then(function(res) {
@@ -684,26 +472,8 @@ async function conLock(nombre, fn) {
 }
 
 // ══════════════════════════════════════════════════════════
-// 🆕 v12.7 — GUARDAS ANTI-DUPLICADO (SALIDA Y LLEGADA)
+// v12.7 — GUARDAS ANTI-DUPLICADO (SALIDA Y LLEGADA)
 // ══════════════════════════════════════════════════════════
-// Estas funciones siempre invalidan la caché antes de leer, para no
-// dar un falso "no existe" por datos desactualizados en memoria.
-
-// Busca si la placa YA tiene una Salida activa (sin hora_de_ingreso EN
-// LA HOJA TRASLADO Y SIN UNA LLEGADA YA GUARDADA). Se usa para impedir
-// abrir una segunda Salida mientras la anterior sigue abierta.
-//
-// 🆕 v12.12 — CORRECCIÓN CRÍTICA: antes esta función solo miraba el
-// campo hora_de_ingreso de la propia hoja "Traslado". Pero
-// guardarLlegada() nunca escribía de vuelta ese campo en "Traslado"
-// (solo guardaba la Llegada en su propia hoja) — así que un servicio
-// con su Llegada ya registrada correctamente en "Llegadas" seguía
-// apareciendo como "SERVICIO SIN CERRAR" en Registro de Salida para
-// siempre, bloqueando cualquier nueva salida de esa carroza.
-// Ahora se cruza contra "Llegadas" (igual que ya hacía
-// obtenerPlacasConTrasladoActivo) — si existe una Llegada para ese
-// id_salida, el traslado NO se considera abierto, sin importar lo
-// que diga el campo hora_de_ingreso de "Traslado".
 async function buscarTrasladoAbiertoPorPlaca(placa) {
   const pSel = String(placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
   if (!pSel) return null;
@@ -726,14 +496,6 @@ async function buscarTrasladoAbiertoPorPlaca(placa) {
   return abiertos[0];
 }
 
-// Busca si YA existe un Traslado con exactamente los mismos datos
-// (misma placa + conductor + fecha + hora de salida + motivo), sin
-// importar si sigue abierto o ya se cerró. Esto detecta el caso de
-// un doble envío del formulario de Salida (p.ej. el conductor cree
-// que falló y presiona "Guardar" de nuevo): la segunda vez genera
-// un id_salida distinto (por ser Date.now()) pero el contenido es
-// idéntico — antes esto producía dos filas de Salida para el mismo
-// viaje real, descuadrando el kilometraje y el combustible.
 async function buscarTrasladoDuplicadoPorContenido(d) {
   DB.invalidarCache('Traslado');
   const rows = await gasGet('Traslado');
@@ -748,10 +510,6 @@ async function buscarTrasladoDuplicadoPorContenido(d) {
   }) || null;
 }
 
-// Busca si YA existe una Llegada guardada para este id_salida — evita
-// duplicar el cierre de un mismo Traslado (p.ej. reintento manual de
-// "Finalizar Servicio" tras un timeout que sí alcanzó a guardar en
-// el servidor, o un doble click que sorteó el bloqueo de la sesión).
 async function buscarLlegadaPorIdSalida(idSalida) {
   if (!idSalida) return null;
   DB.invalidarCache('Llegadas');
@@ -760,14 +518,8 @@ async function buscarLlegadaPorIdSalida(idSalida) {
 }
 
 // ══════════════════════════════════════════════════════════
-// 🆕 v12.8 — ENLACE CON Checklist_Salida
+// v12.8 — ENLACE CON Checklist_Salida
 // ══════════════════════════════════════════════════════════
-// Busca el Checklist_Salida más reciente de esta placa que todavía NO
-// tenga HORA_ENTRADA (es decir, "pendiente de llegada"). Es la misma
-// idea que buscarTrasladoAbiertoPorPlaca, aplicada a esta hoja, para
-// poder completar HORA_ENTRADA / KM_ENTRADA / KM_RECORRIDOS al cerrar
-// el servicio en "Registro de Llegada" sin pedirle nada nuevo al
-// conductor.
 async function buscarChecklistAbiertoPorPlaca(placa) {
   const pSel = String(placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
   if (!pSel) return null;
@@ -784,7 +536,7 @@ async function buscarChecklistAbiertoPorPlaca(placa) {
 }
 
 // ══════════════════════════════════════════════════════════
-// 🆕 v12.10 — AVERÍAS RECIENTES DESDE "carrozas"
+// v12.10 — AVERÍAS RECIENTES DESDE "carrozas"
 // ══════════════════════════════════════════════════════════
 const ESTADOS_SIN_NOVEDAD = ['disponible', 'operativo', 'operativa', 'ok', 'activo', 'activa', 'bien', ''];
 
@@ -927,12 +679,19 @@ const DB = {
     await Promise.all(hojas.map(function(h) { return gasGet(h); }));
   },
 
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.18 — LECTURA PÚBLICA GENÉRICA DE CUALQUIER HOJA
+  // ══════════════════════════════════════════════════════════
+  // Para pantallas que necesiten leer una hoja del SHEET_MAP sin un
+  // método dedicado propio (p.ej. el checklist de Registro de
+  // Salida). A diferencia de un fetch() suelto, esto hereda caché,
+  // límite de concurrencia, timeout y saneamiento de fechas/horas.
+  async obtenerHoja(sheetName) {
+    try { return { ok: true, data: await gasGet(sheetName) }; }
+    catch (e) { return { ok: false, data: [], error: e.message }; }
+  },
+
   // ── LOGIN ──────────────────────────────────────────────────
-  // 🆕 v12.15 — Ya NO usa gasGet('usuarios') (que traga timeouts y
-  // los convierte en [] en silencio). Usa gasGetEstricto, que SÍ deja
-  // ver cuándo la hoja no se pudo leer, para no confundir "no hubo
-  // conexión" con "la contraseña está mal". Reintenta una vez con más
-  // tiempo (mismo patrón que gasWrite) antes de rendirse.
   async login(usuario, clave) {
     let rows;
     try {
@@ -1124,7 +883,7 @@ const DB = {
           CARROZA:              d.carroza || '',
           PLACA:                d.placa || '',
           CONDUCTOR:            d.conductor || '',
-          NIVEL_OBSERVADO:      d.nivel_observado || '',        // 🆕 v12.13
+          NIVEL_OBSERVADO:      d.nivel_observado || '',
           ESTACION_SERVICIO:    d.estacion_servicio || '',
           CIUDAD:               d.ciudad || '',
           KILOMETRAJE:          kmActual,
@@ -1140,8 +899,8 @@ const DB = {
           FORMA_PAGO:           d.forma_pago || '',
           TIPO_COMBUSTIBLE:     d.tipo_combustible || '',
           REGIONAL:             d.regional || '',
-          POSIBLE_INNECESARIO:  d.posible_innecesario || 'NO',  // 🆕 v12.13 — "SI" / "NO"
-          MOTIVO_INNECESARIO:   d.motivo_innecesario  || '',    // 🆕 v12.13
+          POSIBLE_INNECESARIO:  d.posible_innecesario || 'NO',
+          MOTIVO_INNECESARIO:   d.motivo_innecesario  || '',
         };
 
         const res = await gasWrite('Tanqueo', fila, 'insert');
@@ -1149,11 +908,6 @@ const DB = {
         if (res.ok) {
           DB.invalidarCache('Tanqueo');
 
-          // 🆕 v12.13 — Si el propio formulario marcó el tanqueo como
-          // posiblemente innecesario, se avisa también a la regional
-          // por notificación (igual que ya se hace con las averías),
-          // para que el coordinador lo vea sin tener que revisar el
-          // historial manualmente.
           if (d.posible_innecesario === 'SI') {
             actualizarEnSegundoPlano(
               DB.crearNotificacion({
@@ -1202,8 +956,6 @@ const DB = {
     } catch (e) { return { ok: false, data: [], error: e.message }; }
   },
 
-  // 🆕 v12.13 — Tanqueos marcados como posiblemente innecesarios,
-  // para pantallas de reporte/auditoría (ej. panel_coordinador).
   async obtenerTanqueosInnecesarios(limite) {
     if (limite === undefined) limite = 50;
     try {
@@ -1508,17 +1260,6 @@ const DB = {
         console.warn('⚠️ Error anexando combustible al registro de Llegada:', e.message);
       }
 
-      // 🆕 v12.12 — Actualizar también la propia hoja "Traslado" con
-      // hora_de_ingreso / km__ingreso / total_km. Antes esto NUNCA se
-      // escribía de vuelta en "Traslado" (solo se guardaba la Llegada
-      // en su propia hoja), así que el Traslado original quedaba
-      // "abierto" para siempre a ojos de cualquier pantalla que leyera
-      // directamente esa hoja — incluida la propia guarda anti-doble-
-      // salida (buscarTrasladoAbiertoPorPlaca), que por eso seguía
-      // bloqueando nuevas salidas de una carroza cuya Llegada YA
-      // estaba correctamente registrada. No es crítico si falla (la
-      // guarda ya cruza contra "Llegadas" de todas formas), así que
-      // no bloquea el resto del flujo si algo sale mal.
       let trasladoActualizado = false;
       if (d.id_salida) {
         try {
@@ -1560,10 +1301,6 @@ const DB = {
         console.warn('⚠️ Error actualizando Checklist_Salida tras guardarLlegada:', e.message);
       }
 
-      // ── 🆕 v12.11 — Si esta Llegada cierra un servicio que tenía una
-      //    notificación de "cierre_pendiente" abierta, la marca como
-      //    leída automáticamente (ya no hace falta que el coordinador
-      //    la descarte a mano — la campana se limpia sola).
       try {
         if (d.id_salida) {
           const notis = await gasGet('notificaciones_apoyo');
@@ -1640,7 +1377,6 @@ const DB = {
           'crear orden de mantenimiento tras guardarAveria'
         );
 
-        // 🆕 v12.11 — Notificar a la regional de esta avería.
         actualizarEnSegundoPlano(
           DB.crearNotificacion({
             tipo: 'averia_reportada',
@@ -1706,24 +1442,6 @@ const DB = {
     }
   },
 
-  // ══════════════════════════════════════════════════════════
-  // 🆕 v12.12 — REPARAR TRASLADOS "ABIERTOS" QUE YA TIENEN LLEGADA
-  // ══════════════════════════════════════════════════════════
-  // Antes de esta versión, guardarLlegada() nunca escribía de vuelta
-  // hora_de_ingreso/km__ingreso/total_km en la hoja "Traslado" — por
-  // lo que cualquier servicio cerrado ANTES de este parche quedó con
-  // su Traslado marcado como "abierto" para siempre, aunque su
-  // Llegada esté correctamente guardada en la hoja "Llegadas".
-  //
-  // Esta función recorre "Traslado", detecta esas filas huérfanas
-  // (hora_de_ingreso vacía + SÍ existe una Llegada con ese id_salida)
-  // y las completa con los datos de esa Llegada. Es seguro ejecutarla
-  // varias veces: una fila ya reparada (con hora_de_ingreso llena) no
-  // se vuelve a tocar.
-  //
-  // Cómo ejecutarla una sola vez (por ejemplo desde la consola del
-  // navegador en cualquier pantalla que cargue db.js):
-  //     await DB.repararTrasladosCerrados()
   async repararTrasladosCerrados() {
     try {
       DB.invalidarCache('Traslado');
@@ -1791,11 +1509,13 @@ const DB = {
 
   async testConexion() {
     try {
-      // 🆕 v12.17 — 10s → 45s: el cold-start de GAS puede tardar 15-30s cuando
-      // el script estuvo inactivo. Con 10s el ping siempre fallaba al abrir la
-      // app por primera vez o tras un periodo sin uso, bloqueando todo lo demás.
+      // v12.18 — pasa por el limitador de concurrencia igual que el
+      // resto; conserva 45s de margen por ser, junto con el login, el
+      // caso donde de verdad interesa aguantar un cold-start completo.
       const url = `${URL_GAS}?_=${Date.now()}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 45000);
+      const resp = await _conLimiteConcurrencia(() =>
+        fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 45000)
+      );
       const json = await resp.json();
       return { ok: true, mensaje: json.mensaje || JSON.stringify(json) };
     } catch(e) { return { ok: false, error: e.message }; }
@@ -1863,9 +1583,11 @@ const DB = {
   // ── VERIFICAR INSPECCIÓN HECHA HOY ────────────────────────
   async verificarInspeccionHoy(placa) {
     try {
-      // 🆕 v12.16 — cache-busting también aquí (ver comentario en gasGet).
+      // v12.16 — cache-busting. v12.18 — límite de concurrencia.
       const url = `${URL_GAS}?action=checkInspeccionHoy&placa=${encodeURIComponent(placa)}&_=${Date.now()}`;
-      const resp = await fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 12000);
+      const resp = await _conLimiteConcurrencia(() =>
+        fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 12000)
+      );
       if (!resp.ok) return { existe: false };
       const json = await resp.json();
       return json;
@@ -1876,17 +1598,8 @@ const DB = {
   },
 
   // ══════════════════════════════════════════════════════════
-  // 🆕 v12.11 — NOTIFICACIONES POR REGIONAL (multi-tenant real)
+  // v12.11 — NOTIFICACIONES POR REGIONAL (multi-tenant real)
   // ══════════════════════════════════════════════════════════
-  //
-  // LEER — solo trae las notificaciones de LA REGIONAL indicada
-  // (+ las de alcance global/nacional/todas). Tolerante con el dato
-  // heredado: acepta tanto alcance='regional'+regional=X (formato
-  // correcto) como alcance=X directamente (bug histórico), pero
-  // SIEMPRE exige que la regional coincida exactamente con la que
-  // se está consultando — nunca cruza regionales entre sí.
-  //
-  // opts: { soloNoLeidas: true/false, tipo: 'cierre_pendiente' (opcional) }
   async obtenerNotificaciones(regional, opts) {
     opts = opts || {};
     try {
@@ -1900,19 +1613,8 @@ const DB = {
         const regCampoNorm = normTexto(r.regional);
 
         const esGlobal = alcanceNorm === 'global' || alcanceNorm === 'todas' || alcanceNorm === 'nacional' || alcanceNorm === 'general';
-
-        // Formato correcto: alcance='regional' + regional=miRegional
         const formatoNuevo = alcanceNorm === 'regional' && regCampoNorm === regionalNorm;
-
-        // Formato heredado con bug: alcance trae el NOMBRE de la
-        // regional directamente. Solo cuenta si coincide EXACTO con
-        // la regional que se está consultando.
         const formatoViejo = alcanceNorm === regionalNorm;
-
-        // Respaldo adicional: si por cualquier motivo `alcance` viene
-        // vacío o con un valor no reconocido, se usa directamente el
-        // campo `regional` de la fila (nunca deja pasar algo de otra
-        // regional distinta a la solicitada).
         const porCampoRegional = !alcanceNorm && regCampoNorm === regionalNorm;
 
         return esGlobal || formatoNuevo || formatoViejo || porCampoRegional;
@@ -1940,9 +1642,6 @@ const DB = {
     }
   },
 
-  // CREAR — siempre en el formato correcto (alcance:'regional').
-  // d: { tipo, titulo, cuerpo, regional, solicitud_id, remitente,
-  //      placa, id_salida_ref, conductor, hora_salida, fecha_salida }
   async crearNotificacion(d) {
     if (!d || !d.regional) {
       return { ok: false, error: 'crearNotificacion requiere el campo "regional" del destinatario' };
@@ -1969,7 +1668,6 @@ const DB = {
     return res;
   },
 
-  // MARCAR COMO LEÍDA
   async marcarNotificacionLeida(id) {
     if (!id) return { ok: false, error: 'marcarNotificacionLeida requiere un id' };
     const res = await gasWrite('notificaciones_apoyo', { leido: true }, 'update', 'id', id);
@@ -1980,19 +1678,17 @@ const DB = {
 };
 
 window.DB = DB;
+window.URL_GAS = URL_GAS;
 
-// ── WARM-UP PARALELO AL INICIAR (no bloquea la UI) ─────────
-// 🆕 v12.17 — Antes el warm-up era SECUENCIAL: esperaba el ping (10s),
-// luego descargaba 8 hojas una por una con 300ms de pausa entre cada una.
-// Si el GAS estaba en cold-start, el ping fallaba a los 10s y el caché
-// nunca se precargaba — dejando todas las lecturas siguientes lentas.
-// Ahora:
-//   1. El ping y todas las hojas se descargan EN PARALELO (Promise.allSettled)
-//      para aprovechar al máximo el tiempo de cold-start.
-//   2. Todo corre en segundo plano (fire-and-forget): si tarda 30s no
-//      bloquea ni el login ni ninguna otra pantalla.
-//   3. Cualquier hoja que falle simplemente queda sin caché (se reintentará
-//      la próxima vez que esa hoja se necesite).
+// ── WARM-UP AL INICIAR (no bloquea la UI) ─────────
+// 🆕 v12.18 — Sigue disparándose todo "a la vez" con Promise.allSettled
+// en segundo plano (fire-and-forget, no bloquea login ni ninguna
+// pantalla), PERO ahora cada gasGet() internamente pasa por el
+// limitador de concurrencia — así que, aunque aquí se "lancen" 10
+// promesas de una vez, solo 2 llegan de verdad al backend al mismo
+// tiempo; el resto espera su turno en la cola. Esto es lo que corrige
+// los 404 instantáneos y la lentitud extrema reportada al cargar
+// placas justo después del arranque.
 (function() {
   const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo', 'Llegadas', 'notificaciones_apoyo', 'config'];
   const promesas = [
@@ -2003,6 +1699,6 @@ window.DB = DB;
     ...hojas.map(function(h) { return gasGet(h).catch(function() {}); })
   ];
   Promise.allSettled(promesas).then(function() {
-    console.log('✅ Caché precargado correctamente (paralelo)');
+    console.log('✅ Caché precargado correctamente');
   });
 })();
