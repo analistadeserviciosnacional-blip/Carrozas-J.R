@@ -603,6 +603,15 @@ function renderUsuarios() {
     document.getElementById('lista-usuarios').innerHTML = usersData.map((u,i) => {
         const rol = u.rol || (u.usuario==='admin'?'admin':'conductor');
         const badge = rol==='admin'?'badge-admin':rol==='coordinador'?'badge-coordinador':'badge-conductor';
+        // 🆕 FIX: antes se insertaba JSON.stringify(u) directo dentro de un
+        // atributo onclick='...' (comillas simples). Si el nombre de un
+        // usuario tenía un apóstrofe (ej. "O'Neill"), esa comilla cerraba
+        // el atributo antes de tiempo y rompía el botón "Editar" (y en
+        // algunos casos el resto de la fila). Se escapan las comillas
+        // simples como entidad HTML (&#39;) — el navegador las decodifica
+        // ANTES de interpretar el JS del onclick, así que el JSON llega
+        // intacto.
+        const uJsonSeguro = JSON.stringify(u).replace(/'/g, '&#39;');
         return '<div class="usuario-row">'+
             '<div style="display:flex;align-items:center;gap:10px;">'+
                 '<div class="avatar" style="background:'+colors[i%colors.length]+'">'+((u.nombre||'U')[0].toUpperCase())+'</div>'+
@@ -611,8 +620,8 @@ function renderUsuarios() {
             '</div>'+
             '<div style="display:flex;align-items:center;gap:6px;">'+
                 '<span class="badge '+badge+'">'+rol+'</span>'+
-                '<button class="btn-sm btn-edit" onclick=\'abrirModal('+JSON.stringify(u)+')\'>Editar</button>'+
-                '<button class="btn-sm btn-del-u" onclick="eliminarUsuario('+u.id+',\''+encodeURIComponent(u.nombre||'')+'\')">✕</button>'+
+                '<button class="btn-sm btn-edit" onclick=\'abrirModal('+uJsonSeguro+')\'>Editar</button>'+
+                '<button class="btn-sm btn-del-u" onclick="eliminarUsuario('+JSON.stringify(u.id)+',\''+encodeURIComponent(u.nombre||'')+'\')">✕</button>'+
             '</div>'+
         '</div>';
     }).join('') || '<p style="text-align:center;color:#94a3b8;padding:20px;font-size:13px;">Sin usuarios</p>';
@@ -643,9 +652,20 @@ async function guardarUsuario() {
     };
     if (!datos.nombre || !datos.usuario || !datos.password) { toast('⚠️ Completa los campos obligatorios','#f59e0b'); return; }
     try {
-        const res = id
-            ? await DB.supabase.from('usuarios').update({nombre:datos.nombre,password:datos.password,telefono:datos.telefono,rol:datos.rol}).eq('id',id)
-            : await DB.supabase.from('usuarios').insert([datos]);
+        let res;
+        if (id) {
+            res = await DB.supabase.from('usuarios').update({nombre:datos.nombre,password:datos.password,telefono:datos.telefono,rol:datos.rol}).eq('id',id);
+        } else {
+            // 🆕 FIX: la hoja "usuarios" no genera un ID automático en el
+            // backend (a diferencia de Tanqueo/Checklist_Salida/etc.), así
+            // que un usuario creado desde aquí quedaba sin "id" — lo cual
+            // rompía silenciosamente los botones "Editar" y "✕" de ESE
+            // usuario en adelante (intentaban filtrar por un id vacío/
+            // indefinido y no encontraban la fila). Se genera el id aquí
+            // mismo antes de insertar.
+            datos.id = Date.now();
+            res = await DB.supabase.from('usuarios').insert([datos]);
+        }
         if (res.error) throw res.error;
         toast('✅ Usuario guardado','#10b981');
         cerrarModal(); cargarUsuarios();
