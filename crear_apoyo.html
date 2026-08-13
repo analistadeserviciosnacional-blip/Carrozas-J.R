@@ -505,46 +505,6 @@
         return msg;
     }
 
-    // ══════════════════════════════════════════════════════
-    // 🆕 TELEGRAM — mensaje + resolución de destinatarios
-    // ══════════════════════════════════════════════════════
-
-    function generarMensajeTelegram(datos) {
-        const emojiU = urgencia === 'critica' ? '🚨' : urgencia === 'urgente' ? '⚡' : '✅';
-        let msg = `${emojiU} <b>SOLICITUD DE APOYO ${urgencia.toUpperCase()}</b>\n`;
-        msg += `🏢 <b>Regional:</b> ${datos.regional_solicitante}\n`;
-        msg += `👤 <b>Coordinador:</b> ${datos.coordinador}\n`;
-        msg += `🚗 <b>Servicio:</b> ${datos.tipo_servicio}\n`;
-        msg += `🚩 <b>Origen:</b> ${datos.origen}\n`;
-        msg += `🏁 <b>Destino:</b> ${datos.destino}\n`;
-        if (datos.nombre_fallecido) msg += `⚱️ <b>Fallecido:</b> ${datos.nombre_fallecido}\n`;
-        if (datos.fecha_servicio)   msg += `📅 <b>Fecha:</b> ${datos.fecha_servicio}\n`;
-        if (datos.hora_requerida)   msg += `🕒 <b>Hora:</b> ${datos.hora_requerida}\n`;
-        if (datos.observaciones)    msg += `📝 <b>Obs:</b> ${datos.observaciones}\n`;
-        msg += `\n👉 Entra a la app J.R. para aceptar este servicio.`;
-        return msg;
-    }
-
-    // 🆕 v10.10 — Notifica por Telegram usando el endpoint SEGURO del backend
-    // (action=notificarTelegram). El propio backend resuelve, sin exponer el
-    // token en el navegador, tanto los conductores ya vinculados individualmente
-    // de esa regional (hoja telegram_links) como el grupo de respaldo
-    // (hoja config_telegram), y le manda el mensaje solo a esos destinatarios
-    // — nunca a los de otra regional — salvo que el alcance sea "nacional".
-    async function notificarTelegram(datos) {
-        const texto = generarMensajeTelegram(datos);
-        try {
-            // ✅ Content-Type: text/plain para evitar preflight OPTIONS
-            // (Apps Script no responde OPTIONS y eso causaba CORS error)
-            await fetch(APPS_SCRIPT_URL + '?action=notificarTelegram', {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ regional: datos.alcance, mensaje: texto })
-            });
-        } catch (e) {
-            console.warn('Error Telegram:', e.message);
-        }
-    }
 
     function actualizarPreview() {
         const o = document.getElementById('c-origen').value || '?';
@@ -615,7 +575,6 @@
             const result = await resp.json();
             if (!result.ok) throw new Error(result.error || 'Error al guardar');
 
-            notificarTelegram(datos); // 🆕 no lleva await para no bloquear el flujo de WhatsApp
 
             mensajeWA = generarMensajePRO(datos);
             toast('✅ Solicitud ' + nuevoId + ' Creada', '#10b981');

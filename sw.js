@@ -28,7 +28,7 @@
 //       plano por si acaso). Así la app abre rápido siempre, con o sin
 //       buena señal.
 
-const CACHE_NAME = 'jr-carrozas-v9';
+const CACHE_NAME = 'jr-carrozas-v10';
 // 🆕 v9 — se sube la versión de caché a propósito: index.html tenía un
 // bug de redirección para el rol "coordinador nacional" (apuntaba a
 // "panel_coordinador_nacional.html" pero el archivo real se llamaba
@@ -61,7 +61,7 @@ const urlsToCache = [
   './taller.html',
   './dashboard.html',
   './db.js',
-  './offline-queue.js',
+
   './config-aplicar.js',
   './manifest.json',
   'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap',

@@ -208,7 +208,6 @@
 <div class="toast" id="toast"></div>
 
 <script src="db.js"></script>
-<script src="offline-queue.js"></script>
 <script>
 // ✅ URL correcta — la misma que db.js
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
@@ -467,27 +466,6 @@ function cerrarModal() {
     solPendiente = null;
 }
 
-// 🆕 Notifica por Telegram (endpoint seguro del backend v10.10 — NO expone el token)
-// No es crítico: si falla, no bloquea el flujo de aceptación.
-async function notificarTelegramAceptacion(s, nombreConductor) {
-    try {
-        var mensaje =
-            '✅ <b>Apoyo Aceptado</b>\n' +
-            '🚩 ' + (s.origen || '---') + '  ➔  🏁 ' + (s.destino || '---') +
-            (s.nombre_fallecido ? '\n⚱️ ' + s.nombre_fallecido : '') +
-            '\n👤 Conductor: ' + nombreConductor;
-
-        await fetch(APPS_SCRIPT_URL + '?action=notificarTelegram', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                regional: s.regional_solicitante || 'nacional',
-                mensaje: mensaje
-            })
-        });
-    } catch (eT) {
-        console.warn('Telegram (no crítico):', eT.message);
-    }
 }
 
 async function confirmarAceptar() {
@@ -523,8 +501,6 @@ async function confirmarAceptar() {
             });
         } catch(eN) { console.warn('Notif:', eN.message); }
 
-        // 🆕 Aviso por Telegram de que ya fue aceptada (no crítico)
-        notificarTelegramAceptacion(solPendiente, sesion.nombre);
 
         toast('✅ Apoyo aceptado — abriendo formulario...', '#10b981');
 
