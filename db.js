@@ -1,8 +1,34 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.18
+ *  CONECTOR J.R. CARROZAS — db.js  v12.20
  *
- *  🆕 CAMBIOS v12.18 (fix RAÍZ del 404 instantáneo / lentitud extrema
+ *  🆕 CAMBIOS v12.20 (fix: seguían viendo timeouts de 40s y 404 en
+ *  cascada al abrir Registro de Salida — "carrozas"/"usuarios"/
+ *  "Traslado" fallando de una en la consola, selector de placas
+ *  mostrando "Sin vehículos en esta regional" con regionales que sí
+ *  tenían carrozas):
+ *
+ *  Diagnóstico: el limitador de concurrencia de v12.18 funcionaba,
+ *  pero (a) el número real quedó en 3 peticiones simultáneas en vez
+ *  de las 2 que decía el propio comentario de esa versión, y (b)
+ *  gasGet() se rendía a la PRIMERA falla de cada hoja y devolvía []
+ *  en silencio — así que cualquier timeout o 404 puntual (frecuentes
+ *  contra Apps Script bajo carga) dejaba la pantalla creyendo que la
+ *  hoja estaba vacía, cuando en realidad los datos sí existían y solo
+ *  tardaron un poco más.
+ *
+ *  + MAX_PETICIONES_SIMULTANEAS baja de 3 a 2.
+ *  + gasGet() ahora reintenta UNA vez (con 1.5s de espera) antes de
+ *    rendirse y devolver [] — mismo patrón que ya usaba gasWrite()
+ *    para las escrituras. La lectura de una sola hoja se factorizó en
+ *    _gasGetIntento(key, ms), que SÍ lanza el error (no lo atrapa),
+ *    para que gasGet() decida si reintentar.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.18/12.19 — el warm-up
+ *   por fases con retraso de 5s y el limitador de concurrencia no se
+ *   tocaron más que el número de cupos.)
+ *
+ *  ── Historial v12.18 (fix RAÍZ del 404 instantáneo / lentitud extrema
  *  al cargar placas — "Cargando flota..." eterno y regionales que
  *  aparecían vacías sin estarlo):
  *
@@ -263,7 +289,13 @@ function fetchConTimeout(url, opciones, ms) {
 // extrema reportada al cargar placas. Aquí se limita a 2 peticiones
 // en vuelo al mismo tiempo; el resto espera en una cola FIFO en
 // memoria y arranca automáticamente en cuanto se libera un cupo.
-const MAX_PETICIONES_SIMULTANEAS = 3;
+// 🆕 v12.20 — bajado de 3 a 2: con 3 en vuelo seguían viéndose timeouts
+// de 40s y 404 en cascada contra hojas como "carrozas"/"usuarios"
+// (ver captura reportada: 4 de 5 lecturas de la fase 1 fallando de
+// una). El propio comentario de v12.18 ya decía "máximo 2" — el
+// número real quedó en 3 por un descuido. Se deja en 2, que es lo que
+// se documentó originalmente.
+const MAX_PETICIONES_SIMULTANEAS = 2;
 let _peticionesActivas = 0;
 const _colaPeticiones = [];
 
@@ -292,6 +324,29 @@ const _cache    = {};      // { sheetName: { data, ts } }
 const _inflight = {};      // { sheetName: Promise }
 const CACHE_TTL = 60000;   // 60 segundos
 
+// 🆕 v12.20 — UN SOLO INTENTO de lectura, factorizado aparte para que
+// gasGet() (abajo) pueda reintentarlo automáticamente. Antes gasGet
+// se rendía a la primera falla (timeout de 40s o 404 del token de
+// redirección) y devolvía [] en silencio — eso es justo lo que
+// causaba pantallas como "Sin vehículos en esta regional" con
+// regionales que SÍ tenían carrozas: los datos no llegaron a tiempo,
+// no es que no existieran. Lanza el error (no lo atrapa) para que
+// quien lo llama decida si reintentar.
+async function _gasGetIntento(key, ms) {
+  // v12.16 — "_" con timestamp único + cache:'no-store': evita caché
+  // de Service Worker / navegador sirviendo una respuesta vieja de
+  // un token de un solo uso. v12.18 — pasa por el limitador de
+  // concurrencia para no saturar Apps Script con lecturas simultáneas.
+  const url = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
+  const resp = await _conLimiteConcurrencia(() =>
+    fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, ms)
+  );
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const json = await resp.json();
+  if (json && json.error) throw new Error(json.error);
+  return Array.isArray(json) ? json : [];
+}
+
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
@@ -304,24 +359,31 @@ async function gasGet(sheetName) {
 
   _inflight[key] = (async () => {
     try {
-      // v12.16 — "_" con timestamp único + cache:'no-store': evita caché
-      // de Service Worker / navegador sirviendo una respuesta vieja de
-      // un token de un solo uso. v12.18 — pasa por el limitador de
-      // concurrencia para no saturar Apps Script con lecturas simultáneas.
-      const url = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
-      const resp = await _conLimiteConcurrencia(() =>
-        fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 40000) // timeout 40s
-      );
-      if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
-      const json = await resp.json();
-      if (json && json.error) { console.warn(`gasGet ${sheetName}: ${json.error}`); return []; }
-      const data = Array.isArray(json) ? json : [];
+      let data;
+      try {
+        data = await _gasGetIntento(key, 40000);
+      } catch (err1) {
+        // 🆕 v12.20 — REINTENTO AUTOMÁTICO: los timeouts/404 de Apps
+        // Script suelen ser puntuales (congestión momentánea, token de
+        // redirección chocando con otra petición) — en la captura que
+        // motivó este fix, hojas que fallaban en la fase 1 del warm-up
+        // (carrozas, usuarios, Traslado) cargaban bien poco después en
+        // la fase 2. Antes de rendirse y devolver [] (lo que deja la
+        // pantalla como si la hoja estuviera vacía), se espera 1.5s y
+        // se reintenta UNA vez — mismo patrón que ya usa gasWrite() en
+        // sus escrituras.
+        console.warn(`gasGet ${key}: 1er intento falló (${err1.message}), reintentando en 1.5s…`);
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          data = await _gasGetIntento(key, 40000);
+        } catch (err2) {
+          console.warn(`gasGet ${key}: 2do intento también falló (${err2.message}) — se devuelve vacío por ahora.`);
+          return [];
+        }
+      }
       data.forEach(_limpiarFilaGAS); // v12.14 — corrige fechas/horas mal serializadas
       _cache[key] = { data, ts: Date.now() };
       return data;
-    } catch (err) {
-      console.warn(`gasGet ${sheetName} error (${err.name}):`, err.message);
-      return [];
     } finally {
       delete _inflight[key];
     }
