@@ -263,7 +263,7 @@ function fetchConTimeout(url, opciones, ms) {
 // extrema reportada al cargar placas. Aquí se limita a 2 peticiones
 // en vuelo al mismo tiempo; el resto espera en una cola FIFO en
 // memoria y arranca automáticamente en cuanto se libera un cupo.
-const MAX_PETICIONES_SIMULTANEAS = 2;
+const MAX_PETICIONES_SIMULTANEAS = 3;
 let _peticionesActivas = 0;
 const _colaPeticiones = [];
 
@@ -310,7 +310,7 @@ async function gasGet(sheetName) {
       // concurrencia para no saturar Apps Script con lecturas simultáneas.
       const url = `${URL_GAS}?sheetName=${encodeURIComponent(key)}&_=${Date.now()}`;
       const resp = await _conLimiteConcurrencia(() =>
-        fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 25000) // 🆕 v12.18 — 45s → 25s (ya no hace falta tanto margen sin la congestión)
+        fetchConTimeout(url, { method: 'GET', redirect: 'follow', cache: 'no-store' }, 40000) // timeout 40s
       );
       if (!resp.ok) { console.warn(`gasGet ${sheetName}: HTTP ${resp.status}`); return []; }
       const json = await resp.json();
@@ -1680,25 +1680,30 @@ const DB = {
 window.DB = DB;
 window.URL_GAS = URL_GAS;
 
-// ── WARM-UP AL INICIAR (no bloquea la UI) ─────────
-// 🆕 v12.18 — Sigue disparándose todo "a la vez" con Promise.allSettled
-// en segundo plano (fire-and-forget, no bloquea login ni ninguna
-// pantalla), PERO ahora cada gasGet() internamente pasa por el
-// limitador de concurrencia — así que, aunque aquí se "lancen" 10
-// promesas de una vez, solo 2 llegan de verdad al backend al mismo
-// tiempo; el resto espera su turno en la cola. Esto es lo que corrige
-// los 404 instantáneos y la lentitud extrema reportada al cargar
-// placas justo después del arranque.
+// ── WARM-UP AL INICIAR (no bloquea la UI) ─────────────────────────
+// v12.19 — Se lanza con 5 segundos de retraso para NO competir con la
+// carga inicial de la UI (login, selector de placas, etc.). Si la UI
+// lanza peticiones urgentes durante ese retraso, tienen cupo libre en
+// el limitador de concurrencia y no esperan en cola.
+// Fase 1 (t+5s):  ping + hojas críticas para el primer uso.
+// Fase 2 (t+20s): hojas secundarias (averías, mantenimientos, tanqueo).
 (function() {
-  const hojas = ['usuarios', 'carrozas', 'Traslado', 'Averias', 'mantenimientos', 'Tanqueo', 'Llegadas', 'notificaciones_apoyo', 'config'];
-  const promesas = [
-    DB.testConexion().then(function(ping) {
+  setTimeout(function() {
+    // Fase 1 — críticas para login y pantalla de salida/llegada
+    var fase1 = ['usuarios', 'carrozas', 'Traslado', 'Llegadas', 'config'];
+    var promPing = DB.testConexion().then(function(ping) {
       if (ping.ok) console.log('🟢 API J.R. conectada:', ping.mensaje);
       else         console.warn('🔴 API J.R. sin conexión (warm-up):', ping.error);
-    }),
-    ...hojas.map(function(h) { return gasGet(h).catch(function() {}); })
-  ];
-  Promise.allSettled(promesas).then(function() {
-    console.log('✅ Caché precargado correctamente');
-  });
+    });
+    var promsFase1 = fase1.map(function(h) { return gasGet(h).catch(function() {}); });
+    Promise.allSettled([promPing].concat(promsFase1)).then(function() {
+      console.log('✅ Cache fase 1 cargado (carrozas, traslados, llegadas, usuarios)');
+      // Fase 2 — secundarias, 15 segundos después de fase 1
+      setTimeout(function() {
+        var fase2 = ['Averias', 'mantenimientos', 'Tanqueo', 'notificaciones_apoyo'];
+        Promise.allSettled(fase2.map(function(h) { return gasGet(h).catch(function() {}); }))
+          .then(function() { console.log('✅ Cache fase 2 cargado (averias, mantenimientos, tanqueo)'); });
+      }, 15000);
+    });
+  }, 5000); // esperar 5s para que la UI cargue primero sin competencia
 })();
