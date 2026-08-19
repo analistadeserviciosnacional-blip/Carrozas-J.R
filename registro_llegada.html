@@ -159,6 +159,37 @@
             color: #1d4ed8;
             font-weight: 700;
         }
+
+        /* 🆕 BOTÓN "VER TODAS LAS PLACAS" (respaldo del filtro por conductor) */
+        #btn-ver-todas {
+            display: none;
+            width: 100%;
+            text-align: center;
+            background: none;
+            border: none;
+            color: #2563eb;
+            font-size: 11.5px;
+            font-weight: 700;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 2px 0 14px;
+            font-family: inherit;
+        }
+        #btn-ver-todas:hover { color: #1d4ed8; }
+
+        /* 🆕 Aviso cuando el conductor no tiene servicios propios abiertos */
+        #aviso-sin-placas-propias {
+            display: none;
+            background: #fffbeb;
+            border: 2px solid #fcd34d;
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin: -6px 0 12px;
+            font-size: 12px;
+            color: #92400e;
+            font-weight: 600;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -192,6 +223,17 @@
                 <input type="text" id="recibido_por" readonly style="background:#eefff4; font-weight:bold;">
             </div>
         </div>
+
+        <!-- 🆕 Aviso: el conductor no tiene ninguna salida propia sin cerrar -->
+        <div id="aviso-sin-placas-propias">
+            🚫 No tienes ningún servicio sin cerrar a tu nombre.
+        </div>
+
+        <!-- 🆕 Respaldo: permite ver todas las placas con salida abierta,
+             por si el nombre de la sesión no coincide exactamente con el
+             registrado en el Traslado, o si necesitas cerrar un servicio
+             que no salió a tu nombre. -->
+        <button type="button" id="btn-ver-todas" onclick="toggleVerTodas()">👁️ ¿No ves tu placa? Ver todos los servicios abiertos</button>
 
         <div class="section-title">📍 Kilometraje y Hora de Llegada</div>
         <div class="grid-2">
@@ -321,6 +363,21 @@
     let estadoSeleccionado = '';
     let datosFinales       = {};
 
+    // 🆕 Usuario de la sesión actual (se llena en window.onload y se usa
+    // en cargarPlacas() para filtrar por el campo "conductor" del Traslado).
+    let usuarioActual = null;
+
+    // 🆕 Caché SIN FILTRAR de los traslados activos que devolvió la última
+    // consulta a la base de datos (todas las placas con salida abierta,
+    // sin importar quién las sacó). Se guarda aparte de
+    // trasladosActivosCache para poder alternar entre "solo mis servicios"
+    // y "ver todas" sin volver a golpear la base de datos.
+    let trasladosActivosRaw = [];
+
+    // 🆕 true = el selector está mostrando TODAS las placas con salida
+    // abierta (modo respaldo). false = solo las del conductor actual.
+    let modoVerTodas = false;
+
     // 🆕 Caché de los Traslados activos que se usaron para armar el
     // selector de placas (clave = placa normalizada sin espacios/guiones,
     // en mayúsculas). Al elegir una placa, se usa directamente este dato
@@ -344,13 +401,26 @@
     const UMBRAL_KM_SOSPECHOSO = 800;
     window._totalKmSospechoso = false;
 
+    // ── NORMALIZACIÓN DE TEXTO ─────────────────────────────
+    // Minúsculas, sin tildes, espacios múltiples colapsados a uno solo y
+    // sin espacios al inicio/fin. Necesario porque en la hoja "Traslado"
+    // el mismo conductor aparece escrito de formas distintas, p.ej.:
+    // "Andres Bravo", "Andres  bravo " (doble espacio), "ANDRES  BRAVO".
+    function normalizarTexto(s) {
+        return String(s || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
     // ── INIT ──────────────────────────────────────────────
     window.onload = async () => {
         const sesionData = localStorage.getItem('usuario_sesion');
         if (!sesionData) { window.location.href = "index.html"; return; }
-        const user = JSON.parse(sesionData);
-        document.getElementById('recibido_por').value = user.nombre;
-        document.getElementById('conductor-header').innerText = 'BIENVENIDO, ' + user.nombre.split(' ')[0].toUpperCase();
+        usuarioActual = JSON.parse(sesionData);   // 🆕 guardado global para cargarPlacas()
+        document.getElementById('recibido_por').value = usuarioActual.nombre;
+        document.getElementById('conductor-header').innerText = 'BIENVENIDO, ' + usuarioActual.nombre.split(' ')[0].toUpperCase();
 
         const now = new Date();
         document.getElementById('hora_ingreso').value =
@@ -366,15 +436,31 @@
         // esa placa en el desplegable y se dispara automáticamente
         // alSeleccionarPlaca(), para que el coordinador solo tenga que
         // completar el cierre sin tener que buscarla manualmente.
+        //
+        // 🔧 FIX: si quien abre el enlace es un conductor (no coordinador/
+        // admin) y la placa dirigida no es una de las suyas, el selector
+        // filtrado no la tendrá — en ese caso se activa automáticamente
+        // el modo "ver todas" antes de buscarla, para que el enlace
+        // siempre funcione sin importar quién lo abra.
         try {
             const paramsUrl = new URLSearchParams(window.location.search);
             const placaParam = paramsUrl.get('placa');
             if (placaParam) {
-                const selectPlaca = document.getElementById('placa');
                 const placaNorm = placaParam.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-                const opcion = Array.from(selectPlaca.options).find(o =>
+                let selectPlaca = document.getElementById('placa');
+                let opcion = Array.from(selectPlaca.options).find(o =>
                     o.value.replace(/[^A-Z0-9]/gi, '').toUpperCase() === placaNorm
                 );
+
+                if (!opcion && !modoVerTodas) {
+                    // No estaba en la lista filtrada — probar en modo "ver todas"
+                    activarVerTodas();
+                    selectPlaca = document.getElementById('placa');
+                    opcion = Array.from(selectPlaca.options).find(o =>
+                        o.value.replace(/[^A-Z0-9]/gi, '').toUpperCase() === placaNorm
+                    );
+                }
+
                 if (opcion) {
                     selectPlaca.value = opcion.value;
                     document.getElementById('banner-dirigido').style.display = 'block';
@@ -388,57 +474,79 @@
         }
     };
 
-    // ── CARGAR PLACAS (VERSIÓN CORREGIDA) ─────────────────
+    // ── CARGAR PLACAS (CON FILTRO POR CONDUCTOR) ──────────
     // 🆕 Fuente principal: DB.obtenerPlacasConTrasladoActivo(), que lee
     // directamente la hoja "Traslado" y devuelve solo las placas con una
     // salida abierta (sin hora_de_ingreso) y sin Llegada ya registrada.
-    // Esto reemplaza la dependencia del campo "estado" de la hoja
-    // carrozas, que puede desincronizarse y era la causa del error de
-    // "cargar todas las placas" / placas equivocadas en el selector.
     //
-    // Si por algún motivo esa consulta falla o no devuelve nada (p.ej.
-    // problema puntual de red), se conserva el respaldo anterior por
-    // "estado" de carrozas para que el formulario nunca quede sin
-    // opciones para elegir.
+    // 🆕 FILTRO POR CONDUCTOR: si quien inició sesión tiene rol distinto
+    // de admin/administracion/coordinador, el selector muestra SOLO las
+    // salidas cuyo campo "conductor" coincide con su nombre de sesión
+    // (comparación normalizada: sin tildes, sin mayúsculas, sin espacios
+    // repetidos). Esto evita que un conductor cierre por error el
+    // servicio de otro compañero, y además reduce lo que hay que
+    // renderizar en el selector.
+    //
+    // Coordinador y admin siguen viendo TODAS las placas activas, porque
+    // necesitan poder cerrar el servicio de cualquier conductor (incluido
+    // el flujo de la campana de notificaciones).
+    //
+    // Si el filtro deja al conductor sin ninguna placa (porque el nombre
+    // de su sesión no calza exactamente con el que quedó registrado en el
+    // Traslado, o porque de verdad no tiene servicios abiertos), se
+    // muestra un aviso claro y el botón "Ver todos los servicios abiertos"
+    // como respaldo, para que nunca quede bloqueado sin poder cerrar su
+    // salida.
+    //
+    // Si por algún motivo la consulta principal falla o no devuelve nada
+    // (p.ej. problema puntual de red), se conserva el respaldo anterior
+    // por "estado" de carrozas para que el formulario nunca quede sin
+    // opciones para elegir (ese respaldo no tiene el dato de conductor,
+    // así que se muestra sin filtrar, igual que antes).
     //
     // 🔧 FIX: el selector permanece DESHABILITADO con el texto
-    // "⏳ Cargando placas..." mientras esta función corre. Antes, el
-    // <select> quedaba habilitado desde el primer render de la página
-    // con solo la opción "Elija placa...", así que si el conductor le
-    // daba clic antes de que terminara la consulta a la base de datos,
-    // veía el desplegable "vacío" y reportaba que no había placas —
-    // cuando en realidad el sistema todavía estaba cargando. Ahora solo
-    // se habilita (y se muestra "Elija placa...") cuando ya hay datos
-    // reales listos para elegir.
+    // "⏳ Cargando placas..." mientras esta función corre, para que el
+    // conductor no le dé clic antes de tiempo y crea que no hay placas
+    // disponibles.
     async function cargarPlacas() {
-        const select = document.getElementById('placa');
+        const select   = document.getElementById('placa');
+        const btnVer   = document.getElementById('btn-ver-todas');
+        const avisoVac = document.getElementById('aviso-sin-placas-propias');
+
         trasladosActivosCache = {};
+        avisoVac.style.display = 'none';
 
         select.disabled = true;
         select.innerHTML = '<option value="">⏳ Cargando placas...</option>';
+
+        // Rol actual: solo admin/administracion/coordinador ven todo sin filtro
+        const rolNorm     = normalizarTexto(usuarioActual?.rol);
+        const esConductor = !['admin', 'administracion', 'coordinador'].includes(rolNorm);
 
         try {
             const resActivos = await DB.obtenerPlacasConTrasladoActivo();
 
             if (resActivos.ok && resActivos.data.length > 0) {
-                resActivos.data.forEach(function(t) {
-                    const key = String(t.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
-                    if (key) trasladosActivosCache[key] = t;
-                });
+                trasladosActivosRaw = resActivos.data;   // 🆕 guardar sin filtrar para toggleVerTodas()
 
-                select.innerHTML = '<option value="">Elija placa...</option>' +
-                    resActivos.data.map(function(t) {
-                        const modeloTxt = t.modelo ? ' — ' + t.modelo : '';
-                        const salidaTxt = t.hora_de_salida ? ' (salió ' + t.hora_de_salida + ')' : '';
-                        return '<option value="' + t.placa + '">' + t.placa + modeloTxt + salidaTxt + '</option>';
-                    }).join('');
-                select.disabled = false;
+                // El coordinador/admin siempre parte en modo "ver todas"
+                // (no tiene sentido filtrarles por conductor).
+                if (!esConductor) modoVerTodas = true;
+
+                renderizarSelectorPlacas();
+
+                // 🆕 Mostrar el botón de respaldo solo para conductores
+                // (el coordinador/admin ya ve todo, no lo necesita).
+                btnVer.style.display = esConductor ? 'block' : 'none';
                 return;
             }
 
             // ⚠️ Respaldo: no se encontraron Traslados activos (o falló la
             // consulta) — se recurre al listado por "estado" de carrozas,
             // igual que antes, para que el formulario siga siendo usable.
+            // Este respaldo no tiene dato de conductor, así que se muestra
+            // completo (no se puede filtrar).
+            btnVer.style.display = 'none';
             const res = await DB.obtenerFlota();
             flotaCompleta = (res.data || []);
 
@@ -460,9 +568,85 @@
             }
             select.disabled = false;
         } catch(e) {
+            btnVer.style.display = 'none';
             select.innerHTML = '<option value="">❌ Error al cargar placas — recarga la página</option>';
             select.disabled = false;
         }
+    }
+
+    // 🆕 Construye el <select> de placas a partir de trasladosActivosRaw,
+    // aplicando (o no) el filtro por conductor según modoVerTodas.
+    // Separado de cargarPlacas() para poder alternar el modo sin volver
+    // a consultar la base de datos.
+    function renderizarSelectorPlacas() {
+        const select   = document.getElementById('placa');
+        const avisoVac = document.getElementById('aviso-sin-placas-propias');
+        const rolNorm     = normalizarTexto(usuarioActual?.rol);
+        const esConductor = !['admin', 'administracion', 'coordinador'].includes(rolNorm);
+        const nombreUsuarioNorm = normalizarTexto(usuarioActual?.nombre);
+
+        trasladosActivosCache = {};
+        avisoVac.style.display = 'none';
+
+        let datos = trasladosActivosRaw;
+        if (esConductor && !modoVerTodas) {
+            datos = trasladosActivosRaw.filter(t =>
+                normalizarTexto(t.conductor) === nombreUsuarioNorm
+            );
+        }
+
+        if (datos.length === 0) {
+            if (esConductor && !modoVerTodas) {
+                // El conductor no tiene ninguna salida abierta a su nombre
+                avisoVac.style.display = 'block';
+                select.innerHTML = '<option value="">🚫 No tienes servicios sin cerrar</option>';
+            } else {
+                select.innerHTML = '<option value="">🚫 No hay placas con salida abierta</option>';
+            }
+            select.disabled = false;
+            actualizarBoton();
+            return;
+        }
+
+        datos.forEach(function(t) {
+            const key = String(t.placa || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            if (key) trasladosActivosCache[key] = t;
+        });
+
+        select.innerHTML = '<option value="">Elija placa...</option>' +
+            datos.map(function(t) {
+                const modeloTxt = t.modelo ? ' — ' + t.modelo : '';
+                const salidaTxt = t.hora_de_salida ? ' (salió ' + t.hora_de_salida + ')' : '';
+                return '<option value="' + t.placa + '">' + t.placa + modeloTxt + salidaTxt + '</option>';
+            }).join('');
+        select.disabled = false;
+    }
+
+    // 🆕 Alterna entre "solo mis servicios" y "ver todos los servicios
+    // abiertos", sin volver a consultar la base de datos. Al cambiar de
+    // modo se resetea la placa elegida (si había una) para evitar
+    // confusión entre lo mostrado y lo seleccionado.
+    function toggleVerTodas() {
+        modoVerTodas = !modoVerTodas;
+        activarVerTodas(modoVerTodas);
+    }
+
+    // 🆕 Fuerza el modo (true = ver todas, false = solo mías) y refresca
+    // el selector + el texto del botón. Reutilizado también en la
+    // preselección por URL cuando la placa dirigida no está en la lista
+    // filtrada del conductor.
+    function activarVerTodas(activar) {
+        modoVerTodas = (activar === undefined) ? true : !!activar;
+        renderizarSelectorPlacas();
+
+        const btnVer = document.getElementById('btn-ver-todas');
+        btnVer.innerText = modoVerTodas
+            ? '👤 Ver solo mis servicios'
+            : '👁️ ¿No ves tu placa? Ver todos los servicios abiertos';
+
+        // Limpiar cualquier selección/cálculo previo al cambiar de modo
+        document.getElementById('placa').value = '';
+        alSeleccionarPlaca();
     }
 
     // ── ACTUALIZAR ESTADO DEL BOTÓN ───────────────────────
@@ -1029,7 +1213,7 @@
     // ── VOLVER ────────────────────────────────────────────
     function irAtras() {
         const user = JSON.parse(localStorage.getItem('usuario_sesion') || '{}');
-        const norm = s => String(s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const norm = s => normalizarTexto(s);
         const rol  = norm(user.rol);
         const usr  = norm(user.usuario);
         if (rol === 'admin' || rol === 'administracion' || usr === 'admin') window.location.href = 'dashboard.html';
