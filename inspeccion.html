@@ -824,6 +824,10 @@
       initFirmaPad('CONDUCTOR');
       initFirmaPad('INSPECTOR');
 
+      // 🆕 Intento silencioso de precargar/reparar jsPDF apenas abre la
+      // página, para que al presionar "Descargar PDF" ya esté listo.
+      asegurarLibreriasPDF().catch(e => console.warn('Aviso: jsPDF no se pudo precargar, se reintentará al generar el PDF.', e));
+
       try {
         const res = await DB.obtenerFlota();
         if (res.ok) {
@@ -1120,6 +1124,61 @@
       });
     }
 
+    // 🆕 Carga robusta de jsPDF / jsPDF-AutoTable.
+    // Si el <script> del <head> falló al cargar (bloqueador de contenido,
+    // sin internet en ese instante, CDN caído, etc.), esto reintenta con
+    // una CDN alterna justo antes de generar el PDF, en lugar de fallar
+    // silenciosamente con "Cannot destructure property 'jsPDF'...".
+    function cargarScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('No se pudo cargar el script: ' + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function asegurarLibreriasPDF() {
+      // Ya están listas (caso normal)
+      if (window.jspdf && window.jspdf.jsPDF) {
+        // aseguramos que autoTable esté enganchado al prototipo
+        const probe = new window.jspdf.jsPDF();
+        if (typeof probe.autoTable === 'function') return;
+      }
+
+      const fuentes = [
+        {
+          jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
+          autotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js'
+        },
+        {
+          jspdf: 'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js',
+          autotable: 'https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js'
+        },
+      ];
+
+      let ultimoError = null;
+      for (const fuente of fuentes) {
+        try {
+          if (!window.jspdf || !window.jspdf.jsPDF) {
+            await cargarScript(fuente.jspdf);
+          }
+          const probe = new window.jspdf.jsPDF();
+          if (typeof probe.autoTable !== 'function') {
+            await cargarScript(fuente.autotable);
+          }
+          const probe2 = new window.jspdf.jsPDF();
+          if (window.jspdf && window.jspdf.jsPDF && typeof probe2.autoTable === 'function') {
+            return; // listo
+          }
+        } catch (e) {
+          ultimoError = e;
+        }
+      }
+      throw ultimoError || new Error('No se pudieron cargar las librerías necesarias para generar el PDF.');
+    }
+
     async function generarPDFInspeccion() {
       const btn = document.getElementById('btnPDF');
       const placa = document.getElementById('PLACA').value;
@@ -1132,6 +1191,16 @@
       const originalTxt = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Generando PDF...';
+
+      try {
+        await asegurarLibreriasPDF();
+      } catch (e) {
+        console.error('Error cargando librerías de PDF:', e);
+        alert('❌ No se pudo cargar la librería para generar el PDF.\n\nVerifique su conexión a internet, o que un bloqueador de anuncios/contenido no esté impidiendo cargar cdnjs.cloudflare.com o unpkg.com. Intente nuevamente.');
+        btn.disabled = false;
+        btn.textContent = originalTxt;
+        return;
+      }
 
       try {
         const { jsPDF } = window.jspdf;
