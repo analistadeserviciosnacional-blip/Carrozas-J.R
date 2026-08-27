@@ -385,17 +385,18 @@
       </div>
 
       <!-- ══════ FIRMA DIGITAL CON EL DEDO / MOUSE ══════ -->
+      <!-- La firma del conductor es OPCIONAL: muchas veces firma al llegar a la sede -->
       <div class="firma-section">
         <div class="firma-block">
-          <div class="firma-label">Firma de Responsable (Conductor)</div>
+          <div class="firma-label">Firma de Responsable (Conductor) — opcional, puede firmarse después</div>
           <div class="firma-pad-wrap" id="wrapFirmaConductor">
             <canvas class="firma-pad" id="padFirmaConductor"></canvas>
-            <div class="firma-placeholder" id="placeholderFirmaConductor">Firme aquí con el dedo</div>
+            <div class="firma-placeholder" id="placeholderFirmaConductor">Firme aquí con el dedo (opcional)</div>
           </div>
           <div class="firma-acciones">
             <button type="button" class="btn-borrar-firma" onclick="borrarFirma('CONDUCTOR')">✖ Borrar firma</button>
           </div>
-          <input type="hidden" id="FIRMA_CONDUCTOR" required>
+          <input type="hidden" id="FIRMA_CONDUCTOR">
         </div>
         <div class="firma-block">
           <div class="firma-label">Firma de Inspector</div>
@@ -466,6 +467,14 @@
     function mostrarFormulario() {
       document.getElementById('vistaLista').classList.add('hidden');
       document.getElementById('vistaFormulario').classList.remove('hidden');
+
+      // 🆕 FIX FIRMA: cuando la página carga, este formulario está oculto
+      // (display:none) y por eso el canvas se inicializa con tamaño 0x0.
+      // Al mostrar el formulario recalculamos el tamaño real del canvas
+      // para que sí se pueda dibujar sobre él.
+      if (firmaPads.CONDUCTOR) firmaPads.CONDUCTOR.resize();
+      if (firmaPads.INSPECTOR) firmaPads.INSPECTOR.resize();
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -703,12 +712,18 @@
 
       function resize() {
         const rect = wrap.getBoundingClientRect();
+        // 🆕 Si el contenedor todavía no tiene tamaño real (por ejemplo
+        // porque la vista está oculta en ese momento), no tocamos el
+        // canvas: se volverá a llamar a resize() cuando sea visible.
+        if (!rect.width || !rect.height) return;
+
         const ratio = window.devicePixelRatio || 1;
         const dataUrlPrevio = hiddenInput.value;
         canvas.width = rect.width * ratio;
         canvas.height = rect.height * ratio;
         canvas.style.width = rect.width + 'px';
         canvas.style.height = rect.height + 'px';
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // evita acumular escalas al llamar resize() varias veces
         ctx.scale(ratio, ratio);
         ctx.lineWidth = 2.2;
         ctx.lineCap = 'round';
@@ -760,12 +775,18 @@
       canvas.addEventListener('touchmove', mover, { passive: false });
       canvas.addEventListener('touchend', terminar);
 
-      firmaPads[nombre] = { canvas, ctx, placeholder, wrap, hiddenInput };
+      // 🆕 se guarda "resize" para poder recalcular el tamaño del canvas
+      // cada vez que la vista del formulario se vuelve a mostrar.
+      firmaPads[nombre] = { canvas, ctx, placeholder, wrap, hiddenInput, resize };
     }
 
     function pintarFirmaGuardada(nombre, dataUrl) {
       const p = firmaPads[nombre];
       if (!p || !dataUrl) return;
+
+      // 🆕 aseguramos que el canvas ya tenga su tamaño real antes de pintar
+      p.resize();
+
       const img = new Image();
       img.onload = () => {
         const rect = p.wrap.getBoundingClientRect();
@@ -1017,10 +1038,10 @@
 
       const placa = document.getElementById('PLACA').value;
       const km = document.getElementById('KILOMETRAJE').value;
-      const firma = document.getElementById('FIRMA_CONDUCTOR').value;
-
-      if (!placa || !km || !firma) {
-        msg.innerHTML = '<p style="color:red; text-align:center;">⚠️ Placa, Kilometraje y Firma del conductor son obligatorios.</p>';
+      // 🆕 La firma del conductor ya NO es obligatoria: muchas veces
+      // el conductor firma después, al llegar a la sede.
+      if (!placa || !km) {
+        msg.innerHTML = '<p style="color:red; text-align:center;">⚠️ Placa y Kilometraje son obligatorios.</p>';
         return;
       }
 
