@@ -1,8 +1,33 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.20
+ *  CONECTOR J.R. CARROZAS — db.js  v12.21
  *
- *  🆕 CAMBIOS v12.20 (fix: seguían viendo timeouts de 40s y 404 en
+ *  🆕 CAMBIOS v12.21 (fix: inspeccion_vehicular.html ya llamaba a
+ *  DB.obtenerInspeccion(id) y DB.actualizarInspeccion(id, datos) para
+ *  poder abrir una inspección existente con ?id=... y guardarla de
+ *  nuevo, pero esas dos funciones nunca se agregaron a db.js — el
+ *  propio formulario lo detectaba en pantalla con un alert
+ *  ("DB.obtenerInspeccion no existe en db.js todavía") y no dejaba
+ *  editar nada):
+ *
+ *  + Nuevo DB.obtenerInspeccion(id): busca en "Inspeccion_Vehiculo"
+ *    la fila cuyo ID coincide y la devuelve completa, para que el
+ *    formulario pueda precargarla en modo edición.
+ *  + Nuevo DB.obtenerInspecciones(limite): lista las inspecciones más
+ *    recientes primero (orden real por FECHA+HORA, no alfabético),
+ *    pensada para alimentar una pantalla de listado/consulta.
+ *  + Nuevo DB.actualizarInspeccion(id, datos): actualiza por ID la
+ *    fila ya existente en "Inspeccion_Vehiculo" en vez de insertar
+ *    una nueva, e invalida el caché de esa hoja para que el listado
+ *    y el propio formulario reflejen el cambio al instante.
+ *  + Nueva claveOrdenInspeccion(), misma idea que claveOrdenTanqueo/
+ *    claveOrdenChecklist pero para las columnas FECHA/HORA (en
+ *    mayúscula) de "Inspeccion_Vehiculo".
+ *
+ *  (Se conserva íntegro todo lo demás de v12.20 — ver historial
+ *   completo más abajo, nada de lo que ya funcionaba fue tocado.)
+ *
+ *  ── Historial v12.20 (fix: seguían viendo timeouts de 40s y 404 en
  *  cascada al abrir Registro de Salida — "carrozas"/"usuarios"/
  *  "Traslado" fallando de una en la consola, selector de placas
  *  mostrando "Sin vehículos en esta regional" con regionales que sí
@@ -220,6 +245,24 @@ function claveOrdenChecklist(registro) {
     aaaammdd = aaaa + mm + dd;
   }
   const hora = String((registro && registro.HORA_SALIDA) || '').replace(':', '').padStart(4, '0');
+  return parseInt(aaaammdd + hora, 10) || 0;
+}
+
+// 🆕 v12.21 — MISMA IDEA, PERO PARA LA HOJA "Inspeccion_Vehiculo"
+// (encabezados en MAYÚSCULA: FECHA + HORA, igual patrón que Tanqueo).
+// Necesaria para que DB.obtenerInspecciones() liste lo más reciente
+// primero por fecha/hora REAL, en vez de orden alfabético de texto.
+function claveOrdenInspeccion(registro) {
+  const f = String((registro && registro.FECHA) || '').trim();
+  const partes = f.split('/');
+  let aaaammdd = '00000000';
+  if (partes.length === 3) {
+    const dd = partes[0].padStart(2, '0');
+    const mm = partes[1].padStart(2, '0');
+    const aaaa = partes[2].length === 4 ? partes[2] : ('20' + partes[2]).slice(-4);
+    aaaammdd = aaaa + mm + dd;
+  }
+  const hora = String((registro && registro.HORA) || '').replace(':', '').padStart(4, '0');
   return parseInt(aaaammdd + hora, 10) || 0;
 }
 
@@ -1642,7 +1685,97 @@ const DB = {
     });
   },
 
-  // ── VERIFICAR INSPECCIÓN HECHA HOY ────────────────────────
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.21 — LECTURA DE UNA INSPECCIÓN EXISTENTE (POR ID)
+  // ══════════════════════════════════════════════════════════
+  // inspeccion_vehicular.html la usa en modo edición (?id=...) para
+  // precargar todo el formulario con lo que ya se guardó. Antes no
+  // existía y el formulario mostraba un alert de error al intentar
+  // editar cualquier inspección.
+  async obtenerInspeccion(id) {
+    try {
+      if (!id) return { ok: false, error: 'obtenerInspeccion requiere un id' };
+      const rows = await gasGet('Inspeccion_Vehiculo');
+      const fila = rows.find(function(r) { return String(r.ID || '').trim() === String(id).trim(); });
+      if (!fila) return { ok: false, error: 'No se encontró la inspección con ID ' + id };
+      return { ok: true, data: fila };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.21 — LISTADO DE INSPECCIONES (para la pantalla de consulta)
+  // ══════════════════════════════════════════════════════════
+  // Devuelve las inspecciones más recientes primero (orden real por
+  // FECHA+HORA, no alfabético). filtros es opcional:
+  //   { placa, regional, estado, desde, hasta }  (desde/hasta en DD/MM/AAAA)
+  async obtenerInspecciones(limite, filtros) {
+    if (limite === undefined) limite = 200;
+    filtros = filtros || {};
+    try {
+      let data = await gasGet('Inspeccion_Vehiculo');
+
+      if (filtros.placa) {
+        const pSel = String(filtros.placa).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        data = data.filter(function(r) { return String(r.PLACA || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === pSel; });
+      }
+      if (filtros.regional) {
+        const rNorm = normTexto(filtros.regional);
+        data = data.filter(function(r) { return normTexto(r.REGIONAL) === rNorm; });
+      }
+      if (filtros.estado) {
+        const eNorm = normTexto(filtros.estado);
+        data = data.filter(function(r) { return normTexto(r.ESTADO_INSPECCION) === eNorm; });
+      }
+
+      data.sort(function(a, b) { return claveOrdenInspeccion(b) - claveOrdenInspeccion(a); });
+      return { ok: true, data: data.slice(0, limite) };
+    } catch (e) {
+      return { ok: false, data: [], error: e.message };
+    }
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.21 — ACTUALIZAR UNA INSPECCIÓN EXISTENTE (POR ID)
+  // ══════════════════════════════════════════════════════════
+  // inspeccion_vehicular.html la llama cuando el formulario está en
+  // modo edición (viene de la pantalla de listado con ?id=...).
+  // Actualiza por ID en vez de insertar una fila nueva, y sincroniza
+  // la carroza igual que guardarInspeccion() si corresponde.
+  async actualizarInspeccion(id, datos) {
+    return conLock('actualizarInspeccion:' + id, async () => {
+      try {
+        if (!id) return { ok: false, error: 'actualizarInspeccion requiere un id' };
+        const payload = Object.assign({}, datos);
+        delete payload.ID; // el ID va como idValue, no como campo a sobreescribir
+
+        const res = await gasWrite('Inspeccion_Vehiculo', payload, 'update', 'ID', id);
+        if (res.ok) {
+          this.invalidarCache('Inspeccion_Vehiculo');
+          if (datos.ESTADO_INSPECCION === 'NO OPERATIVO') {
+            actualizarEnSegundoPlano(
+              this.actualizarCarroza(datos.PLACA, { estado: 'En Taller' })
+                .then(r => { this.invalidarCache('carrozas'); return r; }),
+              'actualizarCarroza tras editar inspeccion (NO OPERATIVO)'
+            );
+          } else if (datos.KILOMETRAJE) {
+            actualizarEnSegundoPlano(
+              this.actualizarCarroza(datos.PLACA, {
+                kilometraje_actual: parseInt(datos.KILOMETRAJE) || 0
+              }).then(r => { this.invalidarCache('carrozas'); return r; }),
+              'actualizarCarroza km tras editar inspeccion'
+            );
+          }
+        }
+        return res;
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    });
+  },
+
+  // ── VERIFICAR SI YA EXISTE UNA INSPECCIÓN HECHA HOY ────────
   async verificarInspeccionHoy(placa) {
     try {
       // v12.16 — cache-busting. v12.18 — límite de concurrencia.
