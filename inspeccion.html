@@ -134,7 +134,7 @@
   </div>
 
   <div class="card">
-    <h1>📋 Inspección de Vehículo Completa</h1>
+    <h1 id="tituloFormulario">📋 Inspección de Vehículo Completa</h1>
 
     <form id="formInspeccion">
 
@@ -229,8 +229,17 @@
       </div>
 
       <div class="grid-form">
-        <div class="field"><label>Nombre Conductor <span style="color:red">*</span></label><input type="text" id="CONDUCTOR" readonly></div>
-        <div class="field"><label>Inspector / Entrega <span style="color:red">*</span></label><input type="text" id="INSPECTOR" placeholder="Quien realiza la entrega"></div>
+        <!-- ═══ CAMBIO: Nombre Conductor ahora es seleccionable/editable y NO obligatorio.
+             Puede elegirse de la lista de conductores registrados (datalist) o escribirse
+             libremente (por ejemplo, si el conductor que entrega no tiene usuario). ═══ -->
+        <div class="field">
+          <label>Nombre Conductor (Entrega)</label>
+          <input type="text" id="CONDUCTOR" list="listaConductoresEntrega" placeholder="Seleccione o escriba el nombre del conductor">
+          <datalist id="listaConductoresEntrega"></datalist>
+        </div>
+        <!-- ═══ CAMBIO: Inspector / Entrega ahora se llena automáticamente con el
+             usuario que inició sesión (no se escribe manualmente). ═══ -->
+        <div class="field"><label>Inspector / Entrega <span style="color:red">*</span></label><input type="text" id="INSPECTOR" readonly></div>
         <div class="field">
             <label>Estado Final</label>
             <select id="ESTADO_INSPECCION">
@@ -279,7 +288,11 @@
   <script src="db.js"></script>
   <script>
     let flotaGlobal = [];
-    let conductoresGlobal = []; // 🆕 lista de usuarios con rol conductor, para poder asignar
+    let conductoresGlobal = []; // 🆕 lista de usuarios con rol conductor, para poder asignar / seleccionar como entrega
+
+    // 🆕 Si viene un ?id=... en la URL, el formulario entra en modo edición sobre
+    // ese registro existente en lugar de crear uno nuevo.
+    let inspeccionEditandoId = null;
 
     // Normaliza texto igual que en index.html (sin tildes, minúsculas)
     const norm = s => String(s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -540,6 +553,22 @@
       firmaPads[nombre] = { canvas, ctx, placeholder, wrap, hiddenInput };
     }
 
+    // 🆕 Dibuja una firma ya guardada (base64) dentro del pad correspondiente.
+    // Se usa al cargar una inspección existente en modo edición.
+    function pintarFirmaGuardada(nombre, dataUrl) {
+      const p = firmaPads[nombre];
+      if (!p || !dataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        const rect = p.wrap.getBoundingClientRect();
+        p.ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      };
+      img.src = dataUrl;
+      p.hiddenInput.value = dataUrl;
+      p.placeholder.style.display = 'none';
+      p.wrap.classList.add('firmado');
+    }
+
     function borrarFirma(nombre) {
       const p = firmaPads[nombre];
       if (!p) return;
@@ -555,7 +584,10 @@
       const sesion = JSON.parse(localStorage.getItem('usuario_sesion'));
       if (!sesion) { window.location.href = 'index.html'; return; }
 
-      document.getElementById('CONDUCTOR').value = sesion.nombre;
+      // ═══ CAMBIO: "Inspector / Entrega" ahora es SIEMPRE el usuario logeado.
+      // "Nombre Conductor" queda libre para seleccionar/escribir y ya no se
+      // precarga con la sesión (ver más abajo, campo CONDUCTOR).
+      document.getElementById('INSPECTOR').value = sesion.nombre;
       document.getElementById('REGIONAL').value = sesion.regional || 'General';
       document.getElementById('FECHA').value = new Date().toLocaleDateString('es-CO');
       document.getElementById('HORA').value = new Date().toTimeString().slice(0,5);
@@ -583,11 +615,29 @@
       } catch(e) { console.error("Error cargando flota", e); }
 
       // 🆕 Carga la lista de usuarios con rol "conductor" para poder
-      // asignarlos desde el selector cuando una carroza no tenga uno.
+      // seleccionarlos en "Nombre Conductor (Entrega)" y para asignarlos
+      // desde el selector cuando una carroza no tenga uno.
       try {
         const { data } = await DB.supabase.from('usuarios').select();
         conductoresGlobal = (data || []).filter(u => norm(u.rol).includes('conductor'));
+
+        const listaEntrega = document.getElementById('listaConductoresEntrega');
+        if (listaEntrega) {
+          listaEntrega.innerHTML = conductoresGlobal
+            .map(c => `<option value="${c.nombre || c.usuario}"></option>`)
+            .join('');
+        }
       } catch (e) { console.error('Error cargando conductores', e); }
+
+      // 🆕 MODO EDICIÓN: si la URL trae ?id=..., se carga esa inspección
+      // existente en el formulario para poder corregirla y guardarla de nuevo
+      // (actualiza el registro en vez de crear uno nuevo).
+      const params = new URLSearchParams(window.location.search);
+      const idEditar = params.get('id');
+      if (idEditar) {
+        inspeccionEditandoId = idEditar;
+        await cargarInspeccionParaEditar(idEditar);
+      }
     };
 
     async function llenarDatosVehiculo() {
@@ -647,6 +697,10 @@
 
       // Verificar si ya existe una inspección OK hoy → sugerir modo Confirmación
       // (usa DB.verificarInspeccionHoy, ya definida en db.js pero sin uso previo)
+      // 🆕 No se hace esta sugerencia automática si estamos EDITANDO una inspección
+      // existente, para no pisar el TIPO_INSPECCION que ya traía el registro.
+      if (inspeccionEditandoId) return;
+
       const banner = document.getElementById('bannerAutoConfirma');
       try {
         const check = await DB.verificarInspeccionHoy(placa);
@@ -724,6 +778,69 @@
       }
     }
 
+    // ══════════════════════════════════════════════════════
+    // 🆕 CARGAR UNA INSPECCIÓN EXISTENTE PARA EDITARLA
+    // ══════════════════════════════════════════════════════
+    // Requiere que db.js tenga una función DB.obtenerInspeccion(id) que
+    // devuelva { ok: true, data: {...} } con el registro guardado (con las
+    // mismas claves que produce guardarInspeccion, ya que se recorren los
+    // mismos IDs de campos del formulario). Si tu db.js aún no tiene esta
+    // función, avísame para agregarla junto con DB.actualizarInspeccion.
+    async function cargarInspeccionParaEditar(id) {
+      if (typeof DB.obtenerInspeccion !== 'function') {
+        console.error('DB.obtenerInspeccion no existe en db.js todavía.');
+        alert('No se puede cargar la inspección para editar: falta configurar DB.obtenerInspeccion en db.js.');
+        return;
+      }
+
+      try {
+        const res = await DB.obtenerInspeccion(id);
+        if (!res || !res.ok || !res.data) {
+          alert('No se pudo cargar la inspección para editar.');
+          return;
+        }
+        const data = res.data;
+
+        // 1) Placa primero, para que se disparen los datos dependientes del vehículo
+        if (data.PLACA) {
+          document.getElementById('PLACA').value = data.PLACA;
+          await llenarDatosVehiculo();
+        }
+
+        // 2) Tipo de inspección (Completa / Confirmación)
+        if (data.TIPO_INSPECCION) {
+          document.getElementById('TIPO_INSPECCION').value = data.TIPO_INSPECCION;
+          toggleModo();
+        }
+
+        // 3) Resto de campos: cualquier input/select/textarea cuyo id coincida
+        //    con una clave del registro se rellena automáticamente.
+        Object.keys(data).forEach(key => {
+          if (key === 'ID' || key === 'PLACA' || key === 'TIPO_INSPECCION') return;
+          if (key === 'FIRMA_CONDUCTOR' || key === 'FIRMA_INSPECTOR') return; // se pintan aparte
+          const el = document.getElementById(key);
+          if (el) el.value = data[key] ?? '';
+        });
+
+        // 4) Refrescar colores de los selects de estado (BUENO/REGULAR/MALO/etc.)
+        document.querySelectorAll('.estado-item').forEach(sel => {
+          sel.setAttribute('data-val', sel.value);
+        });
+        marcarAlerta();
+
+        // 5) Firmas guardadas
+        if (data.FIRMA_CONDUCTOR) pintarFirmaGuardada('CONDUCTOR', data.FIRMA_CONDUCTOR);
+        if (data.FIRMA_INSPECTOR) pintarFirmaGuardada('INSPECTOR', data.FIRMA_INSPECTOR);
+
+        // 6) Ajustar la interfaz a modo edición
+        document.getElementById('tituloFormulario').textContent = '📋 Editar Inspección de Vehículo';
+        document.getElementById('btnGuardar').textContent = 'Actualizar Registro';
+      } catch (e) {
+        console.error('Error cargando inspección para editar', e);
+        alert('Error al cargar la inspección para editar.');
+      }
+    }
+
     async function guardarInspeccion() {
       const btn = document.getElementById('btnGuardar');
       const msg = document.getElementById('msg');
@@ -732,34 +849,50 @@
       const km = document.getElementById('KILOMETRAJE').value;
       const firma = document.getElementById('FIRMA_CONDUCTOR').value;
 
+      // 🆕 "Nombre Conductor" ya NO es obligatorio (puede quedar vacío si
+      // el conductor de entrega no está identificado todavía).
       if (!placa || !km || !firma) {
         msg.innerHTML = '<p style="color:red; text-align:center;">⚠️ Placa, Kilometraje y Firma del conductor son obligatorios.</p>';
         return;
       }
 
+      const esEdicion = !!inspeccionEditandoId;
       btn.disabled = true;
-      btn.textContent = 'Enviando a Google Sheets...';
+      btn.textContent = esEdicion ? 'Actualizando...' : 'Enviando a Google Sheets...';
 
       const form = document.getElementById('formInspeccion');
       const dataFinal = {};
-      dataFinal['ID'] = Date.now();
+      dataFinal['ID'] = inspeccionEditandoId || Date.now();
 
       form.querySelectorAll('input, select, textarea').forEach(el => {
         if (el.id) dataFinal[el.id] = el.value;
       });
 
       try {
-        const res = await DB.guardarInspeccion(dataFinal);
+        let res;
+        if (esEdicion) {
+          // 🆕 Requiere DB.actualizarInspeccion(id, data) en db.js.
+          if (typeof DB.actualizarInspeccion !== 'function') {
+            throw new Error('DB.actualizarInspeccion no existe en db.js todavía.');
+          }
+          res = await DB.actualizarInspeccion(inspeccionEditandoId, dataFinal);
+        } else {
+          res = await DB.guardarInspeccion(dataFinal);
+        }
+
         if (res.ok) {
-          msg.innerHTML = '<p style="color:green; text-align:center;">✅ Inspección guardada con éxito.</p>';
+          msg.innerHTML = esEdicion
+            ? '<p style="color:green; text-align:center;">✅ Inspección actualizada con éxito.</p>'
+            : '<p style="color:green; text-align:center;">✅ Inspección guardada con éxito.</p>';
           setTimeout(() => location.href = 'panel_conductor.html', 2500);
         } else {
           throw new Error("Respuesta fallida del servidor");
         }
       } catch (e) {
+        console.error(e);
         msg.innerHTML = '<p style="color:red; text-align:center;">❌ Error al guardar. Verifique su conexión.</p>';
         btn.disabled = false;
-        btn.textContent = 'Guardar Registro Completo';
+        btn.textContent = esEdicion ? 'Actualizar Registro' : 'Guardar Registro Completo';
       }
     }
 
@@ -842,7 +975,7 @@
         const datosGenerales = [
           ['Placa', val('PLACA'), 'Vehículo', val('MODELO')],
           ['Año', val('AÑO'), 'Tipo de servicio', val('TIPO_VEHICULO')],
-          ['Conductor', val('CONDUCTOR'), 'Conductor asignado', val('CONDUCTOR_ASIGNADO')],
+          ['Conductor (entrega)', val('CONDUCTOR') || '—', 'Conductor asignado', val('CONDUCTOR_ASIGNADO')],
           ['Fecha', val('FECHA'), 'Hora', val('HORA')],
           ['Kilometraje', val('KILOMETRAJE'), 'Regional', val('REGIONAL')],
           ['Sede', val('SEDE'), 'Nivel combustible', val('NIVEL_COMBUSTIBLE')],
@@ -986,7 +1119,7 @@
 
         y += altoFirma + 14;
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(22, 35, 61);
-        doc.text('Inspector / Entrega: ' + (val('INSPECTOR') || '—'), margin, y);
+        doc.text('Conductor (entrega): ' + (val('CONDUCTOR') || '—') + '   |   Inspector: ' + (val('INSPECTOR') || '—'), margin, y);
 
         // ── Pie de página en todas las hojas ──────
         const totalPages = doc.internal.getNumberOfPages();
