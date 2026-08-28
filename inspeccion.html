@@ -1019,9 +1019,15 @@
         Object.keys(data).forEach(key => {
           if (key === 'ID' || key === 'PLACA' || key === 'TIPO_INSPECCION') return;
           if (key === 'FIRMA_CONDUCTOR' || key === 'FIRMA_INSPECTOR') return;
+          if (key === 'FECHA') return; // 🆕 se procesa aparte, ver normalizarFechaCampo()
           const el = document.getElementById(key);
           if (el) el.value = data[key] ?? '';
         });
+
+        // 🆕 FIX FECHA: reconvierte a DD/MM/AAAA si llegó en otro formato
+        if (data.FECHA !== undefined) {
+          document.getElementById('FECHA').value = normalizarFechaCampo(data.FECHA);
+        }
 
         document.querySelectorAll('.estado-item').forEach(sel => {
           sel.setAttribute('data-val', sel.value);
@@ -1096,7 +1102,41 @@
     function val(id) {
       const el = document.getElementById(id);
       if (!el) return '';
-      return el.value || '';
+      return limpiarTextoPDF(el.value || '');
+    }
+
+    // 🆕 FIX TEXTO CORRUPTO EN PDF ("Ø5Þ..."): la fuente estándar que usa
+    // jsPDF (Helvetica) sabe dibujar letras con tilde y ñ perfectamente,
+    // pero NO sabe dibujar emojis ni símbolos raros (✅, 🔧, checks, etc.).
+    // Cuando aparecía uno de esos caracteres en un campo (Sede, una
+    // observación, el nombre del inspector...), la fuente no solo fallaba
+    // en ESE caracter: arrastraba basura visual en el resto del texto.
+    // Esta función quita justo esos caracteres problemáticos ANTES de
+    // mandar el texto al PDF, dejando intactas las tildes, la ñ, ¿, ¡,
+    // comillas tipográficas y guiones largos (esos sí los dibuja bien).
+    function limpiarTextoPDF(v) {
+      if (v === null || v === undefined) return '';
+      let s = String(v);
+      try { s = s.normalize('NFC'); } catch (e) {}
+      s = s
+        .replace(/[\u{10000}-\u{10FFFF}]/gu, '') // emojis y cualquier símbolo fuera del plano básico de Unicode
+        .replace(/[\u2190-\u2BFF]/g, '')          // flechas, símbolos técnicos/misceláneos, dingbats, checks ✅❌⚠️, etc.
+        .replace(/[\uFE00-\uFE0F]/g, '')          // selectores de variación (acompañan a muchos emoji)
+        .replace(/[\u200D\u200B]/g, '')           // zero-width joiner / zero-width space (invisibles, rompen la fuente)
+        .replace(/\uFFFD/g, '');                  // caracter de "reemplazo" de datos ya corruptos
+      return s.replace(/[ \t]{2,}/g, ' ').trim();
+    }
+
+    // 🆕 FIX FECHA MAL FORMATEADA AL EDITAR ("2026-07-28 02:00:00" en vez
+    // de "28/07/2026"): a veces la celda de Google Sheets llega en formato
+    // "AAAA-MM-DD" o "AAAA-MM-DD HH:MM:SS" en lugar del "DD/MM/AAAA" que
+    // usa el resto de la app. Esto la reconvierte al abrir para editar.
+    function normalizarFechaCampo(valor) {
+      const s = String(valor || '').trim();
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s; // ya viene bien
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+      return s; // formato desconocido: se deja tal cual para no perder el dato
     }
 
     function estadoTexto(v) {
@@ -1217,7 +1257,7 @@
         doc.text('Formato de Inspección Vehicular  ·  Generado el ' + new Date().toLocaleString('es-CO'), margin + 45, y + 30);
         y += 52;
 
-        const tipoTxt = document.getElementById('TIPO_INSPECCION').selectedOptions[0].text;
+        const tipoTxt = limpiarTextoPDF(document.getElementById('TIPO_INSPECCION').selectedOptions[0].text);
         doc.setFillColor(77, 77, 77);
         doc.rect(margin, y, pageW - 2 * margin, 30, 'F');
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
@@ -1331,7 +1371,7 @@
 
         if (y > pageH - 100) { doc.addPage(); y = 40; }
 
-        const estadoFinal = document.getElementById('ESTADO_INSPECCION').selectedOptions[0].text;
+        const estadoFinal = limpiarTextoPDF(document.getElementById('ESTADO_INSPECCION').selectedOptions[0].text);
         doc.setFillColor(243, 247, 253); doc.setDrawColor(201, 218, 242);
         doc.rect(margin, y, pageW - 2 * margin, 26, 'FD');
         doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(22, 35, 61);
