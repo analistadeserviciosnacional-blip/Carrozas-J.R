@@ -1,8 +1,31 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.21
+ *  CONECTOR J.R. CARROZAS — db.js  v12.22
  *
- *  🆕 CAMBIOS v12.21 (fix: inspeccion_vehicular.html ya llamaba a
+ *  🆕 CAMBIOS v12.22 (fix: la Fecha se veía como "2026-07-28 02:00:00"
+ *  en vez de "28/07/2026" al editar una Inspección — el PDF generado
+ *  mostraba ese mismo texto sin formatear):
+ *
+ *  Diagnóstico: _fmtFechaHoraGAS() / _looksLikeISOFechaHora() solo
+ *  reconocían el formato ISO con "T" como separador entre fecha y
+ *  hora ("AAAA-MM-DDTHH:MM:SS"), que es como Google Sheets serializa
+ *  la mayoría de celdas con formato de Fecha/Hora. Pero algunas
+ *  celdas de "Inspeccion_Vehiculo" llegaban con un ESPACIO en vez de
+ *  "T" ("AAAA-MM-DD HH:MM:SS") — un formato igual de válido que
+ *  Sheets también produce según la configuración regional de la
+ *  hoja — y ese caso no hacía match con la expresión regular, así
+ *  que el valor pasaba crudo sin convertir a DD/MM/AAAA.
+ *
+ *  + RE_ISO_FECHA_HORA ahora acepta tanto "T" como espacio como
+ *    separador (antes solo aceptaba "T"). El resto de la lógica de
+ *    _fmtFechaHoraGAS() no cambió: sigue distinguiendo "solo hora"
+ *    (ancla en 1899-12-30) de "fecha real" exactamente igual que
+ *    antes, solo que ahora también detecta el caso con espacio.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.21 — ver historial
+ *   completo más abajo, nada de lo que ya funcionaba fue tocado.)
+ *
+ *  ── Historial v12.21 (fix: inspeccion_vehicular.html ya llamaba a
  *  DB.obtenerInspeccion(id) y DB.actualizarInspeccion(id, datos) para
  *  poder abrir una inspección existente con ?id=... y guardarla de
  *  nuevo, pero esas dos funciones nunca se agregaron a db.js — el
@@ -268,10 +291,13 @@ function claveOrdenInspeccion(registro) {
 
 // ══════════════════════════════════════════════════════════
 // 🆕 v12.14 — SANEAMIENTO CENTRAL DE FECHAS/HORAS (bug "1899-12-30")
+// 🆕 v12.22 — ahora también reconoce el separador con ESPACIO
+// ("AAAA-MM-DD HH:MM:SS"), no solo con "T" ("AAAA-MM-DDTHH:MM:SS").
+// Ver nota de la versión al inicio del archivo.
 // ══════════════════════════════════════════════════════════
 const _CAMPOS_ISO_SIN_TOCAR = { created_at: true };
 
-const RE_ISO_FECHA_HORA = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/;
+const RE_ISO_FECHA_HORA = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/;
 const OFFSET_COLOMBIA_MS = 5 * 60 * 60 * 1000; // Colombia = UTC-5 fijo, sin horario de verano
 
 function _looksLikeISOFechaHora(v) {
@@ -1686,12 +1712,10 @@ const DB = {
   },
 
   // ══════════════════════════════════════════════════════════
-  // 🆕 v12.21 — LECTURA DE UNA INSPECCIÓN EXISTENTE (POR ID)
+  // v12.21 — LECTURA DE UNA INSPECCIÓN EXISTENTE (POR ID)
   // ══════════════════════════════════════════════════════════
   // inspeccion_vehicular.html la usa en modo edición (?id=...) para
-  // precargar todo el formulario con lo que ya se guardó. Antes no
-  // existía y el formulario mostraba un alert de error al intentar
-  // editar cualquier inspección.
+  // precargar todo el formulario con lo que ya se guardó.
   async obtenerInspeccion(id) {
     try {
       if (!id) return { ok: false, error: 'obtenerInspeccion requiere un id' };
@@ -1705,7 +1729,7 @@ const DB = {
   },
 
   // ══════════════════════════════════════════════════════════
-  // 🆕 v12.21 — LISTADO DE INSPECCIONES (para la pantalla de consulta)
+  // v12.21 — LISTADO DE INSPECCIONES (para la pantalla de consulta)
   // ══════════════════════════════════════════════════════════
   // Devuelve las inspecciones más recientes primero (orden real por
   // FECHA+HORA, no alfabético). filtros es opcional:
@@ -1737,12 +1761,8 @@ const DB = {
   },
 
   // ══════════════════════════════════════════════════════════
-  // 🆕 v12.21 — ACTUALIZAR UNA INSPECCIÓN EXISTENTE (POR ID)
+  // v12.21 — ACTUALIZAR UNA INSPECCIÓN EXISTENTE (POR ID)
   // ══════════════════════════════════════════════════════════
-  // inspeccion_vehicular.html la llama cuando el formulario está en
-  // modo edición (viene de la pantalla de listado con ?id=...).
-  // Actualiza por ID en vez de insertar una fila nueva, y sincroniza
-  // la carroza igual que guardarInspeccion() si corresponde.
   async actualizarInspeccion(id, datos) {
     return conLock('actualizarInspeccion:' + id, async () => {
       try {
