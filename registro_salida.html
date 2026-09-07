@@ -667,6 +667,46 @@
             if (params.get('recogida'))  document.getElementById('clinica').value   = params.get('recogida');
             if (params.get('motivo'))    document.getElementById('motivo').value    = params.get('motivo');
         }
+
+        // 🆕 Viene de haber cerrado manualmente el servicio pendiente de
+        // otro conductor en registro_llegada.html (botón "🏁 Cerrar Yo
+        // Esta Llegada y Continuar"). El cierre ya quedó guardado de
+        // verdad en la base de datos, así que aquí solo se retoma la
+        // misma placa para no obligar a repetir la selección.
+        //
+        // La regional (si viene) se preselecciona AQUÍ, antes de que
+        // window.onload llame a cargarPlacas(), para que la lista de
+        // placas que se cargue ya corresponda a la regional correcta.
+        // La selección real de la placa se aplica después, en
+        // aplicarContinuarPlacaTrasCierre(), una vez que cargarPlacas()
+        // ya haya terminado (ver window.onload).
+        const continuarPlaca = params.get('continuar_placa');
+        if (continuarPlaca) {
+            window._continuarPlacaTrasCierre = continuarPlaca;
+            const regionalParam = params.get('regional');
+            if (regionalParam) preseleccionarRegional(regionalParam);
+        }
+    }
+
+    // 🆕 Aplica la placa pendiente de continuar_placa (ver
+    // verificarParametrosURL) una vez que cargarPlacas() ya terminó de
+    // traer las opciones del select — así la placa buscada sí existe
+    // como <option> en el momento de asignarla.
+    async function aplicarContinuarPlacaTrasCierre() {
+        const placa = window._continuarPlacaTrasCierre;
+        window._continuarPlacaTrasCierre = null;
+        if (!placa) return;
+
+        const select = document.getElementById('placa');
+        const opcion = Array.from(select.options).find(o => normalizar(o.value) === normalizar(placa));
+
+        if (opcion) {
+            select.value = opcion.value;
+            await alSeleccionarPlaca();
+            Swal.fire('Servicio cerrado', 'El servicio anterior de esta carroza quedó cerrado correctamente. Ya puedes continuar con tu salida.', 'success');
+        } else {
+            console.warn('No se encontró la placa "' + placa + '" en el selector tras el cierre — puede que ya no esté disponible en esta regional.');
+        }
     }
 
     // ══════════════════════════════════════════════
@@ -893,6 +933,41 @@
         }
     }
 
+
+    // ══════════════════════════════════════════════
+    // 🆕 CERRAR YO ESTA LLEGADA Y CONTINUAR
+    //
+    //  Cierra de verdad el servicio anterior (no lo justifica ni lo deja
+    //  pendiente): lleva al conductor/coordinador a registro_llegada.html con:
+    //    - La placa ya preseleccionada.
+    //    - Una observación pre-escrita explicando el motivo del cierre
+    //      (quién lo hace y por qué el conductor original no lo cerró).
+    //    - Una bandera "retorno_salida=1" (+ la regional actual) para que,
+    //      una vez guardada esa llegada, aparezca un botón que regresa
+    //      directo aquí con la misma placa ya seleccionada — sin volver a
+    //      bloquear, porque el servicio anterior ya quedó cerrado en la
+    //      base de datos (no es una excepción, es un cierre real).
+    // ══════════════════════════════════════════════
+    function irACerrarLlegada() {
+        const placaActual    = document.getElementById('placa').value;
+        const regionalActual = document.getElementById('regional').value;
+        const miNombre       = document.getElementById('conductor').value;
+        const pendienteRef   = pendienteActual;
+
+        const nota = `Cierre realizado por ${miNombre} porque el conductor ${pendienteRef?.conductor || 'N/A'} ` +
+                     `no registró la llegada. Salida original del ${formatearFechaLimpia(pendienteRef?.fecha) || 'N/A'}` +
+                     `${pendienteRef?.hora_de_salida ? ' a las ' + formatearHoraLimpia(pendienteRef.hora_de_salida) : ''}.`;
+
+        const params = new URLSearchParams({
+            placa: placaActual,
+            nota: nota,
+            retorno_salida: '1',
+            regional: regionalActual
+        });
+
+        window.location.href = 'registro_llegada.html?' + params.toString();
+    }
+
     // ══════════════════════════════════════════════
     //  AL SELECCIONAR PLACA
     // ══════════════════════════════════════════════
@@ -956,7 +1031,7 @@
         // 🆕 1) SERVICIO SIN CERRAR (salida abierta de un día anterior)
         //    Se le informa al usuario que el conductor de esa salida no
         //    hizo el Registro de Llegada, y se bloquea la nueva salida
-        //    hasta que se notifique y se cierre ese servicio.
+        //    hasta que se notifique y se cierre ese servicio de verdad.
         //
         //    Flujo de recuperación sin depender de que el conductor
         //    anterior esté disponible:
@@ -969,9 +1044,15 @@
         //         en cuanto exista hora_de_ingreso ya no se considera
         //         pendiente y el bloqueo desaparece solo, sin recargar
         //         toda la página.
+        //      d) "🏁 Cerrar Yo Esta Llegada y Continuar" → lleva a
+        //         registro_llegada.html con la placa y una observación
+        //         pre-escritas; al guardar esa llegada, el servicio queda
+        //         REALMENTE cerrado (no una excepción) y se regresa aquí
+        //         mismo con la placa ya lista para continuar la salida.
         // ══════════════════════════════════════════════
         if (!modoEdicion) {
             const pendiente = pendienteResult;
+
             if (pendiente) {
                 salidaBloqueada = true;
                 pendienteActual = pendiente;
@@ -1004,12 +1085,24 @@
                                    color:#ef4444; border-radius:10px; padding:10px; font-weight:700; font-size:12px; cursor:pointer;">
                             🔄 Ya se cerró, verificar de nuevo
                         </button>
+
+                        <button onclick="irACerrarLlegada()"
+                            style="width:100%; margin-top:8px; background:#004a99; border:1.5px solid #004a99;
+                                   color:white; border-radius:10px; padding:10px; font-weight:800; font-size:12px; cursor:pointer;">
+                            🏁 Cerrar Yo Esta Llegada y Continuar
+                        </button>
+                        <div style="font-size:10.5px; color:#7f1d1d; margin-top:6px; line-height:1.5;">
+                            Te lleva al Registro de Llegada con esta placa y la observación ya escritas.
+                            Al guardar, el servicio queda <b>realmente cerrado</b> (no solo justificado) y
+                            regresas aquí mismo para continuar tu salida.
+                        </div>
                     </div>`;
                 document.getElementById('km_s').value = '';
                 document.getElementById('alerta-combustible').style.display = 'none';
                 ocultarBotonChecklist();
                 return;
             }
+
         }
 
         // ══════════════════════════════════════════════
@@ -1115,11 +1208,12 @@
                     <div class="km-progreso-wrap">
                         <div class="km-progreso-bar" style="width: ${porcentaje}%; background: ${porcentaje > 90 ? '#ef4444' : '#10b981'};"></div>
                     </div>`;
+                alertaEl.style.display = 'block';
             } else {
                 alertaEl.className = 'alerta-vehiculo al-dia';
                 alertaEl.innerHTML = `<div class="av-titulo">ℹ️ SIN DATOS DE ACEITE</div><div class="av-msg">No hay registros de aceite para ${placaSeleccionada}.</div>`;
+                alertaEl.style.display = 'block';
             }
-            alertaEl.style.display = 'block';
 
         } catch(e) {
             console.error('Error analizando aceite:', e);
@@ -1735,6 +1829,13 @@
 
         verificarParametrosURL();
         await cargarPlacas();
+
+        // 🆕 Si se venía de cerrar el servicio de otro conductor en
+        // registro_llegada.html, retomar aquí esa misma placa ahora que
+        // el selector ya tiene sus opciones cargadas.
+        if (window._continuarPlacaTrasCierre) {
+            await aplicarContinuarPlacaTrasCierre();
+        }
 
         const now = new Date();
         document.getElementById('hora_salida').value =
