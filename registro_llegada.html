@@ -112,6 +112,7 @@
         .btn-finalizar:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; background: #6b7280; }
         .btn-finalizar.bloqueado-km { background: #d97706; box-shadow: 0 4px 16px rgba(217,119,6,0.3); }
         .btn-wa    { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit; }
+        .btn-continuar-salida { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; background: var(--azul); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit; box-shadow: 0 4px 14px rgba(0,74,153,0.25); }
         .btn-volver { width: 100%; padding: 13px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-weight: 600; font-size: 14px; cursor: pointer; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; font-family: inherit; }
 
         #progreso-steps { display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:12px; padding:12px 15px; margin-bottom:14px; font-size:12px; }
@@ -147,7 +148,7 @@
         .combustible-card.cc-error { border-color: #fca5a5; background: #fef2f2; }
         .combustible-card.cc-error .cc-titulo { color: #b91c1c; }
 
-        /* ── BANNER LLEGADA DIRIGIDA (desde la campana del coordinador) ── */
+        /* ── BANNER LLEGADA DIRIGIDA (desde la campana del coordinador o desde un cierre por incidencia) ── */
         #banner-dirigido {
             display: none;
             background: #eff6ff;
@@ -158,6 +159,13 @@
             font-size: 12px;
             color: #1d4ed8;
             font-weight: 700;
+        }
+        /* 🆕 Variante para cuando se llega a cerrar el servicio de OTRO conductor
+           (desde el botón "Cerrar yo esta llegada y continuar" de registro_salida.html) */
+        #banner-dirigido.tercero {
+            background: #fffbeb;
+            border-color: #fcd34d;
+            color: #92400e;
         }
 
         /* 🆕 BOTÓN "VER TODAS LAS PLACAS" (respaldo del filtro por conductor) */
@@ -202,8 +210,9 @@
 
     <div class="content">
 
-        <!-- 🆕 BANNER: llegada abierta directamente desde la campana del coordinador -->
-        <div id="banner-dirigido">🔔 Abierto desde la notificación de servicio sin cerrar — placa preseleccionada.</div>
+        <!-- 🆕 BANNER: llegada abierta directamente desde la campana del coordinador,
+             o desde el cierre manual de un servicio de otro conductor -->
+        <div id="banner-dirigido"></div>
 
         <div class="section-title">Vehículo que Regresa</div>
         <div class="grid-2">
@@ -351,6 +360,13 @@
             <div id="bloque-wa" style="display:none;">
                 <button class="btn-wa" onclick="enviarWA()">💬 ENVIAR REPORTE POR WHATSAPP</button>
             </div>
+            <!-- 🆕 Solo aparece cuando se llegó desde "Cerrar yo esta llegada y
+                 continuar" en registro_salida.html (retorno_salida=1) y el
+                 cierre ya se guardó correctamente. Regresa a la salida propia
+                 con la misma placa ya seleccionada, sin bloqueo. -->
+            <div id="bloque-continuar-salida" style="display:none;">
+                <button class="btn-continuar-salida" onclick="continuarConSalida()">➡️ CONTINUAR CON MI REGISTRO DE SALIDA</button>
+            </div>
             <button class="btn-volver" onclick="irAtras()">← Volver</button>
         </div>
 
@@ -401,6 +417,13 @@
     const UMBRAL_KM_SOSPECHOSO = 800;
     window._totalKmSospechoso = false;
 
+    // 🆕 Si se llegó con "retorno_salida=1" (desde el botón "Cerrar yo esta
+    // llegada y continuar" de registro_salida.html), se guarda aquí para
+    // saber si, tras finalizar, hay que ofrecer el botón de continuar y a
+    // qué regional volver.
+    window._retornoSalida     = false;
+    window._regionalRetorno   = '';
+
     // ── NORMALIZACIÓN DE TEXTO ─────────────────────────────
     // Minúsculas, sin tildes, espacios múltiples colapsados a uno solo y
     // sin espacios al inicio/fin. Necesario porque en la hoja "Traslado"
@@ -430,12 +453,16 @@
 
         // ══════════════════════════════════════════════
         // 🆕 PRESELECCIÓN DESDE LA CAMPANA DEL COORDINADOR
+        // O DESDE "CERRAR YO ESTA LLEGADA Y CONTINUAR"
+        // (registro_salida.html)
         // ══════════════════════════════════════════════
         // Si se llega desde panel_coordinador.html?placa=XXX (clic en un
-        // ítem de la campana "Servicios sin cerrar"), se preselecciona
-        // esa placa en el desplegable y se dispara automáticamente
-        // alSeleccionarPlaca(), para que el coordinador solo tenga que
-        // completar el cierre sin tener que buscarla manualmente.
+        // ítem de la campana "Servicios sin cerrar"), o desde el botón
+        // "🏁 Cerrar yo esta llegada y continuar" de registro_salida.html
+        // (mismo parámetro "placa", más "nota" y "retorno_salida"), se
+        // preselecciona esa placa en el desplegable y se dispara
+        // automáticamente alSeleccionarPlaca(), para no tener que
+        // buscarla manualmente.
         //
         // 🔧 FIX: si quien abre el enlace es un conductor (no coordinador/
         // admin) y la placa dirigida no es una de las suyas, el selector
@@ -445,6 +472,15 @@
         try {
             const paramsUrl = new URLSearchParams(window.location.search);
             const placaParam = paramsUrl.get('placa');
+            const notaParam  = paramsUrl.get('nota');
+            const retornoParam = paramsUrl.get('retorno_salida');
+            const regionalParam = paramsUrl.get('regional');
+
+            if (retornoParam === '1') {
+                window._retornoSalida   = true;
+                window._regionalRetorno = regionalParam || '';
+            }
+
             if (placaParam) {
                 const placaNorm = placaParam.replace(/[^A-Z0-9]/gi, '').toUpperCase();
                 let selectPlaca = document.getElementById('placa');
@@ -463,8 +499,28 @@
 
                 if (opcion) {
                     selectPlaca.value = opcion.value;
-                    document.getElementById('banner-dirigido').style.display = 'block';
+
+                    const banner = document.getElementById('banner-dirigido');
+                    if (notaParam) {
+                        // 🆕 Cierre manual del servicio de OTRO conductor
+                        banner.className = 'tercero';
+                        banner.innerHTML = '🔧 Vas a cerrar un servicio pendiente de otro conductor. ' +
+                            'Se prellenó la observación explicando el motivo — revísala antes de guardar.';
+                    } else {
+                        banner.className = '';
+                        banner.innerHTML = '🔔 Abierto desde la notificación de servicio sin cerrar — placa preseleccionada.';
+                    }
+                    banner.style.display = 'block';
+
                     await alSeleccionarPlaca();
+
+                    // 🆕 Prellenar la observación con el motivo del cierre
+                    // (solo si venía en la URL, y sin pisar nada si el
+                    // usuario ya hubiera escrito algo antes de este punto).
+                    if (notaParam) {
+                        const obsEl = document.getElementById('observaciones');
+                        if (!obsEl.value) obsEl.value = notaParam;
+                    }
                 } else {
                     console.warn('La placa recibida por URL (' + placaParam + ') no está en el selector de salidas activas — puede que ya se haya cerrado.');
                 }
@@ -1104,6 +1160,13 @@
             btn.style.background = '#16a34a';
             document.getElementById('bloque-wa').style.display = 'block';
 
+            // 🆕 Si se vino desde "Cerrar yo esta llegada y continuar" en
+            // registro_salida.html, ofrecer el botón de vuelta con la
+            // misma placa ya lista para continuar la salida propia.
+            if (window._retornoSalida) {
+                document.getElementById('bloque-continuar-salida').style.display = 'block';
+            }
+
             // ── COMBUSTIBLE ACTUALIZADO (verificación real antes/después) ──
             // db.js v12.5 ya hace `await` de la actualización real de la
             // carroza (kilometraje_actual y combustible) y devuelve el
@@ -1208,6 +1271,17 @@
             '✅ *Servicio completado exitosamente* 🙏';
 
         window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    }
+
+    // 🆕 Regresa a registro_salida.html con la misma placa ya seleccionada
+    // (y la regional, si se conocía), para continuar la salida propia sin
+    // tener que repetir la búsqueda de la placa. Se usa el mismo nombre
+    // de parámetro que registro_salida.html espera: "continuar_placa".
+    function continuarConSalida() {
+        const placa = document.getElementById('placa').value;
+        const params = new URLSearchParams({ continuar_placa: placa });
+        if (window._regionalRetorno) params.set('regional', window._regionalRetorno);
+        window.location.href = 'registro_salida.html?' + params.toString();
     }
 
     // ── VOLVER ────────────────────────────────────────────
