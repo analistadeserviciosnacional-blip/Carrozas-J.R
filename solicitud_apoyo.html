@@ -209,8 +209,9 @@
 
 <script src="db.js"></script>
 <script>
-// ✅ URL correcta — la misma que db.js
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
+// v12.23 — ya no necesitamos APPS_SCRIPT_URL suelto:
+// todas las peticiones pasan por DB (db.js) con caché persistente
+// de 6h, limitador de concurrencia y fallback ante saturación.
 
 let sesion = {};
 let filtroActual = 'disponibles';
@@ -239,10 +240,14 @@ function irAtras() {
 }
 
 async function cargar() {
+    // v12.23 — invalidar caché local de solicitudes para que cada
+    // visita a esta pantalla vea las solicitudes más recientes.
+    // Se invalida la hoja pero no el resto del caché global.
+    if (window.DB) DB.invalidarCache('solicitud_apoyo');
     try {
-        var resp = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo');
-        var data = await resp.json();
-        if (data.error) throw new Error(data.error);
+        const resultado = await DB.obtenerHoja('solicitud_apoyo');
+        if (!resultado.ok) throw new Error(resultado.error || 'Error al cargar solicitudes');
+        const data = resultado.data;
 
         todasSolicitudes = (Array.isArray(data) ? data : []).sort(function(a, b) {
             return String(b.created_at || '').localeCompare(String(a.created_at || ''));
