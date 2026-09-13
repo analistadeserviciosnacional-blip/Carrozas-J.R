@@ -422,8 +422,9 @@
 <div class="toast" id="toast"></div>
 
 <script>
-    // ✅ URL correcta — la misma que usa db.js y el resto del sistema
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec';
+    // v12.23 — ya no se usa APPS_SCRIPT_URL directo: todas las
+    // peticiones pasan por DB (db.js) con caché persistente de 6h,
+    // limitador de concurrencia y fallback ante saturación de GAS.
 
     let sesion = {}, urgencia = 'normal', alcance = 'regional', regionalEspecifica = '', conductoresWA = [], mensajeWA = '', enviados = new Set();
     const REGIONALES = ['Pereira','Risaralda','Quindío','Caldas','Antioquia','Valle Centro','Valle Norte','Valle Sur','C/ Marca','Tolima Norte','Palmira'];
@@ -463,8 +464,9 @@
         badge.style.display = 'flex'; badge.className = 'conductores-badge loading';
         badge.innerHTML = `<div class="spinner-sm"></div> Verificando conductores en ${r}...`;
         try {
-            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=usuarios');
-            const users = await resp.json();
+            // v12.23 — usa caché persistente de usuarios (ya calentado al abrir la app)
+            const resultado = await DB.obtenerHoja('usuarios');
+            const users = resultado.ok ? resultado.data : [];
             const count = users.filter(u => u.regional === r && u.rol === 'conductor' && u.telefono).length;
             badge.className = count > 0 ? 'conductores-badge ok' : 'conductores-badge cero';
             badge.innerHTML = count > 0 ? `<span class="c-num">${count}</span> conductores listos` : `⚠️ Sin conductores registrados en ${r}`;
@@ -526,8 +528,11 @@
         btn.innerHTML = '<span>⏳</span> CALCULANDO ID Y GUARDANDO...';
 
         try {
-            const respList = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo');
-            const filas = await respList.json();
+            // v12.23 — leer solicitudes existentes via DB (caché + concurrencia)
+            // Se invalida antes para que el ID siguiente sea correcto.
+            DB.invalidarCache('solicitud_apoyo');
+            const resLista = await DB.obtenerHoja('solicitud_apoyo');
+            const filas = resLista.ok ? resLista.data : [];
             let n = 1;
             if (Array.isArray(filas) && filas.length > 0) {
                 const nums = filas.map(f => {
@@ -565,16 +570,13 @@
                 urgencia:             urgencia
             };
 
-            // ✅ sin mode:'no-cors' + header Content-Type correcto
-            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=solicitud_apoyo&action=insert', {
-                method:  'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body:    JSON.stringify(datos)
-            });
+            // v12.23 — guarda en Google Sheets via DB.guardar()
+            // (gasWrite con cola de concurrencia y reintento automático)
+            const resInsert = await DB.guardar('solicitud_apoyo', datos, 'insert');
+            if (!resInsert.ok) throw new Error(resInsert.error || 'Error al guardar en Google Sheets');
 
-            const result = await resp.json();
-            if (!result.ok) throw new Error(result.error || 'Error al guardar');
-
+            // Invalidar caché para que la lista se actualice en la próxima vista
+            DB.invalidarCache('solicitud_apoyo');
 
             mensajeWA = generarMensajePRO(datos);
             toast('✅ Solicitud ' + nuevoId + ' Creada', '#10b981');
@@ -597,9 +599,10 @@
         document.getElementById('wa-loading').style.display = 'flex';
         
         try {
-            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=usuarios');
-            const users = await resp.json();
-            conductoresWA = (Array.isArray(users) ? users : []).filter(u =>
+            // v12.23 — usa caché persistente (usuarios ya calentados)
+            const resultado = await DB.obtenerHoja('usuarios');
+            const users = resultado.ok ? resultado.data : [];
+            conductoresWA = users.filter(u =>
                 (reg === 'NACIONAL' || u.regional === reg) && u.rol === 'conductor' && u.telefono
             );
             document.getElementById('wa-loading').style.display = 'none';
