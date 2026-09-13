@@ -1,8 +1,33 @@
 /**
  * ══════════════════════════════════════════════════════════
- *  CONECTOR J.R. CARROZAS — db.js  v12.22
+ *  CONECTOR J.R. CARROZAS — db.js  v12.23
  *
- *  🆕 CAMBIOS v12.22 (fix: la Fecha se veía como "2026-07-28 02:00:00"
+ *  🆕 CAMBIOS v12.23 (reduce errores 404/timeout visibles en consola
+ *  al conectar, especialmente en el primer login del día):
+ *
+ *  Diagnóstico: los 404 que se ven en consola contra
+ *  script.googleusercontent.com son el token de redirección de
+ *  Apps Script chocando/expirando cuando llegan varias peticiones
+ *  casi en el mismo instante, o cuando la instancia está "fría"
+ *  (cold-start tras un rato sin uso). El reintento único de v12.20
+ *  ya atajaba la mayoría, pero en cold-start real (primer uso del
+ *  día) un solo reintento no siempre alcanza.
+ *
+ *  + gasGet() ahora hace hasta 3 intentos (antes 2) con backoff
+ *    creciente (1.5s, luego 2.5s) antes de rendirse y devolver [].
+ *  + El warm-up de fase 1 ya NO dispara las 5 hojas críticas todas
+ *    en el mismo instante: se escalonan con 800ms de separación
+ *    entre cada una, para no saturar el token de redirección de
+ *    Apps Script justo cuando la instancia recién arrancó.
+ *  + Ver también Code.gs v10.22: se agrega instalarTriggerKeepAlive()
+ *    para que mantenerVivo() corra sola cada 10 min y evite que la
+ *    instancia se enfríe entre usos — sin esto, el reintento del
+ *    cliente ayuda pero el cold-start real sigue ocurriendo.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.22 — ver historial
+ *   completo más abajo, nada de lo que ya funcionaba fue tocado.)
+ *
+ *  ── Historial v12.22 (fix: la Fecha se veía como "2026-07-28 02:00:00"
  *  en vez de "28/07/2026" al editar una Inspección — el PDF generado
  *  mostraba ese mismo texto sin formatear):
  *
@@ -416,6 +441,16 @@ async function _gasGetIntento(key, ms) {
   return Array.isArray(json) ? json : [];
 }
 
+// 🆕 v12.23 — gasGet() ahora hace HASTA 3 INTENTOS (antes 2) con
+// backoff creciente (1.5s, luego 2.5s) antes de rendirse y devolver
+// []. El reintento único de v12.20 ya atajaba la mayoría de los 404
+// puntuales, pero en un cold-start real de Apps Script (primer login
+// del día, instancia recién arrancada) un solo reintento a veces no
+// alcanza — la segunda petición todavía llega mientras la instancia
+// sigue "calentando". Un tercer intento, con más espera antes, cubre
+// ese caso sin alargar demasiado la espera cuando sí hay backend
+// disponible (los 2 primeros intentos siguen siendo tan rápidos como
+// antes).
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
 
@@ -432,22 +467,19 @@ async function gasGet(sheetName) {
       try {
         data = await _gasGetIntento(key, 40000);
       } catch (err1) {
-        // 🆕 v12.20 — REINTENTO AUTOMÁTICO: los timeouts/404 de Apps
-        // Script suelen ser puntuales (congestión momentánea, token de
-        // redirección chocando con otra petición) — en la captura que
-        // motivó este fix, hojas que fallaban en la fase 1 del warm-up
-        // (carrozas, usuarios, Traslado) cargaban bien poco después en
-        // la fase 2. Antes de rendirse y devolver [] (lo que deja la
-        // pantalla como si la hoja estuviera vacía), se espera 1.5s y
-        // se reintenta UNA vez — mismo patrón que ya usa gasWrite() en
-        // sus escrituras.
         console.warn(`gasGet ${key}: 1er intento falló (${err1.message}), reintentando en 1.5s…`);
         await new Promise(r => setTimeout(r, 1500));
         try {
           data = await _gasGetIntento(key, 40000);
         } catch (err2) {
-          console.warn(`gasGet ${key}: 2do intento también falló (${err2.message}) — se devuelve vacío por ahora.`);
-          return [];
+          console.warn(`gasGet ${key}: 2do intento falló (${err2.message}), último intento en 2.5s…`);
+          await new Promise(r => setTimeout(r, 2500));
+          try {
+            data = await _gasGetIntento(key, 40000);
+          } catch (err3) {
+            console.warn(`gasGet ${key}: 3 intentos fallaron (${err3.message}) — se devuelve vacío por ahora.`);
+            return [];
+          }
         }
       }
       data.forEach(_limpiarFilaGAS); // v12.14 — corrige fechas/horas mal serializadas
@@ -1900,7 +1932,15 @@ window.URL_GAS = URL_GAS;
 // carga inicial de la UI (login, selector de placas, etc.). Si la UI
 // lanza peticiones urgentes durante ese retraso, tienen cupo libre en
 // el limitador de concurrencia y no esperan en cola.
-// Fase 1 (t+5s):  ping + hojas críticas para el primer uso.
+// 🆕 v12.23 — Fase 1 ya NO dispara las 5 hojas críticas todas en el
+// mismo instante: antes, aunque pasaran por el limitador de
+// concurrencia (máx 2 en vuelo), las 5 llegaban a la cola en el mismo
+// tick y competían de entrada por el token de redirección de Apps
+// Script justo cuando la instancia recién arrancaba (el caso más
+// propenso a 404/timeout). Ahora se escalonan con 800ms entre cada
+// una, dándole aire a la instancia para "despertar" sin perder el
+// paralelismo real (el limitador de concurrencia sigue mandando).
+// Fase 1 (t+5s):  ping + hojas críticas para el primer uso, escalonadas.
 // Fase 2 (t+20s): hojas secundarias (averías, mantenimientos, tanqueo).
 (function() {
   setTimeout(function() {
@@ -1910,7 +1950,13 @@ window.URL_GAS = URL_GAS;
       if (ping.ok) console.log('🟢 API J.R. conectada:', ping.mensaje);
       else         console.warn('🔴 API J.R. sin conexión (warm-up):', ping.error);
     });
-    var promsFase1 = fase1.map(function(h) { return gasGet(h).catch(function() {}); });
+    var promsFase1 = fase1.map(function(h, i) {
+      return new Promise(function(resolve) {
+        setTimeout(function() {
+          gasGet(h).catch(function() {}).finally(resolve);
+        }, i * 800);
+      });
+    });
     Promise.allSettled([promPing].concat(promsFase1)).then(function() {
       console.log('✅ Cache fase 1 cargado (carrozas, traslados, llegadas, usuarios)');
       // Fase 2 — secundarias, 15 segundos después de fase 1
