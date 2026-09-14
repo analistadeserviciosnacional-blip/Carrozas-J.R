@@ -628,21 +628,26 @@ async function existeFila(sheetName, col, val) {
 
 // ── ESCRITURA con timeout largo ───────────────────────────
 async function gasWriteIntento(sheetName, payload, action, idCol, idValue, ms) {
-  const urlParams = new URLSearchParams({ sheetName: resolveSheet(sheetName), action });
-  if (idCol)   urlParams.set('idCol',   idCol);
-  if (idValue) urlParams.set('idValue', idValue);
+  const cleanSheet = resolveSheet(sheetName);
+  const cleanIdVal = String(idValue || '').trim();
+
+  // Se incluyen los parámetros en la URL y en el cuerpo POST para evitar fallos HTTP 404 por redirección en Google Apps Script
+  const urlParams = new URLSearchParams({ sheetName: cleanSheet, action });
+  if (idCol)      urlParams.set('idCol',   idCol);
+  if (cleanIdVal) urlParams.set('idValue', cleanIdVal);
   const url = `${URL_GAS}?${urlParams}`;
 
-  // 🆕 v12.18 — las escrituras también pasan por el limitador global:
-  // Apps Script comparte el mismo cupo de ejecuciones concurrentes
-  // para lecturas y escrituras, así que dejar las escrituras sin
-  // límite podía seguir saturando el backend aunque las lecturas ya
-  // estuvieran controladas.
+  const bodyData = Object.assign({}, payload);
+  if (action)     bodyData._action    = action;
+  if (idCol)      bodyData._idCol     = idCol;
+  if (cleanIdVal) bodyData._idValue   = cleanIdVal;
+  if (cleanSheet) bodyData._sheetName = cleanSheet;
+
   const resp = await _conLimiteConcurrencia(() => fetchConTimeout(url, {
     method:  'POST',
     redirect: 'follow',
     headers: { 'Content-Type': 'text/plain' },
-    body:    JSON.stringify(payload),
+    body:    JSON.stringify(bodyData),
   }, ms));
 
   if (!resp.ok) { return { ok: false, error: `HTTP ${resp.status}` }; }
@@ -687,7 +692,17 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
 
   try {
     const res1 = await gasWriteIntento(sheetName, payload, action, idCol, idValue, 60000);
-    if (res1 && res1.ok) invalidarLocal();
+    if (res1 && res1.ok) { invalidarLocal(); return res1; }
+
+    // Reintento en caso de 404 o falla temporal de red
+    if (res1 && !res1.ok && String(res1.error).includes('404')) {
+      console.warn(`gasWrite ${sheetName}: 1er intento dio ${res1.error}, reintentando...`);
+      await new Promise(r => setTimeout(r, 1000));
+      const resRetry = await gasWriteIntento(sheetName, payload, action, idCol, idValue, 60000);
+      if (resRetry && resRetry.ok) { invalidarLocal(); return resRetry; }
+      return resRetry;
+    }
+
     return res1;
   } catch (err) {
     if (!err.isTimeout) {
