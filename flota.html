@@ -358,6 +358,7 @@
         btn.disabled = true;
         btn.innerText = 'GUARDANDO...';
 
+        var estadoSeleccionado = document.getElementById('estado').value;
         var datos = {
             placa:                 document.getElementById('placa').value.toUpperCase().trim(),
             modelo:                document.getElementById('modelo').value,
@@ -367,11 +368,18 @@
             sede_asignada:         document.getElementById('sede_asignada').value,
             kilometraje_inicial:   parseInt(document.getElementById('kilometraje_inicial').value) || 0,
             kilometraje_actual:    parseInt(document.getElementById('kilometraje_actual').value) || 0,
-            estado:                document.getElementById('estado').value,
+            estado:                estadoSeleccionado,
             ultimo_mantenimiento:  document.getElementById('ultimo_mantenimiento').value || null,
             proximo_mantenimiento: document.getElementById('proximo_mantenimiento').value || null,
             observaciones:         document.getElementById('observaciones').value
         };
+
+        // Si el vehículo pasa a "En Servicio" o "Disponible", limpiar el estado de Taller / Parque Automotor
+        if (estadoSeleccionado === 'En Servicio' || estadoSeleccionado === 'Disponible') {
+            datos.estado_parque_automotor = '';
+        } else if (estadoSeleccionado === 'En Taller') {
+            datos.estado_parque_automotor = 'TALLER';
+        }
 
         var res;
         if (editandoPlaca) {
@@ -387,9 +395,10 @@
             btn.disabled = false;
             btn.innerText = editandoPlaca ? 'ACTUALIZAR REGISTRO' : 'GUARDAR EN SISTEMA';
         } else {
+            DB.invalidarCache('carrozas');
             alert(editandoPlaca ? '✅ Actualizado con éxito!' : '✅ Registrado con éxito!');
             cancelarEdicion();
-            cargarFlota();
+            await cargarFlota();
         }
     };
 
