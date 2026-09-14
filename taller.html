@@ -827,7 +827,8 @@
                 kilometraje_actual:    kmParaCarroza,
                 ultimo_mantenimiento:  registro.fecha,
                 proximo_mantenimiento: proxFecha.toISOString().split('T')[0],
-                estado:                'Disponible'
+                estado:                'Disponible',
+                estado_parque_automotor: ''
             });
         } catch(err) {
             console.warn('Advertencia al actualizar carroza:', err.message);
@@ -946,7 +947,10 @@
             }
 
             // Actualizar estado del vehiculo en carrozas
-            await DB.actualizarCarroza(placa, { estado: nuevoEstado });
+            await DB.actualizarCarroza(placa, {
+                estado: nuevoEstado,
+                estado_parque_automotor: disponible ? '' : 'TALLER'
+            });
 
             console.log('Orden actualizada:', resUpdate);
 
