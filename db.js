@@ -1166,11 +1166,11 @@ const DB = {
   },
 
   async obtenerMantenimientos(limite) {
-    if (limite === undefined) limite = 50;
     try {
       let data = await gasGet('mantenimientos');
-      data.sort(function(a,b) { return String(b.fecha||'').localeCompare(String(a.fecha||'')); });
-      return { ok: true, data: data.slice(0, limite) };
+      data.sort(function(a,b) { return String(b.fecha||b.FECHA||'').localeCompare(String(a.fecha||a.FECHA||'')); });
+      if (limite) return { ok: true, data: data.slice(0, limite) };
+      return { ok: true, data: data };
     } catch(e) { return { ok: false, data: [], error: e.message }; }
   },
 
