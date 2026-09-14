@@ -384,6 +384,13 @@ function _limpiarFilaGAS(fila) {
     if (_CAMPOS_ISO_SIN_TOCAR[k]) return;
     const v = fila[k];
     if (_looksLikeISOFechaHora(v)) fila[k] = _fmtFechaHoraGAS(v);
+
+    // 🆕 Alias de compatibilidad: si la propiedad viene en MAYÚSCULAS (ej. PLACA, FECHA),
+    // crea el alias en minúsculas (placa, fecha) para prevenir undefined en cualquier pantalla.
+    const lower = k.toLowerCase();
+    if (lower !== k && !(lower in fila)) {
+      fila[lower] = fila[k];
+    }
   });
   return fila;
 }
