@@ -1492,8 +1492,12 @@
         aviso.innerHTML = '🔄 Buscando el último checklist guardado de esta carroza...';
 
         try {
-            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=Checklist_Salida');
-            const filas = await resp.json();
+            // v12.23 — usa DB.obtenerHoja() con caché persistente de 6h
+            // en lugar de fetch() directo. Hereda el limitador de concurrencia
+            // y el saneamiento de fechas/horas de db.js.
+            const resultado = await DB.obtenerHoja('Checklist_Salida');
+            if (!resultado.ok) throw new Error(resultado.error || 'Error al leer checklist');
+            const filas = resultado.data;
 
             if (!Array.isArray(filas)) throw new Error('Respuesta inesperada del backend');
 
@@ -1585,13 +1589,14 @@
             ESTADO_VEHICULO: document.getElementById('chk_estado_vehiculo').value
         };
 
-        try {
-            const resp = await fetch(APPS_SCRIPT_URL + '?sheetName=Checklist_Salida&action=insert', {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
-            const res = await resp.json();
-            if (!res || !res.ok) throw new Error(res ? res.error : 'Error desconocido al guardar');
+            // v12.23 — guarda en Google Sheets via DB.guardar()
+            // (gasWrite con cola de concurrencia y reintento automático)
+            const resChk = await DB.guardar('Checklist_Salida', payload, 'insert');
+            if (!resChk.ok) throw new Error(resChk.error || 'Error desconocido al guardar');
+
+            // Invalidar caché para que el próximo cargarUltimoChecklist
+            // vea este checklist recién guardado.
+            DB.invalidarCache('Checklist_Salida');
 
             marcarChecklistHecho();
             cerrarChecklist();

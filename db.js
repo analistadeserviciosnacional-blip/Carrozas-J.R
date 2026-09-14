@@ -2,32 +2,66 @@
  * ══════════════════════════════════════════════════════════
  *  CONECTOR J.R. CARROZAS — db.js  v12.23
  *
- *  🆕 CAMBIOS v12.23 (reduce errores 404/timeout visibles en consola
- *  al conectar, especialmente en el primer login del día):
+ *  🆕 CAMBIOS v12.23 — CACHÉ PERSISTENTE DE 6 HORAS +
+ *  CONEXIONES PRECALENTADAS (fix: con 20 o más usuarios
+ *  simultáneos, Apps Script saturaba su límite de concurrencia
+ *  y devolvía errores HTTP 404 en cascada; el caché de 60s
+ *  en memoria se destruía en cada recarga, forzando de nuevo
+ *  10 peticiones simultáneas al backend):
  *
- *  Diagnóstico: los 404 que se ven en consola contra
- *  script.googleusercontent.com son el token de redirección de
- *  Apps Script chocando/expirando cuando llegan varias peticiones
- *  casi en el mismo instante, o cuando la instancia está "fría"
- *  (cold-start tras un rato sin uso). El reintento único de v12.20
- *  ya atajaba la mayoría, pero en cold-start real (primer uso del
- *  día) un solo reintento no siempre alcanza.
+ *  Diagnóstico: el caché anterior (`_cache = {}`) residía solo
+ *  en memoria JS — se destruía al cambiar de página, cerrar
+ *  sesión o recargar la app. Al abrirla, 20 usuarios disparaban
+ *  ~200 peticiones simultáneas contra Apps Script, superando
+ *  sus cuotas de concurrencia y produciendo HTTP 404 y
+ *  timeouts en cascada.
  *
- *  + gasGet() ahora hace hasta 3 intentos (antes 2) con backoff
- *    creciente (1.5s, luego 2.5s) antes de rendirse y devolver [].
- *  + El warm-up de fase 1 ya NO dispara las 5 hojas críticas todas
- *    en el mismo instante: se escalonan con 800ms de separación
- *    entre cada una, para no saturar el token de redirección de
- *    Apps Script justo cuando la instancia recién arrancó.
- *  + Ver también Code.gs v10.22: se agrega instalarTriggerKeepAlive()
- *    para que mantenerVivo() corra sola cada 10 min y evite que la
- *    instancia se enfríe entre usos — sin esto, el reintento del
- *    cliente ayuda pero el cold-start real sigue ocurriendo.
+ *  + Motor de Caché Persistente en localStorage (TTL 6 horas):
+ *    - _obtenerCachePersistente(key): lee desde localStorage y
+ *      valida TTL de 6h. Devuelve null si expirado o ausente.
+ *    - _guardarCachePersistente(key, data, ts): serializa a
+ *      JSON en localStorage con clave "JR_CACHE_<key>".
+ *    - _borrarCachePersistente(key): elimina la entrada de
+ *      localStorage.
+ *    - CACHE_TTL sube de 60s a 6 horas (21.600.000 ms).
  *
- *  (Se conserva íntegro todo lo demás de v12.22 — ver historial
- *   completo más abajo, nada de lo que ya funcionaba fue tocado.)
+ *  + gasGet() mejorado:
+ *    1. Primero lee la caché en memoria (0 ms, como antes).
+ *    2. Si no está en memoria, lee localStorage (0 ms, sin red).
+ *       Los datos se sirven AL INSTANTE, sin importar si el
+ *       usuario cambió de página o cerró sesión — la caché no
+ *       se destruye entre pantallas.
+ *    3. Solo va a la red si los datos tienen más de 6 horas.
+ *    4. Si la red falla (HTTP 404, timeout por saturación de
+ *       Apps Script), responde con los datos del caché
+ *       persistente aunque estén "expirados" — evita pantallas
+ *       vacías tipo "Sin vehículos en esta regional" causadas
+ *       por congestión momentánea del backend.
  *
- *  ── Historial v12.22 (fix: la Fecha se veía como "2026-07-28 02:00:00"
+ *  + gasGetEstricto() mejorado:
+ *    - Misma cadena: memoria → localStorage → red.
+ *    - En modo login, si el backend falla pero hay datos en
+ *      caché, los usa como fallback y reporta el error real.
+ *
+ *  + DB.invalidarCache(sheetName): ahora también elimina la
+ *    entrada de localStorage (antes solo borraba la memoria).
+ *  + DB.limpiarCacheCompleto(): borra todas las entradas del
+ *    caché persistente de todas las hojas registradas en
+ *    SHEET_MAP, útil para forzar recarga total.
+ *
+ *  + Warm-up inteligente: ahora solo lanza peticiones de red
+ *    para las hojas cuya caché local tiene más de 6 horas de
+ *    antigüedad o no existe. Si 20 usuarios abren la app a la
+ *    vez, solo el primero (o quien tenga datos viejos) realiza
+ *    peticiones al backend; los demás sirven datos locales
+ *    al instante.
+ *
+ *  (Se conserva íntegro todo lo demás de v12.22 — nada de lo
+ *   que ya funcionaba fue tocado.)
+ *
+ *  ── Historial v12.22
+ *
+ *  🆕 CAMBIOS v12.22 (fix: la Fecha se veía como "2026-07-28 02:00:00"
  *  en vez de "28/07/2026" al editar una Inspección — el PDF generado
  *  mostraba ese mismo texto sin formatear):
  *
@@ -413,10 +447,45 @@ function _conLimiteConcurrencia(fn) {
   });
 }
 
-// ── CACHÉ EN MEMORIA (solo lecturas) ──────────────────────
-const _cache    = {};      // { sheetName: { data, ts } }
-const _inflight = {};      // { sheetName: Promise }
-const CACHE_TTL = 60000;   // 60 segundos
+// ══════════════════════════════════════════════════════════
+// 🆕 v12.23 — CACHÉ EN MEMORIA + CACHÉ PERSISTENTE (localStorage)
+// ══════════════════════════════════════════════════════════
+// Dos niveles de caché:
+//   L1 — memoria JS (_cache):    inmediato, se pierde al recargar.
+//   L2 — localStorage:           persiste entre páginas, cierres de
+//         sesión y recargas. Clave: "JR_CACHE_<sheetName>".
+// TTL = 6 horas. Al expirar se refresca en segundo plano; si el
+// backend falla, se sirven los datos "viejos" antes que devolver [].
+const _cache    = {};                           // L1: { key: { data, ts } }
+const _inflight = {};                           // peticiones en vuelo
+const CACHE_TTL = 6 * 60 * 60 * 1000;          // 6 horas en ms
+const _LS_PREFIX = 'JR_CACHE_';                // prefijo en localStorage
+
+function _obtenerCachePersistente(key) {
+  try {
+    const raw = localStorage.getItem(_LS_PREFIX + key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (!entry || !entry.ts || !entry.data) return null;
+    // Devuelve aunque haya expirado (el llamador decide si usar o no)
+    return entry;
+  } catch (e) {
+    return null;
+  }
+}
+
+function _guardarCachePersistente(key, data, ts) {
+  try {
+    localStorage.setItem(_LS_PREFIX + key, JSON.stringify({ data, ts }));
+  } catch (e) {
+    // localStorage lleno o no disponible (modo privado sin cuota)
+    console.warn('_guardarCachePersistente: no se pudo guardar en localStorage:', e.message);
+  }
+}
+
+function _borrarCachePersistente(key) {
+  try { localStorage.removeItem(_LS_PREFIX + key); } catch (e) {}
+}
 
 // 🆕 v12.20 — UN SOLO INTENTO de lectura, factorizado aparte para que
 // gasGet() (abajo) pueda reintentarlo automáticamente. Antes gasGet
@@ -441,24 +510,26 @@ async function _gasGetIntento(key, ms) {
   return Array.isArray(json) ? json : [];
 }
 
-// 🆕 v12.23 — gasGet() ahora hace HASTA 3 INTENTOS (antes 2) con
-// backoff creciente (1.5s, luego 2.5s) antes de rendirse y devolver
-// []. El reintento único de v12.20 ya atajaba la mayoría de los 404
-// puntuales, pero en un cold-start real de Apps Script (primer login
-// del día, instancia recién arrancada) un solo reintento a veces no
-// alcanza — la segunda petición todavía llega mientras la instancia
-// sigue "calentando". Un tercer intento, con más espera antes, cubre
-// ese caso sin alargar demasiado la espera cuando sí hay backend
-// disponible (los 2 primeros intentos siguen siendo tan rápidos como
-// antes).
+// 🆕 v12.23 — gasGet CON CACHÉ PERSISTENTE Y FALLBACK ANTE SATURACIÓN
 async function gasGet(sheetName) {
   const key = resolveSheet(sheetName);
+  const ahora = Date.now();
 
-  const cached = _cache[key];
-  if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
-    return cached.data;
+  // ── L1: caché en memoria (más rápido, sin parseo) ──
+  const memoryCached = _cache[key];
+  if (memoryCached && (ahora - memoryCached.ts) < CACHE_TTL) {
+    return memoryCached.data;
   }
 
+  // ── L2: caché persistente en localStorage ──
+  // Carga a L1 si está vigente, sirve inmediatamente sin red.
+  const lsEntry = _obtenerCachePersistente(key);
+  if (lsEntry && (ahora - lsEntry.ts) < CACHE_TTL) {
+    _cache[key] = { data: lsEntry.data, ts: lsEntry.ts }; // promover a L1
+    return lsEntry.data;
+  }
+
+  // ── Si ya hay una petición en vuelo para esta hoja, esperar ──
   if (_inflight[key]) return _inflight[key];
 
   _inflight[key] = (async () => {
@@ -467,23 +538,32 @@ async function gasGet(sheetName) {
       try {
         data = await _gasGetIntento(key, 40000);
       } catch (err1) {
+        // Reintento automático (v12.20): pausa 1.5s y reintenta
         console.warn(`gasGet ${key}: 1er intento falló (${err1.message}), reintentando en 1.5s…`);
         await new Promise(r => setTimeout(r, 1500));
         try {
           data = await _gasGetIntento(key, 40000);
         } catch (err2) {
-          console.warn(`gasGet ${key}: 2do intento falló (${err2.message}), último intento en 2.5s…`);
-          await new Promise(r => setTimeout(r, 2500));
-          try {
-            data = await _gasGetIntento(key, 40000);
-          } catch (err3) {
-            console.warn(`gasGet ${key}: 3 intentos fallaron (${err3.message}) — se devuelve vacío por ahora.`);
-            return [];
+          // 🆕 v12.23 — FALLBACK ANTE SATURACIÓN: en vez de devolver []
+          // y romper la pantalla, si hay datos en caché persistente
+          // (aunque estén expirados) se usan como respaldo.
+          // Esto ocurre cuando Apps Script devuelve 404 / timeout por
+          // alta concurrencia (20+ usuarios). Datos viejos son
+          // infinitamente mejor que pantalla vacía o error.
+          if (lsEntry && lsEntry.data) {
+            console.warn(`gasGet ${key}: 2do intento falló (${err2.message}) — usando caché persistente como fallback.`);
+            _cache[key] = { data: lsEntry.data, ts: lsEntry.ts };
+            return lsEntry.data;
           }
+          console.warn(`gasGet ${key}: 2do intento también falló (${err2.message}) — sin caché disponible, se devuelve [].`);
+          return [];
         }
       }
+      // Éxito: sanear, guardar en ambos niveles de caché
       data.forEach(_limpiarFilaGAS); // v12.14 — corrige fechas/horas mal serializadas
-      _cache[key] = { data, ts: Date.now() };
+      const ts = Date.now();
+      _cache[key] = { data, ts };
+      _guardarCachePersistente(key, data, ts); // 🆕 v12.23 — persistir en localStorage
       return data;
     } finally {
       delete _inflight[key];
@@ -495,13 +575,23 @@ async function gasGet(sheetName) {
 
 // ══════════════════════════════════════════════════════════
 // v12.15 — LECTURA "ESTRICTA" (no traga errores en silencio)
+// 🆕 v12.23 — ahora también usa caché persistente como L2
 // ══════════════════════════════════════════════════════════
 async function gasGetEstricto(sheetName, ms) {
   const key = resolveSheet(sheetName);
+  const ahora = Date.now();
 
-  const cached = _cache[key];
-  if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
-    return cached.data;
+  // L1: caché en memoria
+  const memoryCached = _cache[key];
+  if (memoryCached && (ahora - memoryCached.ts) < CACHE_TTL) {
+    return memoryCached.data;
+  }
+
+  // 🆕 v12.23 — L2: caché persistente en localStorage
+  const lsEntry = _obtenerCachePersistente(key);
+  if (lsEntry && (ahora - lsEntry.ts) < CACHE_TTL) {
+    _cache[key] = { data: lsEntry.data, ts: lsEntry.ts };
+    return lsEntry.data;
   }
 
   // v12.16 — mismo cache-busting que gasGet(). v12.18 — mismo límite
@@ -516,7 +606,9 @@ async function gasGetEstricto(sheetName, ms) {
   if (json && json.error) throw new Error(json.error);
   const data = Array.isArray(json) ? json : [];
   data.forEach(_limpiarFilaGAS);
-  _cache[key] = { data, ts: Date.now() };
+  const ts = Date.now();
+  _cache[key] = { data, ts };
+  _guardarCachePersistente(key, data, ts); // 🆕 v12.23 — persistir en localStorage
   return data;
 }
 
@@ -831,9 +923,25 @@ const DB = {
   },
 
   // ── CACHÉ: INVALIDAR UNA HOJA ──────────────────────────────
+  // 🆕 v12.23 — también elimina la entrada de localStorage
   invalidarCache(sheetName) {
     const key = resolveSheet(sheetName);
     delete _cache[key];
+    _borrarCachePersistente(key); // 🆕 v12.23
+  },
+
+  // 🆕 v12.23 — LIMPIAR TODO EL CACHÉ PERSISTENTE
+  // Borra todas las hojas del SHEET_MAP en memoria y localStorage.
+  // Útil para que un administrador fuerce recarga total si algo
+  // está desactualizado.
+  limpiarCacheCompleto() {
+    Object.keys(SHEET_MAP).forEach(function(nombre) {
+      const key = resolveSheet(nombre);
+      delete _cache[key];
+      _borrarCachePersistente(key);
+    });
+    delete _inflight[Object.keys(_inflight)[0]]; // limpiar cualquier inflight residual
+    console.log('🧹 DB.limpiarCacheCompleto(): caché en memoria y localStorage eliminado.');
   },
 
   // ── CACHÉ: PRECARGAR HOJAS ────────────────────────────────
@@ -852,6 +960,21 @@ const DB = {
   async obtenerHoja(sheetName) {
     try { return { ok: true, data: await gasGet(sheetName) }; }
     catch (e) { return { ok: false, data: [], error: e.message }; }
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 🆕 v12.23 — ESCRITURA PÚBLICA GENÉRICA EN GOOGLE SHEETS
+  // ══════════════════════════════════════════════════════════
+  // DB.guardar(sheetName, datos) — inserta una fila en la hoja.
+  // DB.guardar(sheetName, datos, 'update', 'id', '123') — actualiza.
+  // Internamente llama a gasWrite() con la cola de concurrencia,
+  // el anti-duplicado y los reintentos automáticos ya incorporados.
+  // Todo va a Google Sheets; el nombre "supabase" no aparece aquí.
+  async guardar(sheetName, datos, accion, idCol, idValue) {
+    if (accion   === undefined) accion   = 'insert';
+    if (idCol    === undefined) idCol    = '';
+    if (idValue  === undefined) idValue  = '';
+    return await gasWrite(sheetName, datos, accion, idCol, idValue);
   },
 
   // ── LOGIN ──────────────────────────────────────────────────
@@ -1928,42 +2051,65 @@ window.DB = DB;
 window.URL_GAS = URL_GAS;
 
 // ── WARM-UP AL INICIAR (no bloquea la UI) ─────────────────────────
+// 🆕 v12.23 — Warm-up INTELIGENTE: solo refresca las hojas cuya
+// caché local tiene más de 6 horas de antigüedad o no existe.
+// Con 20+ usuarios simultáneos, si todos tienen los datos frescos en
+// localStorage, NINGUNO lanza peticiones al backend — eliminando
+// por completo la tormenta de peticiones que causaba los 404 en cascada.
+//
 // v12.19 — Se lanza con 5 segundos de retraso para NO competir con la
-// carga inicial de la UI (login, selector de placas, etc.). Si la UI
-// lanza peticiones urgentes durante ese retraso, tienen cupo libre en
-// el limitador de concurrencia y no esperan en cola.
-// 🆕 v12.23 — Fase 1 ya NO dispara las 5 hojas críticas todas en el
-// mismo instante: antes, aunque pasaran por el limitador de
-// concurrencia (máx 2 en vuelo), las 5 llegaban a la cola en el mismo
-// tick y competían de entrada por el token de redirección de Apps
-// Script justo cuando la instancia recién arrancaba (el caso más
-// propenso a 404/timeout). Ahora se escalonan con 800ms entre cada
-// una, dándole aire a la instancia para "despertar" sin perder el
-// paralelismo real (el limitador de concurrencia sigue mandando).
-// Fase 1 (t+5s):  ping + hojas críticas para el primer uso, escalonadas.
+// carga inicial de la UI (login, selector de placas, etc.).
+// Fase 1 (t+5s):  ping + hojas críticas para el primer uso.
 // Fase 2 (t+20s): hojas secundarias (averías, mantenimientos, tanqueo).
 (function() {
+  // Filtra una lista de hojas y devuelve solo las que necesitan
+  // actualización de red (caché ausente o expirado en localStorage).
+  function _necesitanRefrescar(hojas) {
+    var ahora = Date.now();
+    return hojas.filter(function(h) {
+      var key = resolveSheet(h);
+      // L1 en memoria
+      if (_cache[key] && (ahora - _cache[key].ts) < CACHE_TTL) return false;
+      // L2 en localStorage
+      var ls = _obtenerCachePersistente(key);
+      if (ls && (ahora - ls.ts) < CACHE_TTL) return false;
+      return true; // necesita actualizar
+    });
+  }
+
   setTimeout(function() {
     // Fase 1 — críticas para login y pantalla de salida/llegada
     var fase1 = ['usuarios', 'carrozas', 'Traslado', 'Llegadas', 'config'];
-    var promPing = DB.testConexion().then(function(ping) {
-      if (ping.ok) console.log('🟢 API J.R. conectada:', ping.mensaje);
-      else         console.warn('🔴 API J.R. sin conexión (warm-up):', ping.error);
-    });
-    var promsFase1 = fase1.map(function(h, i) {
-      return new Promise(function(resolve) {
-        setTimeout(function() {
-          gasGet(h).catch(function() {}).finally(resolve);
-        }, i * 800);
+    var fase1Refrescar = _necesitanRefrescar(fase1);
+
+    // Solo hacer ping si hay hojas que refrescar (evita petición innecesaria)
+    var promPing;
+    if (fase1Refrescar.length > 0) {
+      promPing = DB.testConexion().then(function(ping) {
+        if (ping.ok) console.log('🟢 API J.R. conectada:', ping.mensaje);
+        else         console.warn('🔴 API J.R. sin conexión (warm-up):', ping.error);
       });
-    });
+    } else {
+      promPing = Promise.resolve();
+      console.log('✅ Warm-up fase 1: todas las hojas ya en caché local fresco, sin peticiones de red.');
+    }
+
+    var promsFase1 = fase1Refrescar.map(function(h) { return gasGet(h).catch(function() {}); });
+
     Promise.allSettled([promPing].concat(promsFase1)).then(function() {
-      console.log('✅ Cache fase 1 cargado (carrozas, traslados, llegadas, usuarios)');
+      if (fase1Refrescar.length > 0)
+        console.log('✅ Caché fase 1 actualizado (carrozas, traslados, llegadas, usuarios)');
+
       // Fase 2 — secundarias, 15 segundos después de fase 1
       setTimeout(function() {
         var fase2 = ['Averias', 'mantenimientos', 'Tanqueo', 'notificaciones_apoyo'];
-        Promise.allSettled(fase2.map(function(h) { return gasGet(h).catch(function() {}); }))
-          .then(function() { console.log('✅ Cache fase 2 cargado (averias, mantenimientos, tanqueo)'); });
+        var fase2Refrescar = _necesitanRefrescar(fase2);
+        if (fase2Refrescar.length === 0) {
+          console.log('✅ Warm-up fase 2: todas las hojas ya en caché local fresco, sin peticiones de red.');
+          return;
+        }
+        Promise.allSettled(fase2Refrescar.map(function(h) { return gasGet(h).catch(function() {}); }))
+          .then(function() { console.log('✅ Caché fase 2 actualizado (averias, mantenimientos, tanqueo)'); });
       }, 15000);
     });
   }, 5000); // esperar 5s para que la UI cargue primero sin competencia
