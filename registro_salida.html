@@ -1171,25 +1171,30 @@
             const norm = (p) => p.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
             const placaBusqueda = norm(placaSeleccionada);
 
-            const historialAceite = todosLosMants.filter(m =>
-                m.tipo_servicio === 'Cambio de Aceite' &&
-                norm(m.placa || '') === placaBusqueda
-            );
+            const historialAceite = todosLosMants.filter(m => {
+                const tipo = String(m.tipo_servicio || m.TIPO_SERVICIO || m.tipo_de_servicio || '').toLowerCase();
+                const pl = norm(m.placa || m.PLACA || '');
+                return (tipo.includes('aceite') || tipo.includes('motor')) && pl === placaBusqueda;
+            });
 
             historialAceite.sort((a, b) => {
-                const fA = new Date(a.fecha);
-                const fB = new Date(b.fecha);
-                if (fB - fA !== 0) return fB - fA;
-                return todosLosMants.indexOf(b) - todosLosMants.indexOf(a);
+                const fA = new Date(a.fecha || a.FECHA || a.created_at || 0);
+                const fB = new Date(b.fecha || b.FECHA || b.created_at || 0);
+                if (!isNaN(fA.getTime()) && !isNaN(fB.getTime()) && fB - fA !== 0) return fB - fA;
+                const idA = String(a.id || a.ID || '');
+                const idB = String(b.id || b.ID || '');
+                return idB.localeCompare(idA);
             });
 
             const ultimoCambio = historialAceite[0];
+            const kmProximoVal = ultimoCambio ? (parseInt(ultimoCambio.km_proximo_cambio || ultimoCambio.KM_PROXIMO_CAMBIO || ultimoCambio.proximo_cambio) || 0) : 0;
+            const kmServicioVal = ultimoCambio ? (parseInt(ultimoCambio.kilometraje_servicio || ultimoCambio.KILOMETRAJE_SERVICIO || ultimoCambio.km_servicio) || 0) : 0;
 
-            if (ultimoCambio && ultimoCambio.km_proximo_cambio > 0) {
-                const kmProximo  = parseInt(ultimoCambio.km_proximo_cambio);
+            if (ultimoCambio && kmProximoVal > 0) {
+                const kmProximo  = kmProximoVal;
                 const kmFaltante = kmProximo - kmActual;
-                const kmRealizado = kmActual - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
-                const intervalo   = kmProximo - (parseInt(ultimoCambio.kilometraje_servicio) || 0);
+                const kmRealizado = kmActual - kmServicioVal;
+                const intervalo   = kmProximo - kmServicioVal;
                 const porcentaje  = Math.min(100, Math.round((kmRealizado / Math.max(intervalo, 1)) * 100));
 
                 let clase = 'al-dia';
