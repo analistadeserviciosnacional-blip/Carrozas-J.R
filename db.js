@@ -2102,55 +2102,54 @@ window.URL_GAS = URL_GAS;
 // Fase 1 (t+5s):  ping + hojas críticas para el primer uso.
 // Fase 2 (t+20s): hojas secundarias (averías, mantenimientos, tanqueo).
 (function() {
-  // Filtra una lista de hojas y devuelve solo las que necesitan
-  // actualización de red (caché ausente o expirado en localStorage).
   function _necesitanRefrescar(hojas) {
     var ahora = Date.now();
     return hojas.filter(function(h) {
       var key = resolveSheet(h);
-      // L1 en memoria
       if (_cache[key] && (ahora - _cache[key].ts) < CACHE_TTL) return false;
-      // L2 en localStorage
       var ls = _obtenerCachePersistente(key);
       if (ls && (ahora - ls.ts) < CACHE_TTL) return false;
-      return true; // necesita actualizar
+      return true;
     });
   }
 
-  setTimeout(function() {
-    // Fase 1 — críticas para login y pantalla de salida/llegada
-    var fase1 = ['usuarios', 'carrozas', 'Traslado', 'Llegadas', 'config'];
+  setTimeout(async function() {
+    var fase1 = ['config', 'usuarios', 'carrozas', 'Traslado', 'Llegadas'];
     var fase1Refrescar = _necesitanRefrescar(fase1);
 
-    // Solo hacer ping si hay hojas que refrescar (evita petición innecesaria)
-    var promPing;
     if (fase1Refrescar.length > 0) {
-      promPing = DB.testConexion().then(function(ping) {
+      try {
+        var ping = await DB.testConexion();
         if (ping.ok) console.log('🟢 API J.R. conectada:', ping.mensaje);
-        else         console.warn('🔴 API J.R. sin conexión (warm-up):', ping.error);
-      });
+      } catch(e) {}
+
+      // 🆕 Descargar hojas críticas secuencialmente (una a una) para evitar saturación de Apps Script
+      for (var i = 0; i < fase1Refrescar.length; i++) {
+        try {
+          await gasGet(fase1Refrescar[i]);
+          await new Promise(function(r) { setTimeout(r, 250); });
+        } catch(e) {}
+      }
+      console.log('✅ Caché fase 1 actualizado (carrozas, traslados, llegadas, usuarios)');
     } else {
-      promPing = Promise.resolve();
       console.log('✅ Warm-up fase 1: todas las hojas ya en caché local fresco, sin peticiones de red.');
     }
 
-    var promsFase1 = fase1Refrescar.map(function(h) { return gasGet(h).catch(function() {}); });
-
-    Promise.allSettled([promPing].concat(promsFase1)).then(function() {
-      if (fase1Refrescar.length > 0)
-        console.log('✅ Caché fase 1 actualizado (carrozas, traslados, llegadas, usuarios)');
-
-      // Fase 2 — secundarias, 15 segundos después de fase 1
-      setTimeout(function() {
-        var fase2 = ['Averias', 'mantenimientos', 'Tanqueo', 'notificaciones_apoyo'];
-        var fase2Refrescar = _necesitanRefrescar(fase2);
-        if (fase2Refrescar.length === 0) {
-          console.log('✅ Warm-up fase 2: todas las hojas ya en caché local fresco, sin peticiones de red.');
-          return;
-        }
-        Promise.allSettled(fase2Refrescar.map(function(h) { return gasGet(h).catch(function() {}); }))
-          .then(function() { console.log('✅ Caché fase 2 actualizado (averias, mantenimientos, tanqueo)'); });
-      }, 15000);
-    });
-  }, 5000); // esperar 5s para que la UI cargue primero sin competencia
+    // Fase 2 — secundarias, descargadas también secuencialmente
+    setTimeout(async function() {
+      var fase2 = ['notificaciones_apoyo', 'Averias', 'mantenimientos', 'Tanqueo'];
+      var fase2Refrescar = _necesitanRefrescar(fase2);
+      if (fase2Refrescar.length === 0) {
+        console.log('✅ Warm-up fase 2: todas las hojas ya en caché local fresco, sin peticiones de red.');
+        return;
+      }
+      for (var j = 0; j < fase2Refrescar.length; j++) {
+        try {
+          await gasGet(fase2Refrescar[j]);
+          await new Promise(function(r) { setTimeout(r, 250); });
+        } catch(e) {}
+      }
+      console.log('✅ Caché fase 2 actualizado (averias, mantenimientos, tanqueo)');
+    }, 10000);
+  }, 3000);
 })();
