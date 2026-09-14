@@ -1546,7 +1546,8 @@
         btn.disabled = true;
         btn.textContent = '⏳ Guardando...';
 
-        const ahora = new Date();
+        try {
+            const ahora = new Date();
         const horaActual = ahora.getHours().toString().padStart(2,'0') + ':' + ahora.getMinutes().toString().padStart(2,'0');
 
         // 🆕 CAMBIOS SOLICITADOS:
