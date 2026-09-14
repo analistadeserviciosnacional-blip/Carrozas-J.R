@@ -660,13 +660,35 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
   if (idCol    === undefined) idCol    = '';
   if (idValue  === undefined) idValue  = '';
 
+  // 🆕 Sincronización automática de estado_parque_automotor en carrozas
+  if (sheetName === 'carrozas' && payload && payload.estado !== undefined) {
+    const estNorm = String(payload.estado).toLowerCase().trim();
+    if (['en servicio', 'disponible', 'operativo', 'operativa', 'ok', 'activo', 'activa'].includes(estNorm)) {
+      if (payload.estado_parque_automotor === undefined) {
+        payload.estado_parque_automotor = '';
+      }
+    } else if (['en taller', 'taller'].includes(estNorm)) {
+      if (payload.estado_parque_automotor === undefined) {
+        payload.estado_parque_automotor = 'TALLER';
+      }
+    }
+  }
+
   const checkCol = (action === 'insert')
     ? (payload.id_salida !== undefined ? 'id_salida' : (payload.id !== undefined ? 'id' : (payload.ID !== undefined ? 'ID' : null)))
     : null;
   const checkVal = checkCol ? payload[checkCol] : null;
 
+  function invalidarLocal() {
+    const key = resolveSheet(sheetName);
+    delete _cache[key];
+    _borrarCachePersistente(key);
+  }
+
   try {
-    return await gasWriteIntento(sheetName, payload, action, idCol, idValue, 60000);
+    const res1 = await gasWriteIntento(sheetName, payload, action, idCol, idValue, 60000);
+    if (res1 && res1.ok) invalidarLocal();
+    return res1;
   } catch (err) {
     if (!err.isTimeout) {
       console.error('gasWrite excepción:', err);
@@ -679,6 +701,7 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
       const yaExiste = await existeFila(sheetName, checkCol, checkVal);
       if (yaExiste) {
         console.log(`gasWrite ${sheetName}: la fila ya se había guardado, no se reinserta.`);
+        invalidarLocal();
         return { ok: true, data: { yaGuardado: true } };
       }
     }
@@ -686,12 +709,14 @@ async function gasWrite(sheetName, payload, action, idCol, idValue) {
     console.warn(`gasWrite ${sheetName}: reintentando con más tiempo…`);
     try {
       const res2 = await gasWriteIntento(sheetName, payload, action, idCol, idValue, 90000);
+      if (res2 && res2.ok) invalidarLocal();
       return res2;
     } catch (err2) {
       if (err2.isTimeout && checkCol) {
         const yaExiste2 = await existeFila(sheetName, checkCol, checkVal);
         if (yaExiste2) {
           console.log(`gasWrite ${sheetName}: la fila ya se había guardado (2do intento), no se reinserta.`);
+          invalidarLocal();
           return { ok: true, data: { yaGuardado: true } };
         }
       }
