@@ -1290,9 +1290,12 @@
     // reescala a un ancho máximo y se reexporta como JPEG con calidad
     // reducida. Si aun así queda muy pesada, se comprime un poco más.
     // Esto reduce el peso típico de una foto de 5-8 MB a ~150-400 KB.
-    const FOTO_MAX_ANCHO = 1280;    // px
-    const FOTO_CALIDAD   = 0.72;    // 0-1 (jpeg)
-    const FOTO_MAX_CHARS = 700000;  // ~700 KB en base64: margen seguro
+    // 🆕 Compresión más agresiva (antes 1280px/0.72/700KB) para que las
+    // fotos suban más rápido, sobre todo con señal débil en carretera.
+    // A 1000px/0.60 el archivo pesa ~40-50% menos y sigue siendo legible.
+    const FOTO_MAX_ANCHO = 1000;    // px
+    const FOTO_CALIDAD   = 0.60;    // 0-1 (jpeg)
+    const FOTO_MAX_CHARS = 400000;  // ~400 KB en base64: margen seguro
 
     function comprimirImagen(file) {
         return new Promise((resolve, reject) => {
@@ -1316,7 +1319,7 @@
                     // reduce la calidad de forma progresiva hasta 3 intentos.
                     let intentos = 0;
                     while (dataUrl.length > FOTO_MAX_CHARS && intentos < 3) {
-                        calidad = Math.max(0.35, calidad - 0.15);
+                        calidad = Math.max(0.30, calidad - 0.15);
                         dataUrl = canvas.toDataURL('image/jpeg', calidad);
                         intentos++;
                     }
