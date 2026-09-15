@@ -174,9 +174,11 @@
     // aplicada en registro_salida.html — se comprime cada foto antes de
     // guardarla en fotosArray para no exceder los límites de Google
     // Sheets / Apps Script al enviar el reporte.
-    const FOTO_MAX_ANCHO = 1280;
-    const FOTO_CALIDAD   = 0.72;
-    const FOTO_MAX_CHARS = 700000;
+    // 🆕 Compresión más agresiva (antes 1280px/0.72/700KB) para que las
+    // fotos suban más rápido, sobre todo con señal débil en carretera.
+    const FOTO_MAX_ANCHO = 1000;
+    const FOTO_CALIDAD   = 0.60;
+    const FOTO_MAX_CHARS = 400000;
 
     function comprimirImagen(file) {
         return new Promise((resolve, reject) => {
@@ -197,7 +199,7 @@
                     let dataUrl = canvas.toDataURL('image/jpeg', calidad);
                     let intentos = 0;
                     while (dataUrl.length > FOTO_MAX_CHARS && intentos < 3) {
-                        calidad = Math.max(0.35, calidad - 0.15);
+                        calidad = Math.max(0.30, calidad - 0.15);
                         dataUrl = canvas.toDataURL('image/jpeg', calidad);
                         intentos++;
                     }
