@@ -344,6 +344,90 @@
                 </table>
             </div>
         </div>
+
+        <div class="monitor">
+            <h2>🏁 Últimas Llegadas</h2>
+
+            <div class="buscador-wrap">
+                <input
+                    type="text"
+                    class="buscador-input"
+                    id="buscador-llegadas"
+                    placeholder="Buscar por placa, recibido por, estado..."
+                    oninput="filtrarTablaLlegadas()"
+                >
+                <button class="btn-limpiar" onclick="limpiarBusquedaLlegadas()">✕ Limpiar</button>
+            </div>
+            <div class="resultados-info" id="resultados-info-llegadas" style="display:none;"></div>
+
+            <div class="tabla-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Placa</th>
+                            <th>Hora</th>
+                            <th>Km Ingreso</th>
+                            <th>Km Recorridos</th>
+                            <th>Estado Entrega</th>
+                            <th class="col-modelo">Recibido por</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-llegadas">
+                        <tr><td colspan="7" style="text-align:center; color:#94a3b8;">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="monitor">
+            <h2>✅ Checklist de Salida</h2>
+
+            <div class="buscador-wrap">
+                <input
+                    type="text"
+                    class="buscador-input"
+                    id="buscador-checklist"
+                    placeholder="Buscar por placa, conductor..."
+                    oninput="filtrarTablaChecklist()"
+                >
+                <select class="filtro-select" id="filtro-regional-checklist" onchange="filtrarTablaChecklist()">
+                    <option value="">Todas las regionales</option>
+                    <option value="Quindio">Quindío</option>
+                    <option value="Risaralda">Risaralda</option>
+                    <option value="Antioquia">Antioquia</option>
+                    <option value="Caldas">Caldas</option>
+                    <option value="Valle Norte">Valle Norte</option>
+                    <option value="Valle Centro">Valle Centro</option>
+                    <option value="Valle Sur">Valle Sur</option>
+                    <option value="C/ Marca">Cundinamarca</option>
+                    <option value="Tolima Norte">Tolima Norte</option>
+                    <option value="Palmira">Palmira</option>
+                    <option value="Pereira">Pereira</option>
+                    <option value="Armenia">Armenia</option>
+                </select>
+                <button class="btn-limpiar" onclick="limpiarBusquedaChecklist()">✕ Limpiar</button>
+            </div>
+            <div class="resultados-info" id="resultados-info-checklist" style="display:none;"></div>
+
+            <div class="tabla-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Placa</th>
+                            <th class="col-modelo">Conductor</th>
+                            <th>Regional</th>
+                            <th>Estado Vehículo</th>
+                            <th>Km Salida</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-checklist">
+                        <tr><td colspan="6" style="text-align:center; color:#94a3b8;">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <div>
@@ -410,7 +494,7 @@
         }
 
         document.getElementById('user-name').innerText = sesion.nombre || "Admin J.R.";
-        await Promise.all([cargarFlota(), cargarTraslados(), cargarAverias(), cargarNotificacionesNacional()]);
+        await Promise.all([cargarFlota(), cargarTraslados(), cargarLlegadas(), cargarChecklists(), cargarAverias(), cargarNotificacionesNacional()]);
 
         // Polling igual que en el panel de coordinador: cada 17s se
         // refresca la campana (backend GAS+Sheets sin websockets).
@@ -646,6 +730,138 @@
         document.getElementById('buscador').value         = '';
         document.getElementById('filtro-regional').value  = '';
         filtrarTabla();
+    }
+
+    // ══════════════════════════════════════════════
+    // 🆕 ÚLTIMAS LLEGADAS (hoja "Llegadas")
+    // ══════════════════════════════════════════════
+    // claveOrden() ya viene definida en db.js y entiende tanto
+    // "hora_de_salida" (Traslado) como "hora_ingreso" (Llegadas),
+    // así que se reutiliza tal cual para ordenar de más reciente a más antigua.
+    async function cargarLlegadas() {
+        const { data } = await DB.obtenerHoja('Llegadas');
+        const tbody = document.getElementById('lista-llegadas');
+        if (data && data.length > 0) {
+            const ordenado = data.slice().sort((a, b) => claveOrden(b) - claveOrden(a)).slice(0, 50);
+            tbody.innerHTML = ordenado.map(l => {
+                const fechaFormateada = formatearFecha(l.fecha);
+                return '<tr' +
+                    ' data-placa="' + norm(l.placa) + '"' +
+                    ' data-recibido="' + norm(l.recibido_por) + '"' +
+                    ' data-estado="' + norm(l.estado_entrega) + '"' +
+                    ' data-obs="' + norm(l.observaciones) + '"' +
+                    '>' +
+                    '<td>' + fechaFormateada + '</td>' +
+                    '<td><b>' + (l.placa || '---') + '</b></td>' +
+                    '<td>' + (l.hora_ingreso || '---') + '</td>' +
+                    '<td>' + (l.km_ingreso || '---') + '</td>' +
+                    '<td>' + (l.total_km || '---') + '</td>' +
+                    '<td>' + (l.estado_entrega || '---') + '</td>' +
+                    '<td class="col-modelo">' + (l.recibido_por || '---') + '</td>' +
+                    '</tr>';
+            }).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Sin llegadas recientes</td></tr>';
+        }
+    }
+
+    function filtrarTablaLlegadas() {
+        const texto  = norm(document.getElementById('buscador-llegadas').value);
+        const filas  = document.querySelectorAll('#lista-llegadas tr');
+        let visibles = 0;
+
+        filas.forEach(fila => {
+            if (!fila.dataset.placa) return; // fila de "Sin llegadas"
+
+            const coincide = !texto || (
+                fila.dataset.placa.includes(texto) ||
+                fila.dataset.recibido.includes(texto) ||
+                fila.dataset.estado.includes(texto) ||
+                fila.dataset.obs.includes(texto)
+            );
+
+            if (coincide) { fila.classList.remove('fila-oculta'); visibles++; }
+            else          { fila.classList.add('fila-oculta'); }
+        });
+
+        const infoEl = document.getElementById('resultados-info-llegadas');
+        if (texto) {
+            infoEl.style.display = 'block';
+            infoEl.textContent   = visibles + ' resultado' + (visibles !== 1 ? 's' : '') + ' encontrado' + (visibles !== 1 ? 's' : '');
+            infoEl.style.color   = visibles === 0 ? '#ef4444' : '#64748b';
+        } else {
+            infoEl.style.display = 'none';
+        }
+    }
+
+    function limpiarBusquedaLlegadas() {
+        document.getElementById('buscador-llegadas').value = '';
+        filtrarTablaLlegadas();
+    }
+
+    // ══════════════════════════════════════════════
+    // 🆕 CHECKLIST DE SALIDA (hoja "Checklist_Salida")
+    // ══════════════════════════════════════════════
+    // claveOrdenChecklist() también viene ya definida en db.js
+    // (encabezados en MAYÚSCULA: FECHA + HORA_SALIDA).
+    async function cargarChecklists() {
+        const { data } = await DB.obtenerHoja('Checklist_Salida');
+        const tbody = document.getElementById('lista-checklist');
+        if (data && data.length > 0) {
+            const ordenado = data.slice().sort((a, b) => claveOrdenChecklist(b) - claveOrdenChecklist(a)).slice(0, 50);
+            tbody.innerHTML = ordenado.map(c => {
+                const fechaFormateada = formatearFecha(c.FECHA);
+                return '<tr' +
+                    ' data-placa="' + norm(c.PLACA) + '"' +
+                    ' data-conductor="' + norm(c.CONDUCTOR) + '"' +
+                    ' data-regional="' + norm(c.REGIONAL) + '"' +
+                    '>' +
+                    '<td>' + fechaFormateada + '</td>' +
+                    '<td><b>' + (c.PLACA || '---') + '</b></td>' +
+                    '<td class="col-modelo">' + (c.CONDUCTOR || '---') + '</td>' +
+                    '<td>' + (c.REGIONAL || '---') + '</td>' +
+                    '<td>' + (c.ESTADO_VEHICULO || '---') + '</td>' +
+                    '<td>' + (c.KM_SALIDA || '---') + '</td>' +
+                    '</tr>';
+            }).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Sin checklists recientes</td></tr>';
+        }
+    }
+
+    function filtrarTablaChecklist() {
+        const texto     = norm(document.getElementById('buscador-checklist').value);
+        const regional  = norm(document.getElementById('filtro-regional-checklist').value);
+        const filas     = document.querySelectorAll('#lista-checklist tr');
+        let visibles    = 0;
+
+        filas.forEach(fila => {
+            if (!fila.dataset.placa) return; // fila de "Sin checklists"
+
+            const coincideTexto    = !texto || (
+                fila.dataset.placa.includes(texto) ||
+                fila.dataset.conductor.includes(texto)
+            );
+            const coincideRegional = !regional || fila.dataset.regional.includes(regional);
+
+            if (coincideTexto && coincideRegional) { fila.classList.remove('fila-oculta'); visibles++; }
+            else                                   { fila.classList.add('fila-oculta'); }
+        });
+
+        const infoEl = document.getElementById('resultados-info-checklist');
+        if (texto || regional) {
+            infoEl.style.display = 'block';
+            infoEl.textContent   = visibles + ' resultado' + (visibles !== 1 ? 's' : '') + ' encontrado' + (visibles !== 1 ? 's' : '');
+            infoEl.style.color   = visibles === 0 ? '#ef4444' : '#64748b';
+        } else {
+            infoEl.style.display = 'none';
+        }
+    }
+
+    function limpiarBusquedaChecklist() {
+        document.getElementById('buscador-checklist').value        = '';
+        document.getElementById('filtro-regional-checklist').value = '';
+        filtrarTablaChecklist();
     }
 
     async function cargarAverias() {
