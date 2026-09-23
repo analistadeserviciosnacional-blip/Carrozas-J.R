@@ -239,7 +239,7 @@
  * ══════════════════════════════════════════════════════════
  */
 
-const URL_GAS = "https://script.google.com/macros/s/AKfycby3-BtZUU8OrRr9eU3cneGdF4fTvsPOtXshrQn0zmxUtLP5AjgF_qSnulTiQD_eFznZUg/exec";
+const URL_GAS = "https://script.google.com/macros/s/AKfycbx8OfTKGVKZzmXCU1m_bKQUeVhL1YHruuvFE3GZGsBqjunfck2LwxWhl8uJMs5Yv4xriA/exec";
 
 const SHEET_MAP = {
   'carrozas':             'carrozas',
